@@ -333,50 +333,76 @@ module.exports = function (/* ctx */) {
         //   '**/node_modules/@electron/**/*'
         // ],
 
-        // ─── 排除 node_modules 中的无用模块 ───
+        // ─── 打包文件过滤 ───
+        //
+        // ⚠️ 基准目录：electron-builder 的 files 相对的是 Quasar 的 appDir
+        //    （= dist/electron/UnPackaged），**不是仓库根目录**。
+        //    所以 '_plugins/**/*'、'dist/**/*'、'public/**/*' 这类规则在本项目全是空规则，
+        //    必须写成 UnPackaged 下的相对路径（例如 box-im/**/*）。
+        //
+        // ⚠️ node_modules 特殊规则：electron-builder 处理 node_modules 时**只取 files 里
+        //    以 '!' 开头的排除模式**，正向模式会被忽略。
+        //    所以「保留 node_modules 里的某个文件」只能用排除式写法（把不要的排掉）。
         files: [
           '**/*',
           './package.json',
-          'dist/electron/**/*',
-          '!_plugins/**/*',
-          '!public/box-im/**/*',
-          // ─── 排除 Muya 编辑器的多余图标资源 ───
-          // 每个图标有 3 个尺寸 (1.png, 2.png, 3.png)，只保留 @2x 和 @3x
-          '!_plugins/coolma-muya/lib/assets/pngicon/**/1.png',
-          // 开发依赖裁剪 —— 注意：@vue/compiler-sfc 在 main 进程运行时依赖
-          //   @babel/parser + @babel/types，所以**不能**整个排除 @babel/*，
-          //   只能单独排除 dev-only 工具链：
-          //   - @babel/core      （@babel/preset-env / @babel/plugin-* 都依赖它）
-          //   - @babel/preset-*  （构建期）
-          //   - @babel/plugin-*  （构建期）
-          //   - @babel/register  （dev）
-          //   @babel/parser / @babel/types / @babel/runtime / @babel/helper-* 等
-          //   全部保留（运行时必需）。
+
+          // ─── ① 应用层：空目录 / 安装期无用文件 ───
+          '!box-im/**/*',                    // wujie 子应用已下线，UnPackaged/box-im 为空目录
+          '!**/.npmrc',                      // 安装期不需要 registry 配置
+          '!**/.yarnrc',
+          '!**/yarn.lock',
+          '!**/package-lock.json',
+
+          // ─── ② node_modules/sql.js：只保留 wasm 版（-22MB）───
+          //    package.json main = dist/sql-wasm.js，运行时只会加载 sql-wasm.js + sql-wasm.wasm；
+          //    dist 下的 asm 版 / debug 版 / browser 版 / zip 变体主进程永远用不到。
+          '!node_modules/sql.js/dist/*sql-asm*.js',
+          '!node_modules/sql.js/dist/*browser*',
+          '!node_modules/sql.js/dist/*debug*',
+          '!node_modules/sql.js/dist/*.zip',
+
+          // ─── ③ node_modules：已打进 bundle 的冗余副本（-19MB）───
+          //    证据：UnPackaged/js/vendor.js 内含 quasar / openai / moment / moment-timezone /
+          //          cron-parser 的真实代码；UnPackaged/electron-main.js 内含 openai / lodash。
+          //    这些包在 node_modules 里的副本只是 yarn install --production 顺手装进去的，运行时用不到。
+          '!node_modules/quasar/**/*',           // 渲染进程 bundle 已含（-8.8MB）
+          '!node_modules/openai/**/*',           // portkey-ai 的依赖，已打进 bundle（-3.7MB）
+          '!node_modules/portkey-ai/**/*',       // 同上（-0.6MB）
+          '!node_modules/moment/**/*',           // ant-design-vue / cron-parser 用，已打进 bundle（-2.9MB）
+          '!node_modules/moment-timezone/**/*',  // 同上（-1.8MB）
+          '!node_modules/lodash/**/*',           // 主进程 + 渲染进程均已打进 bundle（-1.3MB）
+          '!node_modules/node-schedule/**/*',    // 渲染进程 ScheduleHandler 用，已打进 bundle
+          '!node_modules/cron-parser/**/*',      // node-schedule 的依赖，已打进 bundle
+
+          // ─── ④ node_modules：可选原生加速器（optionalDependencies，缺失也不影响功能）（-1MB）───
+          //    ssh2: try { require('cpu-features') } catch {}
+          //    ws:   try { require('bufferutil') } catch {}
+          '!node_modules/bufferutil/**/*',
+          '!node_modules/utf-8-validate/**/*',
+          '!node_modules/cpu-features/**/*',
+          '!node_modules/nan/**/*',
+
+          // ─── ⑤ 必须保留的运行时依赖（别在这里排除）───
+          //    主进程 webpack externals：sql.js、consola、mime、electron-log、electron-unhandled、
+          //      electron-updater、electron-util、electron-window-state
+          //    原生模块：@hfelix/electron-localshortcut、ssh2
+          //    运行时编译 rune SFC：@vue/compiler-sfc（+ @babel/parser、@babel/types、postcss、source-map）
+          //    配置持久化：electron-store
+
+          // ─── ⑥ 开发期工具链（正常不会出现在 production 依赖树里，保留为兜底）───
           '!node_modules/@babel/core/**/*',
-          '!node_modules/@babel/preset-env/**/*',
-          '!node_modules/@babel/preset-flow/**/*',
-          '!node_modules/@babel/preset-react/**/*',
-          '!node_modules/@babel/preset-typescript/**/*',
-          '!node_modules/@babel/plugin*/**/*',
+          '!node_modules/@babel/preset-*/**/*',
+          '!node_modules/@babel/plugin-*/**/*',
           '!node_modules/@babel/register/**/*',
-          '!node_modules/@babel/eslint-parser/**/*',
-          '!node_modules/@babel/eslint-plugin/**/*',
-          '!node_modules/babel*/*',
           '!node_modules/webpack/**/*',
           '!node_modules/terser*/**/*',
-          '!node_modules/eslint*/*',
+          '!node_modules/eslint*/**/*',
           '!node_modules/prettier*/**/*',
           '!node_modules/.bin/**/*',
-          // 构建工具和开发工具
-          '!node_modules/vuepress*/**/*',
-          '!node_modules/@vuepress*/**/*',
-          '!node_modules/vuepress-theme-*/**/*',
-          '!node_modules/webpack-dev-server/**/*',
-          '!node_modules/webpack-cli/**/*',
-          '!node_modules/cross-env/**/*',
-          '!node_modules/nodemon/**/*',
           '!node_modules/@types/**/*',
-          // 测试/文档/示例文件
+
+          // ─── ⑦ 通用清理：测试 / 文档 / 类型 / sourcemap ───
           '!node_modules/**/test/**/*',
           '!node_modules/**/tests/**/*',
           '!node_modules/**/docs/**/*',
@@ -386,14 +412,9 @@ module.exports = function (/* ctx */) {
           '!node_modules/**/license*',
           '!node_modules/**/HISTORY*',
           '!node_modules/**/.github/**/*',
-          // ─── 排除 .d.ts .md .map 等无用文件类型 ───
-          // *.d.ts (TypeScript 类型定义，运行时不需要)
           '!node_modules/**/*.d.ts',
-          // *.md (markdown 文档)
           '!node_modules/**/*.md',
-          // *.map (source map，调试用，生产不需要)
           '!node_modules/**/*.map',
-          // 其他文档和配置文件类型
           '!node_modules/**/*.yml',
           '!node_modules/**/*.yaml',
           '!node_modules/**/*.txt',
@@ -403,80 +424,28 @@ module.exports = function (/* ctx */) {
           '!node_modules/**/*.LICENSE',
           '!node_modules/**/*.CHANGELOG',
           '!node_modules/**/*.HISTORY',
-          '!node_modules/**/*.CHANGELELOG',
-          // *.vue 文件（源码，已编译的不需要）
-          '!node_modules/**/*.vue',
-          // 其他开发文件
-          '!dist/**/*',
-          '!.cursor/**/*',
-          '!.github/**/*',
-          '!.vscode/**/*',
-          '!.workbuddy/**/*',
-          '!docs/**/*',
-
-          // ─── 第二轮优化：深度排除更多无用资源 ───
-
-          // 排除 node_modules 中的其他无用文件类型
           '!node_modules/**/*.spec.js',
           '!node_modules/**/*.test.js',
           '!node_modules/**/*.spec.ts',
           '!node_modules/**/*.test.ts',
-          '!node_modules/**/*.min.js',           // 已压缩的文件（可能有重复）
-          '!node_modules/**/*.min.css',          // 已压缩的 CSS（可能有重复）
-          '!node_modules/**/package-lock.json',  // 锁定文件不需要
-          '!node_modules/**/yarn.lock',         // Yarn 锁定文件
-          '!node_modules/**/pnpm-lock.yaml',    // pnpm 锁定文件
-
-          // 排除常见的无用目录（大小写不敏感）
+          '!node_modules/**/*.min.js',           // 已压缩产物，运行时不用（已核对：无生产依赖以其为入口）
+          '!node_modules/**/*.min.css',
+          '!node_modules/**/package-lock.json',
+          '!node_modules/**/pnpm-lock.yaml',
+          '!node_modules/**/coverage/**/*',
+          '!node_modules/**/nyc_output/**/*',
+          '!node_modules/**/.cache/**/*',
+          '!node_modules/**/.temp/**/*',
+          '!node_modules/**/tmp/**/*',
           '!node_modules/**/.git/**/*',
           '!node_modules/**/.svn/**/*',
           '!node_modules/**/.hg/**/*',
-          '!node_modules/**/coverage/**/*',      // 测试覆盖率报告
-          '!node_modules/**/nyc_output/**/*',    // NYC 覆盖率数据
-          '!node_modules/**/.cache/**/*',        // 缓存目录
-          '!node_modules/**/.temp/**/*',         // 临时目录
-          '!node_modules/**/tmp/**/*',           // 临时目录
-
-          // 排除 IDE 和编辑器配置
           '!node_modules/**/.idea/**/*',
-          '!node_modules/**/*.sublime-project',
-          '!node_modules/**/*.sublime-workspace',
-          '!node_modules/**/.project',
-          '!node_modules/**/.classpath',
-
-          // 排除 CI/CD 配置
+          '!node_modules/**/.github/workflows/**/*',
           '!node_modules/**/.travis.yml',
           '!node_modules/**/.circleci/**/*',
-          '!node_modules/**/.github/workflows/**/*',
           '!node_modules/**/Jenkinsfile',
-          '!node_modules/**/.gitlab-ci.yml',
-
-          // 排除 Docker 和部署配置
-          '!node_modules/**/Dockerfile*',
-          '!node_modules/**/docker-compose*',
-          '!node_modules/**/.dockerignore',
-          '!node_modules/**/Procfile',
-          '!node_modules/**/now.json',
-          '!node_modules/**/vercel.json',
-
-          // 排除示例、模板和脚手架
-          // '!node_modules/**/template/**/*',
-          // '!node_modules/**/templates/**/*',
-          // '!node_modules/**/scaffold/**/*',
-          // '!node_modules/**/boilerplate/**/*',
-          // '!node_modules/**/starter*/**/*',
-
-          // 排除构建产物缓存
-          // '!node_modules/**/lib-cov/**/*',
-          // '!node_modules/**/build/**/*',
-          // '!node_modules/**/dist/**/*',
-          // '!node_modules/**/out/**/*',
-          // '!node_modules/**/output/**/*',
-
-          // 排除文档生成器输出
-          // '!node_modules/**/typedoc/**/*',
-          // '!node_modules/**/api/**/*',
-          // '!node_modules/**/doc/**/*'
+          '!node_modules/**/.gitlab-ci.yml'
         ],
 
         mac: {
