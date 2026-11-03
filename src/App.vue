@@ -69,6 +69,12 @@ export default {
     checkUpdate()
     this.initClientStore().then()
     this.initServerStore().then()
+    // 运行时数据初始化（v2026-11-03）：
+    // 原先只有打开「设置」弹框才会加载，导致不打开设置时编辑器里
+    // 用户自建符文和自定义回响都不在。改为应用启动即加载（异步，不阻塞渲染）。
+    this.initRuntimeData().catch(err => {
+      console.warn('[App] initRuntimeData failed:', err)
+    })
   },
   methods: {
     // 显示离线笔记同步提示对话框
@@ -126,6 +132,7 @@ export default {
     },
     ...mapClientActions({
       initClientStore: 'initClientStore',
+      initRuntimeData: 'initRuntimeData',
       runClientSync: 'sync'
     }),
     ...mapServerActions(['initServerStore', 'reLogin', 'getAllCategories', 'getCategoryNotes'])

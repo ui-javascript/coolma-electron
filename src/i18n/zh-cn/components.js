@@ -227,7 +227,7 @@ export default {
   cdnDepsSave: '保存',
   cdnInject: '注入',
   cdnDepsHint: '配置笔记软件的 CDN 静态资源，支持 .js 脚本、.css 样式表、字体文件（.woff2/.ttf 等）。仅勾选"同时应用于博客部署"的项才会注入到 VuePress index.html',
-  cdnInjectHint: '配置要注入到笔记应用中的 CDN 静态资源（.js / .css / 字体等）。保存即把当前启用项实时注入到运行中的应用；勾选"同时应用于博客部署"的项会一并注入到 VuePress index.html。',
+  cdnInjectHint: '配置要注入到笔记应用中的 CDN 静态资源（.js / .css / 字体等）。保存即把当前启用项实时注入到运行中的应用；勾选"同时应用于博客部署"的项会一并注入到 VuePress index.html。注：应用已内置 jQuery，列表里的 jQuery 项不会重复注入。',
   cdnDepsAdd: '添加依赖',
   cdnInjectAdd: '添加注入项',
   cdnDepsName: '名称',

@@ -12,6 +12,8 @@
 </template>
 
 <script>
+import { whenCdnDepsReady } from 'src/utils/cdnDepsUtil'
+
 let uniqueCounter = 0
 
 export default {
@@ -103,6 +105,14 @@ export default {
       return this.$refs.inputEl || document.getElementById(this.inputId)
     },
     _scheduleInit () {
+      this._teardownPoll()
+      // CDN 依赖是异步加载的（见 src/utils/cdnDepsUtil.js）。
+      // 先 await 加载完成，再退化成短轮询兜底（CDN 失败 / 已被用户禁用时不会永久卡住）。
+      whenCdnDepsReady()
+        .then(() => this._tryAttachCitypicker())
+        .catch(() => this._tryAttachCitypicker())
+    },
+    _tryAttachCitypicker () {
       this._teardownPoll()
       let attempt = 0
       const maxAttempts = 80

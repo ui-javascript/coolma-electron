@@ -107,6 +107,59 @@ export default {
   setRightClickCategoryItem ({ commit }, categoryPath) {
     commit(types.TOGGLE_CHANGED, { key: 'rightClickCategoryItem', value: categoryPath })
   },
+  /**
+   * 仅更新 vuex state（不回写 electron-store）。
+   * CDN 依赖的真源是 SQLite `cdnDeps` 表，不适合再写一份到 electron-store。
+   * 消费方：博客部署（读 client.cdnDeps 做 VuePress index.html 注入）。
+   */
+  setCdnDeps ({ commit }, deps) {
+    const list = Array.isArray(deps) ? deps : []
+    commit(types.UPDATE_STATES, { cdnDeps: list })
+    return list
+  },
+  /**
+   * 应用启动时初始化各类「需要先读库」的运行时数据：
+   * 符文 / 回响 / 笔记模板 / 语法解析开关 / CDN 依赖清单。
+   *
+   * v2026-11-03：原先这些数据只有「打开设置弹框」时才会加载
+   * （SettingsDialog.loadLazyData），导致不打开设置时：
+   *   - 用户自建符文在编辑器快捷插入面板里全部消失；
+   *   - DB 里的自定义回响加载不到，编辑器只认内置的 16 张；
+   *   - 博客部署读 client.cdnDeps 一直是空数组，CDN 注入不生效。
+   * 现在统一在应用启动时加载，与设置弹框无关。
+   */
+  async initRuntimeData ({ dispatch }) {
+    const steps = ['runes', 'echoes', 'noteTemplates', 'parsing']
+    const results = await Promise.allSettled([
+      dispatch('loadRunes'),
+      dispatch('loadEchoes'),
+      dispatch('loadNoteTemplates'),
+      dispatch('loadParsingSettings')
+    ])
+    results.forEach((r, i) => {
+      if (r.status === 'rejected') {
+        console.warn(`[RuneEcho] init ${steps[i]} failed:`, r.reason)
+      }
+    })
+
+    // 内置符文预设模板（rune_templates）：DB 为空时懒种 14 张内置模板。
+    // 这里主动触发一次，保证「不打开设置」时模板下拉也有内置项。
+    try {
+      const { default: runeTemplateService } = await import('src/services/RuneTemplateService')
+      await runeTemplateService.listFlat()
+    } catch (err) {
+      console.warn('[RuneEcho] builtin rune templates seed skipped:', err)
+    }
+
+    // CDN 依赖清单灌进 vuex（博客部署读 client.cdnDeps 做 VuePress index.html 注入）
+    try {
+      const { resolveCdnDeps } = await import('src/utils/cdnDepsUtil')
+      const deps = await resolveCdnDeps()
+      dispatch('setCdnDeps', deps)
+    } catch (err) {
+      console.warn('[CdnDeps] init cdnDeps cache failed:', err)
+    }
+  },
   async loadRunes ({ commit }) {
     try {
       const runes = await DatabaseClient.runes.getAll()

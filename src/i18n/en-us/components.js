@@ -228,7 +228,7 @@ export default {
   cdnDepsSave: 'Save',
   cdnInject: 'Inject',
   cdnDepsHint: 'Configure CDN static resources for the app. Supports .js scripts, .css stylesheets, and font files (.woff2/.ttf, etc.). Only enabled items with "Apply to Blog" will be injected into VuePress index.html',
-  cdnInjectHint: 'Configure CDN static resources (.js / .css / fonts, etc.) to inject into the note app. Saving injects currently enabled items into the running app; items with "Apply to Blog" enabled are also injected into the VuePress index.html.',
+  cdnInjectHint: 'Configure CDN static resources (.js / .css / fonts, etc.) to inject into the note app. Saving injects currently enabled items into the running app; items with "Apply to Blog" enabled are also injected into the VuePress index.html. Note: jQuery is bundled with the app, so the jQuery entry is not injected twice.',
   cdnDepsAdd: 'Add Dependency',
   cdnInjectAdd: 'Add Inject Item',
   cdnDepsName: 'Name',

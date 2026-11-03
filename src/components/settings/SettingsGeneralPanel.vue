@@ -348,6 +348,8 @@ export default {
       try {
         await DatabaseClient.cdnDeps.saveAll(this.cdnDeps)
         localStorage.setItem('v__2_client_cdnDeps', JSON.stringify(this.cdnDeps))
+        // 同步进 vuex：博客部署读 client.cdnDeps
+        this.$store.dispatch('client/setCdnDeps', this.cdnDeps)
         bus.$emit('cdnDepsChanged')
         this.$q.notify({
           message: this.$t('cdnDepsSaveSuccess'),

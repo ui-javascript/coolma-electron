@@ -212,6 +212,7 @@ import echoExportDialog from 'components/echo/echoExportDialog'
 import NoteTemplateFormDialog from 'components/noteTemplate/NoteTemplateFormDialog'
 import NavigationDialog from 'components/navigation/NavigationDialog'
 import { BUILTIN_ECHO_CARDS } from 'components/echo/echoCore'
+import { resolveCdnDeps } from 'src/utils/cdnDepsUtil'
 
 import SettingsNav from './SettingsNav'
 import SettingsGeneralPanel from './SettingsGeneralPanel'
@@ -1265,30 +1266,13 @@ export default {
     ]),
     ...mapClientMutations({ UPDATE_SYNC_STATUS: 'update_sync_status' }),
     async initCdnDeps () {
-      const savedDeps = await DatabaseClient.cdnDeps.getAll()
-      const newId = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5)
-      const builtInDeps = [
-        { id: newId(), name: 'jQuery', url: 'https://cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js', enabled: true, applyToBlog: false, isBuiltIn: true },
-        { id: newId(), name: 'jQuery Migrate', url: 'https://cdn.jsdelivr.net/npm/jquery-migrate@3/dist/jquery-migrate.min.js', enabled: true, applyToBlog: false, isBuiltIn: true },
-        { id: newId(), name: 'layui CSS', url: '//unpkg.com/layui@2.13.8/dist/css/layui.css', enabled: true, applyToBlog: false, isBuiltIn: true },
-        { id: newId(), name: 'layui JS', url: '//unpkg.com/layui@2.13.8/dist/layui.js', enabled: true, applyToBlog: false, isBuiltIn: true },
-        // v2026-08-01：city-picker 默认域名统一从 tshi0912.github.io 改为 luo0412.github.io/cdn
-        { id: newId(), name: 'city-picker data', url: 'https://luo0412.github.io/cdn/city-picker/city-picker.data.js', enabled: true, applyToBlog: false, isBuiltIn: true },
-        { id: newId(), name: 'city-picker JS', url: 'https://luo0412.github.io/cdn/city-picker/city-picker.js', enabled: true, applyToBlog: false, isBuiltIn: true },
-        { id: newId(), name: 'city-picker CSS', url: 'https://luo0412.github.io/cdn/city-picker/city-picker.css', enabled: true, applyToBlog: false, isBuiltIn: true }
-      ]
-      if (Array.isArray(savedDeps) && savedDeps.length > 0) {
-        const existingBuiltInNames = ['jQuery', 'jQuery Migrate', 'layui CSS', 'layui JS', 'city-picker data', 'city-picker JS', 'city-picker CSS']
-        const customDeps = savedDeps.filter(d => !existingBuiltInNames.includes(d.name))
-        const mergedBuiltIn = builtInDeps.map(bi => {
-          const existing = savedDeps.find(d => d.name === bi.name)
-          if (existing) return { ...existing, isBuiltIn: true }
-          return bi
-        })
-        this.cdnDeps = [...mergedBuiltIn, ...customDeps]
-      } else {
-        this.cdnDeps = builtInDeps
-      }
+      // 统一走 cdnDepsUtil 的解析（SQLite > localStorage > 内置），
+      // 保证「设置面板展示的清单」== 「实际注入的清单」。
+      const deps = await resolveCdnDeps()
+      this.cdnDeps = Array.isArray(deps) ? deps : []
+      // 同步进 vuex：博客部署要读 client.cdnDeps（原先一直是空数组，
+      // 导致博客的 CDN 注入从来没生效过）。
+      this.$store.dispatch('client/setCdnDeps', this.cdnDeps)
     }
   },
   async mounted () {
