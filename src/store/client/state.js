@@ -4,6 +4,7 @@ import {
   DEFAULT_AI_ASSISTANT_PROVIDER,
   DEFAULT_CLOUD_SYNC_PROVIDER
 } from 'src/utils/enum'
+import { DEFAULT_SYNC_STRATEGY } from 'src/utils/const/syncStrategy'
 import { BUILTIN_ECHO_CARDS } from 'components/echo/echoCore'
 
 export default function () {
@@ -50,6 +51,9 @@ export default function () {
     aiAssistantProvider: DEFAULT_AI_ASSISTANT_PROVIDER,
     // 云同步方式由 CloudSyncProviderEnum 管理
     cloudSyncProvider: DEFAULT_CLOUD_SYNC_PROVIDER,
+    // 云同步策略：offlineFirst（默认）/ onlineFirst / pureOnline
+    // 真源为 electron-store，由 setCloudSyncStrategy 写入并立刻生效
+    cloudSyncStrategy: DEFAULT_SYNC_STRATEGY,
     syncStatus: {
       isSyncing: false,
       lastSyncTime: null,

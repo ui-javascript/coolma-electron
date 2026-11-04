@@ -4,6 +4,7 @@ import api from 'src/utils/api'
 import DatabaseClient from 'src/utils/DatabaseClient'
 import bus from 'src/components/common/bus'
 import { OFFLINE_ROOT_CATEGORY, OFFLINE_ROOT_CATEGORY_KEY, normalizeCategoryForMatch } from 'src/utils/const/constants'
+import { SYNC_STRATEGY, getSyncStrategy, isPureOnline } from 'src/utils/const/syncStrategy'
 import SessionStorageService from 'src/services/SessionStorageService'
 import { DEFAULT_CALENDAR_DATE_BASIS } from 'src/utils/enum'
 import { APP_STATE_KEYS, loadWorkspaceState, saveWorkspaceStateValue } from 'src/store/server/workspaceState'
@@ -75,6 +76,57 @@ function mergeCategoryCollections ({ localCategories = [], remoteCategories = []
     pos: remoteCategoryPos || {}
   }
 }
+
+/**
+ * 拉取并规范化云端文件夹列表（不含本地合并）。
+ * 用于在线优先 / 纯在线策略的「云端优先」目录树路径。
+ */
+async function fetchRemoteCategories (kbGuid) {
+  const res = await api.KnowledgeBaseApi.getCategories({ kbGuid })
+  const rawRemoteCategories = Array.isArray(res?.result)
+    ? res.result
+    : Array.isArray(res)
+      ? res
+      : Array.isArray(res?.categories)
+        ? res.categories
+        : []
+  const remoteCategories = rawRemoteCategories
+    .map(item => {
+      if (typeof item === 'string') {
+        const category = item
+        const trimmed = category.replace(/\/$/, '')
+        const lastSlashIndex = trimmed.lastIndexOf('/')
+        const parent = lastSlashIndex > 0
+          ? `${trimmed.slice(0, lastSlashIndex + 1)}`
+          : '/'
+        return {
+          category,
+          parent: parent === category ? '/' : parent,
+          kbGuid: kbGuid || ''
+        }
+      }
+
+      const category = item?.category || item?.name || item?.path || item?.categoryName || ''
+      const trimmed = category.replace(/\/$/, '')
+      const inferredParent = trimmed && trimmed !== '/My Notes'
+        ? `${trimmed.slice(0, trimmed.lastIndexOf('/') + 1)}`
+        : '/'
+
+      return {
+        ...item,
+        category,
+        parent: item?.parent || item?.parentCategory || item?.parentPath || inferredParent || '/',
+        kbGuid: item?.kbGuid || item?.kb_guid || item?.bizGuid || kbGuid || ''
+      }
+    })
+    .filter(item => !!item.category)
+
+  return {
+    remoteCategories,
+    pos: res?.pos || res?.resultPos || {}
+  }
+}
+
 import {
   createLocalDraftNote,
   upsertLocalNoteByDocGuid
@@ -140,6 +192,85 @@ function isCurrentCategoryAffected (currentCategory, categories = []) {
     .includes(normalizedCurrent)
 }
 
+/**
+ * 从云端 / 本地缓存获取笔记内容（不查 SQLite）。
+ * 用于纯在线 / 在线优先策略的「云端优先」读取路径。
+ */
+async function fetchCloudNoteContentRaw (kbGuid, docGuid) {
+  const { info } = await api.KnowledgeBaseApi.getNoteContent({
+    kbGuid,
+    docGuid,
+    data: {
+      downloadInfo: 1
+    }
+  })
+  const cacheKey = api.KnowledgeBaseApi.getCacheKey(kbGuid, docGuid)
+  const note = ClientFileStorage.getCachedNote(info, cacheKey)
+  let result
+  if (note) {
+    console.log(`[fetchCloudNoteContentRaw] Using cached note (cacheKey=${cacheKey.substring(0, 50)}...)`)
+    result = note
+  } else {
+    result = await api.KnowledgeBaseApi.getNoteContent({
+      kbGuid,
+      docGuid,
+      data: {
+        downloadInfo: 1,
+        downloadData: 1
+      }
+    })
+    ClientFileStorage.setCachedNote(result, cacheKey)
+    console.log('[fetchCloudNoteContentRaw] Fetched from cloud and cached')
+  }
+  return result
+}
+
+/**
+ * 把一篇笔记内容直接推送 / 更新到云端（单篇）。
+ * - 已有云端 docGuid（非 local_ 开头）→ updateNote
+ * - 否则 → createNote，返回新生成的云端 guid
+ */
+async function pushNoteContentToCloud ({ kbGuid, docGuid, title, category, content, tags = '', resources = [] }) {
+  const isLite = (category || '').replace(/\//g, '') === 'Lite'
+  const html = helper.embedMDNote(content || '', resources, {
+    wrapWithPreTag: isLite,
+    kbGuid,
+    docGuid
+  })
+
+  if (docGuid && !docGuid.startsWith('local_')) {
+    await api.KnowledgeBaseApi.updateNote({
+      kbGuid,
+      docGuid,
+      data: {
+        html,
+        title,
+        kbGuid,
+        docGuid,
+        resources,
+        type: isLite ? 'lite/markdown' : 'document',
+        tags,
+        category: category || OFFLINE_ROOT_CATEGORY
+      }
+    })
+    return docGuid
+  }
+
+  const result = await api.KnowledgeBaseApi.createNote({
+    kbGuid,
+    data: {
+      category: category || OFFLINE_ROOT_CATEGORY,
+      kbGuid,
+      title: title || 'Untitled',
+      owner: SessionStorageService.getUserId() || '',
+      html,
+      type: isLite ? 'lite/markdown' : 'document',
+      tags
+    }
+  })
+  return result?.guid || result?.docGuid || null
+}
+
 export async function _getContent (kbGuid, docGuid) {
   
   // ✅ 关键改进：先检查 SQLite 是否有本地修改版本（比缓存更新）
@@ -169,32 +300,119 @@ export async function _getContent (kbGuid, docGuid) {
   }
   
   // 原有逻辑：从云端/缓存获取
-  const { info } = await api.KnowledgeBaseApi.getNoteContent({
+  return fetchCloudNoteContentRaw(kbGuid, docGuid)
+}
+
+function buildLocalNoteResult (localNote, docGuid, kbGuid, source = 'sqlite') {
+  const content = typeof localNote.content === 'string' ? localNote.content : ''
+  return {
+    _isRawMarkdown: true,
+    _loadTimestamp: Date.now(),
+    _source: source,
+    info: {
+      docGuid: localNote.doc_guid || docGuid,
+      kbGuid: kbGuid || '',
+      title: localNote.title || 'Untitled',
+      category: localNote.category || OFFLINE_ROOT_CATEGORY,
+      dataCreated: localNote.data_created || Date.now(),
+      dataModified: parseInt(localNote.local_modified) || parseInt(localNote.data_modified) || Date.now()
+    },
+    html: content,
+    resources: []
+  }
+}
+
+function buildEmptyNoteResult (docGuid, kbGuid, title = 'Untitled', source = 'empty-fallback') {
+  return {
+    _isRawMarkdown: true,
+    _loadTimestamp: Date.now(),
+    _source: source,
+    info: {
+      docGuid,
+      kbGuid: kbGuid || '',
+      title,
+      category: OFFLINE_ROOT_CATEGORY,
+      dataCreated: Date.now(),
+      dataModified: Date.now()
+    },
+    html: '',
+    resources: []
+  }
+}
+
+async function saveCloudContentToSqlite (kbGuid, docGuid, result) {
+  if (!result || !result.html) return
+  // 已存在本地记录时不覆盖（在线优先下以云端为准展示，本地可能是未同步的离线编辑）
+  const existing = await DatabaseClient.notes.getByDocGuid(docGuid)
+  if (existing) return
+  const markdown = helper.extractMarkdownFromMDNote(
+    result.html,
     kbGuid,
     docGuid,
-    data: {
-      downloadInfo: 1
-    }
+    result.resources || []
+  )
+  await DatabaseClient.notes.create({
+    doc_guid: docGuid,
+    kb_guid: kbGuid,
+    title: result.info?.title || 'Untitled',
+    content: markdown,
+    category: result.info?.category || OFFLINE_ROOT_CATEGORY,
+    data_created: result.info?.dataCreated,
+    data_modified: result.info?.dataModified,
+    server_modified: Date.now(),
+    local_modified: Date.now()
   })
-  const cacheKey = api.KnowledgeBaseApi.getCacheKey(kbGuid, docGuid)
-  const note = ClientFileStorage.getCachedNote(info, cacheKey)
-  let result
-  if (note) {
-    console.log(`[_getContent] Using cached note (cacheKey=${cacheKey.substring(0, 50)}...)`)
-    result = note
-  } else {
-    result = await api.KnowledgeBaseApi.getNoteContent({
-      kbGuid,
-      docGuid,
-      data: {
-        downloadInfo: 1,
-        downloadData: 1
-      }
+}
+
+/**
+ * 把一篇笔记写入本地 SQLite（存在则更新，不存在则创建）。
+ * 离线优先策略中此步骤必须 await 成功；在线优先策略中此步骤异步执行。
+ */
+async function persistNoteToSqlite ({ docGuid, title, content, category, tags = '', now = Date.now() }) {
+  const localNote = await DatabaseClient.notes.getByDocGuid(docGuid)
+  if (localNote) {
+    return DatabaseClient.notes.update(localNote.id, {
+      title,
+      content,
+      category,
+      tags: tags || '',
+      local_modified: now
     })
-    ClientFileStorage.setCachedNote(result, cacheKey)
-    console.log(`[_ContentLoaded] Fetched from cloud and cached`)
   }
-  return result
+  return DatabaseClient.notes.create({
+    doc_guid: docGuid,
+    title,
+    content,
+    category,
+    tags: tags || '',
+    data_created: now,
+    data_modified: now,
+    local_modified: now
+  })
+}
+
+/**
+ * 在线优先策略：云端已保存后异步落 SQLite。
+ * 若云端返回了新 guid（新笔记创建成功），先把本地 local_ 记录迁移到云端 guid，
+ * 避免后续保存重复创建云端笔记。
+ */
+async function persistSyncedNoteToSqlite ({ oldDocGuid, newDocGuid, kbGuid, title, content, category, tags = '', now = Date.now() }) {
+  if (newDocGuid && oldDocGuid && oldDocGuid !== newDocGuid) {
+    const localNote = await DatabaseClient.notes.getByDocGuid(oldDocGuid)
+    if (localNote) {
+      return DatabaseClient.notes.update(localNote.id, {
+        doc_guid: newDocGuid,
+        kb_guid: kbGuid,
+        title,
+        content,
+        category,
+        tags: tags || '',
+        server_modified: now,
+        local_modified: now
+      })
+    }
+  }
+  return persistNoteToSqlite({ docGuid: newDocGuid || oldDocGuid, title, content, category, tags, now })
 }
 
 function readFileAsync (f) {
@@ -291,7 +509,8 @@ export default {
   async initServerStore ({
     commit,
     state,
-    dispatch
+    dispatch,
+    rootState
   }) {
     const localStore = ClientFileStorage.getItemsFromStore(state)
     commit(types.INIT, localStore)
@@ -307,7 +526,36 @@ export default {
       'url'
     ])
 
-    // 本地优先：先用 SQLite 把目录树 / 笔记列表 / 标签渲染出来，不等任何网络请求。
+    const strategy = getSyncStrategy(rootState)
+
+    // 纯在线：不读 SQLite，全部依赖在线。
+    if (strategy === SYNC_STRATEGY.PURE_ONLINE) {
+      if (!autoLogin) return
+      try {
+        await dispatch('login', { userId, password, url })
+      } catch (err) {
+        console.error('[initServerStore] pureOnline login failed:', err)
+      }
+      return
+    }
+
+    // 在线优先：先登录并等接口返回目录树 / 笔记列表，再取消 loading；SQLite 同步异步。
+    if (strategy === SYNC_STRATEGY.ONLINE_FIRST) {
+      if (autoLogin) {
+        try {
+          await dispatch('login', { userId, password, url })
+        } catch (err) {
+          console.error('[initServerStore] onlineFirst login failed, fallback to local:', err)
+          await dispatch('loadLocalData')
+        }
+      } else {
+        // 未开启自动登录：仍用本地数据兜底渲染
+        await dispatch('loadLocalData')
+      }
+      return
+    }
+
+    // 离线优先（默认）：先用 SQLite 把目录树 / 笔记列表 / 标签渲染出来，不等任何网络请求。
     // 这样无论是否自动登录，界面都能立刻可用。
     await dispatch('loadLocalData')
 
@@ -386,6 +634,43 @@ export default {
       return []
     }
   },
+  /**
+   * 同步策略切换后立刻按新策略重载工作区（无需重启）。
+   * 由 client/setCloudSyncStrategy 在写入新策略后触发。
+   */
+  async applySyncStrategy ({ commit, state, dispatch, rootState }) {
+    const next = getSyncStrategy(rootState)
+
+    if (next === SYNC_STRATEGY.PURE_ONLINE) {
+      if (state.isLogin && state.kbGuid) {
+        await dispatch('getAllCategories')
+        await dispatch('getCategoryNotes', { category: state.currentCategory || '' })
+      } else {
+        commit(types.SET_CATEGORIES, [])
+        commit(types.UPDATE_ALL_CATEGORIES, [])
+        commit(types.UPDATE_CURRENT_NOTES, [])
+        commit(types.UPDATE_CURRENT_NOTES_LOADING_STATE, false)
+      }
+      return
+    }
+
+    if (next === SYNC_STRATEGY.ONLINE_FIRST) {
+      if (state.isLogin && state.kbGuid) {
+        await dispatch('getAllCategories')
+        await dispatch('getCategoryNotes', { category: state.currentCategory || '' })
+      } else {
+        await dispatch('loadLocalData')
+      }
+      return
+    }
+
+    // 离线优先（默认）：本地先渲染，云端异步合并
+    await dispatch('loadLocalData')
+    if (state.isLogin && state.kbGuid) {
+      dispatch('getAllCategories').catch(err => console.warn('[applySyncStrategy] getAllCategories failed:', err))
+      dispatch('getCategoryNotes', { category: state.currentCategory || OFFLINE_ROOT_CATEGORY }).catch(err => console.warn('[applySyncStrategy] getCategoryNotes failed:', err))
+    }
+  },
   async getContent (payload, {
     kbGuid,
     docGuid
@@ -452,8 +737,9 @@ export default {
 
     // ✅ 永远本地优先：不禁用任何本地笔记
     // 登录时将 kb_guid=null 的离线笔记和文件夹迁移到当前账号，下次同步时推送到云端
+    // （纯在线策略无需迁移 SQLite，跳过）
     const newKbGuid = result.kbGuid
-    if (newKbGuid) {
+    if (newKbGuid && !isPureOnline(rootState)) {
       try {
         const migratedNotes = await DatabaseClient.notes.migrateOffline(newKbGuid)
         if (migratedNotes > 0) {
@@ -471,15 +757,17 @@ export default {
     }
 
     // 检查是否有离线笔记需要同步（local_ 开头的 doc_guid）
-    try {
-      const pendingNotes = await DatabaseClient.notes.getAll({ dirty: 1 })
-      const offlineNotes = pendingNotes.filter(n => n.doc_guid && n.doc_guid.startsWith('local_'))
-      if (offlineNotes.length > 0) {
-        console.log('[login] Found', offlineNotes.length, 'offline notes to sync')
-        bus.$emit('showOfflineSyncPrompt', offlineNotes)
+    if (!isPureOnline(rootState)) {
+      try {
+        const pendingNotes = await DatabaseClient.notes.getAll({ dirty: 1 })
+        const offlineNotes = pendingNotes.filter(n => n.doc_guid && n.doc_guid.startsWith('local_'))
+        if (offlineNotes.length > 0) {
+          console.log('[login] Found', offlineNotes.length, 'offline notes to sync')
+          bus.$emit('showOfflineSyncPrompt', offlineNotes)
+        }
+      } catch (err) {
+        console.warn('[login] Failed to check offline notes:', err)
       }
-    } catch (err) {
-      console.warn('[login] Failed to check offline notes:', err)
     }
 
     await this.dispatch('server/getAllTags')
@@ -502,15 +790,17 @@ export default {
    * - 保留所有本地笔记，下次登录时自动关联到新账号
    * - 切换账号 = 改变同步目标，笔记留在本地
    */
-  async logout ({ commit, state, dispatch }) {
+  async logout ({ commit, state, dispatch, rootState }) {
     // 保存退出前的状态，避免 commit(LOGOUT) 后读取到被清空的数据
     const oldKbGuid = state.kbGuid
     const previousCategory = state.currentCategory
     const wasTagSelection = !!(state.currentCategory && state.tags?.map(t => t.tagGuid).includes(state.currentCategory))
+    const pureOnline = isPureOnline(rootState)
 
     await api.AccountServerApi.Logout()
 
-    if (oldKbGuid) {
+    // 纯在线策略不维护 SQLite，跳过本地数据迁移 / 清理
+    if (!pureOnline && oldKbGuid) {
       await DatabaseClient.notes.clearByKbGuid(oldKbGuid)
       const accountCategories = await DatabaseClient.categories.getAll({ kbGuid: oldKbGuid })
       const uniqueCategories = new Map()
@@ -532,6 +822,16 @@ export default {
     SessionStorageService.clearSession()
     commit(types.LOGOUT)
 
+    if (pureOnline) {
+      // 纯在线登出：清空界面数据（不读 SQLite）
+      commit(types.SET_CATEGORIES, [])
+      commit(types.UPDATE_ALL_CATEGORIES, [])
+      commit(types.UPDATE_CURRENT_NOTES, [])
+      commit(types.UPDATE_ALL_TAGS, [])
+      commit(types.UPDATE_CATEGORIES_POS, {})
+      return
+    }
+
     await dispatch('loadLocalData')
     await dispatch('getAllTags')
     await dispatch('getAllCategories')
@@ -547,7 +847,7 @@ export default {
    * @param commit
    * @returns {Promise<void>}
    */
-  async reLogin ({ commit, dispatch, state }) {
+  async reLogin ({ commit, dispatch, state, rootState }) {
     const [userId, password, url] = ClientFileStorage.getItemsFromStore([
       'userId',
       'password',
@@ -568,7 +868,7 @@ export default {
       isLogin: true
     })
 
-    if (result.kbGuid) {
+    if (result.kbGuid && !isPureOnline(rootState)) {
       try {
         const migratedNotes = await DatabaseClient.notes.migrateOffline(result.kbGuid)
         if (migratedNotes > 0) {
@@ -763,7 +1063,73 @@ export default {
     }
 
     const targetCategory = getDefaultCategoryForMode(state, resolvedCategory)
+    const strategy = getSyncStrategy(rootState)
 
+    // 纯在线：不读 SQLite，只走云端
+    if (strategy === SYNC_STRATEGY.PURE_ONLINE) {
+      if (!isLogin || !kbGuid) {
+        commit(types.UPDATE_CURRENT_NOTES, [])
+        commit(types.UPDATE_CURRENT_NOTES_LOADING_STATE, false)
+        return
+      }
+      commit(types.UPDATE_CURRENT_NOTES_LOADING_STATE, true)
+      try {
+        const result = await api.KnowledgeBaseApi.getCategoryNotes({
+          kbGuid,
+          data: {
+            category: targetCategory,
+            start: start || 0,
+            count: count || 100,
+            withAbstract: true
+          }
+        })
+        const cloudNotes = Array.isArray(result) ? result : []
+        commit(types.UPDATE_CURRENT_NOTES, cloudNotes)
+      } catch (err) {
+        console.error('[getCategoryNotes/pureOnline] Failed to load remote notes:', err)
+        commit(types.UPDATE_CURRENT_NOTES, [])
+      } finally {
+        commit(types.UPDATE_CURRENT_NOTES_LOADING_STATE, false)
+      }
+      return
+    }
+
+    // 在线优先：接口返回后才取消 loading；SQLite 读取异步不阻塞主路径
+    if (strategy === SYNC_STRATEGY.ONLINE_FIRST) {
+      if (!isLogin || !kbGuid) {
+        commit(types.UPDATE_CURRENT_NOTES_LOADING_STATE, true)
+        const offlineOnly = await getOfflineNotesByCategory(targetCategory).catch(() => [])
+        commit(types.UPDATE_CURRENT_NOTES, offlineOnly)
+        commit(types.UPDATE_CURRENT_NOTES_LOADING_STATE, false)
+        return
+      }
+      commit(types.UPDATE_CURRENT_NOTES_LOADING_STATE, true)
+      const localPromise = getOfflineNotesByCategory(targetCategory).catch(() => [])
+      try {
+        const result = await api.KnowledgeBaseApi.getCategoryNotes({
+          kbGuid,
+          data: {
+            category: targetCategory,
+            start: start || 0,
+            count: count || 100,
+            withAbstract: true
+          }
+        })
+        const cloudNotes = Array.isArray(result) ? result : []
+        const localNotes = await localPromise
+        const mergedNotes = mergeLocalAndCloudNotes(localNotes, cloudNotes)
+        commit(types.UPDATE_CURRENT_NOTES, mergedNotes)
+      } catch (err) {
+        console.error('[getCategoryNotes/onlineFirst] Failed to load remote notes:', err)
+        const localNotes = await localPromise
+        commit(types.UPDATE_CURRENT_NOTES, localNotes)
+      } finally {
+        commit(types.UPDATE_CURRENT_NOTES_LOADING_STATE, false)
+      }
+      return
+    }
+
+    // 离线优先（默认）：SQLite 先渲染，云端异步合并覆盖
     // 统一获取本地笔记（包括 dirty 笔记）
     let localNotes = []
     try {
@@ -838,12 +1204,62 @@ export default {
    */
   async getAllCategories ({
     commit,
-    state
+    state,
+    rootState
   }) {
     commit(types.UPDATE_CURRENT_NOTES_LOADING_STATE, true)
     const { kbGuid, isLogin, currentCategory } = state
+    const strategy = getSyncStrategy(rootState)
 
     try {
+      // 纯在线：只走云端，不读 SQLite
+      if (strategy === SYNC_STRATEGY.PURE_ONLINE) {
+        if (!isLogin || !kbGuid) {
+          commit(types.SET_CATEGORIES, [])
+          commit(types.UPDATE_ALL_CATEGORIES, [])
+          commit(types.UPDATE_CATEGORIES_POS, {})
+          return
+        }
+        const { remoteCategories, pos } = await fetchRemoteCategories(kbGuid)
+        const mergedOnline = mergeCategoryCollections({
+          remoteCategories,
+          remoteCategoryPos: pos
+        })
+        commit(types.SET_CATEGORIES, mergedOnline.tree)
+        commit(types.UPDATE_ALL_CATEGORIES, mergedOnline.categories)
+        commit(types.UPDATE_CATEGORIES_POS, mergedOnline.pos)
+        return
+      }
+
+      // 在线优先：等接口返回目录树后才取消 loading；SQLite 读取异步
+      if (strategy === SYNC_STRATEGY.ONLINE_FIRST) {
+        if (!isLogin || !kbGuid) {
+          const offlineData = await loadLocalWorkspaceData()
+          const mergedOffline = mergeCategoryCollections({
+            localCategories: offlineData.categories,
+            localNotes: offlineData.notes
+          })
+          commit(types.SET_CATEGORIES, mergedOffline.tree)
+          commit(types.UPDATE_ALL_CATEGORIES, mergedOffline.categories)
+          commit(types.UPDATE_CATEGORIES_POS, mergedOffline.pos)
+          return
+        }
+        const localPromise = loadLocalWorkspaceData().catch(() => ({ categories: [], notes: [] }))
+        const { remoteCategories, pos } = await fetchRemoteCategories(kbGuid)
+        const offlineData = await localPromise
+        const mergedOnline = mergeCategoryCollections({
+          localCategories: offlineData.categories,
+          localNotes: offlineData.notes,
+          remoteCategories,
+          remoteCategoryPos: pos
+        })
+        commit(types.SET_CATEGORIES, mergedOnline.tree)
+        commit(types.UPDATE_ALL_CATEGORIES, mergedOnline.categories)
+        commit(types.UPDATE_CATEGORIES_POS, mergedOnline.pos)
+        return
+      }
+
+      // 离线优先（默认）：先用 SQLite 渲染，云端异步合并覆盖
       const { categories: localCategories, notes: localNotes } = await loadLocalWorkspaceData()
 
       if (!isLogin || !kbGuid) {
@@ -957,11 +1373,13 @@ export default {
    */
   async getNoteContent ({
     commit,
-    state
+    state,
+    rootState
   }, payload) {
     commit(types.UPDATE_CURRENT_NOTE_LOADING_STATE, true)
     const { kbGuid } = state
     const { docGuid } = payload
+    const strategy = getSyncStrategy(rootState)
     
     console.log('\n🔍 [getNoteContent] ========== START ==========')
     console.log(`[getNoteContent] Request: docGuid=${docGuid}, kbGuid=${kbGuid}, isLogin=${state.isLogin}`)
@@ -1003,6 +1421,60 @@ export default {
       }
       commit(types.UPDATE_CURRENT_NOTE_LOADING_STATE, false)
       console.log('🔍 [getNoteContent] ========== END (Offline - Not Found) ==========\n')
+      return
+    }
+
+    // 纯在线：只走云端，不读 SQLite
+    if (strategy === SYNC_STRATEGY.PURE_ONLINE) {
+      console.log('[getNoteContent] pureOnline: loading from cloud only')
+      let result
+      let loadedFrom = 'none'
+      try {
+        result = await fetchCloudNoteContentRaw(kbGuid, docGuid)
+        loadedFrom = 'cloud'
+      } catch (err) {
+        console.error('[getNoteContent] pureOnline cloud failed:', err)
+        result = buildEmptyNoteResult(docGuid, kbGuid, 'Untitled', 'cloud-error-fallback')
+        loadedFrom = 'cloud-error-fallback'
+      }
+      Loading.hide()
+      commit(types.UPDATE_CURRENT_NOTE_LOADING_STATE, false)
+      commit(types.UPDATE_CURRENT_NOTE, result)
+      console.log(`[getNoteContent] pureOnline loadedFrom=${loadedFrom}`)
+      return
+    }
+
+    // 在线优先：接口返回后才取消 loading；SQLite 异步回填
+    if (strategy === SYNC_STRATEGY.ONLINE_FIRST) {
+      console.log('[getNoteContent] onlineFirst: cloud first, SQLite async')
+      let result
+      let loadedFrom = 'none'
+      try {
+        result = await fetchCloudNoteContentRaw(kbGuid, docGuid)
+        loadedFrom = 'cloud'
+        saveCloudContentToSqlite(kbGuid, docGuid, result).catch(err => {
+          console.warn('[getNoteContent] onlineFirst SQLite backfill failed:', err.message)
+        })
+      } catch (err) {
+        console.warn('[getNoteContent] onlineFirst cloud failed, fallback to SQLite:', err)
+        try {
+          const localNote = await DatabaseClient.notes.getByDocGuidWithPriority(docGuid)
+          if (localNote && localNote.id) {
+            result = buildLocalNoteResult(localNote, docGuid, kbGuid, 'sqlite-fallback')
+            loadedFrom = 'sqlite-fallback'
+          } else {
+            result = buildEmptyNoteResult(docGuid, kbGuid, 'Untitled', 'empty-fallback')
+            loadedFrom = 'empty-fallback'
+          }
+        } catch (localErr) {
+          result = buildEmptyNoteResult(docGuid, kbGuid, 'Untitled', 'error-fallback')
+          loadedFrom = 'error-fallback'
+        }
+      }
+      Loading.hide()
+      commit(types.UPDATE_CURRENT_NOTE_LOADING_STATE, false)
+      commit(types.UPDATE_CURRENT_NOTE, result)
+      console.log(`[getNoteContent] onlineFirst loadedFrom=${loadedFrom}`)
       return
     }
 
@@ -1339,7 +1811,8 @@ export default {
    */
   async updateNote ({
     commit,
-    state
+    state,
+    rootState
   }, markdown) {
     if (!state.currentNote.info) return
     const {
@@ -1377,57 +1850,107 @@ export default {
     if (state.noteState === 'default' || state.noteState === 'none') return
     let { title } = state.currentNote.info
     const { resources } = state.currentNote
-    const isLite = category.replace(/\//g, '') === 'Lite'
-    const html = helper.embedMDNote(markdown, resources, {
-      wrapWithPreTag: isLite,
-      kbGuid,
-      docGuid
-    })
 
     const _updateNote = async title => {
-      // Step 1: 写本地 SQLite（本地优先架构 - 只标记为脏，不立即同步）
-      let localNoteId = null
-      let updatedNote = null
       const now = Date.now()
-      try {
-        const localNote = await DatabaseClient.notes.getByDocGuid(docGuid)
-        if (localNote) {
-          localNoteId = localNote.id
-          updatedNote = await DatabaseClient.notes.update(localNote.id, {
-            title,
-            content: markdown,
-            category,
-            local_modified: now
-          })
-          console.log(`[updateNote] SQLite updated: id=${localNote.id}, content_len=${markdown.length}, dirty=1 (pending manual sync)`)
-          
-          if (updatedNote) {
-            // 数据已写入 SQLite，无需额外操作
-          }
-        } else {
-          // 首次保存：创建本地记录
-          const note = await DatabaseClient.notes.create({
-            doc_guid: docGuid,
-            title,
-            content: markdown,
-            category,
-            data_created: now,
-            data_modified: now,
-            local_modified: now
-          })
-          localNoteId = note?.id
-          updatedNote = note
-          if (note) {
-            console.log(`[updateNote] SQLite created: id=${note.id}, dirty=1 (pending manual sync)`)
+      const tags = state.currentNote.info?.tags || ''
+      const strategy = getSyncStrategy(rootState)
+      const onlineNote = state.isLogin && kbGuid
+
+      // 纯在线：只推云端，不写 SQLite
+      if (strategy === SYNC_STRATEGY.PURE_ONLINE) {
+        if (onlineNote) {
+          try {
+            const cloudGuid = await pushNoteContentToCloud({
+              kbGuid,
+              docGuid,
+              title,
+              category,
+              content: markdown,
+              tags,
+              resources
+            })
+            if (cloudGuid && (!docGuid || docGuid.startsWith('local_'))) {
+              commit(types.UPDATE_CURRENT_NOTE, {
+                ...state.currentNote,
+                info: { ...state.currentNote.info, docGuid: cloudGuid }
+              })
+            }
+          } catch (err) {
+            console.error('[updateNote/pureOnline] cloud save failed:', err)
           }
         }
+        await this.dispatch('server/getCategoryNotes')
+        return
+      }
+
+      // 在线优先：先推云端（await），SQLite 异步（非阻塞）
+      if (strategy === SYNC_STRATEGY.ONLINE_FIRST && onlineNote) {
+        let resolvedDocGuid = docGuid
+        try {
+          const cloudGuid = await pushNoteContentToCloud({
+            kbGuid,
+            docGuid,
+            title,
+            category,
+            content: markdown,
+            tags,
+            resources
+          })
+          if (cloudGuid) resolvedDocGuid = cloudGuid
+        } catch (err) {
+          console.error('[updateNote/onlineFirst] cloud save failed:', err)
+        }
+
+        // SQLite 异步同步（非阻塞）：新笔记会同时把本地 local_ 记录迁移到云端 guid
+        persistSyncedNoteToSqlite({
+          oldDocGuid: docGuid,
+          newDocGuid: resolvedDocGuid,
+          kbGuid,
+          title,
+          content: markdown,
+          category,
+          tags,
+          now
+        }).catch(err => {
+          console.warn('[updateNote/onlineFirst] async SQLite write failed:', err?.message || err)
+        })
+
+        if (resolvedDocGuid && resolvedDocGuid !== docGuid && state.currentNote?.info?.docGuid === docGuid) {
+          // 新笔记拿到云端 guid 后回写当前 info，避免下次保存重复创建
+          commit(types.UPDATE_CURRENT_NOTE, {
+            ...state.currentNote,
+            info: { ...state.currentNote.info, docGuid: resolvedDocGuid }
+          })
+        }
+        await this.dispatch('server/getCategoryNotes')
+        return
+      }
+
+      // 离线优先（默认）：先写本地 SQLite（await，必须成功），云端异步
+      try {
+        const note = await persistNoteToSqlite({ docGuid, title, content: markdown, category, tags, now })
+        console.log(`[updateNote] SQLite saved: id=${note?.id}, content_len=${markdown.length}, dirty=1 (pending sync)`)
       } catch (err) {
         console.error('[updateNote] SQLite write failed:', err)
       }
 
-      // ✅ 本地优先架构改进：不再立即推送云端
-      // 用户编辑只保存到 SQLite 并标记 dirty=1，等待用户点击同步按钮时批量上传
-      
+      // ✅ 笔记在线保存 / 更新接口异步（fire-and-forget），优先保证离线功能可用
+      // 新笔记（local_ 开头）仍交由同步服务统一处理（需回写云端 guid），避免重复创建
+      if (onlineNote && docGuid && !docGuid.startsWith('local_')) {
+        pushNoteContentToCloud({
+          kbGuid,
+          docGuid,
+          title,
+          category,
+          content: markdown,
+          tags,
+          resources
+        }).catch(err => {
+          console.warn('[updateNote] async cloud push failed (will retry on next sync):', err?.message || err)
+        })
+      }
+
       await this.dispatch('server/getCategoryNotes')
     }
     if (!_.endsWith(title, '.md')) {
@@ -1457,7 +1980,8 @@ export default {
    */
   async createNote ({
     commit,
-    state
+    state,
+    rootState
   }, payload) {
     const {
       kbGuid,
@@ -1502,6 +2026,57 @@ export default {
       ? `# ${finalTitle}\n\n${templateBody}`
       : `# ${finalTitle}`
     const now = Date.now()
+
+    // 纯在线：直接在云端创建，不写 SQLite
+    if (isPureOnline(rootState)) {
+      if (!isLogin || !kbGuid) {
+        Notify.create({
+          message: i18n.t('cloudSyncPureOnlineLoginRequired'),
+          type: 'warning',
+          icon: 'login'
+        })
+        return
+      }
+      try {
+        const cloudCategory = getDefaultCategoryForMode(state, targetCategory)
+        const cloudGuid = await pushNoteContentToCloud({
+          kbGuid,
+          docGuid: null,
+          title: finalTitle,
+          category: cloudCategory,
+          content: initialContent
+        })
+        if (!cloudGuid) throw new Error('cloud create returned no guid')
+        await this.dispatch('server/getCategoryNotes', { category: cloudCategory })
+        commit(types.UPDATE_CURRENT_NOTE, {
+          _isRawMarkdown: true,
+          info: {
+            docGuid: cloudGuid,
+            kbGuid,
+            title: finalTitle,
+            category: cloudCategory,
+            dataCreated: now,
+            dataModified: now
+          },
+          html: initialContent,
+          resources: []
+        })
+        Notify.create({
+          message: i18n.t('saveNoteSuccessfully'),
+          type: 'positive',
+          icon: 'check'
+        })
+      } catch (err) {
+        console.error('[createNote/pureOnline] cloud create failed:', err)
+        Notify.create({
+          message: i18n.t('createNoteFailed'),
+          type: 'negative',
+          icon: 'error'
+        })
+      }
+      return
+    }
+
     const draftPayload = {
       ...(isLogin && kbGuid ? { kbGuid } : {}),
       title: finalTitle,
@@ -1583,15 +2158,18 @@ export default {
    * @param markdown
    * @param noteInfo - 旧笔记的 info 对象，包含 docGuid, kbGuid, title, category, resources 等
    */
-  async updateNoteWithInfo ({ commit }, { markdown, noteInfo, resources: incomingResources = [] }) {
+  async updateNoteWithInfo ({ commit, state, rootState }, { markdown, noteInfo, resources: incomingResources = [] }) {
     if (!noteInfo) return
     const { kbGuid, docGuid, title, category = '/' } = noteInfo
     // ✅ 优先使用传入的 resources（来自 Muya.vue 的 previousResources），保持与 Ctrl+S 一致
     const resources = incomingResources && incomingResources.length > 0 ? incomingResources : []
     
-    // ✅ 区分离线和在线模式，而不是直接 return
-    const isOfflineNote = !docGuid || !kbGuid || (docGuid && docGuid.startsWith('local_'))
-    
+    // ✅ 区分离线和在线模式：离线优先下 local_ 新笔记走本地；在线优先/纯在线只要云端可用就走云端
+    const strategy = getSyncStrategy(rootState)
+    const canUseCloud = state.isLogin && kbGuid
+    const isOfflineNote = !canUseCloud || !docGuid ||
+      (docGuid.startsWith('local_') && strategy === SYNC_STRATEGY.OFFLINE_FIRST)
+
     if (isOfflineNote) {
       try {
         const now = Date.now()
@@ -1618,15 +2196,59 @@ export default {
     }
 
     // 以下为已登录的在线笔记逻辑
-    const isLite = category.replace(/\//g, '') === 'Lite'
-    const html = helper.embedMDNote(markdown, resources, {
-      wrapWithPreTag: isLite,
-      kbGuid,
-      docGuid
-    })
-
-    // Step 1: 写本地 SQLite（本地优先架构 - 只标记为脏，不立即同步）
     const now = Date.now()
+
+    // 纯在线：只推云端，不写 SQLite
+    if (strategy === SYNC_STRATEGY.PURE_ONLINE) {
+      try {
+        await pushNoteContentToCloud({
+          kbGuid,
+          docGuid,
+          title,
+          category,
+          content: markdown,
+          tags: noteInfo.tags || '',
+          resources
+        })
+      } catch (err) {
+        console.error('[updateNoteWithInfo/pureOnline] cloud save failed:', err)
+      }
+      return
+    }
+
+    // 在线优先：先推云端（await），SQLite 异步（非阻塞）
+    if (strategy === SYNC_STRATEGY.ONLINE_FIRST) {
+      let resolvedDocGuid = docGuid
+      try {
+        const cloudGuid = await pushNoteContentToCloud({
+          kbGuid,
+          docGuid,
+          title,
+          category,
+          content: markdown,
+          tags: noteInfo.tags || '',
+          resources
+        })
+        if (cloudGuid) resolvedDocGuid = cloudGuid
+      } catch (err) {
+        console.error('[updateNoteWithInfo/onlineFirst] cloud save failed:', err)
+      }
+      persistSyncedNoteToSqlite({
+        oldDocGuid: docGuid,
+        newDocGuid: resolvedDocGuid,
+        kbGuid,
+        title,
+        content: markdown,
+        category,
+        tags: noteInfo.tags || '',
+        now
+      }).catch(err => {
+        console.warn('[updateNoteWithInfo/onlineFirst] async SQLite write failed:', err?.message || err)
+      })
+      return
+    }
+
+    // 离线优先（默认）：先写本地 SQLite（await，必须成功），云端异步
     try {
       const result = await upsertLocalNoteByDocGuid({
         docGuid,
@@ -1636,14 +2258,24 @@ export default {
         now
       })
       if (result.action === 'updated') {
-        console.log(`[updateNoteWithInfo] SQLite updated: id=${result.localNoteId}, content_len=${markdown.length}, dirty=1 (pending manual sync)`)
+        console.log(`[updateNoteWithInfo] SQLite updated: id=${result.localNoteId}, content_len=${markdown.length}, dirty=1 (pending sync)`)
       }
     } catch (err) {
       console.error('[updateNoteWithInfo] SQLite write failed:', err)
     }
 
-    // ✅ 本地优先架构改进：不再立即推送云端
-    // 用户编辑只保存到 SQLite 并标记 dirty=1，等待用户点击同步按钮时批量上传
+    // ✅ 笔记在线保存 / 更新接口异步（fire-and-forget）
+    pushNoteContentToCloud({
+      kbGuid,
+      docGuid,
+      title,
+      category,
+      content: markdown,
+      tags: noteInfo.tags || '',
+      resources
+    }).catch(err => {
+      console.warn('[updateNoteWithInfo] async cloud push failed (will retry on next sync):', err?.message || err)
+    })
   },
   importNote ({
     commit,

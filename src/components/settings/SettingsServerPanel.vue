@@ -14,10 +14,11 @@
           <div class='text-body2 text-weight-medium q-mb-xs'>{{ $t('cloudSyncStrategy') }}</div>
           <div class='text-caption text-grey-6 q-mb-sm'>{{ $t('cloudSyncStrategyHint') }}</div>
           <q-option-group
-            v-model='cloudSyncStrategy'
+            :value='cloudSyncStrategy'
             :options='cloudSyncStrategyOptionsResolved'
             color='green-7'
             type='radio' inline
+            @input='handleCloudSyncStrategyChange'
           />
         </div>
         <q-separator class='q-my-sm' />
@@ -104,6 +105,10 @@ export default {
       type: String,
       required: true
     },
+    cloudSyncStrategy: {
+      type: String,
+      required: true
+    },
     syncStatus: {
       type: Object,
       required: true
@@ -124,7 +129,6 @@ export default {
       lastSyncTimeDisplay: null,
       isSyncing: false,
       syncError: null,
-      cloudSyncStrategy: 'offlineFirst',
       cloudSyncStrategyOptions: [
         { label: 'cloudSyncStrategyPureOnline', value: 'pureOnline' },
         { label: 'cloudSyncStrategyOnlineFirst', value: 'onlineFirst' },
@@ -224,6 +228,16 @@ export default {
         message: this.$t('cloudSyncProviderChanged', { name }),
         type: 'info',
         icon: 'cloud_circle'
+      })
+    },
+    handleCloudSyncStrategyChange (value) {
+      this.$emit('update-cloud-sync-strategy', value)
+      const option = this.cloudSyncStrategyOptions.find(opt => opt.value === value)
+      const name = option ? this.$t(option.label) : value
+      this.$q.notify({
+        message: this.$t('cloudSyncStrategyChanged', { name }),
+        type: 'info',
+        icon: 'sync_alt'
       })
     },
     imageUploadServiceChangeHandler: function (service) {

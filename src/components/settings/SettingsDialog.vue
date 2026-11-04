@@ -75,9 +75,11 @@
               <q-tab-panel name='server' class='q-pa-none'>
                 <SettingsServerPanel
                   :cloud-sync-provider='cloudSyncProvider'
+                  :cloud-sync-strategy='cloudSyncStrategy'
                   :sync-status='syncStatus'
                   :image-upload-service='imageUploadService'
                   @update-cloud-sync-provider='updateCloudSyncProvider'
+                  @update-cloud-sync-strategy='updateCloudSyncStrategy'
                   @update-image-upload-service='updateImageUploadService'
                   @open-login-dialog='openLoginDialog'
                   @confirm-logout='confirmLogout'
@@ -360,6 +362,7 @@ export default {
       'echoCards',
       'aiAssistantProvider',
       'cloudSyncProvider',
+      'cloudSyncStrategy',
       'syncStatus'
     ])
   },
@@ -634,6 +637,10 @@ export default {
     // ==================== Server 面板事件 ====================
     updateCloudSyncProvider (value) {
       this.updateStateAndStore({ cloudSyncProvider: value })
+    },
+    updateCloudSyncStrategy (value) {
+      // 切换同步策略立刻生效（写入 electron-store 并按新策略重载工作区）
+      this.setCloudSyncStrategy(value)
     },
     updateImageUploadService (service) {
       this.updateStateAndStore({ imageUploadService: service })
@@ -1247,6 +1254,7 @@ export default {
     ...mapClientActions([
       'toggleChanged',
       'updateStateAndStore',
+      'setCloudSyncStrategy',
       'loadRunes',
       'loadEchoes',
       'loadNoteTemplates',

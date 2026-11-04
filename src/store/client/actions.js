@@ -8,6 +8,7 @@ import _ from 'lodash'
 import { importImage, uploadImages } from 'src/ApiInvoker'
 import DatabaseClient from 'src/utils/DatabaseClient'
 import { BUILTIN_ECHO_CARDS } from 'components/echo/echoCore'
+import { normalizeSyncStrategy } from 'src/utils/const/syncStrategy'
 
 const applyQuickInsertColumns = (value) => {
   if (typeof document === 'undefined') return
@@ -44,6 +45,22 @@ export default {
     if (Object.prototype.hasOwnProperty.call(options, 'quickInsertColumns')) {
       applyQuickInsertColumns(options.quickInsertColumns)
     }
+  },
+  /**
+   * 切换同步策略（离线优先 / 在线优先 / 纯在线）。
+   * 写入 electron-store 后立刻让 server 模块按新策略重载工作区，
+   * 无需重启即可生效。
+   */
+  async setCloudSyncStrategy ({ commit, dispatch }, value) {
+    const normalized = normalizeSyncStrategy(value)
+    commit(types.UPDATE_STATES, { cloudSyncStrategy: normalized })
+    commit(types.SAVE_ITEMS_TO_LOCAL_STORE_SYNC, { cloudSyncStrategy: normalized })
+    try {
+      await dispatch('server/applySyncStrategy', normalized, { root: true })
+    } catch (err) {
+      console.warn('[syncStrategy] applySyncStrategy failed:', err)
+    }
+    return normalized
   },
   cyclePaneLayout ({ state, dispatch }) {
     const next = (state.paneLayoutMode + 1) % 3
