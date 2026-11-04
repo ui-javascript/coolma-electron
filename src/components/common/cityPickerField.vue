@@ -73,17 +73,15 @@ export default {
       }
     },
     disabled (val) {
-      if (!this.ready) return
       const inputEl = this._input()
       const $ = window.$ || window.jQuery
       if (!inputEl || !$ || !$.fn || !$.fn.citypicker) return
-      try {
-        if (val) {
-          $(inputEl).off('cp:updated.cpf')
-          $(inputEl).citypicker('destroy')
-          this.ready = false
-        }
-      } catch (_) { /* noop */ }
+      if (val) {
+        this._detachPicker(inputEl, $)
+        this.ready = false
+      } else if (!this.ready) {
+        this._attach(inputEl, $)
+      }
     }
   },
   mounted () {
@@ -136,17 +134,27 @@ export default {
       this.pollTimer = setTimeout(tryInit, 0)
     },
     _attach (inputEl, $) {
-      try {
-        if ($.fn && $.fn.citypicker && $(inputEl).data && $(inputEl).data('citypicker')) {
-          $(inputEl).citypicker('destroy')
-        }
-      } catch (_) { /* noop */ }
-      $(inputEl).off('cp:updated.cpf')
       if (this.disabled) {
+        this._detachPicker(inputEl, $)
         this.ready = true
         return
       }
-      const v = this.internalValue
+      this._initPicker(inputEl, $, this.internalValue)
+    },
+    /**
+     * 初始化 picker。
+     *
+     * 注意：city-picker 的 init 会调用 refresh()，后者优先读取输入框当前文本
+     * （`$element.val()`）并覆盖传入的 options。所以必须先销毁旧实例、清空旧
+     * 文本，否则重建时新的省/市/区永远被上一次的显示值顶掉，回显看起来“没生效”。
+     */
+    _initPicker (inputEl, $, val) {
+      // 必须先 destroy：插件在 data('citypicker') 已存在时不会用新 options 重建实例
+      this._detachPicker(inputEl, $)
+      const v = this._normalize(val)
+      $(inputEl).val('')
+      // destroy() 会移除 city-picker-input，重建时补回来（scoped 样式依赖它）
+      $(inputEl).addClass('city-picker-input')
       try {
         $(inputEl).citypicker({
           province: v.province || '',
@@ -158,34 +166,40 @@ export default {
         this.ready = true
         return
       }
-      $(inputEl).on('cp:updated.cpf', () => this._onPickerUpdated(inputEl, $))
+      this._bindPickerEvents(inputEl, $)
       this.ready = true
+    },
+    _detachPicker (inputEl, $) {
+      if (!inputEl || !$ || !$.fn || !$.fn.citypicker) return
+      $(inputEl).off('.cpf')
+      const inst = $(inputEl).data && $(inputEl).data('citypicker')
+      if (!inst) return
+      if (inst.$dropdown) inst.$dropdown.off('.cpf')
+      try {
+        $(inputEl).citypicker('destroy')
+      } catch (_) { /* noop */ }
+    },
+    _bindPickerEvents (inputEl, $) {
+      const inst = $(inputEl).data && $(inputEl).data('citypicker')
+      // 插件在部分版本里会把 $element 的 change 当作外部值变更入口
+      $(inputEl).on('change.cpf', () => this._syncFromPicker(inputEl, $))
+      // 关键：city-picker 用户点选时只会 feedVal()（直接写 input.value），
+      // 并不会派发 cp:updated。旧代码监听 cp:updated 永远收不到事件，
+      // 导致选择后既不写 SQLite 也不更新“当前选择”。这里改为在 dropdown
+      // 上做事件委托，并用 setTimeout 让插件先更新完 data/item。
+      if (inst && inst.$dropdown) {
+        inst.$dropdown.on('click.cpf', '.city-select a', () => {
+          setTimeout(() => this._syncFromPicker(inputEl, $), 0)
+        })
+      }
     },
     _rebuildPicker (val) {
       const inputEl = this._input()
       const $ = window.$ || window.jQuery
       if (!inputEl || !$ || !$.fn || !$.fn.citypicker) return
-      // Detach the cp:updated listener so we don't echo our own programmatic
-      // change back to the parent as a user "edit".
-      $(inputEl).off('cp:updated.cpf')
-      const inst = $(inputEl).data && $(inputEl).data('citypicker')
-      if (inst) {
-        try { $(inputEl).citypicker('destroy') } catch (_) { /* noop */ }
-      }
-      try {
-        $(inputEl).citypicker({
-          province: val.province || '',
-          city: val.city || '',
-          district: val.district || ''
-        })
-      } catch (err) {
-        // If a rebuild throws, restore the listener before giving up.
-        $(inputEl).on('cp:updated.cpf', () => this._onPickerUpdated(inputEl, $))
-        return
-      }
-      $(inputEl).on('cp:updated.cpf', () => this._onPickerUpdated(inputEl, $))
+      this._initPicker(inputEl, $, val)
     },
-    _onPickerUpdated (inputEl, $) {
+    _syncFromPicker (inputEl, $) {
       let next
       try {
         // city-picker plugin does NOT expose a `getValue` method. The current
@@ -217,12 +231,10 @@ export default {
       this._teardownPoll()
       const inputEl = this._input()
       const $ = window.$ || window.jQuery
-      if (inputEl && $ && $.fn && $.fn.citypicker && $(inputEl).data && $(inputEl).data('citypicker')) {
-        try {
-          $(inputEl).citypicker('destroy')
-        } catch (_) { /* noop */ }
+      this._detachPicker(inputEl, $)
+      if (inputEl && inputEl.classList) {
+        inputEl.classList.add('city-picker-input')
       }
-      if (inputEl && $(inputEl).off) $(inputEl).off('cp:updated.cpf')
       this.ready = false
     },
     _teardownPoll () {

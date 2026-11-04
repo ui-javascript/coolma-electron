@@ -174,6 +174,15 @@ const SYNC_REASON_MESSAGES = {
   already_syncing: 'cloudSyncSyncing'
 }
 
+// 右上角「仅上传」的定时轮询参数
+// 每 30s 读一次本地待同步数量；一旦发现 dirty 笔记（或待同步的删除日志），
+// 就走和「直接点击上传按钮」相同的 runSyncAction 流程：按钮 loading、sync-start /
+// sync-end、同步后刷新统计与角标完全一致；区别只是后台成功不弹 toast。
+// 失败后冷却 5 分钟再重试，避免断网 / 服务端异常时每 30s 弹一次错误提示。
+const AUTO_UPLOAD_POLL_INTERVAL = 30 * 1000
+const AUTO_UPLOAD_KICKOFF_DELAY = 3 * 1000
+const AUTO_UPLOAD_RETRY_COOLDOWN = 5 * 60 * 1000
+
 export default {
   name: 'HeaderRightGroup',
   mixins: [skinMixin],
@@ -221,7 +230,15 @@ export default {
   data () {
     return {
       _handlePushDebounced: null,
-      _handlePullDebounced: null
+      _handlePullDebounced: null,
+      // 自动上传轮询：intervalTimer 负责周期轮询，kickoffTimer 负责启动后的首次补齐
+      autoUploadIntervalTimer: null,
+      autoUploadKickoffTimer: null,
+      // 失败冷却截止时间（毫秒时间戳），冷却期内不再自动触发上传
+      autoUploadCooldownUntil: 0,
+      // 同步动作级防重入：emit('sync-start') 到父组件回传 prop 之间有一拍延迟，
+      // 只靠 isSyncing 无法拦住同一 tick 内的手动点击 + 自动轮询并发
+      isSyncActionRunning: false
     }
   },
   methods: {
@@ -321,24 +338,31 @@ export default {
       if (messageKey) return this.$t(messageKey)
       return this.$t('cloudSyncFailed')
     },
-    async runSyncAction ({ key, action, successMessage, icon, getCount }) {
-      if (this.isSyncing) return
+    async runSyncAction ({ key, action, successMessage, icon, getCount, silentSuccess = false }) {
+      if (this.isSyncActionRunning || this.isSyncing) return null
       if (!this.isLogin) {
         this.$q.notify({ message: this.$t('offlineMode'), type: 'info', position: 'top' })
-        return
+        return null
       }
+      this.isSyncActionRunning = true
       this.$emit('sync-start', key)
       try {
         const result = await action()
         await this.refreshSyncStatusFromDb(Date.now())
         if (result.success) {
+          // 一次成功同步（无论手动还是自动）即可解除失败冷却
+          this.autoUploadCooldownUntil = 0
           const count = getCount(result)
-          this.$q.notify({
-            message: count ? `${successMessage} ${count}` : successMessage,
-            type: 'positive',
-            position: 'top',
-            icon
-          })
+          // 后台自动轮询触发的成功同步不弹提示，否则用户编辑期间会每 30s 刷一次 toast；
+          // 手动点击按钮仍然提示，行为保持不变。
+          if (!silentSuccess) {
+            this.$q.notify({
+              message: count ? `${successMessage} ${count}` : successMessage,
+              type: 'positive',
+              position: 'top',
+              icon
+            })
+          }
         } else {
           this.$q.notify({ message: this.formatSyncFailureMessage(result), type: 'negative', position: 'top' })
         }
@@ -350,18 +374,20 @@ export default {
           type: 'negative',
           position: 'top'
         })
-        return null
+        return { success: false, reason: 'sync_failed', error: error?.message || null }
       } finally {
+        this.isSyncActionRunning = false
         this.$emit('sync-end', key)
       }
     },
-    async handlePushSyncAction () {
-      await this.runSyncAction({
+    async handlePushSyncAction ({ silentSuccess = false } = {}) {
+      return await this.runSyncAction({
         key: 'isPushSyncing',
         action: () => CloudSyncService.pushOnly(),
         successMessage: this.$t('cloudBackupComplete'),
         icon: 'cloud_upload',
-        getCount: result => (result.count > 0 ? `↑${result.count}` : '')
+        getCount: result => (result.count > 0 ? `↑${result.count}` : ''),
+        silentSuccess
       })
     },
     async handlePullSyncAction () {
@@ -386,9 +412,83 @@ export default {
     }, 500, { leading: true, trailing: false }),
     handlePullSyncClick: debounce(function () {
       this.handlePullSyncAction()
-    }, 500, { leading: true, trailing: false })
+    }, 500, { leading: true, trailing: false }),
+
+    // ==================== 上传定时轮询 ====================
+    /**
+     * 一次轮询：
+     *   1. 刷新本地待同步数量（同时让角标保持实时）
+     *   2. 有待同步笔记（或有待同步的删除日志）→ 复用 handlePushSyncAction，
+     *      按钮 loading、sync-start/sync-end、同步后统计刷新都与手动点击一致
+     *   3. 失败后进入冷却，避免每 30s 重复弹错误提示
+     */
+    async runAutoUploadTick () {
+      if (!this.isLogin || this.isSyncing || this.isSyncActionRunning) return
+      // 设置面板里的手动同步同样走 CloudSyncService，避免两路并发重复推送
+      if (CloudSyncService.status.isSyncing) return
+
+      try {
+        await this.refreshSyncStatusFromDb()
+      } catch (error) {
+        console.warn('[HeaderRightGroup] 自动上传：读取待同步数量失败', error)
+        return
+      }
+
+      if (!this.isLogin || this.isSyncing || this.isSyncActionRunning) return
+      if (this.autoUploadCooldownUntil > Date.now()) return
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) return
+
+      // pending 只统计 dirty 笔记；纯删除（sync_log）没有待上传笔记，
+      // 但也需要借一次 push 把云端删除动作发出去
+      let hasPendingDeletes = false
+      try {
+        const DatabaseClient = require('src/utils/DatabaseClient').default
+        const deleteLogs = await DatabaseClient.sync.getPendingDeleteLogs()
+        hasPendingDeletes = Array.isArray(deleteLogs) && deleteLogs.length > 0
+      } catch (error) {
+        // 删除日志读取失败不影响笔记上传
+        console.warn('[HeaderRightGroup] 自动上传：读取待同步删除日志失败', error)
+      }
+
+      if (this.pendingCount <= 0 && !hasPendingDeletes) return
+
+      const result = await this.handlePushSyncAction({ silentSuccess: true })
+      if (result && (result.success === false || (result.errors || 0) > 0)) {
+        this.autoUploadCooldownUntil = Date.now() + AUTO_UPLOAD_RETRY_COOLDOWN
+      }
+    },
+    startAutoUploadPolling () {
+      this.stopAutoUploadPolling()
+      this.autoUploadKickoffTimer = setTimeout(() => {
+        this.autoUploadKickoffTimer = null
+        this.runAutoUploadTick()
+      }, AUTO_UPLOAD_KICKOFF_DELAY)
+      this.autoUploadIntervalTimer = setInterval(() => {
+        this.runAutoUploadTick()
+      }, AUTO_UPLOAD_POLL_INTERVAL)
+    },
+    stopAutoUploadPolling () {
+      if (this.autoUploadIntervalTimer) {
+        clearInterval(this.autoUploadIntervalTimer)
+        this.autoUploadIntervalTimer = null
+      }
+      if (this.autoUploadKickoffTimer) {
+        clearTimeout(this.autoUploadKickoffTimer)
+        this.autoUploadKickoffTimer = null
+      }
+    }
+  },
+  mounted () {
+    this.startAutoUploadPolling()
+  },
+  watch: {
+    // 登录成功后立刻补一次：刷新角标并上传登录前积压的离线笔记，不用等下一个轮询周期
+    isLogin (value) {
+      if (value) this.runAutoUploadTick()
+    }
   },
   beforeDestroy () {
+    this.stopAutoUploadPolling()
     if (this.handlePushSyncClick && this.handlePushSyncClick.cancel) {
       this.handlePushSyncClick.cancel()
     }
