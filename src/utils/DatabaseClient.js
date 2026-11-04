@@ -53,6 +53,16 @@ const notes = {
   },
 
   /**
+   * 获取笔记列表摘要（不含正文，content 只返回前 200 字预览）
+   * 用于启动 / 切换目录时快速渲染文件树与笔记列表。
+   * @param {Object} options - 查询选项
+   * @returns {Promise<Array>}
+   */
+  async getAllLite(options = {}) {
+    return await invoke('db:getNotesLite', options)
+  },
+
+  /**
    * 获取所有笔记的基本信息（用于去重检查）
    * @returns {Promise<Array>} 返回 [{title, category, kb_guid}, ...]
    */

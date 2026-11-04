@@ -1077,6 +1077,43 @@ function registerDatabaseHandlers() {
     }
   })
 
+  // 获取笔记列表摘要（不含正文，只截 200 字做预览）
+  // 启动 / 切换目录只需要「树 + 列表」用的元信息，用这条比 db:getNotes 少传整库正文。
+  ipcMain.handle('db:getNotesLite', async (event, options = {}) => {
+    try {
+      let query = `SELECT id, doc_guid, kb_guid, title, category, tags,
+                          substr(coalesce(content, ''), 1, 200) AS content,
+                          data_created, data_modified, local_modified, dirty
+                   FROM notes WHERE 1=1`
+      const params = []
+
+      if (options.category) {
+        query += ' AND category = ?'
+        params.push(options.category)
+      }
+      if (options.dirty !== undefined) {
+        query += ' AND dirty = ?'
+        params.push(options.dirty)
+      }
+
+      query += ' ORDER BY data_modified DESC'
+
+      if (options.limit) {
+        query += ' LIMIT ?'
+        params.push(options.limit)
+      }
+      if (options.offset) {
+        query += ' OFFSET ?'
+        params.push(options.offset)
+      }
+
+      return execToObjects(query, params)
+    } catch (error) {
+      log.error('[DB] getNotesLite error:', error)
+      return []
+    }
+  })
+
   // ✅ 获取所有笔记的基本信息（用于同步去重检查）
   ipcMain.handle('db:getAllNotesBasic', async () => {
     try {

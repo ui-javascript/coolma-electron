@@ -10,7 +10,8 @@ import { getNoteTagList, parseLocalTagId } from 'src/store/server/localSyncMigra
 
 export async function loadLocalWorkspaceData () {
   await DatabaseClient.categories.ensureOfflineRoot()
-  const notes = await DatabaseClient.notes.getAll()
+  // 启动路径用摘要查询（不带正文），避免把整库笔记正文通过 IPC 搬到渲染进程
+  const notes = await DatabaseClient.notes.getAllLite()
   const categories = await DatabaseClient.categories.getAll({})
   const tree = buildCategoryTreeFromNotes(notes, categories)
 
@@ -32,7 +33,7 @@ export async function getOfflineNotesByCategory (category = OFFLINE_ROOT_CATEGOR
   // 所以查询时也要用规范化后的 category，确保能匹配到
   const normalizedCategory = normalizeCategoryForMatch(category || OFFLINE_ROOT_CATEGORY)
 
-  const localNotes = await DatabaseClient.notes.getAll({
+  const localNotes = await DatabaseClient.notes.getAllLite({
     category: normalizedCategory
   })
 
@@ -43,7 +44,7 @@ export async function getOfflineNotesByCategory (category = OFFLINE_ROOT_CATEGOR
 }
 
 export async function getOfflineCalendarNotes ({ basis, dayStart, dayEnd }) {
-  const localNotes = await DatabaseClient.notes.getAll()
+  const localNotes = await DatabaseClient.notes.getAllLite()
 
   return (localNotes || [])
     .filter(note => note.title && note.title !== 'Untitled')
@@ -56,7 +57,7 @@ export async function getOfflineCalendarNotes ({ basis, dayStart, dayEnd }) {
 }
 
 export async function getOfflineCalendarDates ({ basis, monthStart, monthEnd }) {
-  const localNotes = await DatabaseClient.notes.getAll()
+  const localNotes = await DatabaseClient.notes.getAllLite()
   const dateSet = new Set()
 
   for (const note of (localNotes || [])) {
@@ -75,7 +76,7 @@ export async function getOfflineTagNotes (tagGuid) {
     return []
   }
 
-  const taggedLocalNotes = await DatabaseClient.notes.getAll()
+  const taggedLocalNotes = await DatabaseClient.notes.getAllLite()
   const localTagNotes = []
 
   for (const note of (taggedLocalNotes || [])) {
@@ -91,7 +92,7 @@ export async function getOfflineTagNotes (tagGuid) {
 export async function getOfflineTagsWithCounts (currentDocGuid) {
   const tags = await DatabaseClient.tags.getAll()
   const countMap = {}
-  const allNotes = await DatabaseClient.notes.getAll()
+  const allNotes = await DatabaseClient.notes.getAllLite()
 
   for (const tag of tags) {
     let count = 0

@@ -290,7 +290,8 @@ export default {
    */
   async initServerStore ({
     commit,
-    state
+    state,
+    dispatch
   }) {
     const localStore = ClientFileStorage.getItemsFromStore(state)
     commit(types.INIT, localStore)
@@ -305,16 +306,21 @@ export default {
       'password',
       'url'
     ])
-    if (autoLogin) {
-      this.dispatch('server/login', {
-        userId,
-        password,
-        url
-      })
-    } else {
-      // 未登录：从 SQLite 加载笔记和目录，统一使用 currentNotes/currentCategory
-      await this.dispatch('server/loadLocalData')
-    }
+
+    // 本地优先：先用 SQLite 把目录树 / 笔记列表 / 标签渲染出来，不等任何网络请求。
+    // 这样无论是否自动登录，界面都能立刻可用。
+    await dispatch('loadLocalData')
+
+    if (!autoLogin) return
+
+    // 云端异步刷新：接口返回后再覆盖更新目录树与列表；失败时保留本地数据。
+    dispatch('login', {
+      userId,
+      password,
+      url
+    }).catch(err => {
+      console.error('[initServerStore] background login failed, keeping local data:', err)
+    })
   },
   /**
    * 统一加载本地数据（未登录时从 SQLite 加载，已登录时也通过 getCategoryNotes 加载）
@@ -337,6 +343,11 @@ export default {
       console.log('[loadLocalData] built tree:', JSON.stringify(tree, null, 2))
       commit(types.SET_CATEGORIES, tree)
 
+      // 分类扁平列表也先用本地数据填上（形状与 getAllCategories 合并结果一致），
+      // 供新建目录查重 / 分类选择器等使用，不必等云端。
+      const localMerged = mergeCategoryCollections({ localCategories, localNotes })
+      commit(types.UPDATE_ALL_CATEGORIES, localMerged.categories)
+
       const savedCurrentCategory = workspaceState[APP_STATE_KEYS.currentCategory] || state.currentCategory || OFFLINE_ROOT_CATEGORY
       const restoredCategory = categoryExistsInTree(tree, savedCurrentCategory)
         ? savedCurrentCategory
@@ -348,6 +359,25 @@ export default {
           key: 'sidebarTreeType',
           value: workspaceState[APP_STATE_KEYS.sidebarTreeType]
         }, { root: true })
+      }
+
+      // 笔记列表：直接读 SQLite 填充当前目录（日历视图由 CalendarPanel 自行驱动，跳过）
+      if (rootState?.client?.sidebarTreeType !== 'calendar') {
+        const categoryNotes = parseLocalTagId(restoredCategory)
+          ? await getOfflineTagNotes(restoredCategory)
+          : await getOfflineNotesByCategory(restoredCategory)
+        commit(types.UPDATE_CURRENT_NOTES, categoryNotes)
+      }
+
+      // 标签树：本地有标签就先显示（登录后 getAllTags 会用云端结果覆盖）
+      try {
+        const { tags: localTags, countMap } = await getOfflineTagsWithCounts(state.currentNote?.info?.docGuid)
+        if (Array.isArray(localTags) && localTags.length > 0) {
+          commit(types.UPDATE_ALL_TAGS, localTags)
+          commit(types.UPDATE_TAG_NOTES_COUNT, countMap)
+        }
+      } catch (tagErr) {
+        console.warn('[loadLocalData] local tags load failed:', tagErr)
       }
 
       return localNotes || []
@@ -749,7 +779,8 @@ export default {
       return
     }
 
-    // 已登录：合并本地 + 云端笔记
+    // 已登录：先把 SQLite 里的本地笔记提交上去（立刻可见），再用云端结果合并覆盖
+    commit(types.UPDATE_CURRENT_NOTES, localNotes)
     commit(types.UPDATE_CURRENT_NOTES_LOADING_STATE, true)
     try {
       const result = await api.KnowledgeBaseApi.getCategoryNotes({
