@@ -72,6 +72,27 @@
         <div class='text-caption text-grey-6 q-mt-xs'>{{ $t('aiAutoTagEmptyHint') }}</div>
       </div>
       <div v-else class='ai-auto-tag-pager'>
+        <!-- 分页条放在卡片条上方：面板纵向空间紧张时它也不会被挤到可视区外，
+             滚轮 / 触摸板横向滑动，也可以点箭头 -->
+        <div class='ai-auto-tag-pager-bar'>
+          <q-btn dense flat round size='sm' icon='chevron_left' color='yellow-9'
+            :disable='activeIndex <= 0' @click='scrollToIndex(activeIndex - 1)'>
+            <q-tooltip>{{ $t('aiAutoTagPrev') }}</q-tooltip>
+          </q-btn>
+          <div class='text-caption text-grey-7 ai-auto-tag-pager-index'>
+            {{ $t('aiAutoTagPager', { index: activeIndex + 1, total: visibleNotes.length }) }}
+          </div>
+          <q-btn dense flat round size='sm' icon='chevron_right' color='yellow-9'
+            :disable='activeIndex >= visibleNotes.length - 1' @click='scrollToIndex(activeIndex + 1)'>
+            <q-tooltip>{{ $t('aiAutoTagNext') }}</q-tooltip>
+          </q-btn>
+          <q-space />
+          <q-btn v-if='notes.length > visibleLimit' dense flat no-caps size='sm' color='yellow-9'
+            icon='expand_more'
+            :label="$t('aiAutoTagLoadMore', { count: notes.length - visibleLimit })"
+            @click='visibleLimit += PAGE_SIZE' />
+        </div>
+
         <!-- 横向单卡分页：一张卡占满一列（100% 宽），左右滚动切换，不做多列换行，
              这样卡片宽高完全一致，不会再出现「被挤宽 / 宽度参差」的错位。 -->
         <div ref='autoTagList' class='ai-auto-tag-list' @scroll.passive='onListScroll' @wheel='onListWheel'>
@@ -127,26 +148,6 @@
               </div>
             </q-card-section>
           </q-card>
-        </div>
-
-        <!-- 分页条：滚轮 / 触摸板横向滑动，也可以点箭头 -->
-        <div class='ai-auto-tag-pager-bar'>
-          <q-btn dense flat round size='sm' icon='chevron_left' color='yellow-9'
-            :disable='activeIndex <= 0' @click='scrollToIndex(activeIndex - 1)'>
-            <q-tooltip>{{ $t('aiAutoTagPrev') }}</q-tooltip>
-          </q-btn>
-          <div class='text-caption text-grey-7 ai-auto-tag-pager-index'>
-            {{ $t('aiAutoTagPager', { index: activeIndex + 1, total: visibleNotes.length }) }}
-          </div>
-          <q-btn dense flat round size='sm' icon='chevron_right' color='yellow-9'
-            :disable='activeIndex >= visibleNotes.length - 1' @click='scrollToIndex(activeIndex + 1)'>
-            <q-tooltip>{{ $t('aiAutoTagNext') }}</q-tooltip>
-          </q-btn>
-          <q-space />
-          <q-btn v-if='notes.length > visibleLimit' dense flat no-caps size='sm' color='yellow-9'
-            icon='expand_more'
-            :label="$t('aiAutoTagLoadMore', { count: notes.length - visibleLimit })"
-            @click='visibleLimit += PAGE_SIZE' />
         </div>
       </div>
     </SettingsSectionContent>
@@ -262,6 +263,16 @@ export default {
         if (value) this.ensureLoaded()
       }
     }
+  },
+  created () {
+    // 非响应式的翻页节流 / 动画标记（不参与渲染）
+    this._wheelLocked = false
+    this._scrollAnimating = false
+    this._scrollAnimTimer = null
+  },
+  beforeDestroy () {
+    clearTimeout(this._scrollAnimTimer)
+    this._scrollAnimTimer = null
   },
   methods: {
     ...mapServerActions(['createTag', 'getAllTags']),
@@ -421,6 +432,9 @@ export default {
     },
 
     onListScroll () {
+      // 平滑翻页动画期间由 scrollToIndex 自己维护 activeIndex，
+      // 否则中间帧会把页码刷成 2、3、4…，视觉上像在乱跳。
+      if (this._scrollAnimating) return
       const el = this.getListEl()
       if (!el) return
       const offsets = this.getCardOffsets(el)
@@ -439,19 +453,27 @@ export default {
     },
 
     /**
-     * 桌面端主要用滚轮：把纵向滚动转成横向翻页。
-     * 只在卡片条还能继续翻的时候拦截，翻到头就放行，避免卡住设置面板本身的纵向滚动。
+     * 桌面端主要用滚轮：纵向滚动一次 = 翻一张卡（受控翻页，不做自由拖拽）。
+     * - 触摸板的横向滑动（|deltaX| > |deltaY|）交给浏览器原生处理
+     * - 翻到头就放行，避免把设置面板本身的纵向滚动卡住
+     * - 320ms 节流，防止一次滑动连翻好几张
      */
     onListWheel (event) {
       const el = this.getListEl()
       if (!el) return
-      const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY
-      if (!delta) return
-      const atStart = el.scrollLeft <= 0
+      if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) return
+      if (Math.abs(event.deltaY) < 2) return
+
+      const direction = event.deltaY > 0 ? 1 : -1
+      const atStart = el.scrollLeft <= 1
       const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 1
-      if ((delta > 0 && atEnd) || (delta < 0 && atStart)) return
+      if ((direction > 0 && atEnd) || (direction < 0 && atStart)) return
+
       event.preventDefault()
-      el.scrollLeft += delta
+      if (this._wheelLocked) return
+      this._wheelLocked = true
+      this.scrollToIndex(this.activeIndex + direction)
+      setTimeout(() => { this._wheelLocked = false }, 320)
     },
 
     scrollToIndex (index) {
@@ -463,6 +485,7 @@ export default {
       const offsets = this.getCardOffsets(el)
       if (!offsets.length) return
       const left = offsets[Math.min(target, offsets.length - 1)] || 0
+      this.markScrollAnimating()
       if (typeof el.scrollTo === 'function') {
         el.scrollTo({ left, behavior: 'smooth' })
       } else {
@@ -470,8 +493,20 @@ export default {
       }
     },
 
+    // 平滑滚动期间先不响应 scroll 事件，避免页码在中间帧来回跳
+    markScrollAnimating () {
+      this._scrollAnimating = true
+      clearTimeout(this._scrollAnimTimer)
+      this._scrollAnimTimer = setTimeout(() => {
+        this._scrollAnimating = false
+        this.onListScroll()
+      }, 420)
+    },
+
     resetListScroll () {
       const el = this.getListEl()
+      this._scrollAnimating = false
+      clearTimeout(this._scrollAnimTimer)
       if (el) el.scrollLeft = 0
       this.activeIndex = 0
     },
@@ -748,8 +783,10 @@ export default {
   column-gap: 8px;
   overflow-x: auto;
   overflow-y: hidden;
-  scroll-snap-type: x mandatory;
-  scroll-behavior: smooth;
+  /* 用 proximity 而不是 mandatory：mandatory 会在滚轮增量还不到半张卡时把位置吸回去，
+     和「一次滚轮翻一张」的受控翻页打架。programmatic 的平滑滚动由 scrollToIndex 指定。 */
+  scroll-snap-type: x proximity;
+  overscroll-behavior-x: contain;
   padding: 2px 0 4px 0;
   min-height: 92px;
   scrollbar-width: thin;

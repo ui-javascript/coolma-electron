@@ -413,3 +413,146 @@ describe('打标面板 — applyRow（复用已有标签 / 新建）', () => {
     expect(ctx.mutations.update_current_note_tags).not.toHaveBeenCalled()
   })
 })
+
+// ---------------------------------------------------------------------------
+// 横向单卡分页：一列一张卡，滚轮/箭头翻页
+// ---------------------------------------------------------------------------
+const CARD_WIDTH = 387
+const CARD_GAP = 8
+const CARD_STEP = CARD_WIDTH + CARD_GAP
+
+function makeFakeList (cardCount = 3) {
+  const cards = Array.from({ length: cardCount }, (_, i) => ({
+    offsetLeft: i * CARD_STEP,
+    offsetWidth: CARD_WIDTH
+  }))
+  const list = {
+    nodeType: 1,
+    children: cards,
+    clientWidth: CARD_WIDTH,
+    scrollWidth: (cardCount - 1) * CARD_STEP + CARD_WIDTH,
+    scrollLeft: 0,
+    scrollTo: jest.fn(({ left }) => { list.scrollLeft = left })
+  }
+  return list
+}
+
+function makeWheel (deltaY, deltaX = 0) {
+  const event = { deltaY, deltaX, preventDefault: jest.fn() }
+  return event
+}
+
+describe('打标面板 — 横向分页（一列一张）', () => {
+  async function setup (cardCount = 3) {
+    seedUntaggedNotes()
+    const ctx = createContext()
+    const wrapper = mountPanel(ctx)
+    // 先等候选真正加载完（loadCandidates 结束时会 resetListScroll），再注入假 DOM
+    await flushPromises()
+    const list = makeFakeList(cardCount)
+    wrapper.vm.$refs.autoTagList = list
+    const extra = Array.from({ length: Math.max(cardCount - wrapper.vm.notes.length, 0) }, (_, i) => ({
+      id: 200 + i, title: `补 ${i}`, category: '/', preview: '', selected: true, names: [], reusedNames: [], status: 'idle', error: ''
+    }))
+    wrapper.vm.notes = [...wrapper.vm.notes, ...extra]
+    wrapper.vm.visibleLimit = 50
+    return { wrapper, list, ctx }
+  }
+
+  test('scrollToIndex 按卡片真实偏移滚动，并夹在 0..last 之间', async () => {
+    const { wrapper, list } = await setup(3)
+
+    wrapper.vm.scrollToIndex(2)
+    expect(wrapper.vm.activeIndex).toBe(2)
+    expect(list.scrollTo).toHaveBeenLastCalledWith({ left: 2 * CARD_STEP, behavior: 'smooth' })
+
+    wrapper.vm.scrollToIndex(99)
+    expect(wrapper.vm.activeIndex).toBe(2)
+    expect(list.scrollTo).toHaveBeenLastCalledWith({ left: 2 * CARD_STEP, behavior: 'smooth' })
+
+    wrapper.vm.scrollToIndex(-5)
+    expect(wrapper.vm.activeIndex).toBe(0)
+    expect(list.scrollTo).toHaveBeenLastCalledWith({ left: 0, behavior: 'smooth' })
+  })
+
+  test('onListScroll 按最近卡片反推当前页码', async () => {
+    const { wrapper, list } = await setup(3)
+
+    list.scrollLeft = 0
+    wrapper.vm.onListScroll()
+    expect(wrapper.vm.activeIndex).toBe(0)
+
+    list.scrollLeft = CARD_STEP
+    wrapper.vm.onListScroll()
+    expect(wrapper.vm.activeIndex).toBe(1)
+
+    list.scrollLeft = 2 * CARD_STEP - 30 // 接近第三张
+    wrapper.vm.onListScroll()
+    expect(wrapper.vm.activeIndex).toBe(2)
+  })
+
+  test('平滑滚动动画期间忽略 scroll 事件，避免页码乱跳', async () => {
+    const { wrapper, list } = await setup(3)
+    jest.useFakeTimers()
+    try {
+      wrapper.vm.scrollToIndex(2)
+      expect(wrapper.vm.activeIndex).toBe(2)
+
+      // 动画中间帧：scrollLeft 还在第 0 张附近
+      list.scrollLeft = 0
+      wrapper.vm.onListScroll()
+      expect(wrapper.vm.activeIndex).toBe(2)
+
+      // 动画结束后恢复响应
+      jest.advanceTimersByTime(500)
+      wrapper.vm.onListScroll()
+      expect(wrapper.vm.activeIndex).toBe(0)
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
+  test('一次滚轮 = 翻一张；到头后不再拦截，避免卡住面板纵向滚动', async () => {
+    const { wrapper, list } = await setup(3)
+    jest.useFakeTimers()
+    try {
+      const first = makeWheel(120)
+      wrapper.vm.onListWheel(first)
+      expect(first.preventDefault).toHaveBeenCalled()
+      expect(wrapper.vm.activeIndex).toBe(1)
+      expect(list.scrollTo).toHaveBeenLastCalledWith({ left: CARD_STEP, behavior: 'smooth' })
+
+      // 节流窗口内的第二次滚轮不翻页
+      wrapper.vm.onListWheel(makeWheel(120))
+      expect(wrapper.vm.activeIndex).toBe(1)
+      jest.advanceTimersByTime(400)
+
+      // 翻到最后一张后，继续向下滚应放行（不 preventDefault）
+      wrapper.vm.scrollToIndex(2)
+      list.scrollLeft = 2 * CARD_STEP
+      const atEnd = makeWheel(120)
+      wrapper.vm.onListWheel(atEnd)
+      expect(atEnd.preventDefault).not.toHaveBeenCalled()
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
+  test('触摸板横向滑动（|deltaX|>|deltaY|）交给浏览器原生处理', async () => {
+    const { wrapper } = await setup(3)
+    const event = makeWheel(8, 90)
+    wrapper.vm.onListWheel(event)
+    expect(event.preventDefault).not.toHaveBeenCalled()
+    expect(wrapper.vm.activeIndex).toBe(0)
+  })
+
+  test('resetListScroll 回到第一张', async () => {
+    const { wrapper, list } = await setup(3)
+    wrapper.vm.activeIndex = 2
+    list.scrollLeft = 2 * CARD_STEP
+
+    wrapper.vm.resetListScroll()
+    expect(list.scrollLeft).toBe(0)
+    expect(wrapper.vm.activeIndex).toBe(0)
+  })
+})
