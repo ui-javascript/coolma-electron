@@ -16,6 +16,8 @@ export default {
   rememberPassword: 'Remember Password',
   autoLogin: 'Auto Login',
   quit: 'Quit',
+  quitAppTitle: 'Close coolma',
+  quitAppMessage: 'Closing quits the app — it will not keep running in the background. Close anyway?',
   general: 'General',
   editor: 'Editor',
   server: 'Server',

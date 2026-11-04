@@ -22,6 +22,71 @@
   background: transparent;
 }
 
+/* =========================================================
+ * Windows 无边框窗口：窗口边缘安全区
+ * frame:false + resizable 时，系统在窗口四周保留 ~8px 的 resize 热区
+ * （四角更大，随 DPI 缩放），它位于渲染层之上，CSS 无法覆盖。
+ * 这里统一让可交互内容从边缘退开，贴边的滚动条 / 抽屉关闭按钮
+ * 才不会被“拖窗口”抢走点击。最大化时窗口贴屏幕边，不需要让位。
+ * ========================================================= */
+:root {
+  --win-edge-safe: 0px;
+}
+body.win-frameless {
+  --win-edge-safe: 8px;
+}
+body.win-frameless.is-maximized {
+  --win-edge-safe: 0px;
+}
+
+/* 笔记内容区滚动条：从窗口右边缘退进安全区 */
+#muya.editor-component {
+  margin-right: calc(5px + var(--win-edge-safe)) !important;
+}
+/* 让位后的底色与编辑区保持一致，避免出现色缝 */
+.editor-stage {
+  background-color: var(--editorBgColor, transparent);
+}
+
+/* 右侧 Quasar 抽屉：整体内缩为悬浮面板 */
+body.win-frameless .ai-chat-container,
+body.win-frameless .im-drawer-container {
+  margin: var(--win-edge-safe) var(--win-edge-safe) var(--win-edge-safe) 0;
+  border-radius: 10px;
+}
+
+/* 自定义（Element UI）抽屉：右侧同样让位，右上角关闭离开窗口角落 */
+body.win-frameless .el-drawer.rtl {
+  margin-right: var(--win-edge-safe);
+  border-radius: 10px 0 0 10px;
+}
+
+/* =========================================================
+ * Quasar v1 的 QDrawer 在 no-swipe-open 未开启时，会在窗口右缘渲染一条
+ * 15px 宽、全高的隐形感应条 .q-drawer__opener（pointer-events: auto,
+ * z-index 2001），用于“从边缘滑动打开抽屉”。桌面端它正好压住笔记内容区
+ * 的滚动条，而且它继承了标题栏的 -webkit-app-region: drag，在边缘拖拽
+ * 会变成拖窗口。这里只在非触屏环境隐藏，触屏设备保留滑动手势。
+ * ========================================================= */
+body.no-touch .q-drawer__opener {
+  display: none !important;
+}
+/* =========================================================
+ * Quasar v1 的 .q-electron-drag 会被子元素继承（-webkit-app-region 可继承），
+ * 而 Quasar 只给 .q-btn-item 自动补 no-drag。于是抽屉/弹层里的自定义控件
+ * （Element UI 的关闭按钮、微应用的标签页等）会成为窗口拖拽区：
+ * 点关闭 / 切标签会变成拖窗口（最大化时还会把窗口“拉”回普通尺寸）。
+ * 这里统一把浮层排除出拖拽区，标题栏空白处的拖拽不受影响。
+ * ========================================================= */
+.q-drawer,
+.q-dialog,
+.el-drawer,
+.el-dialog,
+.el-drawer__wrapper,
+.el-dialog__wrapper,
+.v--modal-overlay {
+  -webkit-app-region: no-drag;
+}
 div {
   outline-color: transparent;
 }

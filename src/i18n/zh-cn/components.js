@@ -15,6 +15,8 @@ export default {
   rememberPassword: '记住密码',
   autoLogin: '自动登录',
   quit: '退出',
+  quitAppTitle: '关闭 coolma',
+  quitAppMessage: '关闭会退出程序，不会隐藏到后台继续运行。确定关闭吗？',
   general: '通用',
   editor: '编辑器',
   server: '云服务',

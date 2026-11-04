@@ -56,6 +56,7 @@ export default {
     ...mapServerState(['isLogin'])
   },
   async mounted () {
+    this.initWindowEdgeSafe()
     startBusDialogs()
     RegisterErrorHandler()
     RegisterScheduleJobs(this)
@@ -77,6 +78,33 @@ export default {
     })
   },
   methods: {
+    /**
+     * Windows 无边框窗口（frame:false）的窗口边缘有一圈系统级 resize 热区
+     * （约 8px，四角更大，且随 DPI 缩放）。它位于渲染层之上，CSS 无法覆盖，
+     * 贴边的滚动条/抽屉关闭按钮会被它抢走点击。这里给 body 打标记，
+     * 由 CSS 通过 --win-edge-safe 把可交互内容从边缘让开（见 style.css）。
+     * 最大化时窗口贴屏幕边，无需让位，设为 0。
+     */
+    initWindowEdgeSafe () {
+      if (process.platform !== 'win32') return
+      document.body.classList.add('win-frameless')
+
+      if (window.__coolmaWinEdgeSafeBound) return
+      window.__coolmaWinEdgeSafeBound = true
+
+      try {
+        const { ipcRenderer } = require('electron')
+        ipcRenderer.invoke('window-is-maximized').then((maximized) => {
+          document.body.classList.toggle('is-maximized', !!maximized)
+        })
+        ipcRenderer.on('window-maximized', (_, maximized) => {
+          document.body.classList.toggle('is-maximized', !!maximized)
+        })
+      } catch (err) {
+        console.warn('[App] initWindowEdgeSafe failed:', err)
+      }
+    },
+
     // 显示离线笔记同步提示对话框
     showOfflineSyncPrompt (offlineNotes) {
       if (this.$refs.offlineSyncDialog) {

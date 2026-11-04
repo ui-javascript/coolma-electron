@@ -1,0 +1,13 @@
+---
+description: Commit message must be written in Chinese
+alwaysApply: true
+---
+
+# 提交信息必须使用中文
+
+- 所有 `git commit` 提交信息一律使用**中文**（标题与正文）。
+- 允许保留 Conventional Commits 类型前缀（`feat` / `fix` / `chore` / `docs` / `refactor` / `perf` / `test` / `build` / `ci` / `style`），其后描述必须是中文。
+- 禁止纯英文标题，禁止 `small` / `adjust` / `update` 这类无信息量标题。
+- 需要正文时用中文写明动机与影响面。
+
+示例：`feat(同步): 实现云端同步策略并更新相关组件`

@@ -44,6 +44,11 @@ let noteTemplateService = null
 let db = null
 let dbPath = null
 
+// app_state 表中 microApps 列表的存储 key。
+// 必须放在模块作用域：registerDatabaseHandlers 里的读写 IPC 与
+// app.on('ready') 启动时 applyAll 的业务内置 migration 共用同一个常量。
+const MICRO_APPS_KEY = 'setting/microApps'
+
 const AI_MODEL_PROVIDER_OPENAI_COMPATIBLE = 'openai-compatible'
 const AI_MODEL_PROVIDER_PORTKEY = 'portkey'
 
@@ -2511,8 +2516,6 @@ function registerDatabaseHandlers() {
   })
 
   // 微应用（聊天弹框内的 wujie 子应用）持久化
-  const MICRO_APPS_KEY = 'setting/microApps'
-
   ipcMain.handle('db:getMicroApps', async () => {
     try {
       const row = execOne('SELECT value FROM app_state WHERE key = ?', [MICRO_APPS_KEY])
@@ -3905,6 +3908,16 @@ function createWindow () {
     }
   })
   ipcMain.on('window-close', () => mainWindow.close())
+  // 标题栏「关闭」经二次确认后走这里：真正退出进程，
+  // 绕过上面的 close 事件里“隐藏到后台”的逻辑（该逻辑保留给系统快捷键等其它关闭路径）。
+  ipcMain.on('window-quit', () => {
+    forceQuit = true
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.close()
+    } else {
+      app.quit()
+    }
+  })
   ipcMain.handle('window-is-maximized', () => mainWindow.isMaximized())
 
   mainWindow.on('maximize', () => mainWindow.webContents.send('window-maximized', true))

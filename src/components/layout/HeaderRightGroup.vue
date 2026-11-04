@@ -129,10 +129,26 @@
     </div>
 
     <!-- 窗口控制按钮 (Windows) -->
-    <div v-if="!$q.platform.is.mac" class="header-window-controls">
-      <q-btn dense flat icon="minimize" @click="minimize" />
-      <q-btn dense flat :icon="isMaximized ? 'open_in_full' : 'crop_square'" @click="maximize" />
-      <q-btn dense flat icon="close" class="close-button" @click="closeApp" />
+    <div v-if="!$q.platform.is.mac" class="header-window-controls q-electron-drag--exception">
+      <div class="header-icon-btn window-control-btn" @click="minimize">
+        <svg class="icon-custom window-control-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4.5 12h15" />
+        </svg>
+      </div>
+      <div class="header-icon-btn window-control-btn" @click="maximize">
+        <svg v-if="!isMaximized" class="icon-custom window-control-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="4.5" y="4.5" width="15" height="15" rx="1.4" />
+        </svg>
+        <svg v-else class="icon-custom window-control-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M8.25 4.5H19.5V15.75" />
+          <rect x="4.5" y="8.25" width="11.25" height="11.25" rx="1.2" />
+        </svg>
+      </div>
+      <div class="header-icon-btn window-control-btn window-control-btn--close" @click="closeApp">
+        <svg class="icon-custom window-control-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4.5 4.5l15 15M19.5 4.5l-15 15" />
+        </svg>
+      </div>
     </div>
   </div>
 </template>
@@ -222,8 +238,17 @@ export default {
       ipcRenderer.send('window-maximize')
     },
     closeApp () {
-      const { ipcRenderer } = require('electron')
-      ipcRenderer.send('window-close')
+      // 标题栏的「关闭」= 退出程序，而不是隐藏到后台。
+      // 二次确认，避免用户以为是“收起到托盘”。
+      this.$q.dialog({
+        title: this.$t('quitAppTitle'),
+        message: this.$t('quitAppMessage'),
+        cancel: { label: this.$t('cancel') },
+        ok: { label: this.$t('quit'), color: 'negative' }
+      }).onOk(() => {
+        const { ipcRenderer } = require('electron')
+        ipcRenderer.send('window-quit')
+      })
     },
 
     // ==================== 视图切换 ====================
@@ -512,6 +537,36 @@ export default {
   margin-left: 8px;
   display: flex;
   align-items: center;
+}
+
+/* 窗口控制: 与右侧其它图标统一的 18px 线稿风格 */
+.window-control-btn {
+  padding: 0 9px;
+  border-radius: 6px;
+}
+
+.window-control-btn + .window-control-btn {
+  margin-left: 2px;
+}
+
+.window-control-icon {
+  width: 18px;
+  height: 18px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* 关闭按钮保留 destructive 语义的红色悬浮 */
+.window-control-btn--close:hover {
+  background-color: rgba(255, 105, 105, 0.12);
+}
+
+.window-control-btn--close:hover .window-control-icon {
+  color: var(--deleteColor);
 }
 
 .el-dropdown-menu {
