@@ -38,9 +38,8 @@ export default function () {
     autoSaveGap: 0,
     quickInsertColumns: 6,
     splitterWidth: 580,
+    // 左侧工作区模式：category（Idx神引/文件夹，默认）/ tag（Core超脱/Tag）/ calendar（Arch终极/日历）
     sidebarTreeType: 'category',
-    noteMethod: 'notesSixDaoLun',
-    noteMethodPrefix: 'Course',
     calendarSelectedDate: '',
     calendarDateBasis: DEFAULT_CALENDAR_DATE_BASIS,
     leftInnerSplitterRatio: 280,

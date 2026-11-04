@@ -719,12 +719,12 @@ export default {
 }
 
 .ai-demo-apply-link:hover:not(:disabled) {
-  color: #409eff;
-  background-color: rgba(64, 158, 255, 0.08);
+  color: var(--themeColor);
+  background-color: var(--themeColor10);
 }
 
 .ai-demo-apply-link:active:not(:disabled) {
-  background-color: rgba(64, 158, 255, 0.14);
+  background-color: var(--themeColor20);
 }
 
 .ai-demo-apply-link:focus-visible {

@@ -49,10 +49,15 @@ const EditorSubEnum = Enum({
 })
 
 // ---------- AI ----------
+// v2026-11-04 新增两个子 tab：
+//   AutoTag（打标）：用默认 AI 模型批量给「没有标签」的笔记追加标签，优先复用已有标签。
+//   Tags（标签）：标签维护（新建 / 重命名 / 删除 / 清理未使用），复用 server 端标签 action。
 const AiSubEnum = Enum({
   Entry: { value: 'entry', label: 'aiEntry', icon: 'auto_awesome' },
   Model: { value: 'model', label: 'aiModel', icon: 'smart_toy' },
-  Skill: { value: 'skill', label: 'aiSkill', icon: 'auto_fix_high' }
+  Skill: { value: 'skill', label: 'aiSkill', icon: 'auto_fix_high' },
+  AutoTag: { value: 'autoTag', label: 'aiAutoTag', icon: 'sell' },
+  Tags: { value: 'tags', label: 'aiTags', icon: 'bookmarks' }
 })
 
 // ---------- 云服务 ----------

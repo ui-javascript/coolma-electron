@@ -30,6 +30,7 @@
     "verify:parsing": "jest --colors=false tests/unit/parsing",
     "verify:bus-dialog": "jest --colors=false tests/unit/common/busDialogRegistry.test.js tests/unit/common/busDialogLayerHost.test.js",
     "verify:smoke": "jest --colors=false tests/smoke",
+    "theme:element": "node scripts/generate-element-theme.js",
     "postinstall": "patch-package",
     "plugin:muya:register": "cd _plugins/coolma-muya && yarn link",
     "plugin:muya:install-deps": "cd _plugins/coolma-muya && yarn install --ignore-engines",

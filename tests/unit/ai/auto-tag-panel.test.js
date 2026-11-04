@@ -1,0 +1,415 @@
+// ============================================================================
+// tests/unit/ai/auto-tag-panel.test.js
+//
+// 「设置 → AI → 打标」面板的挂载与主流程回归：
+//   1) active=true 时能懒加载出「无标签笔记」候选
+//   2) runTagging：按勾选逐篇调 AI，结果落到 row.names / status=ready
+//   3) applyRow：命中已有标签 → 复用；没命中 → 建新标签；写回笔记并刷新标签树
+//   4) 被打标的正好是编辑器当前笔记时，同步 vuex 里的 info.tags
+// ============================================================================
+
+jest.mock('src/utils/DatabaseClient', () => {
+  const state = { notes: new Map(), attached: [], localTags: [] }
+  return {
+    __esModule: true,
+    default: {
+      notes: {
+        getById: jest.fn(async id => state.notes.get(id) || null),
+        getAllLite: jest.fn(async () => Array.from(state.notes.values())),
+        update: jest.fn(async (id, updates) => {
+          const next = { ...(state.notes.get(id) || {}), ...updates }
+          state.notes.set(id, next)
+          return next
+        })
+      },
+      tags: {
+        getAll: jest.fn(async () => state.localTags),
+        attachToNote: jest.fn(async (noteId, tagId) => {
+          state.attached.push({ noteId, tagId })
+          return true
+        }),
+        cleanupUnused: jest.fn(async () => ({ success: true, removed: [] }))
+      },
+      __state: state
+    }
+  }
+})
+
+jest.mock('src/services/AiTagService', () => ({
+  __esModule: true,
+  default: {
+    getDefaultModelStatus: jest.fn(),
+    suggestTags: jest.fn()
+  }
+}))
+
+const path = require('path')
+const { mount, createLocalVue } = require('@vue/test-utils')
+const Vuex = require('vuex')
+
+const DatabaseClient = require('src/utils/DatabaseClient.js').default
+const AiTagService = require('src/services/AiTagService.js').default
+const SettingsAiAutoTagPanel = require(path.resolve(
+  __dirname,
+  '../../../src/components/settings/SettingsAiAutoTagPanel.vue'
+)).default
+
+const { __state: dbState } = DatabaseClient
+
+const flushPromises = () => new Promise(resolve => setTimeout(resolve, 0))
+
+const Passthrough = { template: '<div><slot /></div>' }
+const QUASAR_TAGS = [
+  'q-btn', 'q-icon', 'q-input', 'q-checkbox', 'q-space', 'q-linear-progress',
+  'q-spinner', 'q-card', 'q-card-section', 'q-badge', 'q-select', 'q-item',
+  'q-item-section', 'q-separator'
+]
+
+function createContext ({ currentNote = {}, isLogin = false, tags = [{ name: '读书', tagGuid: 'local_tag_1' }] } = {}) {
+  const localVue = createLocalVue()
+  localVue.use(Vuex)
+  QUASAR_TAGS.forEach(tag => localVue.component(tag, Passthrough))
+
+  const actions = {
+    getAllTags: jest.fn(async () => []),
+    createTag: jest.fn(async (ctx, { name }) => ({ id: 9, name, tagGuid: 'local_tag_9' }))
+  }
+  const mutations = { update_current_note_tags: jest.fn() }
+
+  const store = new Vuex.Store({
+    modules: {
+      server: {
+        namespaced: true,
+        state: {
+          tags,
+          isLogin,
+          kbGuid: isLogin ? 'kb-1' : '',
+          currentNote,
+          tagNotesCount: {}
+        },
+        actions,
+        mutations
+      }
+    }
+  })
+
+  const mocks = {
+    $t: key => key,
+    $q: { notify: jest.fn(), dialog: jest.fn() }
+  }
+
+  return { localVue, store, actions, mutations, mocks }
+}
+
+function seedUntaggedNotes () {
+  dbState.notes.set(11, {
+    id: 11,
+    doc_guid: 'local_11',
+    title: '第一篇',
+    category: '/My Notes/',
+    content: '第一篇正文',
+    tags: '',
+    data_modified: 200
+  })
+  dbState.notes.set(12, {
+    id: 12,
+    doc_guid: 'local_12',
+    title: '第二篇',
+    category: '/My Notes/',
+    content: '第二篇正文',
+    tags: '',
+    data_modified: 100
+  })
+}
+
+function mountPanel (ctx, propsData = {}) {
+  return mount(SettingsAiAutoTagPanel, {
+    localVue: ctx.localVue,
+    store: ctx.store,
+    propsData: { active: true, ...propsData },
+    mocks: ctx.mocks
+  })
+}
+
+beforeAll(() => {
+  jest.spyOn(console, 'warn').mockImplementation(() => {})
+  jest.spyOn(console, 'error').mockImplementation(() => {})
+  jest.spyOn(console, 'log').mockImplementation(() => {})
+})
+
+beforeEach(() => {
+  dbState.notes.clear()
+  dbState.attached.length = 0
+  dbState.localTags = [{ id: 1, name: '读书', tagGuid: 'local_tag_1' }]
+  DatabaseClient.notes.update.mockClear()
+  DatabaseClient.tags.attachToNote.mockClear()
+
+  AiTagService.getDefaultModelStatus.mockReset()
+  AiTagService.getDefaultModelStatus.mockResolvedValue({
+    config: { model: 'test-model' }, usable: true, model: 'test-model', name: '测试模型', missingFields: []
+  })
+  AiTagService.suggestTags.mockReset()
+  AiTagService.suggestTags.mockResolvedValue({ names: ['读书', '新标签'], raw: '[]', model: 'test-model', usage: null })
+})
+
+describe('打标面板 — 挂载与候选列表', () => {
+  test('active=true 时懒加载无标签笔记', async () => {
+    seedUntaggedNotes()
+    const ctx = createContext()
+    const wrapper = mountPanel(ctx)
+    await flushPromises()
+
+    expect(wrapper.vm.notes.map(row => row.id)).toEqual([11, 12])
+    expect(wrapper.vm.notes[0].selected).toBe(true)
+    expect(wrapper.vm.modelUsable).toBe(true)
+    expect(wrapper.vm.tagNameOptions).toEqual(['读书'])
+    expect(wrapper.vm.visibleNotes).toHaveLength(2)
+    expect(wrapper.vm.canGenerate).toBe(true)
+  })
+
+  test('active=false 时不查库（懒加载）', async () => {
+    seedUntaggedNotes()
+    const ctx = createContext()
+    mountPanel(ctx, { active: false })
+    await flushPromises()
+    expect(AiTagService.getDefaultModelStatus).not.toHaveBeenCalled()
+  })
+
+  test('没有可用默认模型时 canGenerate=false', async () => {
+    seedUntaggedNotes()
+    AiTagService.getDefaultModelStatus.mockResolvedValue({
+      config: null, usable: false, model: '', name: '', missingFields: []
+    })
+    const ctx = createContext()
+    const wrapper = mountPanel(ctx)
+    await flushPromises()
+
+    expect(wrapper.vm.modelUsable).toBe(false)
+    expect(wrapper.vm.canGenerate).toBe(false)
+  })
+
+  test('登录态只用云端标签做复用池（避免把 local_tag_* 推到云端）', async () => {
+    seedUntaggedNotes()
+    dbState.localTags = [{ id: 1, name: '本地标签', tagGuid: 'local_tag_1' }]
+    const ctx = createContext({
+      isLogin: true,
+      tags: [{ name: '云端标签', tagGuid: 'cloud-guid-1' }]
+    })
+    const wrapper = mountPanel(ctx)
+    await flushPromises()
+
+    expect(wrapper.vm.cloudMode).toBe(true)
+    expect(wrapper.vm.tagNameOptions).toEqual(['云端标签'])
+  })
+
+  test('离线态把本地标签并入复用池', async () => {
+    seedUntaggedNotes()
+    dbState.localTags = [{ id: 1, name: '本地标签', tagGuid: 'local_tag_1' }]
+    const ctx = createContext({ isLogin: false, tags: [] })
+    const wrapper = mountPanel(ctx)
+    await flushPromises()
+
+    expect(wrapper.vm.cloudMode).toBe(false)
+    expect(wrapper.vm.tagNameOptions).toEqual(['本地标签'])
+  })
+})
+
+describe('打标面板 — runTagging', () => {
+  test('按勾选逐篇生成，结果写入 row.names 且状态为 ready', async () => {
+    seedUntaggedNotes()
+    const ctx = createContext()
+    const wrapper = mountPanel(ctx)
+    await flushPromises()
+
+    // 取消第二篇，只跑第一篇
+    wrapper.vm.notes[1].selected = false
+    await wrapper.vm.runTagging()
+
+    expect(AiTagService.suggestTags).toHaveBeenCalledTimes(1)
+    expect(wrapper.vm.notes[0].status).toBe('ready')
+    expect(wrapper.vm.notes[0].names).toEqual(['读书', '新标签'])
+    expect(wrapper.vm.notes[0].reusedNames).toEqual(['读书'])
+    expect(wrapper.vm.notes[1].status).toBe('idle')
+    expect(wrapper.vm.progress).toMatchObject({ done: 1, total: 1 })
+  })
+
+  test('AI 抛错时该行标记 failed 并带错误文案，其余行继续', async () => {
+    seedUntaggedNotes()
+    const ctx = createContext()
+    const wrapper = mountPanel(ctx)
+    await flushPromises()
+
+    // 串行跑，保证「第一篇失败、第二篇成功」的断言顺序稳定
+    wrapper.vm.runConcurrency = 1
+    AiTagService.suggestTags
+      .mockRejectedValueOnce(Object.assign(new Error('boom'), { code: 'AI_TAG_NO_DEFAULT_CONFIG' }))
+      .mockResolvedValueOnce({ names: ['读书'], raw: '', model: 'm', usage: null })
+
+    await wrapper.vm.runTagging()
+
+    expect(wrapper.vm.notes[0].status).toBe('failed')
+    expect(wrapper.vm.notes[0].error).toBe('aiAutoTagNoConfig')
+    expect(wrapper.vm.notes[1].status).toBe('ready')
+  })
+
+  test('没有勾选任何笔记时不发请求', async () => {
+    seedUntaggedNotes()
+    const ctx = createContext()
+    const wrapper = mountPanel(ctx)
+    await flushPromises()
+
+    wrapper.vm.toggleSelectAll(false)
+    await wrapper.vm.runTagging()
+
+    expect(AiTagService.suggestTags).not.toHaveBeenCalled()
+    expect(ctx.mocks.$q.notify).toHaveBeenCalled()
+  })
+
+  test('sanitizeNames 限制每篇标签数', async () => {
+    seedUntaggedNotes()
+    const ctx = createContext()
+    const wrapper = mountPanel(ctx)
+    await flushPromises()
+
+    wrapper.vm.maxTagsPerNote = 1
+    AiTagService.suggestTags.mockResolvedValue({ names: ['A', 'B', 'C'], raw: '', model: 'm', usage: null })
+    await wrapper.vm.runTagging()
+
+    expect(wrapper.vm.notes[0].names).toEqual(['A'])
+  })
+
+  test('被 max_tokens 截断时给专门的提示文案', async () => {
+    seedUntaggedNotes()
+    const ctx = createContext()
+    const wrapper = mountPanel(ctx)
+    await flushPromises()
+
+    AiTagService.suggestTags.mockResolvedValue({
+      names: [], raw: '', truncated: true, finishReason: 'length', model: 'm', usage: null
+    })
+    await wrapper.vm.runTagging()
+
+    expect(wrapper.vm.notes[0].status).toBe('failed')
+    expect(wrapper.vm.notes[0].error).toBe('aiAutoTagTruncated')
+  })
+
+  test('并发 worker 池：全部行都会被处理，且同时最多跑 runConcurrency 篇', async () => {
+    const total = 5
+    dbState.notes.clear()
+    for (let i = 0; i < total; i++) {
+      dbState.notes.set(100 + i, {
+        id: 100 + i,
+        doc_guid: `local_${100 + i}`,
+        title: `笔记 ${i}`,
+        category: '/My Notes/',
+        content: `正文 ${i}`,
+        tags: '',
+        data_modified: total - i
+      })
+    }
+
+    let inFlight = 0
+    let maxInFlight = 0
+    AiTagService.suggestTags.mockImplementation(async () => {
+      inFlight++
+      maxInFlight = Math.max(maxInFlight, inFlight)
+      await new Promise(resolve => setTimeout(resolve, 5))
+      inFlight--
+      return { names: ['读书'], raw: '', model: 'm', usage: null }
+    })
+
+    const ctx = createContext()
+    const wrapper = mountPanel(ctx)
+    await flushPromises()
+    wrapper.vm.runConcurrency = 3
+    await wrapper.vm.runTagging()
+
+    expect(AiTagService.suggestTags).toHaveBeenCalledTimes(total)
+    expect(wrapper.vm.notes.every(row => row.status === 'ready')).toBe(true)
+    expect(wrapper.vm.progress).toMatchObject({ done: total, total })
+    expect(maxInFlight).toBeLessThanOrEqual(3)
+    expect(maxInFlight).toBeGreaterThan(1)
+  })
+})
+
+describe('打标面板 — applyRow（复用已有标签 / 新建）', () => {
+  test('复用已有标签 + 新建缺失标签，并写回笔记与 note_tags', async () => {
+    seedUntaggedNotes()
+    const ctx = createContext()
+    const wrapper = mountPanel(ctx)
+    await flushPromises()
+    await wrapper.vm.runTagging()
+
+    const ok = await wrapper.vm.applyRow(wrapper.vm.notes[0])
+    expect(ok).toBe(true)
+
+    // 「读书」命中已有标签（不新建），「新标签」走 createTag
+    expect(ctx.actions.createTag).toHaveBeenCalledTimes(1)
+    expect(ctx.actions.createTag.mock.calls[0][1]).toEqual({ name: '新标签' })
+
+    expect(wrapper.vm.notes[0].status).toBe('applied')
+    expect(wrapper.vm.stats).toMatchObject({ appliedNotes: 1, reused: 1, created: 1 })
+
+    const [, updates] = DatabaseClient.notes.update.mock.calls[0]
+    expect(updates.tags).toBe('local_tag_1*local_tag_9')
+    expect(dbState.attached).toEqual([
+      { noteId: 11, tagId: 1 },
+      { noteId: 11, tagId: 9 }
+    ])
+    // 刷新左侧标签树
+    expect(ctx.actions.getAllTags).toHaveBeenCalled()
+  })
+
+  test('新建的标签会进入 pool，后续笔记直接复用（同批次不重复建）', async () => {
+    seedUntaggedNotes()
+    const ctx = createContext()
+    const wrapper = mountPanel(ctx)
+    await flushPromises()
+    await wrapper.vm.runTagging()
+
+    await wrapper.vm.applyRow(wrapper.vm.notes[0])
+    await wrapper.vm.applyRow(wrapper.vm.notes[1])
+
+    expect(ctx.actions.createTag).toHaveBeenCalledTimes(1)
+    expect(wrapper.vm.stats.created).toBe(1)
+    expect(wrapper.vm.stats.reused).toBe(3)
+  })
+
+  test('applyAllSuggestions 批量应用所有待应用行', async () => {
+    seedUntaggedNotes()
+    const ctx = createContext()
+    const wrapper = mountPanel(ctx)
+    await flushPromises()
+    await wrapper.vm.runTagging()
+
+    await wrapper.vm.applyAllSuggestions()
+
+    expect(wrapper.vm.notes.every(row => row.status === 'applied')).toBe(true)
+    expect(wrapper.vm.stats.appliedNotes).toBe(2)
+  })
+
+  test('当前笔记正好被打了标 → 同步 vuex 的 info.tags', async () => {
+    seedUntaggedNotes()
+    const ctx = createContext({ currentNote: { info: { docGuid: 'local_11', tags: '' } } })
+    const wrapper = mountPanel(ctx)
+    await flushPromises()
+    await wrapper.vm.runTagging()
+    await wrapper.vm.applyRow(wrapper.vm.notes[0])
+
+    expect(ctx.mutations.update_current_note_tags).toHaveBeenCalledWith(
+      expect.anything(),
+      'local_tag_1*local_tag_9'
+    )
+  })
+
+  test('不是当前笔记时不动 vuex', async () => {
+    seedUntaggedNotes()
+    const ctx = createContext({ currentNote: { info: { docGuid: 'other-guid', tags: '' } } })
+    const wrapper = mountPanel(ctx)
+    await flushPromises()
+    await wrapper.vm.runTagging()
+    await wrapper.vm.applyRow(wrapper.vm.notes[0])
+
+    expect(ctx.mutations.update_current_note_tags).not.toHaveBeenCalled()
+  })
+})

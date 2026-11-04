@@ -38,8 +38,6 @@ export default {
   noteLinkCopied: 'Note link copied',
   noteContentCopied: 'Note content copied',
   defaultNoteTitle: '【{category}】New Note-{date}.md',
-  notePrefix: 'Prefix',
-  noteTitleBase: 'New Note',
 
   // Sync related
 

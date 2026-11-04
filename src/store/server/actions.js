@@ -178,13 +178,6 @@ function getDefaultCategoryForMode (state, category = '') {
   return category || OFFLINE_ROOT_CATEGORY
 }
 
-function getSixDaoFolderDepth (category = '') {
-  const normalized = normalizeCategoryForMatch(category)
-  if (!normalized) return 1
-  const segments = normalized.split('/').filter(Boolean)
-  return Math.max(1, segments.length)
-}
-
 function isCurrentCategoryAffected (currentCategory, categories = []) {
   const normalizedCurrent = normalizeCategoryForMatch(currentCategory)
   return categories
@@ -1990,8 +1983,6 @@ export default {
     } = state
     const targetCategory = currentCategory || OFFLINE_ROOT_CATEGORY
     const rawTitle = typeof payload === 'string' ? payload : payload?.title
-    const prefix = typeof payload === 'string' ? '' : (payload?.prefix || '')
-    const noteMethod = typeof payload === 'string' ? '' : (payload?.noteMethod || '')
     const templateId = typeof payload === 'string' ? '' : String(payload?.templateId || '').trim()
 
     let finalTitle = rawTitle || i18n.t('untitled')
@@ -2399,21 +2390,10 @@ export default {
     parentCategory
   }) {
     const { kbGuid, isLogin, categories } = state
-    const noteMethod = this.state?.client?.noteMethod || ''
 
     // 计算完整路径（父路径 + 子文件夹名）
     let fullCategoryPath
     const normalizedParentCategory = helper.isNullOrEmpty(parentCategory) ? state.currentCategory : parentCategory
-    const parentDepth = getSixDaoFolderDepth(normalizedParentCategory)
-
-    if (noteMethod === 'notesSixDaoLun' && parentDepth >= 3) {
-      Notify.create({
-        color: 'warning',
-        message: '六道笔记论下，第三层及以后只能创建文件，不能再创建文件夹',
-        icon: 'warning'
-      })
-      return
-    }
 
     // 根目录（空、/、/My Notes/）下创建直接子文件夹
     if (helper.isNullOrEmpty(normalizedParentCategory) || normalizedParentCategory === OFFLINE_ROOT_CATEGORY || normalizedParentCategory === '/') {
@@ -2996,22 +2976,36 @@ export default {
   },
   async renameTag ({ state }, tag) {
     const { kbGuid, isLogin } = state
-    if (!isLogin || !kbGuid) {
-      return
-    }
-
     const {
       tagGuid,
       name
-    } = tag
+    } = tag || {}
+    const nextName = String(name || '').trim()
+    if (!nextName) {
+      return { success: false, code: 'TAG_NAME_REQUIRED' }
+    }
+
+    if (!isLogin || !kbGuid) {
+      // v2026-11-04：离线标签以前不支持重命名（直接 return），
+      // 「设置 → AI → 标签」维护面板需要它，这里补齐本地 tags 表的改名分支。
+      const localTagId = parseLocalTagId(tagGuid)
+      if (!localTagId) return { success: false, code: 'TAG_NOT_FOUND' }
+      const result = await DatabaseClient.tags.rename(localTagId, nextName)
+      if (result && result.success) {
+        this.dispatch('server/getAllTags')
+      }
+      return result
+    }
+
     await api.KnowledgeBaseApi.renameTag({
       kbGuid,
       data: {
         tagGuid,
-        name
+        name: nextName
       }
     })
     this.dispatch('server/getAllTags')
+    return { success: true }
   },
   async moveTag ({ state }, {
     tag,
@@ -3076,14 +3070,15 @@ export default {
    */
   async deleteTag ({ state }, tag) {
     const { kbGuid, isLogin } = state
-    const { tagGuid } = tag
+    const { tagGuid } = tag || {}
 
     if (!isLogin || !kbGuid) {
       const localTagId = parseLocalTagId(tagGuid)
-      if (!localTagId) return
-      await DatabaseClient.tags.remove(localTagId)
+      if (!localTagId) return false
+      // 主进程 db:deleteTag 会一并清理 note_tags 与 notes.tags 里的引用
+      const success = await DatabaseClient.tags.remove(localTagId)
       this.dispatch('server/getAllTags')
-      return
+      return success
     }
 
     await api.KnowledgeBaseApi.deleteTag({
@@ -3091,6 +3086,7 @@ export default {
       tagGuid
     })
     this.dispatch('server/getAllTags')
+    return true
   },
   /**
    * 导出markdown文件到本地

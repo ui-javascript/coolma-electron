@@ -145,7 +145,6 @@ export default {
       'enablePreviewEditor',
       'sidebarTreeType',
       'syncStatus',
-      'noteMethod',
       'aiAssistantProvider',
       'skin'
     ]),
@@ -371,8 +370,7 @@ export default {
 }
 
 .header--skin-nezha .header-icon-btn .icon-custom,
-.header--skin-nezha .header-note-title > span,
-.header--skin-nezha .header-category-name {
+.header--skin-nezha .header-note-title > span {
   color: #2c2c2c;
 }
 
@@ -380,7 +378,7 @@ export default {
   background-color: rgba(0, 0, 0, 0.08);
 }
 
-.header--skin-nezha .note-method-btn {
+.header--skin-nezha .workspace-mode-btn {
   color: #2c2c2c;
 }
 
@@ -398,8 +396,7 @@ export default {
 }
 
 .header--skin-infp .header-icon-btn .icon-custom,
-.header--skin-infp .header-note-title > span,
-.header--skin-infp .header-category-name {
+.header--skin-infp .header-note-title > span {
   color: #2c2c2c;
 }
 
@@ -407,7 +404,7 @@ export default {
   background-color: rgba(0, 0, 0, 0.08);
 }
 
-.header--skin-infp .note-method-btn {
+.header--skin-infp .workspace-mode-btn {
   color: #2c2c2c;
 }
 

@@ -132,16 +132,16 @@ cyclePaneLayout ({ state, dispatch }) {
 
 ## Header.vue 当前真实职责
 
-`src/components/Header.vue` 已经不是简单的静态头部，而是布局与同步的重要交互入口。
+`src/components/layout/Header.vue` 已经不是简单的静态头部，而是布局与同步的重要交互入口。
 
 当前主要负责：
 
 ### 左侧交互
 
-- 切换笔记方法（`noteMethod`）
-- 切换分类视图（category）
-- 切换标签视图（tag）
-- 切换日历视图（calendar）
+- 通过模式下拉框切换工作区视图（`sidebarTreeType`）：
+  - `Idx神引`：文件夹模式（`category`，默认）
+  - `Core超脱`：Tag 模式（`tag`）
+  - `Arch终极`：日历模式（`calendar`）
 - 打开搜索
 
 ### 右侧交互
@@ -159,9 +159,7 @@ cyclePaneLayout ({ state, dispatch }) {
 
 当前值得优先关注的方法：
 
-- `toggleCategoryDrawer()`
-- `toggleTagDrawer()`
-- `toggleCalendarDrawer()`
+- `handleModeChange()`（`components/layout/HeaderLeftGroup.vue`，模式下拉框统一入口）
 - `switchViewHandler()`
 
 它们会联动：
@@ -173,8 +171,8 @@ cyclePaneLayout ({ state, dispatch }) {
 - `expandFullPaneLayout()`
 
 补充细节：
-- `toggleTagDrawer()` 还会触发 `refreshTagNotesCount()`，因此切到标签视图不只是换 UI，也可能刷新 tag 计数。
-- `toggleCalendarDrawer()` 会先把 `calendarSelectedDate` 设为当天，再切换视图并刷新列表。
+- 切到 Tag 模式时会触发 `refreshTagNotesCount()`，因此换的不只是 UI，也可能刷新 tag 计数。
+- 切到日历模式时会先把 `calendarSelectedDate` 设为当天，再切换视图并刷新列表。
 
 ## sidebarTreeType 的当前语义
 

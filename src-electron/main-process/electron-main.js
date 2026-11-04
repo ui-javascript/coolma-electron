@@ -1874,6 +1874,36 @@ function registerDatabaseHandlers() {
     }
   })
 
+  // 重命名标签（本地 tags 表；云端重命名走 API，不经过这里）
+  ipcMain.handle('db:renameTag', async (event, { id, name } = {}) => {
+    try {
+      const tagId = Number(id)
+      const nextName = String(name || '').trim()
+      if (!tagId) return { success: false, code: 'TAG_NOT_FOUND' }
+      if (!nextName) return { success: false, code: 'TAG_NAME_REQUIRED' }
+
+      const row = execOne('SELECT id, name FROM tags WHERE id = ?', [tagId])
+      if (!row) return { success: false, code: 'TAG_NOT_FOUND' }
+
+      if (String(row.name || '') === nextName) {
+        return { success: true, data: { ...row, tagGuid: `local_tag_${tagId}` } }
+      }
+
+      const duplicated = execOne('SELECT id FROM tags WHERE name = ? AND id != ?', [nextName, tagId])
+      if (duplicated) return { success: false, code: 'TAG_DUPLICATE_NAME' }
+
+      await db.run('UPDATE tags SET name = ? WHERE id = ?', [nextName, tagId])
+      saveDatabase()
+      const updated = execOne('SELECT id, name, color, created_at FROM tags WHERE id = ?', [tagId])
+      return updated
+        ? { success: true, data: { ...updated, tagGuid: `local_tag_${tagId}` } }
+        : { success: false, code: 'TAG_NOT_FOUND' }
+    } catch (error) {
+      log.error('[DB] renameTag error:', error)
+      return { success: false, code: 'TAG_RENAME_FAILED', message: error?.message || '' }
+    }
+  })
+
   // 创建标签
   ipcMain.handle('db:createTag', async (event, tag) => {
     try {
@@ -1949,14 +1979,77 @@ function registerDatabaseHandlers() {
   })
 
   // 删除标签
-  ipcMain.handle('db:deleteTag', async (event, id) => {
+  // v2026-11-04：删除时同步清理 note_tags 与 notes.tags 里对该 tagGuid 的引用，
+  // 否则会留下「笔记 tags 字段指向已删除标签」的脏数据（标签树 / 笔记标签面板都会读到它）。
+  // notes 被改动时置 dirty=1，让云端同步把新的 tags 串推上去。
+  ipcMain.handle('db:deleteTag', async (event, payload) => {
     try {
-      await db.run('DELETE FROM tags WHERE id = ?', [id])
+      const tagId = typeof payload === 'object' && payload !== null ? Number(payload.id) : Number(payload)
+      if (!tagId) return false
+
+      const tagGuid = `local_tag_${tagId}`
+      await db.run('DELETE FROM note_tags WHERE tag_id = ?', [tagId])
+
+      const affectedNotes = execToObjects(
+        'SELECT id, tags FROM notes WHERE tags IS NOT NULL AND tags != "" AND tags LIKE ?',
+        [`%${tagGuid}%`]
+      )
+      const now = Date.now()
+      for (const note of affectedNotes) {
+        const parts = String(note.tags || '').split('*')
+        if (!parts.includes(tagGuid)) continue
+        const nextTags = parts.filter(part => part && part !== tagGuid).join('*')
+        await db.run(
+          'UPDATE notes SET tags = ?, local_modified = ?, updated_at = ?, dirty = 1 WHERE id = ?',
+          [nextTags, now, now, note.id]
+        )
+      }
+
+      await db.run('DELETE FROM tags WHERE id = ?', [tagId])
       saveDatabase()
       return true
     } catch (error) {
       log.error('[DB] deleteTag error:', error)
       return false
+    }
+  })
+
+  // 清理未被任何笔记引用的本地标签（设置 → AI → 标签 的「清理未使用」）
+  ipcMain.handle('db:cleanupUnusedTags', async () => {
+    try {
+      const tags = execToObjects('SELECT id, name FROM tags')
+      if (!tags.length) return { success: true, removed: [] }
+
+      const usedGuids = new Set()
+      const notes = execToObjects('SELECT tags FROM notes WHERE tags IS NOT NULL AND tags != ""')
+      for (const note of notes) {
+        for (const guid of String(note.tags || '').split('*')) {
+          if (guid) usedGuids.add(guid)
+        }
+      }
+
+      const attachedIds = new Set(
+        execToObjects('SELECT DISTINCT tag_id FROM note_tags')
+          .map(row => Number(row.tag_id))
+          .filter(Number.isFinite)
+      )
+
+      const removed = []
+      for (const tag of tags) {
+        const tagId = Number(tag.id)
+        if (!Number.isFinite(tagId)) continue
+        if (usedGuids.has(`local_tag_${tagId}`) || attachedIds.has(tagId)) continue
+        await db.run('DELETE FROM note_tags WHERE tag_id = ?', [tagId])
+        await db.run('DELETE FROM tags WHERE id = ?', [tagId])
+        removed.push({ id: tagId, name: tag.name })
+      }
+
+      if (removed.length > 0) saveDatabase()
+      log.info(`[DB] cleanupUnusedTags: removed ${removed.length} unused tag(s)`)
+      return { success: true, removed }
+    } catch (error) {
+      log.error('[DB] cleanupUnusedTags error:', error)
+      return { success: false, removed: [], message: error?.message || '' }
     }
   })
 

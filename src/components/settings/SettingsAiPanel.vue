@@ -114,6 +114,21 @@
           </q-card>
         </div>
       </SettingsSectionContent>
+
+      <!-- 打标（AI 批量给无标签笔记追加标签） -->
+      <!-- 注：这两个子面板用 v-show 而不是 v-if —— 打标结果属于「易失状态」，
+           切到别的子 tab 再切回来不应该丢；两面板都靠 active 属性懒加载，不打开就不查库。 -->
+      <SettingsAiAutoTagPanel
+        v-show='subTab === $enums.AiSubEnum.AutoTag'
+        :active='subTab === $enums.AiSubEnum.AutoTag'
+        @switch-sub-tab='switchSubTab'
+      />
+
+      <!-- 标签（维护：新建 / 重命名 / 删除 / 清理未使用） -->
+      <SettingsAiTagPanel
+        v-show='subTab === $enums.AiSubEnum.Tags'
+        :active='subTab === $enums.AiSubEnum.Tags'
+      />
     </div>
   </div>
 </template>
@@ -121,6 +136,8 @@
 <script>
 import CategoryTabs from 'components/category/CategoryTabs'
 import SettingsSectionContent from 'components/settings/SettingsSectionContent'
+import SettingsAiAutoTagPanel from 'components/settings/SettingsAiAutoTagPanel'
+import SettingsAiTagPanel from 'components/settings/SettingsAiTagPanel'
 import PortkeyService from 'src/services/PortkeyService'
 import DatabaseClient from 'src/utils/DatabaseClient'
 
@@ -128,7 +145,9 @@ export default {
   name: 'SettingsAiPanel',
   components: {
     CategoryTabs,
-    SettingsSectionContent
+    SettingsSectionContent,
+    SettingsAiAutoTagPanel,
+    SettingsAiTagPanel
   },
   props: {
     aiAssistantProvider: {
@@ -181,6 +200,14 @@ export default {
     }
   },
   methods: {
+    /**
+     * 供子面板（打标 / 标签）在「还没配置模型」时跳转到「模型」子 tab。
+     */
+    switchSubTab (value) {
+      if (!value || value === this.subTab) return
+      if (!this.$enums.AiSubEnum.has(value)) return
+      this.subTab = value
+    },
     handleAiAssistantProviderChange (value) {
       if (value !== 'builtin' && value !== 'doubao') return
       if (value === this.aiAssistantProvider) return

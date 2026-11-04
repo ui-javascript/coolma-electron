@@ -174,8 +174,30 @@ const tags = {
     return await invoke('db:attachTagToNote', { noteId, tagId })
   },
 
+  async removeFromNote(noteId, tagId) {
+    return await invoke('db:removeTagFromNote', { noteId, tagId })
+  },
+
+  /**
+   * 重命名标签（本地标签）
+   * @param {number} id
+   * @param {string} name
+   * @returns {Promise<{success: boolean, data?: object, code?: string, message?: string}>}
+   */
+  async rename(id, name) {
+    return await invoke('db:renameTag', { id, name })
+  },
+
   async remove(id) {
     return await invoke('db:deleteTag', id)
+  },
+
+  /**
+   * 清理未被任何笔记引用的本地标签
+   * @returns {Promise<{success: boolean, removed: Array<{id, name}>}>}
+   */
+  async cleanupUnused() {
+    return await invoke('db:cleanupUnusedTags')
   }
 }
 
