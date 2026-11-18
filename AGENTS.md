@@ -31,6 +31,8 @@ adjust
 - workspace 包：`desktop-vue2`、`desktop-vue3`、`libs-muya`、`demo-vue2-vite-muya`、`tpl-vuepress1-voding-muya`、`tpl-vitepress1-teek-muya`。
 - 临时试验代码统一放在 `./_temp/`。
 
+**Windows 清理 `node_modules` 前，必须先读 [链接安全规则](.agents/rules/safe-shell.mdc#8-windows-清理-node_modules)。** pnpm 建立的 junction 可能直接指向 workspace 源码。曾有 `Move-Item` 移动根 `node_modules` 时沿 junction 误删源码的事故。禁止用 `Move-Item` 搬走依赖树；清理遇到链接只能移除链接本身。
+
 ## 代理技能与规则
 
 - 仓库内的所有代理技能包和规则统一在 `.agents/` 下维护。技能包放在 [`.agents/skills/`](.agents/skills/)，每个技能有独立的 `<技能名>/SKILL.md`，配套文件与技能放在同一目录。规则文件放在 [`.agents/rules/`](.agents/rules/)。
