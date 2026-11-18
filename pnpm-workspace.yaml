@@ -18,10 +18,12 @@ patchedDependencies:
 
 allowBuilds:
   ant-design-vue: false
+  better-sqlite3@12.11.1: true
   bufferutil: false
   core-js: false
   cpu-features: false
   electron-winstaller: true
+  electron@39.8.10: true
   esbuild@0.14.7: true
   esbuild@0.21.5: true
   highlight.js@9.18.5: false
