@@ -46,6 +46,7 @@ yarn-error.log*
 
 # docs
 .temp
+.tmp
 
 # package-lock.json
 package-lock.json

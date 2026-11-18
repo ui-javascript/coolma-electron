@@ -1,167 +1,88 @@
-# This is a basic workflow to help you get started with Actions
+name: Coolma Desktop Release
 
-name: Memocast Release Action
-
-# Controls when the action will run. Triggers the workflow on push or pull request
-# events but only for the master branch
 on:
   push:
     branches:
-      - rebuild/analysis
+      - master
     tags:
-      - v*
+      - 'v*'
+  workflow_dispatch:
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+permissions:
+  contents: write
+
 jobs:
-  # This workflow contains a single job called "build"
   build-windows:
-    # The type of runner that the job will run on
     runs-on: windows-latest
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - name: Check out branch
-        uses: actions/checkout@v2
-        with:
-          ref: rebuild/analysis
+      - name: Check out source
+        uses: actions/checkout@v4
 
-      - name: Install Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 24
 
-      - name: Build
+      - name: Install dependencies and build desktop-vue2
         run: |
           corepack pnpm install --frozen-lockfile
           corepack pnpm --filter desktop-vue2 run build-publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Rename Package
-        run: |
-          cd desktop-vue2/dist/electron/Packaged
-          ren Memocast*.exe Memocast-Setup.exe
-      - name: Upload Win Package
-        uses: actions/upload-artifact@v1
+
+      - name: Upload Windows packages
+        uses: actions/upload-artifact@v4
         with:
-          name: Windows_Dist
-          path: desktop-vue2/dist/electron/Packaged/Memocast-Setup.exe
-      - name: Upload latest.yml
-        uses: actions/upload-artifact@v1
-        with:
-          name: Windows_latest_yml
-          path: desktop-vue2/dist/electron/Packaged/latest.yml
+          name: coolma-windows
+          path: desktop-vue2/dist/electron/Packaged/*
+          if-no-files-found: error
+
   build-linux:
-    # The type of runner that the job will run on
     runs-on: ubuntu-latest
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - name: Check out branch
-        uses: actions/checkout@v2
-        with:
-          ref: rebuild/analysis
+      - name: Check out source
+        uses: actions/checkout@v4
 
-      - name: Install Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Build
+
+      - name: Install dependencies and build desktop-vue2
         run: |
           corepack pnpm install --frozen-lockfile
           corepack pnpm --filter desktop-vue2 run build-publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Rename Package
-        run: |
-          cd desktop-vue2/dist/electron/Packaged
-          cp Memocast*.AppImage Memocast-x86_64.AppImage
-      - name: Upload Linux Package
-        uses: actions/upload-artifact@v1
+
+      - name: Upload Linux packages
+        uses: actions/upload-artifact@v4
         with:
-          name: Linux_Dist
-          path: desktop-vue2/dist/electron/Packaged/Memocast-x86_64.AppImage
-      - name: Upload latest-linux.yml
-        uses: actions/upload-artifact@v1
-        with:
-          name: Linux_latest_yml
-          path: desktop-vue2/dist/electron/Packaged/latest-linux.yml
-  build-mac:
-    # The type of runner that the job will run on
+          name: coolma-linux
+          path: desktop-vue2/dist/electron/Packaged/*
+          if-no-files-found: error
+
+  build-macos:
     runs-on: macos-latest
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - name: Check out branch
-        uses: actions/checkout@v2
-        with:
-          ref: rebuild/analysis
+      - name: Check out source
+        uses: actions/checkout@v4
 
-      - name: Install Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Build
+
+      - name: Install dependencies and build desktop-vue2
         run: |
           corepack pnpm install --frozen-lockfile
           corepack pnpm --filter desktop-vue2 run build-publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Rename Package
-        run: |
-          cd desktop-vue2/dist/electron/Packaged
-          cp Memocast*.dmg Memocast.dmg
-      - name: Upload Mac Package
-        uses: actions/upload-artifact@v1
+
+      - name: Upload macOS packages
+        uses: actions/upload-artifact@v4
         with:
-          name: MacOS_Dist
-          path: desktop-vue2/dist/electron/Packaged/Memocast.dmg
-      - name: Upload latest-mac.yml
-        uses: actions/upload-artifact@v1
-        with:
-          name: Mac_latest_yml
-          path: desktop-vue2/dist/electron/Packaged/latest-mac.yml
-#  release:
-#    needs: [build-windows, build-linux, build-mac]
-#    runs-on: ubuntu-latest
-#    if: contains(github.ref, 'refs/tags/v')
-#    steps:
-#      - uses: actions/checkout@v1
-#      - name: Download pre-built packages for Linux
-#        uses: actions/download-artifact@v1
-#        with:
-#          name: Linux_Dist
-#          path: artifacts
-#      - name: Download latest-linux.yml
-#        uses: actions/download-artifact@v1
-#        with:
-#          name: Linux_latest_yml
-#          path: artifacts
-#      - name: Download pre-built packages for Windows
-#        uses: actions/download-artifact@v1
-#        with:
-#          name: Windows_Dist
-#          path: artifacts
-#      - name: Download latest.yml
-#        uses: actions/download-artifact@v1
-#        with:
-#          name: Windows_latest_yml
-#          path: artifacts
-#      - name: Download pre-built packages for MacOS
-#        uses: actions/download-artifact@v1
-#        with:
-#          name: MacOS_Dist
-#          path: artifacts
-#      - name: Download latest-mac.yml
-#        uses: actions/download-artifact@v1
-#        with:
-#          name: Mac_latest_yml
-#          path: artifacts
-#      - name: Create Release
-#        id: create_release
-#        uses: ncipollo/release-action@v1
-#        with:
-#          name: Memocast
-#          token: ${{ secrets.GITHUB_TOKEN }}
-#          artifacts: "artifacts/*"
-#          draft: true
-#          prerelease: true
+          name: coolma-macos
+          path: desktop-vue2/dist/electron/Packaged/*
+          if-no-files-found: error
