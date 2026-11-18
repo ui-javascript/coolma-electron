@@ -3,7 +3,11 @@ import { getMainWindow } from 'ee-core/electron';
 import { logger } from 'ee-core/log';
 import { isDev } from 'ee-core/ps';
 
-const DEV_ORIGINS = new Set(['http://127.0.0.1:8080', 'http://localhost:8080']);
+const DEV_ORIGINS = new Set(['http://127.0.0.1:8081', 'http://localhost:8081']);
+const DEV_CONNECT_SOURCES = [...DEV_ORIGINS].flatMap((origin) => [
+  origin,
+  origin.replace(/^http:/, 'ws:'),
+]).join(' ');
 
 function isAllowedNavigation(rawUrl: string): boolean {
   if (rawUrl.startsWith('file://')) {
@@ -29,7 +33,7 @@ function buildCsp(): string {
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob:",
       "font-src 'self' data:",
-      "connect-src 'self' http://127.0.0.1:8080 http://localhost:8080 ws://127.0.0.1:8080 ws://localhost:8080",
+      `connect-src 'self' ${DEV_CONNECT_SOURCES}`,
     ].join('; ');
   }
 

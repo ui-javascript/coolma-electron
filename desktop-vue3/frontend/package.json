@@ -4,7 +4,7 @@
   "private": true,
   "description": "Coolma Vue3 renderer",
   "scripts": {
-    "dev": "vite --host 127.0.0.1 --port 8080",
+    "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "typecheck": "vue-tsc --noEmit",
     "preview": "vite preview"

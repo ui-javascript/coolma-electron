@@ -22,7 +22,7 @@ electron-egg demo_v4_ts (v4.2.0)
 
 ## 快速开始
 
-> 包管理器固定为 **pnpm 10**，workspace 覆盖 `frontend` 与 `packages/*`。
+> 在 `desktop-vue3` 目录执行以下命令。这里的 pnpm workspace 覆盖 `frontend` 与 `packages/*`，仓库根目录的安装不会安装这些子包。
 
 ```powershell
 pnpm install
@@ -33,7 +33,8 @@ pnpm rebuild:sqlite
 pnpm dev
 ```
 
-> 如果启动报 `Could not locate the bindings file`，重新执行 `pnpm rebuild:sqlite`。
+> Vue3 开发服务使用 `127.0.0.1:8081`，Vue2 保留 `8080`。
+> 如果启动报 `Could not locate the bindings file` 或 `NODE_MODULE_VERSION` 不匹配，重新执行 `pnpm rebuild:sqlite`。
 > 详见 [P2 数据层](docs/P2.md)。
 
 ## 生产构建
