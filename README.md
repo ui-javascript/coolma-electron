@@ -15,6 +15,8 @@ pnpm dev
 
 Vue 2 桌面应用位于 [`desktop-vue2/`](desktop-vue2/)，与 `desktop-vue3/` 同级。编辑器包位于 [`libs-muya/`](libs-muya/)。pnpm 通过 `workspace:*` 自动把编辑器链接到桌面应用。运行 `pnpm verify` 执行桌面应用测试，或运行 `pnpm --filter libs-muya build:dev` 单独构建编辑器。
 
+Muya 的 Vue 2 + Vite 示例位于 [`demo-vue2-vite-muya/`](demo-vue2-vite-muya/)，在根目录运行 `pnpm --filter demo-vue2-vite-muya dev`。符文和回响模板分别位于 [`tpl-rune/`](tpl-rune/) 和 [`tpl-echo/`](tpl-echo/)。
+
 # 新功能
 
 - 2026-08-13 ikun历险记
@@ -63,7 +65,7 @@ Echo（回响）= `@xxx{props}(prompt)`，main 功能是改附近元素的排版
 
 **深度文档：**
 
-- 设计速查 / 决策树 / 内置卡片清单 / 命名坑 → [`.cursor/skills/rune-echo-design/SKILL.md`](.cursor/skills/rune-echo-design/SKILL.md)
-- 源码级逐行解析 / anno_source 完整形态 / rune SFC 编译流程 / handler body 范式 → [`.cursor/skills/rune-echo-design/reference.md`](.cursor/skills/rune-echo-design/reference.md)
-- 试验阶段规则（不兼容、不背历史包袱、graceful skip 原则）→ [`.cursor/rules/rune-echo-cloudfn-experimental.mdc`](.cursor/rules/rune-echo-cloudfn-experimental.mdc)
-- 测试护城河（哪些契约被 Jest 锁住、何时必须更新用例）→ [`.cursor/rules/rune-echo-test-moat.mdc`](.cursor/rules/rune-echo-test-moat.mdc)
+- 设计速查 / 决策树 / 内置卡片清单 / 命名坑 → [`.agents/skills/rune-echo-design/SKILL.md`](.agents/skills/rune-echo-design/SKILL.md)
+- 源码级逐行解析 / anno_source 完整形态 / rune SFC 编译流程 / handler body 范式 → [`.agents/skills/rune-echo-design/reference.md`](.agents/skills/rune-echo-design/reference.md)
+- 试验阶段规则（不兼容、不背历史包袱、graceful skip 原则）→ [`.agents/rules/rune-echo-cloudfn-experimental.mdc`](.agents/rules/rune-echo-cloudfn-experimental.mdc)
+- 测试护城河（哪些契约被 Jest 锁住、何时必须更新用例）→ [`.agents/rules/rune-echo-test-moat.mdc`](.agents/rules/rune-echo-test-moat.mdc)

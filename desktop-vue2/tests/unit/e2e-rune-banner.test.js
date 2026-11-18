@@ -9,7 +9,7 @@ const path = require('path')
 
 require('../../tests/fixtures/jquery-setup.js')
 
-const mockText = fs.readFileSync(path.resolve(__dirname, '../../../_plugins/rune-template/memocast-runes-2026-08-01.json'), 'utf8')
+const mockText = fs.readFileSync(path.resolve(__dirname, '../../../tpl-rune/memocast-runes-2026-08-01.json'), 'utf8')
 
 jest.mock('../../src/utils/DatabaseClient.js', () => {
   return {

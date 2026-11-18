@@ -28,5 +28,20 @@ adjust
 ## 其他项目约定
 
 - 包管理器固定使用 **pnpm**；在仓库根目录执行 workspace 安装与脚本。
-- workspace 包：`desktop-vue2`（`desktop-vue2/`）、`libs-muya`、`tpl-vuepress1-voding-muya`、`tpl-vitepress1-teek-muya`。
-- 更多细则见 `.cursor/rules/` 下的规则文件；临时试验代码统一放在 `./_temp/`。
+- workspace 包：`desktop-vue2`、`desktop-vue3`、`libs-muya`、`demo-vue2-vite-muya`、`tpl-vuepress1-voding-muya`、`tpl-vitepress1-teek-muya`。
+- 临时试验代码统一放在 `./_temp/`。
+
+## 代理技能与规则
+
+- 仓库内的所有代理技能包和规则统一在 `.agents/` 下维护。技能包放在 [`.agents/skills/`](.agents/skills/)，每个技能有独立的 `<技能名>/SKILL.md`，配套文件与技能放在同一目录。规则文件放在 [`.agents/rules/`](.agents/rules/)。
+- 新增或修改技能与规则时，只编辑 `.agents/` 下的源文件。需要工具专用入口时，入口仅引用这里的文件，避免多份正文分别维护。
+- 开始任务前，先读取适用的规则和技能。规则入口如下：
+
+| 工作内容 | 先读取的规则 |
+| --- | --- |
+| Git 提交、依赖与 workspace | [中文提交](.agents/rules/commit-message.mdc)、[包管理](.agents/rules/package-manager.mdc) |
+| 文件操作、脚本编写 | [Shell 与文件操作安全](.agents/rules/safe-shell.mdc)、[脚本位置](.agents/rules/script-file-location.mdc) |
+| Vue 组件与界面 | [命名](.agents/rules/component-naming.mdc)、[Vue 版本](.agents/rules/plugin-vue-version.mdc)、[UI 库](.agents/rules/ui-library-mix.mdc)、[弹层组件](.agents/rules/vue-dialog-component.mdc)、[Mixin](.agents/rules/no-mixins.mdc) |
+| JS 类型判断、Quasar 依赖转译 | [类型判断](.agents/rules/type-check-with-lodash.mdc)、[依赖转译](.agents/rules/quasar-transpile-dependencies.mdc) |
+| 设置存储 | [SQLite 存储](.agents/rules/sqlite-settings-storage.mdc) |
+| Muya SDK、符文、回响和云函数 | [Muya SDK 约定](.agents/rules/coolma-muya-sdk-guidelines.mdc)、[试验阶段约定](.agents/rules/rune-echo-cloudfn-experimental.mdc)、[符文与回响测试](.agents/rules/rune-echo-test-moat.mdc) |

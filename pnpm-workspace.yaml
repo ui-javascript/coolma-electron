@@ -2,6 +2,7 @@ packages:
   - desktop-vue3
   - desktop-vue2
   - libs-muya
+  - demo-vue2-vite-muya
   - tpl-vuepress1-voding-muya
   - tpl-vitepress1-teek-muya
 

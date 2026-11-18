@@ -31,6 +31,23 @@ const teek = defineTeekConfig({
           katexOptions: { trust: false, throwOnError: false }
         })
         .use(tabsMarkdownPlugin)
+
+      // TeXmath emits <eq>/<eqn>, which Vue treats as unresolved components
+      // during SSR. Use standard HTML wrappers so KaTeX survives prerendering.
+      for (const ruleName of [
+        'math_inline',
+        'math_inline_double',
+        'math_block',
+        'math_block_eqno'
+      ]) {
+        const renderRule = md.renderer.rules[ruleName]
+        if (!renderRule) continue
+        md.renderer.rules[ruleName] = (...args) => renderRule(...args)
+          .replaceAll('<eq>', '<span class="math-inline">')
+          .replaceAll('</eq>', '</span>')
+          .replaceAll('<eqn>', '<span class="math-display">')
+          .replaceAll('</eqn>', '</span>')
+      }
     }
   }
 })

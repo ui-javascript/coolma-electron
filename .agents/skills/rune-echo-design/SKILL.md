@@ -75,7 +75,7 @@ const annoSource = `export default {
 "const $ = (typeof window !== 'undefined' && (window.jQuery || window.$)) || null\n"
 ```
 
-Node �?/ 测试环境 `$` 退化为 `null`——`render(props)` 不依�?`$`，可以正常返�?HTML；只有真正访�?`$(node)` �?`afterRender` �?NPE，但 `EchoRuntime._doAfterRender` 已经 try-catch 兜住（graceful skip，参�?`.cursor/rules/rune-echo-cloudfn-experimental.mdc` §3.5）�?
+Node �?/ 测试环境 `$` 退化为 `null`——`render(props)` 不依�?`$`，可以正常返�?HTML；只有真正访�?`$(node)` �?`afterRender` �?NPE，但 `EchoRuntime._doAfterRender` 已经 try-catch 兜住（graceful skip，参�?`.agents/rules/rune-echo-cloudfn-experimental.mdc` §3.5）�?
 
 ## 4. finalProps 合并顺序（renderer 期）
 
@@ -400,7 +400,7 @@ echoRuntime: EchoRuntime      // 必传，handler 派发入口
 
 ## 17. 测试护城�?
 
-详见 `.cursor/rules/rune-echo-test-moat.mdc`�?*改动 rune / echo 代码前必须跑�?*
+详见 `.agents/rules/rune-echo-test-moat.mdc`�?*改动 rune / echo 代码前必须跑�?*
 
 ```bash
 yarn verify:echo   # 6 �?echo suite

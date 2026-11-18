@@ -338,7 +338,7 @@ echo / rune 是我**对这个方向的尝试**。它不完美、它有局限、�
 ## 附录：参考资料
 
 - GitHub: <https://github.com/luo0412/coolma>
-- 架构文档: `.cursor/skills/rune-echo-design/`
+- 架构文档: `.agents/skills/rune-echo-design/`
 - 16 张内置 echo: `src/components/echo/echoBuiltins/`
 - 14 个 rune 模板: `src/components/rune/runeTemplates/`
 - 测试护城河: 11 个 Jest 套件，约 557 个用例

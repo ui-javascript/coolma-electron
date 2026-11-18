@@ -233,5 +233,5 @@ echo 的真正对手不是 MDX，是：
 - MDX 官方文档: <https://mdxjs.com/>
 - MDX 生态: <https://github.com/mdx-js/mdx/blob/main/readme.md>
 - echo 源码: `src/components/echo/echoBuiltins/`
-- echo 试验规则: `.cursor/rules/rune-echo-cloudfn-experimental.mdc`
+- echo 试验规则: `.agents/rules/rune-echo-cloudfn-experimental.mdc`
 - 阶段 0 计划: `_todo/TODO-阶段0内容验证-202607.md`

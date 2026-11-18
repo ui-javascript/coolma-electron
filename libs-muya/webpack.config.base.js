@@ -121,7 +121,7 @@ function buildConfig (variant) {
     resolve: {
       extensions: ['.js', '.vue', '.json', '.css', '.node'],
       alias: {
-        'boot/i18n': path.join(WORKSPACE_ROOT, '_plugins/coolma-muya-demo/src/boot/i18n.js'),
+        'boot/i18n': path.join(WORKSPACE_ROOT, 'demo-vue2-vite-muya/src/boot/i18n.js'),
         'src/components/echo/echoCore': path.join(DESKTOP_ROOT, 'src/components/echo/echoCore.js'),
         'src/utils': path.join(DESKTOP_ROOT, 'src/utils'),
         'src/i18n$': path.join(DESKTOP_ROOT, 'src/i18n/index.js'),

@@ -24,7 +24,7 @@ alwaysApply: true
 | `libs-muya/scripts/**` | ✅ 必须遵守 | 构建脚本是 SDK 公共契约 |
 | `libs-muya/package.json` | ✅ 必须遵守 | keywords / description / peerDependencies 是 SDK 公共契约 |
 | `libs-muya/README.md` | ✅ 必须遵守 | 用户看到的对外文档 |
-| `_plugins/coolma-muya-demo/**` | ⚠️ 谨慎 | demo 是 SDK 的验收用例，lib/ 改动后必须保证 demo 能跑（必要时补 stub） |
+| `demo-vue2-vite-muya/**` | ⚠️ 谨慎 | demo 是 SDK 的验收用例，lib/ 改动后必须保证 demo 能跑（必要时补 stub） |
 | `libs-muya/tests/**` | ⚠️ 谨慎 | lib 自带测试可以保留，但**优先复用 Memocast 主仓库的 Jest 测试套**（避免双维护） |
 
 ---
@@ -294,7 +294,7 @@ export {
 2. 跑 §3 的 8 问自检，任意一个「否」→ 停下来问用户
 3. 写代码（按 §4 红线 + §5「业务留在主项目」原则）
 4. 跑 pnpm --filter libs-muya build:dev / pnpm --filter libs-muya watch 看 lib 内部构建是否过
-5. 跑 demo-web 的 yarn dev 看 demo 还能跑
+5. 跑 `pnpm --filter demo-vue2-vite-muya dev` 看 demo 还能跑
 6. 跑主项目 pnpm verify 确认没破坏 echo / rune 测试
 7. 在 commit message 里注明「libs-muya lib 改动，按 sdk-guidelines 自检 8 问」
 ```

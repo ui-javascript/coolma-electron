@@ -10,7 +10,7 @@ description: Muya Markdown 编辑器架构与实现指南。用于分析、修�
 Muya 作为独立子项目存放在 `libs-muya/`，有两种调试路径：
 
 1. **主项目链路**（pnpm workspace，适合在 Memocast 上下文中验证）
-2. **独立 demo-web 链路**（`link:` + Vite alias，适合纯 muya 开发）
+2. **独立 demo-web 链路**（`workspace:*` + Vite alias，适合纯 muya 开发）
 
 ### 目录结构
 
@@ -33,9 +33,9 @@ libs-muya/
 
 | | 主项目链路 | 独立 demo-web 链路 |
 |--|-----------|-------------------|
-| 启动命令 | `pnpm dev`（仓库根目录） | 在 `_plugins/coolma-muya-demo/` 运行 `pnpm dev` |
+| 启动命令 | `pnpm dev`（仓库根目录） | `pnpm --filter demo-vue2-vite-muya dev`（仓库根目录） |
 | 端口 | 8080（Quasar） | 5174（Vite） |
-| muya 源码 | `workspace:*` 解析到 `libs-muya/` | `link:../../libs-muya` + Vite alias |
+| muya 源码 | `workspace:*` 解析到 `libs-muya/` | `workspace:*` + Vite alias |
 | Memocast 上下文 | ✅ 完整（i18n / echoCore / DB） | ⚠️ 需要 stub（见下） |
 | 适用场景 | Echo / Rune / 笔记集成调试 | 纯 muya UI / parser / renderer 调试 |
 
@@ -59,7 +59,7 @@ pnpm dev
 #### 目录结构
 
 ```
-_plugins/coolma-muya-demo/
+demo-vue2-vite-muya/
 ├── src/
 │   ├── main.js                 # Vue 2 入口
 │   ├── App.vue                 # Demo 根组件（集成 Muya）
@@ -78,9 +78,9 @@ _plugins/coolma-muya-demo/
 
 ```json
 {
-  "name": "muya-demo-web",
+  "name": "demo-vue2-vite-muya",
   "dependencies": {
-    "libs-muya": "link:../../libs-muya",
+    "libs-muya": "workspace:*",
     "vue": "^2.7.16",
     "vue-i18n": "^8.28.2",
     "katex": "^0.16.11",
@@ -103,15 +103,13 @@ import path from 'path'
 export default defineConfig({
   plugins: [vue()],
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-      // Memocast path stubs（必须精确匹配，防止 /lib/lib 重复追加）
-      'boot/i18n': path.resolve(__dirname, './src/boot/i18n.js'),
-      'src/components/echo/echoCore': path.resolve(__dirname, './src/components/echo/echoCore.js'),
-      // muya lib 精确匹配（带上 ^ 前缀）
-      '^libs-muya/lib$': path.resolve(__dirname, '../../libs-muya/lib'),
-      '^libs-muya/themes/default.css$': path.resolve(__dirname, '../../libs-muya/themes/default.css')
-    }
+    alias: [
+      { find: '@', replacement: path.resolve(__dirname, './src') },
+      { find: 'boot/i18n', replacement: path.resolve(__dirname, './src/boot/i18n.js') },
+      { find: 'src/components/echo/echoCore', replacement: path.resolve(__dirname, './src/components/echo/echoCore.js') },
+      { find: /^libs-muya\/lib$/, replacement: path.resolve(__dirname, '../libs-muya/lib') },
+      { find: /^libs-muya\/themes\/default\.css$/, replacement: path.resolve(__dirname, '../libs-muya/themes/default.css') }
+    ]
   },
   optimizeDeps: {
     include: ['katex', 'eve', 'vue', 'vue-i18n']
@@ -175,21 +173,20 @@ export class EchoRuntime { constructor() {} }
 #### 启动步骤
 
 ```bash
-# 1. 安装依赖
-cd _plugins/coolma-muya-demo
+# 1. 在仓库根目录安装依赖
 pnpm install
 
 # 2. 启动 dev server（端口 5174）
-pnpm dev
+pnpm --filter demo-vue2-vite-muya dev
 
 # 3. 访问 http://localhost:5174
 ```
 
 #### ⚠️ 注意事项
 
-1. **alias 必须精确匹配**：muya lib 内部 import 路径是 `libs-muya/lib` 和 `libs-muya/themes/default.css`，不能用普通前缀 alias（会变成 `/lib/lib`）。必须用 `^` 前缀精确匹配。
+1. **alias 必须精确匹配**：demo 导入 `libs-muya/lib` 和 `libs-muya/themes/default.css`，用带 `^` 和 `$` 的正则分别匹配这两个路径。
 2. **Memocast 专有依赖**：`boot/i18n`（i18n 翻译）、`src/components/echo/echoCore`（echo 解析）、`katex`（数学公式）、`eve`（SVG snap 库）必须通过 stub 或 npm 包提供。
-3. **muya 源码修改后无需重新构建**：demo-web 直接引用 `../../libs-muya/lib`，Vite 会追踪源文件，保存即热更新。
+3. **muya 源码修改后无需重新构建**：demo-web 直接引用 `../libs-muya/lib`，Vite 会追踪源文件，保存即热更新。
 4. **echo/rune 功能在独立 demo 中不可用**：因为 echoCore stub 没有真实的 EchoRegistry，但纯 parser/renderer 调试不受影响。
 
 ---
@@ -914,7 +911,7 @@ class MyPlugin {
 
 ## 相关规则（编辑 lib 前必读）
 
-- [`.cursor/rules/coolma-muya-sdk-guidelines.mdc`](../../rules/coolma-muya-sdk-guidelines.mdc) — libs-muya 是 v0.x 阶段的「准 SDK」，编辑 `libs-muya/lib/` 前必须先按 8 问自检；禁止把 Memocast 业务（`src/...` / `boot/i18n` / vuex）泄漏到 lib/ 内部。
-- [`.cursor/rules/plugin-vue-version.mdc`](../../rules/plugin-vue-version.mdc) — `libs-muya/` 是 Vue 2.7.x 子项目，沿用主项目写法（`new Vue`、`Vue.extend`、Options API）。
-- [`.cursor/rules/rune-echo-cloudfn-experimental.mdc`](../../rules/rune-echo-cloudfn-experimental.mdc) — echo / rune / 云函数业务逻辑在主项目；lib/ 内部的 echo_anno / mountRuneVueHosts 是 SDK 准公共契约，按 sdk-guidelines 推进解耦。
-- [`.cursor/rules/rune-echo-test-moat.mdc`](../../rules/rune-echo-test-moat.mdc) — lib 改动必须跑 `pnpm verify:echo` / `pnpm verify:rune` 确认运行时契约没破坏。
+- [`.agents/rules/coolma-muya-sdk-guidelines.mdc`](../../rules/coolma-muya-sdk-guidelines.mdc) — libs-muya 是 v0.x 阶段的「准 SDK」，编辑 `libs-muya/lib/` 前必须先按 8 问自检；禁止把 Memocast 业务（`src/...` / `boot/i18n` / vuex）泄漏到 lib/ 内部。
+- [`.agents/rules/plugin-vue-version.mdc`](../../rules/plugin-vue-version.mdc) — `libs-muya/` 是 Vue 2.7.x 子项目，沿用主项目写法（`new Vue`、`Vue.extend`、Options API）。
+- [`.agents/rules/rune-echo-cloudfn-experimental.mdc`](../../rules/rune-echo-cloudfn-experimental.mdc) — echo / rune / 云函数业务逻辑在主项目；lib/ 内部的 echo_anno / mountRuneVueHosts 是 SDK 准公共契约，按 sdk-guidelines 推进解耦。
+- [`.agents/rules/rune-echo-test-moat.mdc`](../../rules/rune-echo-test-moat.mdc) — lib 改动必须跑 `pnpm verify:echo` / `pnpm verify:rune` 确认运行时契约没破坏。

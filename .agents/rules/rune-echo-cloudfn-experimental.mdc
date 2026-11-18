@@ -131,7 +131,7 @@ function renderEcho (echo) {
 涉及 `libs-muya/lib/` 的改动：
 
 - **业务�?*：仍按本规则（echo / rune / 云函数）的「不背历史包�?+ 读路径防御」原则；
-- **SDK �?*：必�?*额外**�?`.cursor/rules/coolma-muya-sdk-guidelines.mdc` �?8 问自检�?
+- **SDK �?*：必�?*额外**�?`.agents/rules/coolma-muya-sdk-guidelines.mdc` �?8 问自检�?
 - **冲突�?SDK 侧优�?*：coolma-muya 终态是独立 npm SDK，不允许为了业务方便�?Memocast 业务路径（`src/...` / `boot/i18n` / vuex）泄漏到 lib/�?
 
 当前已经�?lib/ 里识别出的业务耦合点（�?sdk-guidelines §6 推进迁出）：

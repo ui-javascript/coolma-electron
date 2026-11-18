@@ -110,7 +110,7 @@ const muya = new Muya('#editor', options)
 
 在仓库根目录执行 `pnpm install`，pnpm 会自动链接 `libs-muya`。
 
-独立 demo 位于 `_plugins/coolma-muya-demo/`。在该目录运行 `pnpm install --frozen-lockfile` 后，再运行 `pnpm dev`。
+Vue 2 + Vite demo 位于 [`demo-vue2-vite-muya/`](../demo-vue2-vite-muya/)。安装依赖后，在仓库根目录运行 `pnpm --filter demo-vue2-vite-muya dev`。
 
 ### 2.2 监听构建
 

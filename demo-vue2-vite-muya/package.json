@@ -1,5 +1,5 @@
 {
-  "name": "muya-demo-web",
+  "name": "demo-vue2-vite-muya",
   "version": "0.1.0",
   "description": "Standalone web demo of the libs-muya editor",
   "private": true,
@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "libs-muya": "link:../../libs-muya",
+    "libs-muya": "workspace:*",
     "vue": "^2.7.16",
     "vue-i18n": "^8.28.2",
     "katex": "^0.16.11",

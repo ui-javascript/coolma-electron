@@ -58,7 +58,7 @@ export const META = {
 
 - 中文长文：见 `<repo>/_todo/phase0-chinese-letter-v1.md`
 - 英文长文：见 `<repo>/_todo/phase0-english-letter-v1.md`
-- 架构速查：`<repo>/.cursor/skills/rune-echo-design/SKILL.md`
+- 架构速查：`<repo>/.agents/skills/rune-echo-design/SKILL.md`
 
 ## 我等你 30 天
 

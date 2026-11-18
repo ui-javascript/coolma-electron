@@ -38,6 +38,6 @@ BspAppDemoService 等）是当前在跑的底层 service，本目录是上层"�
 
 ## 当前状态
 
-试验阶段（参照 `.cursor/rules/rune-echo-cloudfn-experimental.mdc`）。本目录
+试验阶段（参照 `.agents/rules/rune-echo-cloudfn-experimental.mdc`）。本目录
 当前为空，仅作为命名约定占位。等云函数模块整体成熟后，按上面命名规范往里
 新增 `*CloudFn.js` 文件即可，无需修改 boot。

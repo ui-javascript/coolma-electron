@@ -966,7 +966,7 @@ this.contentEditor.contentState.stateRender.renderRunes()
 
 ## 11. 测试契约（护城河�?
 
-详见 `.cursor/rules/rune-echo-test-moat.mdc`。每条契约对应一�?Jest suite�?
+详见 `.agents/rules/rune-echo-test-moat.mdc`。每条契约对应一�?Jest suite�?
 
 | 契约 | 测试用例 |
 |---|---|

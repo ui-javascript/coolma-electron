@@ -28,7 +28,7 @@ export default defineConfig({
       { find: 'boot/i18n', replacement: path.resolve(__dirname, './src/boot/i18n.js') },
       { find: 'src/components/echo/echoCore', replacement: path.resolve(__dirname, './src/components/echo/echoCore.js') },
       // libs-muya lib (精确匹配，防止 /lib -> /lib/lib)
-      { find: /^libs-muya\/lib$/, replacement: path.resolve(__dirname, '../../libs-muya/lib') },
+      { find: /^libs-muya\/lib$/, replacement: path.resolve(__dirname, '../libs-muya/lib') },
       // lib 内部 CSS：demo 不调用 exportHtml()，导出 HTML 时不会用到这些样式表。
       // 走真 CSS 在 vite 下没有 default export（仅副作用注入），而 lib 代码
       // `import xxx from 'xxx.css'` 期望拿到 CSS 字符串嵌入 HTML。所以 demo
@@ -38,7 +38,7 @@ export default defineConfig({
       // 所以必须用 importee 字符串本身作为 find。
       { find: '../assets/styles/exportStyle.css', replacement: path.resolve(__dirname, './stubs/coolma-muya/lib/assets/styles/exportStyle.css.js') },
       { find: '../assets/styles/headerFooterStyle.css', replacement: path.resolve(__dirname, './stubs/coolma-muya/lib/assets/styles/headerFooterStyle.css.js') },
-      { find: /^libs-muya\/themes\/default\.css$/, replacement: path.resolve(__dirname, '../../libs-muya/themes/default.css') },
+      { find: /^libs-muya\/themes\/default\.css$/, replacement: path.resolve(__dirname, '../libs-muya/themes/default.css') },
       // exportHtml.js 需要 CSS 字符串，Vite 用 ?inline 提供默认导出。
       { find: /^prismjs\/themes\/prism\.css$/, replacement: `${resolve('prismjs/themes/prism.css')}?inline` },
       { find: /^katex\/dist\/katex\.css$/, replacement: `${resolve('katex/dist/katex.css')}?inline` },
@@ -93,14 +93,6 @@ export default defineConfig({
   server: {
     port: 5174,
     strictPort: true,
-    // 允许 vite 通过 /@fs/<abs-path> 访问 demo-web 工作目录外的文件
-    // （主要是 libs-muya/lib/*）。vite 5 默认出于安全 fs 沙箱拒绝。
-    fs: {
-      allow: [
-        path.resolve(__dirname, '..', '..'),
-        path.resolve(__dirname, '.')
-      ]
-    },
     // 关闭预 transform：Muya lib 内部静态 import 了一批 demo 没装的依赖
     // (snap.svg-min / prismjs CSS / popper.js sub-path / katex css 等)，
     // vite pre-transform 阶段 esbuild 直接读文件做 scan，绕开 vite 的

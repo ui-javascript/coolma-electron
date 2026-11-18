@@ -203,7 +203,7 @@ share/channels.js                              # IPC channel 定义
 .github/workflows/
   blog-build.yml / blog-db-upload.yml / blog-preview.yml
 
-.cursor/skills/blog-deploy-design/SKILL.md     # 详细技能文档（与本文档互为补充）
+.agents/skills/blog-deploy-design/SKILL.md     # 详细技能文档（与本文档互为补充）
 ```
 
 ---
@@ -275,7 +275,7 @@ gh workflow run blog-db-upload.yml  # 手动上传 db
 
 ## 8. 相关 TODO / 文档索引
 
-- `.cursor/skills/blog-deploy-design/SKILL.md` — 详细技能文档（与本文档互为补充，包含更多代码片段与具体命令）
+- `.agents/skills/blog-deploy-design/SKILL.md` — 详细技能文档（与本文档互为补充，包含更多代码片段与具体命令）
 - `_todo/TODO-vuepress部署优化-2026.md` — **已删除**（早期事故复盘 + 代码片段，已沉淀到代码注释）
 - `_todo/TODO-vuepress博客自动打包部署-202609.md` — **已删除**（实施计划已全部完成）
 - `_todo/TODO-vuepress博客打包部署优化-2026.md` — **本文档**（保留为最新维护入口）
