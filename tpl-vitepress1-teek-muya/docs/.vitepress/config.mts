@@ -68,6 +68,14 @@ export default withMermaid(defineConfig({
   ignoreDeadLinks: false,
   vite: {
     ...teek.vite,
+    optimizeDeps: {
+      ...teek.vite?.optimizeDeps,
+      include: [
+        ...(teek.vite?.optimizeDeps?.include || []),
+        'fastdom',
+        'fastdom/extensions/fastdom-promised.js'
+      ]
+    },
     resolve: {
       ...teek.vite?.resolve,
       alias: [
