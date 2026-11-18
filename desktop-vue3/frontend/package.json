@@ -1,0 +1,33 @@
+{
+  "name": "coolma-vue3-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Coolma Vue3 renderer",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 8080",
+    "build": "vue-tsc --noEmit && vite build",
+    "typecheck": "vue-tsc --noEmit",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.2",
+    "ant-design-vue": "4.2.6",
+    "element-plus": "2.14.8",
+    "enum-plus": "^3.4.0",
+    "libs-muya": "workspace:*",
+    "pinia": "^2.3.1",
+    "plugins-muya-echo": "workspace:*",
+    "plugins-muya-rune": "workspace:*",
+    "quasar": "2.35.5",
+    "splitpanes": "^4.1.2",
+    "vue": "^3.5.45",
+    "vue-i18n": "^11.4.18",
+    "vue-router": "^4.6.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.4",
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21",
+    "vue-tsc": "^2.2.12"
+  }
+}

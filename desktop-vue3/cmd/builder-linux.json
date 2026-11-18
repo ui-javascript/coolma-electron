@@ -1,0 +1,21 @@
+{
+  "productName": "Coolma Vue3",
+  "appId": "cn.coolma.vue3",
+  "copyright": "Copyright © 2026 Coolma Vue3 contributors",
+  "directories": {
+    "output": "out"
+  },
+  "asar": true,
+  "npmRebuild": false,
+  "files": [
+    "public/**/*",
+    "package.json",
+    "!public/**/*.map"
+  ],
+  "linux": {
+    "icon": "build/icons/icon.png",
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
+    "target": ["deb"],
+    "category": "Utility"
+  }
+}

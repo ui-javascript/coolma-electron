@@ -1,0 +1,36 @@
+{
+  "productName": "Coolma Vue3",
+  "appId": "cn.coolma.vue3",
+  "copyright": "Copyright © 2026 Coolma Vue3 contributors",
+  "directories": {
+    "output": "out"
+  },
+  "asar": true,
+  "npmRebuild": false,
+  "files": [
+    "public/**/*",
+    "package.json",
+    "!public/**/*.map"
+  ],
+  "nsis": {
+    "oneClick": false,
+    "allowElevation": true,
+    "allowToChangeInstallationDirectory": true,
+    "installerIcon": "build/icons/icon.ico",
+    "uninstallerIcon": "build/icons/icon.ico",
+    "installerHeaderIcon": "build/icons/icon.ico",
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Coolma Vue3"
+  },
+  "win": {
+    "icon": "build/icons/icon.ico",
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ]
+  }
+}

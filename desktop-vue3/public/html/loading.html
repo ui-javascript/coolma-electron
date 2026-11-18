@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Coolma Vue3</title>
+    <style>
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f5f6f8;
+        color: #1f2329;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      }
+      .boot {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+      }
+      .mark {
+        display: flex;
+        width: 54px;
+        height: 54px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 15px;
+        background: linear-gradient(135deg, #2563eb, #7c3aed);
+        box-shadow: 0 12px 30px rgb(37 99 235 / 25%);
+        color: #fff;
+        font-size: 25px;
+        font-weight: 700;
+      }
+      .title {
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+      }
+      .hint {
+        color: #8a9099;
+        font-size: 11px;
+      }
+      .bar {
+        width: 120px;
+        height: 3px;
+        overflow: hidden;
+        border-radius: 99px;
+        background: #e4e7ed;
+      }
+      .bar::after {
+        display: block;
+        width: 42%;
+        height: 100%;
+        border-radius: inherit;
+        background: #2563eb;
+        animation: slide 1.1s ease-in-out infinite;
+        content: "";
+      }
+      @keyframes slide {
+        0% { transform: translateX(-120%); }
+        100% { transform: translateX(320%); }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="boot">
+      <div class="mark">C</div>
+      <div class="title">COOLMA VUE3</div>
+      <div class="bar"></div>
+      <div class="hint">正在连接前端服务...</div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,45 @@
+{
+  "name": "desktop-vue3",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Coolma Vue3 desktop app rebuilt on electron-egg TypeScript",
+  "main": "./public/electron/main.js",
+  "author": "luo0412",
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@10.28.2",
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=10"
+  },
+  "scripts": {
+    "dev": "ee-bin dev",
+    "dev-frontend": "ee-bin dev --serve=frontend",
+    "dev-electron": "ee-bin dev --serve=electron",
+    "build": "pnpm run build-frontend && pnpm run build-electron",
+    "build-frontend": "ee-bin build --cmds=frontend && ee-bin move --flag=frontend_dist",
+    "build-electron": "ee-bin build --cmds=electron",
+    "build-w": "ee-bin build --cmds=win64",
+    "build-we": "ee-bin build --cmds=win_e",
+    "build-m": "ee-bin build --cmds=mac",
+    "build-m-arm64": "ee-bin build --cmds=mac_arm64",
+    "build-l": "ee-bin build --cmds=linux",
+    "start": "ee-bin start",
+    "typecheck": "tsc --noEmit -p tsconfig.json && pnpm --dir frontend run typecheck",
+    "rebuild:sqlite": "node scripts/fetch-better-sqlite3-prebuild.mjs",
+    "icon": "ee-bin icon"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "ee-core": "4.1.5",
+    "enum-plus": "^3.4.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.19.1",
+    "ee-bin": "4.2.0",
+    "electron": "^39.8.10",
+    "electron-builder": "^26.3.5",
+    "typescript": "^5.9.3"
+  }
+}

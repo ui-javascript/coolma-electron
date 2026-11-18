@@ -1,0 +1,44 @@
+# 上游参考源码（只读，不提交）
+.tmp/
+
+# 依赖与构建产物
+node_modules/
+.pnpm-store/
+package-lock.json
+npm-shrinkwrap.json
+out/
+dist/
+public/dist/
+public/electron/
+logs/
+data/
+runtime/
+*.tsbuildinfo
+
+# 本地数据库与备份
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.bak
+!tests/fixtures/*.db
+
+# 环境变量与密钥
+.env
+.env.*
+!.env.example
+!frontend/.env.development
+!frontend/.env.production
+*.pem
+*.key
+*.p12
+*.pfx
+*.log
+
+# 编辑器 / 系统
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

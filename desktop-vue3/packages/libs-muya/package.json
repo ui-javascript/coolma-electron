@@ -1,0 +1,42 @@
+{
+  "name": "libs-muya",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Standalone Muya Markdown editor core and Vue 3 wrapper",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts",
+    "./core": "./src/core/index.js",
+    "./style.css": "./src/themes/default.css"
+  },
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "peerDependencies": {
+    "vue": "^3.5.0"
+  },
+  "dependencies": {
+    "dompurify": "^3.3.3",
+    "element-resize-detector": "^1.2.1",
+    "execall": "^2.0.0",
+    "file-icons-js": "1.0.3",
+    "flowchart.js": "^1.18.0",
+    "github-markdown-css": "^5.9.0",
+    "html-tags": "^3.3.1",
+    "joplin-turndown-plugin-gfm": "^1.0.12",
+    "katex": "^0.16.11",
+    "mermaid": "^10.6.1",
+    "popper.js": "^1.16.1",
+    "prismjs": "^1.29.0",
+    "snabbdom": "0.7.4",
+    "snabbdom-to-html": "^5.1.1",
+    "turndown": "^7.2.5",
+    "unsplash-js": "^6.0.0",
+    "uuid": "^9.0.1",
+    "vega": "^5.10.0",
+    "vega-embed": "^6.21.0",
+    "vega-lite": "^4.7.0",
+    "webfontloader": "^1.6.28"
+  }
+}

@@ -1,0 +1,10 @@
+packages:
+  - frontend
+  - packages/*
+
+onlyBuiltDependencies:
+  - electron
+  - esbuild
+
+ignoredBuiltDependencies:
+  - better-sqlite3

@@ -1,0 +1,13 @@
+{
+  "name": "plugins-muya-echo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Echo (@chant) plugin for libs-muya",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "peerDependencies": {
+    "libs-muya": "workspace:*"
+  }
+}

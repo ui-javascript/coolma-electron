@@ -1,9 +1,9 @@
 packages:
+  - desktop-vue3
   - desktop-vue2
   - libs-muya
   - tpl-vuepress1-voding-muya
   - tpl-vitepress1-teek-muya
-  - '!desktop-vue3'
 
 # Quasar v1 and Electron packaging expect a flat node_modules layout.
 nodeLinker: hoisted

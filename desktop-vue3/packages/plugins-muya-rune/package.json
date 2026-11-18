@@ -1,0 +1,17 @@
+{
+  "name": "plugins-muya-rune",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Rune (Vue 3 SFC card) plugin for libs-muya",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "peerDependencies": {
+    "libs-muya": "workspace:*",
+    "vue": "^3.5.0"
+  },
+  "dependencies": {
+    "@vue/compiler-dom": "^3.5.45"
+  }
+}
