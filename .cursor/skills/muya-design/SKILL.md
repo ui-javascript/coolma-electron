@@ -7,16 +7,16 @@ description: Muya Markdown 编辑器架构与实现指南。用于分析、修�
 
 ## 本地开发与调试
 
-Muya 作为独立子项目存放在 `_plugins/coolma-muya/`，有两种调试路径：
+Muya 作为独立子项目存放在 `libs-muya/`，有两种调试路径：
 
-1. **主项目链路**（`yarn link`，适合在 Memocast 上下文中验证）
-2. **独立 demo-web 链路**（`file:` + vite alias，适合纯 muya 开发）
+1. **主项目链路**（pnpm workspace，适合在 Memocast 上下文中验证）
+2. **独立 demo-web 链路**（`link:` + Vite alias，适合纯 muya 开发）
 
 ### 目录结构
 
 ```
-_plugins/coolma-muya/
-├── lib/               # 源代码（ESM，供 yarn link 使用）
+libs-muya/
+├── lib/               # 源代码（ESM，供主项目和 demo 使用）
 │   ├── index.js       # 主入口，导出 Muya 类 + UI 组件 + utils
 │   ├── ui/            # 13 个 UI 插件组件
 │   ├── utils/         # 工具函数
@@ -33,66 +33,24 @@ _plugins/coolma-muya/
 
 | | 主项目链路 | 独立 demo-web 链路 |
 |--|-----------|-------------------|
-| 启动命令 | `yarn run dev`（主项目） | `cd _plugins/muya-demo-web; yarn dev` |
+| 启动命令 | `pnpm dev`（仓库根目录） | 在 `_plugins/coolma-muya-demo/` 运行 `pnpm dev` |
 | 端口 | 8080（Quasar） | 5174（Vite） |
-| muya 源码 | `yarn link` 解析到 `_plugins/coolma-muya/` | `file:../coolma-muya` + vite alias |
+| muya 源码 | `workspace:*` 解析到 `libs-muya/` | `link:../../libs-muya` + Vite alias |
 | Memocast 上下文 | ✅ 完整（i18n / echoCore / DB） | ⚠️ 需要 stub（见下） |
 | 适用场景 | Echo / Rune / 笔记集成调试 | 纯 muya UI / parser / renderer 调试 |
 
 ---
 
-### 路径一：主项目链路（yarn link）
+### 路径一：主项目链路（pnpm workspace）
 
-```
-_plugins/coolma-muya/
-        │
-        ├── package.json#main: "lib/index.js"
-        │
-        └── yarn link → 注册到 ~/.config/yarn/link/coolma-muya
-                              │
-主项目根目录: yarn link coolma-muya → symlink → _plugins/coolma-muya/
-                                               │
-quasar.conf.js: resolve.alias.coolma-muya → _plugins/coolma-muya
+在仓库根目录运行：
+
+```sh
+pnpm install
+pnpm dev
 ```
 
-**常用命令**
-
-| 命令 | 作用 |
-|------|------|
-| `yarn` | 安装 muya 自身依赖 |
-| `yarn build` | 清理后生产构建（输出到 `dist/`） |
-| `yarn build:dev` | 清理后开发构建 |
-| `yarn watch` / `yarn dev` | 开启 webpack watch（不改源码时用） |
-| `yarn link` | 在 muya 目录注册 link（主项目侧执行 `yarn link coolma-muya`） |
-
-**软链接操作步骤**：
-
-```bash
-# 1. 在 muya 子项目注册 link
-cd _plugins/coolma-muya
-yarn link
-
-# 2. 在主项目根目录激活 link（一次性）
-cd d:/work-coolma/coolma/coolma
-yarn link coolma-muya
-
-# 3. 启动主项目开发服务器
-yarn run dev
-
-# 4. 如果改了 muya 源码需要重构建（生产）
-cd _plugins/coolma-muya
-yarn build
-
-# 或者 watch 模式（开发调试，保持 watch 不中断）
-yarn watch
-```
-
-在主项目根目录执行 `yarn link coolma-muya` 即可让 quasar bundler 解析到 `_plugins/coolma-muya/lib/`。
-
-**注意**：quasar.conf.js 中已有 alias：
-```javascript
-'coolma-muya': path.resolve(__dirname, '../_plugins/coolma-muya')
-```
+`desktop-vue2/package.json` 通过 `workspace:*` 引用 `libs-muya`。Quasar 直接构建 `libs-muya/lib/` 的源码。如果要单独生成编辑器 UMD 产物，运行 `pnpm --filter libs-muya build`；开发构建用 `pnpm --filter libs-muya build:dev`。
 
 ---
 
@@ -101,7 +59,7 @@ yarn watch
 #### 目录结构
 
 ```
-_plugins/muya-demo-web/
+_plugins/coolma-muya-demo/
 ├── src/
 │   ├── main.js                 # Vue 2 入口
 │   ├── App.vue                 # Demo 根组件（集成 Muya）
@@ -122,7 +80,7 @@ _plugins/muya-demo-web/
 {
   "name": "muya-demo-web",
   "dependencies": {
-    "coolma-muya": "file:../coolma-muya",
+    "libs-muya": "link:../../libs-muya",
     "vue": "^2.7.16",
     "vue-i18n": "^8.28.2",
     "katex": "^0.16.11",
@@ -151,8 +109,8 @@ export default defineConfig({
       'boot/i18n': path.resolve(__dirname, './src/boot/i18n.js'),
       'src/components/echo/echoCore': path.resolve(__dirname, './src/components/echo/echoCore.js'),
       // muya lib 精确匹配（带上 ^ 前缀）
-      '^coolma-muya/lib$': path.resolve(__dirname, '../coolma-muya/lib'),
-      '^coolma-muya/themes/default.css$': path.resolve(__dirname, '../coolma-muya/themes/default.css')
+      '^libs-muya/lib$': path.resolve(__dirname, '../../libs-muya/lib'),
+      '^libs-muya/themes/default.css$': path.resolve(__dirname, '../../libs-muya/themes/default.css')
     }
   },
   optimizeDeps: {
@@ -218,27 +176,27 @@ export class EchoRuntime { constructor() {} }
 
 ```bash
 # 1. 安装依赖
-cd _plugins/muya-demo-web
-yarn install
+cd _plugins/coolma-muya-demo
+pnpm install
 
 # 2. 启动 dev server（端口 5174）
-yarn dev
+pnpm dev
 
 # 3. 访问 http://localhost:5174
 ```
 
 #### ⚠️ 注意事项
 
-1. **alias 必须精确匹配**：muya lib 内部 import 路径是 `coolma-muya/lib` 和 `coolma-muya/themes/default.css`，不能用普通前缀 alias（会变成 `/lib/lib`）。必须用 `^` 前缀精确匹配。
+1. **alias 必须精确匹配**：muya lib 内部 import 路径是 `libs-muya/lib` 和 `libs-muya/themes/default.css`，不能用普通前缀 alias（会变成 `/lib/lib`）。必须用 `^` 前缀精确匹配。
 2. **Memocast 专有依赖**：`boot/i18n`（i18n 翻译）、`src/components/echo/echoCore`（echo 解析）、`katex`（数学公式）、`eve`（SVG snap 库）必须通过 stub 或 npm 包提供。
-3. **muya 源码修改后无需重新构建**：demo-web 直接引用 `../muya/lib`，Vite 会追踪源文件，保存即热更新。
+3. **muya 源码修改后无需重新构建**：demo-web 直接引用 `../../libs-muya/lib`，Vite 会追踪源文件，保存即热更新。
 4. **echo/rune 功能在独立 demo 中不可用**：因为 echoCore stub 没有真实的 EchoRegistry，但纯 parser/renderer 调试不受影响。
 
 ---
 
 ### 源码引用方式
 
-src 中统一从 `coolma-muya/lib` 具名导入：
+src 中统一从 `libs-muya/lib` 具名导入：
 
 ```javascript
 // 主编辑器 + 13 个 UI 组件
@@ -247,13 +205,13 @@ import {
   TablePicker, QuickInsert, CodePicker, EmojiPicker,
   ImagePathPicker, ImageSelector, FormatPicker, FrontMenu,
   ImageToolbar, LinkTools, TableBarTools, Transformer
-} from 'coolma-muya/lib'
+} from 'libs-muya/lib'
 
 // 工具函数
-import { escapeHtml, identity } from 'coolma-muya/lib'
+import { escapeHtml, identity } from 'libs-muya/lib'
 
 // CSS 主题（单独导入）
-import 'coolma-muya/themes/default.css'
+import 'libs-muya/themes/default.css'
 ```
 
 ### 导出 API（lib/index.js）
@@ -284,16 +242,16 @@ Muya 是基于 snabbdom 的虚拟 DOM Markdown 编辑器，版本 0.1.2。
 
 | 模块 | 路径 | 职责 |
 |------|------|------|
-| EventCenter | `_plugins/coolma-muya/lib/eventHandler/event.js` | 事件发布/订阅 |
-| ContentState | `_plugins/coolma-muya/lib/contentState/index.js` | 状态管理、Block 树操作 |
-| StateRender | `_plugins/coolma-muya/lib/parser/render/index.js` | 虚拟 DOM 渲染 |
-| Parser | `_plugins/coolma-muya/lib/parser/index.js` | Markdown 行内解析 (tokenizer) |
-| Lexer | `_plugins/coolma-muya/lib/parser/marked/lexer.js` | Markdown 块级解析 (Lexer) |
+| EventCenter | `libs-muya/lib/eventHandler/event.js` | 事件发布/订阅 |
+| ContentState | `libs-muya/lib/contentState/index.js` | 状态管理、Block 树操作 |
+| StateRender | `libs-muya/lib/parser/render/index.js` | 虚拟 DOM 渲染 |
+| Parser | `libs-muya/lib/parser/index.js` | Markdown 行内解析 (tokenizer) |
+| Lexer | `libs-muya/lib/parser/marked/lexer.js` | Markdown 块级解析 (Lexer) |
 
 ### 初始化
 
 ```javascript
-import Muya from '_plugins/coolma-muya/lib'
+import Muya from 'libs-muya/lib'
 
 const editor = new Muya(containerElement, {
   markdown: '# Hello',
@@ -355,7 +313,7 @@ Muya 的解析分为**两层**：
 
 ### 第一层：块级解析（Lexer → Block 树）
 
-由 `_plugins/coolma-muya/lib/utils/importMarkdown.js` 中的 `importMarkdown` 函数驱动，调用 `Lexer.lex(src)` 将 Markdown 文本转换为 Block 树：
+由 `libs-muya/lib/utils/importMarkdown.js` 中的 `importMarkdown` 函数驱动，调用 `Lexer.lex(src)` 将 Markdown 文本转换为 Block 树：
 
 ```
 Markdown Text → Lexer.lex() → Block Tree
@@ -931,23 +889,23 @@ class MyPlugin {
 
 | 文件 | 用途 |
 |------|------|
-| `_plugins/coolma-muya/lib/index.js` | 主入口，Muya 类 |
-| `_plugins/coolma-muya/lib/contentState/index.js` | 状态管理，render/renderRange/history |
-| `_plugins/coolma-muya/lib/parser/index.js` | 行内 tokenizer |
-| `_plugins/coolma-muya/lib/parser/rules.js` | 行内规则定义 |
-| `_plugins/coolma-muya/lib/parser/marked/blockRules.js` | 块级规则定义 |
-| `_plugins/coolma-muya/lib/parser/marked/lexer.js` | 块级 lexer |
-| `_plugins/coolma-muya/lib/parser/render/index.js` | StateRender，render/partialRender/singleRender |
-| `_plugins/coolma-muya/lib/parser/render/snabbdom.js` | snabbdom 封装 |
-| `_plugins/coolma-muya/lib/parser/render/renderBlock/index.js` | 块级渲染分发 |
-| `_plugins/coolma-muya/lib/parser/render/renderBlock/renderLeafBlock.js` | 叶子块渲染（含 Mermaid/Diagram） |
-| `_plugins/coolma-muya/lib/parser/render/renderBlock/renderContainerBlock.js` | 容器块渲染 |
-| `_plugins/coolma-muya/lib/parser/render/renderInlines/index.js` | 行内渲染函数导出 |
-| `_plugins/coolma-muya/lib/parser/render/renderInlines/echoAnno.js` | Echo 占位符渲染（Memocast 扩展） |
-| `_plugins/coolma-muya/lib/eventHandler/event.js` | EventCenter |
-| `_plugins/coolma-muya/lib/utils/importMarkdown.js` | Markdown → Block 树 |
-| `_plugins/coolma-muya/lib/utils/exportMarkdown.js` | Block 树 → Markdown |
-| `_plugins/coolma-muya/lib/config/index.js` | CLASS_OR_ID 常量、配置默认值 |
+| `libs-muya/lib/index.js` | 主入口，Muya 类 |
+| `libs-muya/lib/contentState/index.js` | 状态管理，render/renderRange/history |
+| `libs-muya/lib/parser/index.js` | 行内 tokenizer |
+| `libs-muya/lib/parser/rules.js` | 行内规则定义 |
+| `libs-muya/lib/parser/marked/blockRules.js` | 块级规则定义 |
+| `libs-muya/lib/parser/marked/lexer.js` | 块级 lexer |
+| `libs-muya/lib/parser/render/index.js` | StateRender，render/partialRender/singleRender |
+| `libs-muya/lib/parser/render/snabbdom.js` | snabbdom 封装 |
+| `libs-muya/lib/parser/render/renderBlock/index.js` | 块级渲染分发 |
+| `libs-muya/lib/parser/render/renderBlock/renderLeafBlock.js` | 叶子块渲染（含 Mermaid/Diagram） |
+| `libs-muya/lib/parser/render/renderBlock/renderContainerBlock.js` | 容器块渲染 |
+| `libs-muya/lib/parser/render/renderInlines/index.js` | 行内渲染函数导出 |
+| `libs-muya/lib/parser/render/renderInlines/echoAnno.js` | Echo 占位符渲染（Memocast 扩展） |
+| `libs-muya/lib/eventHandler/event.js` | EventCenter |
+| `libs-muya/lib/utils/importMarkdown.js` | Markdown → Block 树 |
+| `libs-muya/lib/utils/exportMarkdown.js` | Block 树 → Markdown |
+| `libs-muya/lib/config/index.js` | CLASS_OR_ID 常量、配置默认值 |
 | `src/components/muya/Muya.vue` | Vue 封装组件（主编辑器集成点） |
 
 ## 扩展阅读
@@ -956,7 +914,7 @@ class MyPlugin {
 
 ## 相关规则（编辑 lib 前必读）
 
-- [`.cursor/rules/coolma-muya-sdk-guidelines.mdc`](../../rules/coolma-muya-sdk-guidelines.mdc) — coolma-muya 是 v0.x 阶段的「准 SDK」，编辑 `_plugins/coolma-muya/lib/` 前必须先按 8 问自检；禁止把 Memocast 业务（`src/...` / `boot/i18n` / vuex）泄漏到 lib/ 内部。
-- [`.cursor/rules/plugin-vue-version.mdc`](../../rules/plugin-vue-version.mdc) — `_plugins/coolma-muya/` 是 Vue 2.7.x 子项目，沿用主项目写法（`new Vue`、`Vue.extend`、Options API）。
+- [`.cursor/rules/coolma-muya-sdk-guidelines.mdc`](../../rules/coolma-muya-sdk-guidelines.mdc) — libs-muya 是 v0.x 阶段的「准 SDK」，编辑 `libs-muya/lib/` 前必须先按 8 问自检；禁止把 Memocast 业务（`src/...` / `boot/i18n` / vuex）泄漏到 lib/ 内部。
+- [`.cursor/rules/plugin-vue-version.mdc`](../../rules/plugin-vue-version.mdc) — `libs-muya/` 是 Vue 2.7.x 子项目，沿用主项目写法（`new Vue`、`Vue.extend`、Options API）。
 - [`.cursor/rules/rune-echo-cloudfn-experimental.mdc`](../../rules/rune-echo-cloudfn-experimental.mdc) — echo / rune / 云函数业务逻辑在主项目；lib/ 内部的 echo_anno / mountRuneVueHosts 是 SDK 准公共契约，按 sdk-guidelines 推进解耦。
-- [`.cursor/rules/rune-echo-test-moat.mdc`](../../rules/rune-echo-test-moat.mdc) — lib 改动必须跑 `yarn verify:echo` / `yarn verify:rune` 确认运行时契约没破坏。
+- [`.cursor/rules/rune-echo-test-moat.mdc`](../../rules/rune-echo-test-moat.mdc) — lib 改动必须跑 `pnpm verify:echo` / `pnpm verify:rune` 确认运行时契约没破坏。

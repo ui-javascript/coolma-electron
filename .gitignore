@@ -7,18 +7,18 @@ node_modules
 /dist
 
 # Cordova related directories and files
-/src-cordova/node_modules
-/src-cordova/platforms
-/src-cordova/plugins
-/src-cordova/www
+/desktop-vue2/src-cordova/node_modules
+/desktop-vue2/src-cordova/platforms
+/desktop-vue2/src-cordova/plugins
+/desktop-vue2/src-cordova/www
 
 # Capacitor related directories and files
-/src-capacitor/www
-/src-capacitor/node_modules
+/desktop-vue2/src-capacitor/www
+/desktop-vue2/src-capacitor/node_modules
 
 # BEX related directories and files
-/src-bex/www
-/src-bex/js/core
+/desktop-vue2/src-bex/www
+/desktop-vue2/src-bex/js/core
 
 # Log files
 npm-debug.log*
@@ -30,8 +30,6 @@ yarn-error.log*
 /_plugins/*
 !/_plugins/box-im-wujie/
 !/_plugins/box-im-wujie/**
-!/_plugins/coolma-muya/
-!/_plugins/coolma-muya/**
 !/_plugins/coolma-muya-demo/
 !/_plugins/coolma-muya-demo/**
 !/_plugins/doubao-input/

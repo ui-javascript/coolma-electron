@@ -5,9 +5,9 @@ alwaysApply: true
 
 # Package Manager
 
-This project uses **yarn** as the package manager.
+This repository uses **pnpm workspaces**. The root manifest dispatches workspace scripts. The desktop app is in `desktop-vue2/` and Muya is in `libs-muya/`.
 
-- All dependency installation commands must use `yarn` (e.g., `yarn install`, `yarn add <pkg>`, `yarn remove <pkg>`).
-- Do NOT use `npm install` or `pnpm install`.
-- When adding dependencies, use `yarn add` with appropriate flags (`--dev` for devDependencies).
-- When removing dependencies, use `yarn remove`.
+- Run installation from the repository root with `pnpm install`.
+- Use `pnpm --filter desktop-vue2 add <pkg>` / `pnpm --filter desktop-vue2 add -D <pkg>` for desktop app dependencies.
+- Use `pnpm --filter libs-muya add <pkg>` / `pnpm --filter libs-muya add -D <pkg>` for the Muya package.
+- Run workspace scripts with `pnpm --filter <package-name> <script>`.

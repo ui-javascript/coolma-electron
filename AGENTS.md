@@ -27,5 +27,6 @@ adjust
 
 ## 其他项目约定
 
-- 包管理器固定使用 **yarn**，禁止 `npm install` / `pnpm install`。
+- 包管理器固定使用 **pnpm**；在仓库根目录执行 workspace 安装与脚本。
+- workspace 包：`desktop-vue2`（`desktop-vue2/`）、`libs-muya`、`tpl-vuepress1-voding-muya`、`tpl-vitepress1-teek-muya`。
 - 更多细则见 `.cursor/rules/` 下的规则文件；临时试验代码统一放在 `./_temp/`。

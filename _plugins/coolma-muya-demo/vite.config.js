@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue2'
 import path from 'path'
+import { createRequire } from 'module'
 
 // === 缺失依赖 stub：让 demo 最小可用 ===
 // 详细说明见 stubs/<package>/*.js。
@@ -15,17 +16,19 @@ import path from 'path'
 // 替换为 `${stubDir}/github-markdown-css$1`（即 .../github-markdown-css/github-markdown.css）
 // 后续由 vite/Node 解析到 stubs/github-markdown-css/github-markdown.css.js（vite 自动加 .js）。
 const stubDir = path.resolve(__dirname, './stubs')
+const resolve = createRequire(path.resolve(__dirname, 'package.json')).resolve
 
 export default defineConfig({
   plugins: [vue()],
   resolve: {
+    dedupe: ['vue'],
     alias: [
       { find: '@', replacement: path.resolve(__dirname, './src') },
       // Memocast path stubs for standalone use
       { find: 'boot/i18n', replacement: path.resolve(__dirname, './src/boot/i18n.js') },
       { find: 'src/components/echo/echoCore', replacement: path.resolve(__dirname, './src/components/echo/echoCore.js') },
-      // coolma-muya lib (精确匹配，防止 /lib -> /lib/lib)
-      { find: /^coolma-muya\/lib$/, replacement: path.resolve(__dirname, '../coolma-muya/lib') },
+      // libs-muya lib (精确匹配，防止 /lib -> /lib/lib)
+      { find: /^libs-muya\/lib$/, replacement: path.resolve(__dirname, '../../libs-muya/lib') },
       // lib 内部 CSS：demo 不调用 exportHtml()，导出 HTML 时不会用到这些样式表。
       // 走真 CSS 在 vite 下没有 default export（仅副作用注入），而 lib 代码
       // `import xxx from 'xxx.css'` 期望拿到 CSS 字符串嵌入 HTML。所以 demo
@@ -35,11 +38,14 @@ export default defineConfig({
       // 所以必须用 importee 字符串本身作为 find。
       { find: '../assets/styles/exportStyle.css', replacement: path.resolve(__dirname, './stubs/coolma-muya/lib/assets/styles/exportStyle.css.js') },
       { find: '../assets/styles/headerFooterStyle.css', replacement: path.resolve(__dirname, './stubs/coolma-muya/lib/assets/styles/headerFooterStyle.css.js') },
-      { find: /^coolma-muya\/themes\/default\.css$/, replacement: path.resolve(__dirname, '../coolma-muya/themes/default.css') },
+      { find: /^libs-muya\/themes\/default\.css$/, replacement: path.resolve(__dirname, '../../libs-muya/themes/default.css') },
+      // exportHtml.js 需要 CSS 字符串，Vite 用 ?inline 提供默认导出。
+      { find: /^prismjs\/themes\/prism\.css$/, replacement: `${resolve('prismjs/themes/prism.css')}?inline` },
+      { find: /^katex\/dist\/katex\.css$/, replacement: `${resolve('katex/dist/katex.css')}?inline` },
       // === stub：单文件 + 带子路径 ===
-      // 注：file-icons-js 和 prismjs 已在 coolma-muya/lib 的 node_modules 里真实安装
+      // 注：file-icons-js 和 prismjs 已是 libs-muya 的直接依赖
       // (file-icons-js@1.0.3 + prismjs@1.30.0，lib 自身依赖)。
-      // demo 通过 file: 引用 lib 的 node_modules，所以走真包即可，不再 alias 到 stub。
+      // demo 从本地 libs-muya 读取源码和依赖。
       { find: /^unsplash-js(\/.*)?$/, replacement: `${stubDir}/unsplash-js$1` },
       { find: /^github-markdown-css(\/.*)?$/, replacement: `${stubDir}/github-markdown-css$1` },
       { find: /^turndown(\/.*)?$/, replacement: `${stubDir}/turndown$1` },
@@ -50,10 +56,10 @@ export default defineConfig({
       { find: /^popper\.js(\/.*)?$/, replacement: `${stubDir}/popper.js$1` },
       { find: /^html-tags(\/.*)?$/, replacement: `${stubDir}/html-tags$1` },
       // sequence-diagram-snap.js 引到的 UMD 包 `require('eve')` 会撞 esbuild prebundle
-      { find: /coolma-muya\/lib\/assets\/libs\/snap\.svg-min(\.js)?$/, replacement: `${stubDir}/snap-svg.js` }
+      { find: /^\.\/snap\.svg-min(\.js)?$/, replacement: `${stubDir}/snap-svg.js` }
     ]
   },
-  // 确保 esbuild 等预构建工具正确处理 coolma-muya
+  // 确保 esbuild 等预构建工具正确处理 libs-muya
   optimizeDeps: {
     // demo 模式：禁依赖发现。Muya lib 内部有大量 UMD 风格的 deps（snap.svg-min.js、
     // katex.css、eve、flowchart.js、mermaid、vega-embed 等），esbuild prebundle 在
@@ -88,10 +94,10 @@ export default defineConfig({
     port: 5174,
     strictPort: true,
     // 允许 vite 通过 /@fs/<abs-path> 访问 demo-web 工作目录外的文件
-    // （主要是 _plugins/coolma-muya/lib/*）。vite 5 默认出于安全 fs 沙箱拒绝。
+    // （主要是 libs-muya/lib/*）。vite 5 默认出于安全 fs 沙箱拒绝。
     fs: {
       allow: [
-        path.resolve(__dirname, '..', '..', '..'),
+        path.resolve(__dirname, '..', '..'),
         path.resolve(__dirname, '.')
       ]
     },

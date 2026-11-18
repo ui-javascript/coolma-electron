@@ -25,31 +25,31 @@ jobs:
         with:
           ref: rebuild/analysis
 
-      - name: Install Node.js, NPM
-        uses: actions/setup-node@v1
+      - name: Install Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 14
+          node-version: 24
 
       - name: Build
         run: |
-          npm install
-          npm run build-publish
+          corepack pnpm install --frozen-lockfile
+          corepack pnpm --filter desktop-vue2 run build-publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Rename Package
         run: |
-          cd dist/electron/Packaged
+          cd desktop-vue2/dist/electron/Packaged
           ren Memocast*.exe Memocast-Setup.exe
       - name: Upload Win Package
         uses: actions/upload-artifact@v1
         with:
           name: Windows_Dist
-          path: dist/electron/Packaged/Memocast-Setup.exe
+          path: desktop-vue2/dist/electron/Packaged/Memocast-Setup.exe
       - name: Upload latest.yml
         uses: actions/upload-artifact@v1
         with:
           name: Windows_latest_yml
-          path: dist/electron/Packaged/latest.yml
+          path: desktop-vue2/dist/electron/Packaged/latest.yml
   build-linux:
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
@@ -61,30 +61,30 @@ jobs:
         with:
           ref: rebuild/analysis
 
-      - name: Install Node.js, NPM
-        uses: actions/setup-node@v1
+      - name: Install Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 14
+          node-version: 24
       - name: Build
         run: |
-          npm install
-          npm run build-publish
+          corepack pnpm install --frozen-lockfile
+          corepack pnpm --filter desktop-vue2 run build-publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Rename Package
         run: |
-          cd dist/electron/Packaged
+          cd desktop-vue2/dist/electron/Packaged
           cp Memocast*.AppImage Memocast-x86_64.AppImage
       - name: Upload Linux Package
         uses: actions/upload-artifact@v1
         with:
           name: Linux_Dist
-          path: dist/electron/Packaged/Memocast-x86_64.AppImage
+          path: desktop-vue2/dist/electron/Packaged/Memocast-x86_64.AppImage
       - name: Upload latest-linux.yml
         uses: actions/upload-artifact@v1
         with:
           name: Linux_latest_yml
-          path: dist/electron/Packaged/latest-linux.yml
+          path: desktop-vue2/dist/electron/Packaged/latest-linux.yml
   build-mac:
     # The type of runner that the job will run on
     runs-on: macos-latest
@@ -96,30 +96,30 @@ jobs:
         with:
           ref: rebuild/analysis
 
-      - name: Install Node.js, NPM
-        uses: actions/setup-node@v1
+      - name: Install Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 14
+          node-version: 24
       - name: Build
         run: |
-          npm install
-          npm run build-publish
+          corepack pnpm install --frozen-lockfile
+          corepack pnpm --filter desktop-vue2 run build-publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Rename Package
         run: |
-          cd dist/electron/Packaged
+          cd desktop-vue2/dist/electron/Packaged
           cp Memocast*.dmg Memocast.dmg
       - name: Upload Mac Package
         uses: actions/upload-artifact@v1
         with:
           name: MacOS_Dist
-          path: dist/electron/Packaged/Memocast.dmg
+          path: desktop-vue2/dist/electron/Packaged/Memocast.dmg
       - name: Upload latest-mac.yml
         uses: actions/upload-artifact@v1
         with:
           name: Mac_latest_yml
-          path: dist/electron/Packaged/latest-mac.yml
+          path: desktop-vue2/dist/electron/Packaged/latest-mac.yml
 #  release:
 #    needs: [build-windows, build-linux, build-mac]
 #    runs-on: ubuntu-latest

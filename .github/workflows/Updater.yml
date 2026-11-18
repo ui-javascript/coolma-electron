@@ -29,15 +29,15 @@ jobs:
         with:
           ref: master
 
-      - name: Install Node.js, NPM
-        uses: actions/setup-node@v1
+      - name: Install Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 14
+          node-version: 24
 
       - name: Build
         run: |
-          npm install
-          npm run build-publish
+          corepack pnpm install --frozen-lockfile
+          corepack pnpm --filter desktop-vue2 run build-publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   build-linux:
@@ -51,14 +51,14 @@ jobs:
         with:
           ref: master
 
-      - name: Install Node.js, NPM
-        uses: actions/setup-node@v1
+      - name: Install Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 14
+          node-version: 24
       - name: Build
         run: |
-          npm install
-          npm run build-publish
+          corepack pnpm install --frozen-lockfile
+          corepack pnpm --filter desktop-vue2 run build-publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   build-mac:
@@ -72,13 +72,13 @@ jobs:
         with:
           ref: master
 
-      - name: Install Node.js, NPM
-        uses: actions/setup-node@v1
+      - name: Install Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 14
+          node-version: 24
       - name: Build
         run: |
-          npm install
-          npm run build-publish
+          corepack pnpm install --frozen-lockfile
+          corepack pnpm --filter desktop-vue2 run build-publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -4,7 +4,7 @@
 > **默认不会被 Babel 转译**。一旦某个依赖产物体积里含 ES Module 语法或较高 ECMAScript 版本，
 > 就会出现 `Unexpected token export` / `Cannot use import statement outside a module` 等运行/构建报错。
 >
-> 必须把满足条件的依赖显式加入 `quasar.conf.js` 的 `transpileDependencies` 数组。
+> 必须把满足条件的依赖显式加入 `desktop-vue2/quasar.conf.js` 的 `transpileDependencies` 数组。
 
 ## 1. 什么时候必须加入 `transpileDependencies`
 
@@ -27,7 +27,7 @@
 ## 2. 命名约定与写法
 
 - **字符串包名**用精确字符串（与 `package.json` 的 `name` 完全一致）：`'htmlparser2'`、`'parse5'`、`'consola'`、`'enum-plus'`。
-- **有命名空间或子路径的包用 RegExp**：``/^@quasar.*/``、``/^@vue.*/``、``/^vue-layerx.*/``、``/^coolma-muya.*/``。
+- **有命名空间或子路径的包用 RegExp**：``/^@quasar.*/``、``/^@vue.*/``、``/^vue-layerx.*/``、``/^libs-muya.*/``。
   - 用 ``/^pkg.*/`` 还是 ``/pkg.*/`` 取决于原列表风格，本项目当前列表用 **不带 `^`** 的形式（`/vega.*/`、`/monaco.*/`、`/@quasar.*/`、`/vue-layerx.*/`），新条目**保持一致**。
 - **正则锚点**：`pkg.*` 等价于以 `pkg` 开头的包目录，能匹配 `pkg`、`pkg/foo`、`pkg-bar`，但**不会**误匹配 `other-pkg`。
 - **新增条目按字母顺序插入**到现有数组末尾，不要打乱顺序（便于 git diff + review）。
@@ -36,11 +36,11 @@
 
 每次给主项目添加（或升级）依赖时：
 
-1. `yarn add <pkg>` 或 `yarn add -D <pkg>`（按 `package-manager.mdc` 用 yarn）。
+1. `pnpm --filter desktop-vue2 add <pkg>` 或 `pnpm --filter desktop-vue2 add -D <pkg>`（按 `package-manager.mdc` 用 pnpm）。
 2. `Read node_modules/<pkg>/package.json`，看 `type` / `main` / `module` / `exports`。
 3. `Read node_modules/<pkg>/dist/index.js`（或 `main` 指向的文件）开头 30 行，确认是否有 `import/export`。
 4. 满足 §1 任一条件 → `Edit quasar.conf.js`，在 `transpileDependencies` 数组里追加对应条目。
-5. 跑 `yarn run dev` 确认启动不报错；涉及构建产物大小变更时跑一次 `yarn build` 验证。
+5. 跑 `pnpm run dev` 确认启动不报错；涉及构建产物大小变更时跑一次 `pnpm build` 验证。
 6. **同步**这条新增的依赖信息：在 PR/commit message 里点出"已加入 transpileDependencies"。
 
 ## 4. 已知条目速查（截至本次更新）
@@ -49,7 +49,7 @@
 |---|---|---|
 | `/vega.*/` | 正则 | vega / vega-* 子包使用 ESM |
 | `/@quasar.*/` | 正则 | Quasar 组件按需打包需要 Babel 转译 |
-| `/coolma-muya.*/` | 正则 | `_plugins/coolma-muya` 产物为 ESM |
+| `/libs-muya.*/` | 正则 | `libs-muya` 产物为 ESM |
 | `'quill'` | 字符串 | Quill 富文本含 ESM 入口 |
 | `'htmlparser2'` | 字符串 | 解析器源码含较新语法 |
 | `'parse5'` | 字符串 | HTML5 parser 含 ESM |
@@ -63,7 +63,7 @@
 | `'enum-plus'` | 字符串 | 枚举库含 ESM 入口 |
 | `/vue-layerx.*/` | 正则 | 弹层调度库，`"type": "module"` + ESM 入口 |
 
-> 表中任何条目都不要随便删——删除前必须确认该依赖已彻底从项目移除（`yarn why <pkg>` + `Grep` 验证无 import）。
+> 表中任何条目都不要随便删——删除前必须确认该依赖已彻底从项目移除（`pnpm why <pkg>` + `Grep` 验证无 import）。
 
 ## 5. 自检清单
 
@@ -73,12 +73,12 @@
 - [ ] 字符串 vs RegExp 是否用对了（参考 §2）？
 - [ ] 顺序是否保持字母序？
 - [ ] 旧条目是否有可删的（依赖已彻底移除）？
-- [ ] 跑了一次 `yarn run dev` 没报 `Unexpected token export`？
+- [ ] 跑了一次 `pnpm run dev` 没报 `Unexpected token export`？
 - [ ] PR 描述里点出了这次新增的依赖和理由？
 
 ## 6. 与其它规则的关系
 
-- **`package-manager.mdc`**：上游，安装/升级依赖一律用 yarn。
+- **`package-manager.mdc`**：上游，安装/升级依赖一律用 pnpm。
 - **`coolma-muya-sdk-guidelines.mdc`**：平行，本规则只管"它是否需要被转译"，SDK 边界另议。
-- **`plugin-vue-version.mdc`**：上游，`_plugins/*` 子项目独立构建，**不在本规则的覆盖范围**——它们的依赖走各自 `transpileDependencies` 或 Vite/esbuild，本规则的 `quasar.conf.js` 只管主项目。
-- **`safe-shell.mdc`**：上游，`yarn build` / `yarn run dev` 失败后回滚前先备份 `quasar.conf.js`。
+- **`plugin-vue-version.mdc`**：上游，`_plugins/*` 子项目独立构建，**不在本规则的覆盖范围**——它们的依赖走各自 `transpileDependencies` 或 Vite/esbuild，本规则的 `desktop-vue2/quasar.conf.js` 只管主项目。
+- **`safe-shell.mdc`**：上游，`pnpm build` / `pnpm run dev` 失败后回滚前先备份 `desktop-vue2/quasar.conf.js`。

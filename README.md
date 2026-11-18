@@ -3,6 +3,18 @@
 基于memocast，加入自己的笔记习惯进行二创，全程鞭策AI实现(基本已失控！！！)。
 
 
+## 本地开发
+
+在仓库根目录使用 Node.js 22.12 或更新版本，通过 Corepack 启用项目指定的 pnpm 版本：
+
+```sh
+corepack enable
+pnpm install
+pnpm dev
+```
+
+Vue 2 桌面应用位于 [`desktop-vue2/`](desktop-vue2/)，与 `desktop-vue3/` 同级。编辑器包位于 [`libs-muya/`](libs-muya/)。pnpm 通过 `workspace:*` 自动把编辑器链接到桌面应用。运行 `pnpm verify` 执行桌面应用测试，或运行 `pnpm --filter libs-muya build:dev` 单独构建编辑器。
+
 # 新功能
 
 - 2026-08-13 ikun历险记

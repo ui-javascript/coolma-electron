@@ -1,7 +1,7 @@
 {
   "name": "muya-demo-web",
   "version": "0.1.0",
-  "description": "Standalone web demo of coolma-muya editor",
+  "description": "Standalone web demo of the libs-muya editor",
   "private": true,
   "scripts": {
     "dev": "vite",
@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "coolma-muya": "file:../coolma-muya",
+    "libs-muya": "link:../../libs-muya",
     "vue": "^2.7.16",
     "vue-i18n": "^8.28.2",
     "katex": "^0.16.11",

@@ -7,7 +7,8 @@ alwaysApply: true
 
 ## 1. 版本分布（实测）
 
-- **主项目**（`src/`、`src-electron/`、`package.json`）：**Vue 2.7.16**（Quasar v1 + Element-UI / ant-design-vue 1.x）。
+- **`libs-muya/`**：Vue 2.7.x，属于 pnpm workspace。
+- **主项目**（`desktop-vue2/src/`、`desktop-vue2/src-electron/`、`desktop-vue2/package.json`）：**Vue 2.7.16**（Quasar v1 + Element-UI / ant-design-vue 1.x）。
 - **`_plugins/`** 下每个子目录是**独立 npm 项目**，各自有自己的 `package.json`、`node_modules`、构建工具。已确认至少存在两个：
   - `_plugins/box-im-wujie/` → **Vue 2.7.16**（`main.js` + `vue.config.js`）
   - `_plugins/doubao-input/` → **Vue 3.5.18**（`main.ts` + `vite.config.ts` + TypeScript）
@@ -36,7 +37,7 @@ alwaysApply: true
 
 - 每个 `_plugins/<name>` 通常自带 `dev` / `build` 脚本，进入该子目录独立运行。
 - 不要从主项目根目录触发 `_plugins` 的构建；反过来，子项目里的 dev server / watcher **不要**去碰主项目 `src/`。
-- 主项目开发时，`yarn run dev` 启动的是 Quasar dev server，与 `_plugins` 的 dev server **是并行关系**，不要把它们当成同一个进程管理。
+- 主项目开发时，`pnpm dev` 启动的是 Quasar dev server，与 `_plugins` 的 dev server **是并行关系**，不要把它们当成同一个进程管理。
 
 ## 6. 改动的边界
 
