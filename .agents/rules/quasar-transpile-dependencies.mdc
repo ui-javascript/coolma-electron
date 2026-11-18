@@ -36,7 +36,7 @@
 
 每次给主项目添加（或升级）依赖时：
 
-1. `pnpm --filter desktop-vue2 add <pkg>` 或 `pnpm --filter desktop-vue2 add -D <pkg>`（按 `package-manager.mdc` 用 pnpm）。
+1. 在 `desktop-vue2/` 运行 `corepack yarn add <pkg>` 或 `corepack yarn add -D <pkg>`（参照 `package-manager.mdc`）。
 2. `Read node_modules/<pkg>/package.json`，看 `type` / `main` / `module` / `exports`。
 3. `Read node_modules/<pkg>/dist/index.js`（或 `main` 指向的文件）开头 30 行，确认是否有 `import/export`。
 4. 满足 §1 任一条件 → `Edit quasar.conf.js`，在 `transpileDependencies` 数组里追加对应条目。
@@ -78,7 +78,7 @@
 
 ## 6. 与其它规则的关系
 
-- **`package-manager.mdc`**：上游，安装/升级依赖一律用 pnpm。
+- **`package-manager.mdc`**：上游，桌面应用的依赖由 Yarn Classic 管理。
 - **`coolma-muya-sdk-guidelines.mdc`**：平行，本规则只管"它是否需要被转译"，SDK 边界另议。
 - **`plugin-vue-version.mdc`**：上游，`_plugins/*` 子项目独立构建，**不在本规则的覆盖范围**——它们的依赖走各自 `transpileDependencies` 或 Vite/esbuild，本规则的 `desktop-vue2/quasar.conf.js` 只管主项目。
 - **`safe-shell.mdc`**：上游，`pnpm build` / `pnpm run dev` 失败后回滚前先备份 `desktop-vue2/quasar.conf.js`。

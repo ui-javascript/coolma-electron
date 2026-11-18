@@ -27,8 +27,8 @@ adjust
 
 ## 其他项目约定
 
-- 包管理器固定使用 **pnpm**；在仓库根目录执行 workspace 安装与脚本。
-- workspace 包：`desktop-vue2`、`desktop-vue3`、`libs-muya`、`demo-vue2-vite-muya`、`tpl-vuepress1-voding-muya`、`tpl-vitepress1-teek-muya`。
+- 根 workspace 使用 **pnpm**，在仓库根目录安装；`desktop-vue2` 已移出 pnpm workspace，在其目录内用 **Yarn Classic** 安装和管理依赖。
+- pnpm workspace 包：`desktop-vue3`、`libs-muya`、`demo-vue2-vite-muya`、`tpl-vuepress1-voding-muya`、`tpl-vitepress1-teek-muya`。
 - 临时试验代码统一放在 `./_temp/`。
 
 **Windows 清理 `node_modules` 前，必须先读 [链接安全规则](.agents/rules/safe-shell.mdc#8-windows-清理-node_modules)。** pnpm 建立的 junction 可能直接指向 workspace 源码。曾有 `Move-Item` 移动根 `node_modules` 时沿 junction 误删源码的事故。禁止用 `Move-Item` 搬走依赖树；清理遇到链接只能移除链接本身。

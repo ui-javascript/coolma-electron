@@ -9,7 +9,7 @@ description: Muya Markdown 编辑器架构与实现指南。用于分析、修�
 
 Muya 作为独立子项目存放在 `libs-muya/`，有两种调试路径：
 
-1. **主项目链路**（pnpm workspace，适合在 Memocast 上下文中验证）
+1. **主项目链路**（Yarn Classic，适合在 Memocast 上下文中验证）
 2. **独立 demo-web 链路**（`workspace:*` + Vite alias，适合纯 muya 开发）
 
 ### 目录结构
@@ -35,22 +35,24 @@ libs-muya/
 |--|-----------|-------------------|
 | 启动命令 | `pnpm dev`（仓库根目录） | `pnpm --filter demo-vue2-vite-muya dev`（仓库根目录） |
 | 端口 | 8080（Quasar） | 5174（Vite） |
-| muya 源码 | `workspace:*` 解析到 `libs-muya/` | `workspace:*` + Vite alias |
+| muya 源码 | `link:../libs-muya` 解析到 `libs-muya/` | `workspace:*` + Vite alias |
 | Memocast 上下文 | ✅ 完整（i18n / echoCore / DB） | ⚠️ 需要 stub（见下） |
 | 适用场景 | Echo / Rune / 笔记集成调试 | 纯 muya UI / parser / renderer 调试 |
 
 ---
 
-### 路径一：主项目链路（pnpm workspace）
+### 路径一：主项目链路（Yarn Classic）
 
 在仓库根目录运行：
 
 ```sh
 pnpm install
-pnpm dev
+cd desktop-vue2
+corepack yarn install --frozen-lockfile
+corepack yarn dev
 ```
 
-`desktop-vue2/package.json` 通过 `workspace:*` 引用 `libs-muya`。Quasar 直接构建 `libs-muya/lib/` 的源码。如果要单独生成编辑器 UMD 产物，运行 `pnpm --filter libs-muya build`；开发构建用 `pnpm --filter libs-muya build:dev`。
+`desktop-vue2/package.json` 通过 `link:../libs-muya` 引用 `libs-muya`。Quasar 直接构建 `libs-muya/lib/` 的源码。如果要单独生成编辑器 UMD 产物，运行 `pnpm --filter libs-muya build`；开发构建用 `pnpm --filter libs-muya build:dev`。
 
 ---
 

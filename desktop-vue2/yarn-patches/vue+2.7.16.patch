@@ -1,0 +1,46 @@
+diff --git a/node_modules/vue/dist/vue.common.dev.js b/node_modules/vue/dist/vue.common.dev.js
+index 8996405..7acd4ba 100644
+--- a/node_modules/vue/dist/vue.common.dev.js
++++ b/node_modules/vue/dist/vue.common.dev.js
+@@ -9329,10 +9329,12 @@ function transformNode$1(el, options) {
+ }
+ function genData$2(el) {
+     let data = '';
+-    if (el.staticClass) {
++    // PATCH (bio/vue-patched@caf1d4a — CVE-2024-6783): prototype-pollution guard.
++    // See node_modules/vue-template-compiler/build.js for the same change.
++    if (Object.prototype.hasOwnProperty.call(el, 'staticClass')) {
+         data += `staticClass:${el.staticClass},`;
+     }
+-    if (el.classBinding) {
++    if (Object.prototype.hasOwnProperty.call(el, 'classBinding')) {
+         data += `class:${el.classBinding},`;
+     }
+     return data;
+@@ -9366,10 +9368,11 @@ function transformNode(el, options) {
+ }
+ function genData$1(el) {
+     let data = '';
+-    if (el.staticStyle) {
++    // PATCH (bio/vue-patched@caf1d4a — CVE-2024-6783): prototype-pollution guard.
++    if (Object.prototype.hasOwnProperty.call(el, 'staticStyle')) {
+         data += `staticStyle:${el.staticStyle},`;
+     }
+-    if (el.styleBinding) {
++    if (Object.prototype.hasOwnProperty.call(el, 'styleBinding')) {
+         data += `style:(${el.styleBinding}),`;
+     }
+     return data;
+@@ -9523,8 +9526,11 @@ function parseHTML(html, options) {
+         else {
+             let endTagLength = 0;
+             const stackedTag = lastTag.toLowerCase();
++            // PATCH (bio/vue-patched@2801047 — CVE-2024-9506): tempered-greedy regex
++            // prevents ReDoS on mismatched closing tags inside stacked plain-text
++            // elements (textarea, title, script, style, iframe, noembed, noframes).
+             const reStackedTag = reCache[stackedTag] ||
+-                (reCache[stackedTag] = new RegExp('([\\s\\S]*?)(</' + stackedTag + '[^>]*>)', 'i'));
++                (reCache[stackedTag] = new RegExp('((?:[^<]+|<(?!/' + stackedTag + '[^>]*>))*)(</' + stackedTag + '[^>]*>)', 'i'));
+             const rest = html.replace(reStackedTag, function (all, text, endTag) {
+                 endTagLength = endTag.length;
+                 if (!isPlainTextElement(stackedTag) && stackedTag !== 'noscript') {

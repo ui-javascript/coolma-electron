@@ -1,12 +1,12 @@
 packages:
   - desktop-vue3
-  - desktop-vue2
+  # desktop-vue2 uses its own Yarn lockfile.
   - libs-muya
   - demo-vue2-vite-muya
   - tpl-vuepress1-voding-muya
   - tpl-vitepress1-teek-muya
 
-# Quasar v1 and Electron packaging expect a flat node_modules layout.
+# Keep a flat node_modules layout for the pnpm workspace.
 nodeLinker: hoisted
 
 overrides:

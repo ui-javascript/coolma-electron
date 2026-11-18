@@ -5,9 +5,9 @@ alwaysApply: true
 
 # Package Manager
 
-This repository uses **pnpm workspaces**. The root manifest dispatches workspace scripts. The desktop app is in `desktop-vue2/` and Muya is in `libs-muya/`.
+The root workspace uses **pnpm**. The desktop app in `desktop-vue2/` is excluded and uses **Yarn Classic**. Muya remains in the pnpm workspace.
 
 - Run installation from the repository root with `pnpm install`.
-- Use `pnpm --filter desktop-vue2 add <pkg>` / `pnpm --filter desktop-vue2 add -D <pkg>` for desktop app dependencies.
+- In `desktop-vue2/`, use `corepack yarn install --frozen-lockfile` and `corepack yarn add <pkg>` / `corepack yarn add -D <pkg>`. The app links to Muya with `link:../libs-muya`.
 - Use `pnpm --filter libs-muya add <pkg>` / `pnpm --filter libs-muya add -D <pkg>` for the Muya package.
-- Run workspace scripts with `pnpm --filter <package-name> <script>`.
+- Run workspace scripts with `pnpm --filter <package-name> <script>`. The root desktop scripts forward to Yarn.
