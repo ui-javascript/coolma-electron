@@ -1,6 +1,6 @@
-# Rune �?Echo 架构深度解析（源码级�?
+# Rune 与 Echo 架构深度解析（源码级）
 
-> 本文档是 `SKILL.md` �?*源码级补�?*：聚焦具体代码、具体行号、具体数据流。所有信息以当前 `src/` / `src-electron/` / `coolma-muya/lib/` 实际状态为准（截至 v2026-07-30）�?
+> 本文档是 `SKILL.md` 的**源码级补充**：聚焦具体代码、具体行号、具体数据流。所有信息以当前 `src/` / `src-electron/` / `coolma-muya/lib/` 实际状态为准（截至 v2026-07-30）。
 
 ---
 
@@ -9,9 +9,9 @@
 ### 1.1 字符串模板（用户/builtin 都用这一份）
 
 ```javascript
-// 形态：'export default { ... }' 字符�?
-// 编译：safeEvalAnnoSource(source, HANDLER_PRELUDE) �?new Function(prelude + normalized)()
-// 标准化：�?'export default' 替换�?'return'，再拼到工厂函数�?
+// 形态：'export default { ... }' 字符串
+// 编译：safeEvalAnnoSource(source, HANDLER_PRELUDE) → new Function(prelude + normalized)()
+// 标准化：把 'export default' 替换成 'return'，再拼到工厂函数里
 
 const annoSource = `export default {
   // 顶层 metadata
@@ -20,14 +20,14 @@ const annoSource = `export default {
   title: '生生不息',                    // = name 别名
   version: 1,
 
-  // �?实例可配置参数顶层声�?
+  // ★ 实例可配置参数顶层声明
   props: {
     scope: 'siblings',
     trigger: 'auto',
     target: 'p, h1, h2, h3, h4, h5, h6, li, blockquote, table'
   },
 
-  // render 只接 props，返�?echo host HTML 字符�?
+  // render 只接 props，返回 echo host HTML 字符串
   render (props = {}) {
     if (typeof props.render === 'function') {
       const out = props.render(props)
@@ -39,19 +39,19 @@ const annoSource = `export default {
       (props.title || '回响') + '</span>'
   },
 
-  // afterRender �?echo 改附近元素的唯一入口
+  // afterRender 是 echo 改附近元素的唯一入口
   afterRender (node, props = {}) {
-    // handler body �?jQuery（HANDLER_PRELUDE 注入�?`const $ = window.jQuery`�?
+    // handler body 用 jQuery（HANDLER_PRELUDE 注入了 `const $ = window.jQuery`）
     const $rune = $(node)
     const merged = Object.assign({ scope: 'siblings' }, props || {})
     $rune.addClass('ag-rune-growth-active')
-    // ... 改附�?DOM
-    return () => { /* cleanup，可�?*/ }
+    // ... 改附近 DOM
+    return () => { /* cleanup，可选 */ }
   }
 }`
 ```
 
-### 1.2 编译（`src/components/echo/echoAnnoSource.js`�?
+### 1.2 编译（`src/components/echo/echoAnnoSource.js`）
 
 ```javascript
 export const HANDLER_PRELUDE = "const $ = (typeof window !== 'undefined' && (window.jQuery || window.$)) || null\n"
@@ -62,11 +62,11 @@ export const safeEvalAnnoSource = (source = '', prelude = '') => {
 }
 ```
 
-调用 `safeEvalAnnoSource(annoSource, HANDLER_PRELUDE)` 返回**工厂函数**；调用工厂函�?`factory()` 返回 definition 对象 `{ type, field, title, version, props, render, afterRender }`�?
+调用 `safeEvalAnnoSource(annoSource, HANDLER_PRELUDE)` 返回**工厂函数**；调用工厂函数 `factory()` 返回 definition 对象 `{ type, field, title, version, props, render, afterRender }`。
 
-`EchoRuntime.compileDefinition(echo)` 内部�?`safeEvalAnnoSource(source, HANDLER_PRELUDE)` 并加 `definitionCache`（按 `echoId` 缓存）�?
+`EchoRuntime.compileDefinition(echo)` 内部用 `safeEvalAnnoSource(source, HANDLER_PRELUDE)` 并加 `definitionCache`（按 `echoId` 缓存）。
 
-### 1.3 render 阶段（`src/components/echo/echoRuntime.js`�?
+### 1.3 render 阶段（`src/components/echo/echoRuntime.js`）
 
 ```javascript
 // === finalProps 合并顺序（renderer 期）===
@@ -82,14 +82,14 @@ const finalProps = Object.assign(
   },
   // 2. definition.props（卡片声明的默认值）
   defaultProps,
-  // 3. mergedProps（实例运行时 props：@离析{density:'tight'}�?
+  // 3. mergedProps（实例运行时 props：@离析{density:'tight'}）
   mergedProps,
   // 4. 基础设施字段强制覆盖
   { value: resolvedValue, id: resolvedId }
 )
 context.props = finalProps
 
-// === definition.render(finalProps) �?HTML 字符�?===
+// === definition.render(finalProps) → HTML 字符串 ===
 let html = ''
 if (definition && typeof definition.render === 'function') {
   const renderedHtml = definition.render(finalProps)
@@ -97,7 +97,7 @@ if (definition && typeof definition.render === 'function') {
 }
 ```
 
-### 1.4 renderToHtml（`src/components/echo/echoRuntime.js`�?
+### 1.4 renderToHtml（`src/components/echo/echoRuntime.js`）
 
 ```javascript
 renderToHtml (token = {}, echo = null) {
@@ -105,22 +105,22 @@ renderToHtml (token = {}, echo = null) {
   const renderedHtml = String(rendered.html || '').trim()
 
   if (renderedHtml) {
-    // 完全�?definition.render() 的返回值渲�?—�?不包 span、不注入 attrs、不�?class
+    // 完全按 definition.render() 的返回值渲染 —— 不包 span、不注入 attrs、不补 class
     return renderedHtml
   }
 
-  // 静�?fallback（render 没返�?html 时才走）
+  // 静态 fallback（render 没返回 html 时才走）
   const icon = escapeHtml(rendered.icon || DEFAULT_ECHO_ICON)
   const color = escapeHtml(rendered.color || DEFAULT_ECHO_COLOR)
   const title = escapeHtml(rendered.title || '回响')
-  // ... 返回 ag-echo-inline 包裹�?HTML
+  // ... 返回 ag-echo-inline 包裹的 HTML
   return `<span class="ag-echo-inline ag-echo-anno-token" ...>`
 }
 ```
 
-注意�?*只有 render 返回空字符串�?*才走 fallback �?`ag-echo-inline` 包裹。builtin echo 全部�?render 返回的字符串路径�?
+注意：**只有 render 返回空字符串时**才走 fallback 的 `ag-echo-inline` 包裹。builtin echo 全部走 render 返回的字符串路径。
 
-### 1.5 afterRender 派发（`src/components/echo/echoRuntime.js`�?
+### 1.5 afterRender 派发（`src/components/echo/echoRuntime.js`）
 
 ```javascript
 afterRender (container, options = {}) {
@@ -137,7 +137,7 @@ _doAfterRender (container, options = {}) {
   if (options.cleanupFirst) this.disposeAll(container)
 
   const installed = []
-  // �?host（renderEchoPlaceholders 已打�?data-echo-host="true"�?
+  // 扫 host（renderEchoPlaceholders 已打过 data-echo-host="true"）
   safeQueryAll(container, '[data-echo-host="true"]').forEach(host => {
     const echoName = host.getAttribute('data-echo-name') || ''
     const echoId = host.getAttribute('data-echo-id') || ''
@@ -151,7 +151,7 @@ _doAfterRender (container, options = {}) {
 
     let cleanup = null
     try {
-      const node = host.firstElementChild || host  // �?host �?firstElementChild = render 输出�?DOM
+      const node = host.firstElementChild || host  // ★ host 的 firstElementChild = render 输出的 DOM
       const props = readEchoPropsFromHost(host)
       cleanup = definition.afterRender(node, props) || null
     } catch (error) {
@@ -160,37 +160,37 @@ _doAfterRender (container, options = {}) {
     installed.push({ node, id: `__afterRender_${echoName}_${echoId}`, cleanup })
   })
 
-  // 记录所�?cleanup，disposeAll 时一起执�?
+  // 记录所有 cleanup，disposeAll 时一起执行
   // ...
 }
 ```
 
-`node` 参数 = host 本身（ag-echo-anno-token 那层 outer span），不是 host �?`firstElementChild`�?
+`node` 参数 = host 本身（ag-echo-anno-token 那层 outer span），不是 host 的 `firstElementChild`。
 
-v2026-07-29 起锁定：`$(node).prev()` 拿到 host �?line / block 里的前一�?sibling（nice / twinbloom / peek 这类需要操�?prev 文本节点�?handler 才能真正工作）；`$(node).addClass('...')` 是给 host �?ag-rune-* 类（CSS hook 触发点）�?
+v2026-07-29 起锁定：`$(node).prev()` 拿到 host 在 line / block 里的前一个 sibling（nice / twinbloom / peek 这类需要操作 prev 文本节点的 handler 才能真正工作）；`$(node).addClass('...')` 是给 host 加 ag-rune-* 类（CSS hook 触发点）。
 
-旧实现（v2026-07-29 之前）`node = host.firstElementChild || host`，那�?`render` 输出�?`ag-rune ag-rune--xxx` span，host 内部 children 就是这一个；�?baseRender �?render 输出嵌套 marker 之后，host.firstElementChild 变成 marker outer，handler 拿它 .prev() 永远空——所以同步把 node 改成 host 本身�?
+旧实现（v2026-07-29 之前）`node = host.firstElementChild || host`，那时 `render` 输出裸 `ag-rune ag-rune--xxx` span，host 内部 children 就是这一个；改 baseRender 让 render 输出嵌套 marker 之后，host.firstElementChild 变成 marker outer，handler 拿它 .prev() 永远空——所以同步把 node 改成 host 本身。
 
 ---
 
-## 2. Rune 路径详解（Vue SFC�?
+## 2. Rune 路径详解（Vue SFC）
 
-### 2.1 占位符生成（quickInsert 阶段�?
+### 2.1 占位符生成（quickInsert 阶段）
 
-笔记中实际存储的格式�?
+笔记中实际存储的格式：
 
 ```html
 <div data-rune-name="我的符文"
      data-rune-id="uuid-instance-id"
      data-rune-node-id="rune-uuid-node-id"
-     data-rune-value="初始�?>
+     data-rune-value="初始值">
   显示文本
 </div>
 ```
 
-Muya 把这�?div �?inline block 节点（不是自定义 token）�?
+Muya 把这个 div 当 inline block 节点（不是自定义 token）。
 
-### 2.2 SFC 解析（`src/components/muya/Muya.vue` �?`normalizeRuneSfc`�?
+### 2.2 SFC 解析（`src/components/muya/Muya.vue` 的 `normalizeRuneSfc`）
 
 ```javascript
 const normalizeRuneSfc = (template = '') => {
@@ -217,22 +217,22 @@ const normalizeRuneSfc = (template = '') => {
 }
 ```
 
-### 2.3 脚本 eval（`evalRuneScript`�?
+### 2.3 脚本 eval（`evalRuneScript`）
 
 ```javascript
 const evalRuneScript = (scriptContent = '') => {
-  // �?'export default {...}' 转成 'return {...}'，new Function 调用
+  // 把 'export default {...}' 转成 'return {...}'，new Function 调用
   const normalized = String(scriptContent || '').replace(/export\s+default/, 'return ')
   const factory = new Function(normalized)
   return factory()
 }
 ```
 
-### 2.4 模板编译（`compileTemplateToFunctions` + `injectScopedAttribute`�?
+### 2.4 模板编译（`compileTemplateToFunctions` + `injectScopedAttribute`）
 
 ```javascript
 const injectScopedAttribute = (template = '', scopeId = '') => {
-  // 给所有顶层标签加 data-rune-scope-${runeId}（scope 隔离�?
+  // 给所有顶层标签加 data-rune-scope-${runeId}（scope 隔离）
   if (!scopeId || !template) return template
   return template.replace(/<([a-zA-Z][^\s/>]*)(\s[^<>]*?)?(\/?\s*)>/g, (match, tagName, attrs = '', tail = '') => {
     if (/^(template|slot)$/i.test(tagName) || attrs.includes(scopeId)) {
@@ -247,7 +247,7 @@ const compiled = compileTemplateToFunctions(injectScopedAttribute(template, scop
 // compiled = { render, staticRenderFns }
 ```
 
-### 2.5 CSS 注入（`ensureRuneStyle`�?
+### 2.5 CSS 注入（`ensureRuneStyle`）
 
 ```javascript
 const ensureRuneStyle = (styleId, cssText) => {
@@ -266,7 +266,7 @@ const ensureRuneStyle = (styleId, cssText) => {
 ensureRuneStyle(`rune-style-${rune.id || 'default'}`, styles.map(style => style.content || '').join('\n'))
 ```
 
-### 2.6 构�?Vue 组件（`createRuneRendererCtor`�?
+### 2.6 构造 Vue 组件（`createRuneRendererCtor`）
 
 ```javascript
 const createRuneRendererCtor = (rune = {}) => {
@@ -291,7 +291,7 @@ const createRuneRendererCtor = (rune = {}) => {
   return Vue.extend({
     ...componentOptions,
     name: componentOptions.name || 'RunePreviewRenderer',
-    // 合并 props：SFC 已声明的 + 外层强制注入的（runeId / nodeId / rune / value�?
+    // 合并 props：SFC 已声明的 + 外层强制注入的（runeId / nodeId / rune / value）
     props: {
       ...(Array.isArray(componentOptions.props)
         ? declaredPropNames.reduce((props, propName) => { props[propName] = null; return props }, {})
@@ -373,37 +373,37 @@ updateRunePlaceholderValue ({ runeId = '', nodeId = '', value = '' } = {}) {
 }
 ```
 
-`rewriteRunePlaceholderByNodeId` �?nodeId 精准替换 `<div data-rune-node-id="..." data-rune-value="...">innerText</div>`�?
+`rewriteRunePlaceholderByNodeId` 按 nodeId 精准替换 `<div data-rune-node-id="..." data-rune-value="...">innerText</div>`。
 
 ### 2.9 完整渲染流程
 
 ```
 Muya 解析 <div data-rune-name="...">
-  �?
-Muya 替换�?<RunePreviewRenderer>（外层包裹）
-  �?
-RunePreviewRenderer �?createRuneRendererCtor(rune)
-  �?
-Vue.extend 构造器 �?h(this.rendererCtor, { props, on }) �?$mount
-  �?
-内层 SFC 渲染�?DOM
-  �?
-内层 SFC �?mounted 钩子执行
-  �?
-用户交互 �?内层 $emit('input', value)
-  �?
+  ↓
+Muya 替换为 <RunePreviewRenderer>（外层包裹）
+  ↓
+RunePreviewRenderer 调 createRuneRendererCtor(rune)
+  ↓
+Vue.extend 构造器 → h(this.rendererCtor, { props, on }) → $mount
+  ↓
+内层 SFC 渲染到 DOM
+  ↓
+内层 SFC 的 mounted 钩子执行
+  ↓
+用户交互 → 内层 $emit('input', value)
+  ↓
 RunePreviewRenderer.onValueChange({runeId, nodeId, value})
-  �?
+  ↓
 Muya.vue.updateRunePlaceholderValue({runeId, nodeId, value})
-  �?
-rewriteRunePlaceholderByNodeId �?contentEditor.setMarkdown(...)
-  �?
-Muya 重渲染整个文�?
+  ↓
+rewriteRunePlaceholderByNodeId → contentEditor.setMarkdown(...)
+  ↓
+Muya 重渲染整个文档
 ```
 
 ---
 
-## 3. Echo 路径详解（`@xxx{}()` + `render` + `afterRender`�?
+## 3. Echo 路径详解（`@xxx{}()` + `render` + `afterRender`）
 
 ### 3.1 Muya 解析 `echo_anno` token
 
@@ -412,31 +412,31 @@ Muya 重渲染整个文�?
 echo_anno: /^@([^\s{}()@]+)(?:\{([\s\S]*?)\})?\(([^)]*)\)$/
 ```
 
-匹配结果�?
+匹配结果：
 ```javascript
 {
   type: 'echo_anno',
   echoName: '生生不息',
   propsParsed: { density: 'very-loose' },
-  prompt: '春风吹又�?,
-  raw: '@生生不息{scope: "siblings"}(春风吹又�?'
+  prompt: '春风吹又生',
+  raw: '@生生不息{scope: "siblings"}(春风吹又生)'
 }
 ```
 
-`propsParsed` �?`echoPropsParser.parseEchoProps()` 解析 `{...}` 段�?
+`propsParsed` 由 `echoPropsParser.parseEchoProps()` 解析 `{...}` 段。
 
-### 3.2 行内渲染器（`coolma-muya/lib/parser/render/renderInlines/echoAnno.js`�?
+### 3.2 行内渲染器（`coolma-muya/lib/parser/render/renderInlines/echoAnno.js`）
 
 ```javascript
 export default function echoAnno (h, cursor, block, token, outerClass) {
-  // 收集 token 的字�?
+  // 收集 token 的字段
   const echoName = String(token.echoName || '').trim() || '回响'
   const instProps = (token && token.propsParsed && typeof token.propsParsed === 'object')
     ? token.propsParsed : {}
   const value = String(typeof instProps.value === 'string' ? instProps.value : token.prompt || '')
   const echoId = String(token.echoId || instProps.id || (token.echoName ? echoName : '')).trim()
   const definitionId = String(token.definitionId || instProps.definitionId || '').trim()
-  // ...width / height 处理（@离析{width: '300px'}�?
+  // ...width / height 处理（@离析{width: '300px'}）
 
   const echoNodeId = createEchoNodeId(token, echoId, definitionId, echoName)
   const dataset = {
@@ -448,11 +448,11 @@ export default function echoAnno (h, cursor, block, token, outerClass) {
     echoDefinitionId: definitionId,
     echoNodeId,
     echoValue: value,
-    echoInline: 'true'  // 永远�?inline placeholder
+    echoInline: 'true'  // 永远是 inline placeholder
   }
   if (hasExplicitWidth) dataset.echoWidth = width
   if (hasExplicitHeight) dataset.echoHeight = height
-  // �?propsParsed 原样写到 dataset（让 _readEchoProps �?afterRender 能取到）
+  // 把 propsParsed 原样写到 dataset（让 _readEchoProps 在 afterRender 能取到）
   const merged = { ...instProps, value, echoName, echoId, definitionId }
   const echoPropsJson = JSON.stringify(merged)
   dataset.echoPropsJson = echoPropsJson
@@ -470,7 +470,7 @@ export default function echoAnno (h, cursor, block, token, outerClass) {
 }
 ```
 
-### 3.3 StateRender 的渲染流程（`coolma-muya/lib/parser/render/index.js`�?
+### 3.3 StateRender 的渲染流程（`coolma-muya/lib/parser/render/index.js`）
 
 #### 3.3.1 `renderRunePlaceholderNodes()`
 
@@ -570,7 +570,7 @@ renderEchoPlaceholders () {
     }
     host.innerHTML = innerHtml
 
-    // �?host 上打 attr（不污染 render 输出），�?afterRender 能找�?host
+    // 在 host 上打 attr（不污染 render 输出），让 afterRender 能找到 host
     if (echoName) host.setAttribute('data-echo-name', echoName)
     if (echoId) host.setAttribute('data-echo-id', echoId)
     if (definitionId) host.setAttribute('data-echo-definition-id', definitionId)
@@ -579,7 +579,7 @@ renderEchoPlaceholders () {
     this.echoPlaceholderCache.set(host, cacheKey)
   })
 
-  // �?handler 派发（在所�?host 都更新完之后�?
+  // ★ handler 派发（在所有 host 都更新完之后）
   if (echoRuntime && typeof echoRuntime.afterRender === 'function' && root) {
     try {
       echoRuntime.afterRender(root, { cleanupFirst: true })
@@ -596,18 +596,18 @@ renderEchoPlaceholders () {
 mountRuneVueHosts () {
   const root = document.querySelector(`div#${CLASS_OR_ID.AG_EDITOR_ID}`) || this.container
   if (!root) return
-  // �?[data-rune-mounted="true"] host
+  // 扫 [data-rune-mounted="true"] host
   const hosts = root.querySelectorAll('[data-rune-mounted="true"]')
   hosts.forEach(host => {
     const dataset = host.dataset || {}
     const runeName = String(dataset.runeName || '').trim()
     const instanceId = String(dataset.runeId || '')
     const nodeId = String(dataset.runeNodeId || '')
-    // �?rune 定义
+    // 找 rune 定义
     const rune = runeMap.get(runeName) || null
     if (!rune) return
 
-    // props 合并优先�?
+    // props 合并优先级
     const finalProps = {
       runeId: instanceId,
       nodeId,
@@ -615,16 +615,16 @@ mountRuneVueHosts () {
       value: dataset.runeValue || host.textContent || ''
     }
 
-    // 复用 vm（按 nodeId�?
+    // 复用 vm（按 nodeId）
     const existing = this.runeVmMap.get(nodeId)
     if (existing && !existing._destroyed) {
-      // 重渲只更�?props
+      // 重渲只更新 props
       existing.rune = rune
       existing.value = finalProps.value
       return
     }
 
-    // 销毁陈�?vm
+    // 销毁陈旧 vm
     if (existing && existing._destroyed) {
       this.runeVmMap.delete(nodeId)
     }
@@ -635,8 +635,8 @@ mountRuneVueHosts () {
     const vm = new RunePreviewRenderer({
       propsData: finalProps,
       onValueChange: ({ runeId, nodeId, value }) => {
-        // 转发�?Muya.vue.updateRunePlaceholderValue
-        // （实际绑定在 muya 实例上，见下�?
+        // 转发到 Muya.vue.updateRunePlaceholderValue
+        // （实际绑定在 muya 实例上，见下）
       }
     })
     vm.$mount()
@@ -646,75 +646,75 @@ mountRuneVueHosts () {
 }
 ```
 
-> `onValueChange` �?`StateRender` 调用 mountRuneVueHosts 时绑定到 muya 实例�?`updateRunePlaceholderValue`（具体由 Muya.vue 在初始化时注入）�?
+> `onValueChange` 在 `StateRender` 调用 mountRuneVueHosts 时绑定到 muya 实例的 `updateRunePlaceholderValue`（具体由 Muya.vue 在初始化时注入）。
 
-#### 3.3.4 `mountEchoVueHosts()`（默�?*�?*执行�?
+#### 3.3.4 `mountEchoVueHosts()`（默认**不**执行）
 
 ```javascript
 mountEchoVueHosts () {
   if (!this.muya?.options?.enableEchoVueRenderer) {
-    // 默认 disable，renderToHtml 已写�?innerHTML，不需�?Vue 包裹
+    // 默认 disable，renderToHtml 已写入 innerHTML，不需要 Vue 包裹
     return
   }
-  // ... 逻辑类似 mountRuneVueHosts，但�?EchoPreviewRenderer
+  // ... 逻辑类似 mountRuneVueHosts，但用 EchoPreviewRenderer
 }
 ```
 
-> 默认 `enableEchoVueRenderer: false`。Echo 是纯 HTML + handler 派发，不需�?Vue 组件层级�?
+> 默认 `enableEchoVueRenderer: false`。Echo 是纯 HTML + handler 派发，不需要 Vue 组件层级。
 
 ### 3.4 afterRender 完整流程
 
 ```
-StateRender.renderRunes() 在以下时机被调用�?
+StateRender.renderRunes() 在以下时机被调用：
   - render() 全量渲染
-  - partialRender() 局部渲�?
+  - partialRender() 局部渲染
   - singleRender() 单块渲染
   - 单个用户动作（如输入框修改）
-       �?
+       ↓
 renderRunes() 调用链：
-  1. renderRunePlaceholderNodes()       �?jQuery 模式，rune 占位卡片
-  2. renderEchoPlaceholders()           �?jQuery 模式，echo 渲染 + 立即派发 afterRender
-  3. cleanupDetachedRunePlaceholders()  �?�?host.dataset.runeRenderKey 已不�?DOM �?
+  1. renderRunePlaceholderNodes()       ← jQuery 模式，rune 占位卡片
+  2. renderEchoPlaceholders()           ← jQuery 模式，echo 渲染 + 立即派发 afterRender
+  3. cleanupDetachedRunePlaceholders()  ← 清 host.dataset.runeRenderKey 已不在 DOM 的
   4. cleanupDetachedEchoPlaceholders()
   5. enableRuneVueRenderer
-       ? renderRunesWithVue() �?mountRuneVueHosts() + mountEchoVueHosts() + cleanup
+       ? renderRunesWithVue() → mountRuneVueHosts() + mountEchoVueHosts() + cleanup
        : cleanupDetachedRuneVms(true) + cleanupDetachedEchoVms(true)
-  6. echoRuntime.afterRender(root, { cleanupFirst: true })  �?handler 派发
-     └─ 内部：setTimeout(..., 250ms) debounce �?_doAfterRender
-        └─ �?[data-echo-host="true"] �?definition.afterRender(node, props)
+  6. echoRuntime.afterRender(root, { cleanupFirst: true })  ← handler 派发
+     └─ 内部：setTimeout(..., 250ms) debounce → _doAfterRender
+        └─ 扫 [data-echo-host="true"] → definition.afterRender(node, props)
 ```
 
-> �?2 步和�?6 步都会调 `echoRuntime.afterRender`，但都走 250ms debounce，所以实际只会执行最后一次�?
+> 第 2 步和第 6 步都会调 `echoRuntime.afterRender`，但都走 250ms debounce，所以实际只会执行最后一次。
 
 ---
 
-## 4. 16 张内�?echo 工厂详解
+## 4. 16 张内置 echo 工厂详解
 
-### 4.1 工厂入口（`src/components/echo/echoBuiltins/echoBuiltinsBase.js`�?
+### 4.1 工厂入口（`src/components/echo/echoBuiltins/echoBuiltinsBase.js`）
 
 ```javascript
-// baseRender 工厂：产�?render(props) 函数字符�?
+// baseRender 工厂：产出 render(props) 函数字符串
 const baseRender = (meta = {}) => `render (props = {}) {
     const metaName = '${meta.name}'
-    // 优先�?1: props.render 是函数且返回非空 �?无条件采�?
+    // 优先级 1: props.render 是函数且返回非空 → 无条件采纳
     if (props && typeof props.render === 'function') {
       let out
       try { out = props.render(props) }
       catch (e) { console.error('[echoBaseRender]', metaName, 'props.render threw:', e); out = undefined }
       if (out != null && String(out) !== '') return out
     }
-    // 优先�?2/3 兜底: props.title > metaName
+    // 优先级 2/3 兜底: props.title > metaName
     const displayTitle = (props && props.title) || metaName
     const idTag = (props && (props.id || props.definitionId)) || metaName
     return '<span class="ag-echo-placeholder-marker ag-rune ag-rune--' + idTag + '" data-echo-chant-id="' + idTag + '">' + displayTitle + '</span>'
   }`
 
 // baseAfterRender 工厂：handlerDoc + handler body
-const baseAfterRender = (handlerBody = '', meta = {}) => `${handlerDoc([\`【handler�?{meta.handlerDesc || ''}\`])}
+const baseAfterRender = (handlerBody = '', meta = {}) => `${handlerDoc([\`【handler】${meta.handlerDesc || ''}\`])}
     ${handlerBody}
   }`
 
-// createAnnoSource：拼成完�?anno_source 字符�?
+// createAnnoSource：拼成完整 anno_source 字符串
 const createAnnoSource = ({ meta, renderBody, handlerBody }) => `export default {
   ${banner(meta.banner || [])},
   type: '${meta.type}',
@@ -726,7 +726,7 @@ const createAnnoSource = ({ meta, renderBody, handlerBody }) => `export default 
   ${baseAfterRender(handlerBody, meta)}
 }`
 
-// buildEchoCard：meta + factory �?一张完�?echo �?
+// buildEchoCard：meta + factory → 一张完整 echo 卡
 const buildEchoCard = (meta) => {
   const renderBody = baseRender(meta)
   const anno_source = createAnnoSource({ meta, renderBody, handlerBody: meta.handlerBody || '' })
@@ -744,15 +744,15 @@ const buildEchoCard = (meta) => {
 }
 ```
 
-### 4.2 单张卡片模板（`src/components/echo/echoBuiltins/echoBuiltinsGrowth.js`�?
+### 4.2 单张卡片模板（`src/components/echo/echoBuiltins/echoBuiltinsGrowth.js`）
 
 ```javascript
 import { buildEchoCard } from './echoBuiltinsBase.js'
 
 const META = {
   id: 'growth', name: '生生不息', icon: 'park', color: '#43A047', category: 'showy', type: 'echo-chant',
-  desc: '为附近符合条件的元素加上生长的动画特�?,
-  banner: ['【生生不�?/ growth�?—�?...'],
+  desc: '为附近符合条件的元素加上生长的动画特效',
+  banner: ['【生生不息 / growth】 —— ...'],
   handlerDesc: '自动给目标元素加生长动画；trigger=auto 时按 index 设置 stagger delay',
   propsDefaults: { scope: 'siblings', trigger: 'auto', target: '[data-block-type], p, pre, li, h1, h2, h3, h4, h5, h6, blockquote, table' },
   handlerBody: `
@@ -776,12 +776,12 @@ const META = {
 export default buildEchoCard(META)
 ```
 
-### 4.3 聚合入口（`src/components/echo/echoBuiltins/echoBuiltins.js`�?
+### 4.3 聚合入口（`src/components/echo/echoBuiltins/echoBuiltins.js`）
 
 ```javascript
 import nice from './echoBuiltinsNice.js'
 import growth from './echoBuiltinsGrowth.js'
-// ... 16 �?import
+// ... 16 个 import
 
 const BUILTIN_ECHO_CARDS = Object.freeze([
   nice, growth, shatter, skywalk, twinbloom, mindsteal, lucky, scapegoat, calamity, disperse,
@@ -795,29 +795,29 @@ export { BUILTIN_ECHO_CARDS, BUILTIN_ECHO_CHANT_IDS, isBuiltinEchoChantId }
 export default BUILTIN_ECHO_CARDS
 ```
 
-> **v2026-07-29 �?*：main �?*不再维护** `src-electron/main-process/service/builtin-echoes.js` 镜像，`scripts/transform-main-builtin-echoes.js` 也已删除。真相源单一�?renderer �?`echoBuiltins/`；DB 落库完全�?renderer 通过 IPC payload（`db:clearEchoes` / `db:saveEcho` / `db:saveEchoes`）推送内�?echo 列表，避免双源漂移�?
+> **v2026-07-29 起**：main 端**不再维护** `src-electron/main-process/service/builtin-echoes.js` 镜像，`scripts/transform-main-builtin-echoes.js` 也已删除。真相源单一在 renderer 端 `echoBuiltins/`；DB 落库完全由 renderer 通过 IPC payload（`db:clearEchoes` / `db:saveEcho` / `db:saveEchoes`）推送内置 echo 列表，避免双源漂移。
 >
-> main �?IPC handler 的新契约�?
-> - `db:clearEchoes`：`payload.builtins` 必传（renderer �?`BUILTIN_ECHO_CARDS`），不再�?main 镜像兜底"分支�?
-> - `db:saveEcho` / `db:saveEchoes`：内�?echo（id 前缀 `__builtin_`）的 category 直接�?`payload.echo.category`（renderer 真相源）；主进程不再查内�?meta 表强制覆盖�?
-> - 启动�?内置 echo showy/marker 类纠�?迁移已删除——历史脏数据�?renderer �?`loadEchoes` 通过 `{ ...template, ...override }` 自然覆盖（DB 行的 category 永远是代码版默认值）�?
+> main 端 IPC handler 的新契约：
+> - `db:clearEchoes`：`payload.builtins` 必传（renderer 端 `BUILTIN_ECHO_CARDS`），不再有"main 镜像兜底"分支。
+> - `db:saveEcho` / `db:saveEchoes`：内置 echo（id 前缀 `__builtin_`）的 category 直接读 `payload.echo.category`（renderer 真相源）；主进程不再查内置 meta 表强制覆盖。
+> - 启动期"内置 echo showy/marker 类纠正"迁移已删除——历史脏数据由 renderer 端 `loadEchoes` 通过 `{ ...template, ...override }` 自然覆盖（DB 行的 category 永远是代码版默认值）。
 
 ---
 
-## 5. 14 个内�?rune 模板详解
+## 5. 14 个内置 rune 模板详解
 
-> **v2026-07-29 �?*：main �?*不再维护** `src-electron/main-process/service/builtin-rune-templates.js` 镜像（已 `git rm`）�?*历史上镜像已经出现真实漂�?*：renderer �?14 张（�?`InheritDemo`）vs main �?13 张（�?`InheritDemo`），新装机用户永远看不到 InheritDemo。改成跟 echo 同方�?full-push"：真相源�?renderer �?`runeTemplates.js` �?`BUILTIN_RUNE_TEMPLATE_META` 导出�?4 项元数据 + 14 �?factory 引用），DB 落库�?renderer 推送�?
+> **v2026-07-29 起**：main 端**不再维护** `src-electron/main-process/service/builtin-rune-templates.js` 镜像（已 `git rm`）。**历史上镜像已经出现真实漂移**：renderer 端 14 张（含 `InheritDemo`）vs main 端 13 张（缺 `InheritDemo`），新装机用户永远看不到 InheritDemo。改成跟 echo 同方向"full-push"：真相源在 renderer 端 `runeTemplates.js` 的 `BUILTIN_RUNE_TEMPLATE_META` 导出（14 项元数据 + 14 个 factory 引用），DB 落库由 renderer 推送。
 >
-> main �?IPC handler 的新契约�?
-> - `db:clearRuneTemplates`：`payload.builtins` 必传（renderer �?`BUILTIN_RUNE_TEMPLATE_META` 拼装行数组），不再有"main 镜像兜底"分支�?
-> - `db:saveRuneTemplate` / `db:saveRuneTemplates`：renderer �?`RuneTemplateService.seedBuiltin()` �?`ensureLoaded()` 缓存 miss �?DB 为空（或 0 张内置行）时懒灌种子；并发去�?+ `saveOne` �?upsert 语义保证幂等�?
-> - 启动�?首次 seed"代码段已删除——renderer 端懒灌替代�?
+> main 端 IPC handler 的新契约：
+> - `db:clearRuneTemplates`：`payload.builtins` 必传（renderer 端 `BUILTIN_RUNE_TEMPLATE_META` 拼装行数组），不再有"main 镜像兜底"分支。
+> - `db:saveRuneTemplate` / `db:saveRuneTemplates`：renderer 端 `RuneTemplateService.seedBuiltin()` 在 `ensureLoaded()` 缓存 miss 且 DB 为空（或 0 张内置行）时懒灌种子；并发去重 + `saveOne` 的 upsert 语义保证幂等。
+> - 启动期"首次 seed"代码段已删除——renderer 端懒灌替代。
 
-### 5.1 工厂入口（`src/components/rune/runeTemplates/runeTemplates.js`�?
+### 5.1 工厂入口（`src/components/rune/runeTemplates/runeTemplates.js`）
 
 ```javascript
 import runeTemplatesBlank from './runeTemplatesBlank.js'
-// ... 14 �?import
+// ... 14 个 import
 
 const createBlankTemplate = runeTemplatesBlank
 const createInheritDemoTemplate = runeTemplatesInheritDemo
@@ -841,7 +841,7 @@ export {
 }
 ```
 
-### 5.2 单张模板（`src/components/rune/runeTemplates/runeTemplatesBlank.js`�?
+### 5.2 单张模板（`src/components/rune/runeTemplates/runeTemplatesBlank.js`）
 
 ```javascript
 export const runeTemplatesBlank = () => {
@@ -855,15 +855,15 @@ export const runeTemplatesBlank = () => {
 <script>
 export default {
   name: 'BlankDemo',
-  // 接收父组件参�?
+  // 接收父组件参数
   props: {},
   data() {
     return {
-      // 响应式数�?
+      // 响应式数据
     }
   },
   computed: {
-    // 计算属�?
+    // 计算属性
   },
   watch: {},
   methods: {},
@@ -873,7 +873,7 @@ export default {
   updated() {},
   destroyed() {}
 }
-<\/script>   <!-- �?注意�?\/script> 是字面字符串，不�?HTML 闭合 -->
+<\/script>   <!-- ★ 注意：<\/script> 是字面字符串，不是 HTML 闭合 -->
 
 <style lang="less" scoped>
 
@@ -883,13 +883,13 @@ export default {
 export default runeTemplatesBlank
 ```
 
-**关键�?*：`</script>` 必须写成 `<\/script>`——这是因为模板字符串本身在外�?JS 字符串里会被当作 HTML / ES module 字面量解析，原始 `</script>` 会让外层解析器认为这里是结束标签，截断模板�?
+**关键点**：`</script>` 必须写成 `<\/script>`——这是因为模板字符串本身在外层 JS 字符串里会被当作 HTML / ES module 字面量解析，原始 `</script>` 会让外层解析器认为这里是结束标签，截断模板。
 
 ---
 
 ## 6. Muya.vue 关键路径行号索引
 
-> 行号截至 v2026-07-29，可能有 ±10 行浮动，详见具体文件�?
+> 行号截至 v2026-07-29，可能有 ±10 行浮动，详见具体文件。
 
 | 路径 | 大致位置 |
 |---|---|
@@ -899,11 +899,11 @@ export default runeTemplatesBlank
 | `createRuneRendererCtor` | ~251-347 |
 | `RunePreviewRenderer` | ~349-415 |
 | `EchoPreviewRenderer` | ~418-525 |
-| `EchoPlaceholderHost`（EchoPreviewRenderer 别名�?| ~529 |
+| `EchoPlaceholderHost`（EchoPreviewRenderer 别名） | ~529 |
 | `refreshEchoDefinitions` | ~682-706 |
 | `updateRunePlaceholderValue` | ~712-730 |
 | `findRunePlaceholderNodeIdByRuneInstance` | ~735-749 |
-| muya options 设置（enableRuneVueRenderer / enableEchoVueRenderer�?| ~1000-1004 |
+| muya options 设置（enableRuneVueRenderer / enableEchoVueRenderer） | ~1000-1004 |
 
 ---
 
@@ -912,7 +912,7 @@ export default runeTemplatesBlank
 | 路径 | 大致位置 |
 |---|---|
 | `RUNE_PLACEHOLDER_SELECTOR` / `ECHO_PLACEHOLDER_SELECTOR` 常量 | ~11-13 |
-| `RUNE_HOST_CLASS` / `ECHO_HOST_CLASS` �?CSS class 常量 | ~14-17 |
+| `RUNE_HOST_CLASS` / `ECHO_HOST_CLASS` 等 CSS class 常量 | ~14-17 |
 | `createRunePlaceholderMarkup` | ~270-279 |
 | `createEchoPlaceholderMarkup` | ~281-309 |
 | `renderRunePlaceholderNodes` | ~312-348 |
@@ -922,8 +922,8 @@ export default runeTemplatesBlank
 | `cleanupDetachedRunePlaceholders` | ~518 |
 | `cleanupDetachedEchoVms` | ~529 |
 | `cleanupDetachedRuneVms` | ~543 |
-| `mountEchoVueHosts`（默�?disable�?| ~557 |
-| `mountRuneVueHosts`（默�?enable�?| ~633 |
+| `mountEchoVueHosts`（默认 disable） | ~557 |
+| `mountRuneVueHosts`（默认 enable） | ~633 |
 | `postRenderEchoPlaceholders` | ~750 |
 | `postRenderRunePlaceholders` | ~764 |
 | `renderRunesWithVue` | ~1059-1064 |
@@ -931,51 +931,51 @@ export default runeTemplatesBlank
 
 ---
 
-## 8. 性能优化（源码级�?
+## 8. 性能优化（源码级）
 
-1. **definitionCache**（`echoRuntime.js`）：`compileDefinition` 内部 Map �?echoId 缓存编译结果，新�?删除 echo �?`invalidate()` 清掉�?
-2. **runePlaceholderCache / echoPlaceholderCache**（`render/index.js`）：�?host DOM 节点缓存 renderKey，未变则跳过 `host.innerHTML = ...` 赋值�?
-3. **scopeId 隔离**：`injectScopedAttribute` 给所有顶层标签加 `data-rune-scope-${runeId}`，SFC �?`<style scoped>` 编译后只作用于自身�?
-4. **cleanupFirst**：`renderRunes` �?`echoRuntime.afterRender(root, { cleanupFirst: true })` 时先清旧 cleanup 再派发新 handler，避免属性累积�?
-5. **250ms debounce**：`afterRender` 内部 setTimeout 250ms，确保高频渲染期只派发最后一次�?
+1. **definitionCache**（`echoRuntime.js`）：`compileDefinition` 内部 Map 按 echoId 缓存编译结果，新增/删除 echo 时 `invalidate()` 清掉。
+2. **runePlaceholderCache / echoPlaceholderCache**（`render/index.js`）：按 host DOM 节点缓存 renderKey，未变则跳过 `host.innerHTML = ...` 赋值。
+3. **scopeId 隔离**：`injectScopedAttribute` 给所有顶层标签加 `data-rune-scope-${runeId}`，SFC 的 `<style scoped>` 编译后只作用于自身。
+4. **cleanupFirst**：`renderRunes` → `echoRuntime.afterRender(root, { cleanupFirst: true })` 时先清旧 cleanup 再派发新 handler，避免属性累积。
+5. **250ms debounce**：`afterRender` 内部 setTimeout 250ms，确保高频渲染期只派发最后一次。
 
 ## 9. 已知边界情况
 
-1. **twinbloom 幂等**：克隆块�?`data-twinbloom-of` 标记，若已存在则跳过
+1. **twinbloom 幂等**：克隆块用 `data-twinbloom-of` 标记，若已存在则跳过
 2. **disperse 累积**：`data-disperse-density` 属性可能覆盖而非累积
-3. **mindsteal 冲突**：多�?mindsteal 节点对同一目标操作时，后者覆盖前�?
-4. **scapegoat 错误捕获**：依�?`window.error` �?`ag:rune:error` 自定义事�?
-5. **echo NPE 兜底**：handler body �?Node �?`$` �?null，但 `EchoRuntime._doAfterRender` �?try-catch
-6. **renderRunes 重复派发**：renderEchoPlaceholders �?renderRunes 都会触发 echoRuntime.afterRender，但都走 250ms debounce
+3. **mindsteal 冲突**：多个 mindsteal 节点对同一目标操作时，后者覆盖前者
+4. **scapegoat 错误捕获**：依赖 `window.error` 和 `ag:rune:error` 自定义事件
+5. **echo NPE 兜底**：handler body 在 Node 端 `$` 为 null，但 `EchoRuntime._doAfterRender` 已 try-catch
+6. **renderRunes 重复派发**：renderEchoPlaceholders 和 renderRunes 都会触发 echoRuntime.afterRender，但都走 250ms debounce
 
-## 10. 调试技�?
+## 10. 调试技巧
 
 ```javascript
 // 打开 echo trace
-window.__ECHO_TRACE__ = true  // renderEchoPlaceholders 内部�?console.log
+window.__ECHO_TRACE__ = true  // renderEchoPlaceholders 内部会 console.log
 
-// 列出所�?echoRegistry 卡片
+// 列出所有 echoRegistry 卡片
 window.__memocastEchoRegistry?.getAll()
 
-// 强制失效所有编译缓�?
+// 强制失效所有编译缓存
 window.__memocastEchoRegistry?.runtime?.invalidate()
 
 // 强制重渲
 this.contentEditor.contentState.stateRender.renderRunes()
 ```
 
-## 11. 测试契约（护城河�?
+## 11. 测试契约（护城河）
 
-详见 `.agents/rules/rune-echo-test-moat.mdc`。每条契约对应一�?Jest suite�?
+详见 `.agents/rules/rune-echo-test-moat.mdc`。每条契约对应一个 Jest suite：
 
 | 契约 | 测试用例 |
 |---|---|
 | `definition.render(props)` / `definition.afterRender(node, props)` 签名 | `tests/unit/echo/runtime-props.test.js` |
-| 16 张内�?anno_source 顶层结构（`type` / `field` / `title` / `version` / `props`�?| `tests/unit/echo/jquery-echo-compile.test.js` |
-| 16 �?handlerBody �?jQuery 化（无原�?fallback�?| `tests/unit/echo/jquery-afterrender.test.js` |
-| main �?CJS 镜像�?renderer 端类型契约一�?| `tests/unit/echo/main-builtin-echoes.test.js` |
+| 16 张内置 anno_source 顶层结构（`type` / `field` / `title` / `version` / `props`） | `tests/unit/echo/jquery-echo-compile.test.js` |
+| 16 张 handlerBody 全 jQuery 化（无原生 fallback） | `tests/unit/echo/jquery-afterrender.test.js` |
+| main 端 CJS 镜像与 renderer 端类型契约一致 | `tests/unit/echo/main-builtin-echoes.test.js` |
 | echo propsSchema 贴合 form-create rule | `tests/unit/echo/schema-formcreate-align.test.js` |
-| 14 �?rune 模板源文件转�?+ `props.value` + `$emit('input')` | `tests/unit/rune/templates.test.js` |
+| 14 个 rune 模板源文件转义 + `props.value` + `$emit('input')` | `tests/unit/rune/templates.test.js` |
 | inherit helper + payload codec round-trip | `tests/unit/echo/inherit-from-previous.test.js` |
 
-任何对这些契约的改动，必须先更新对应 Jest 用例，再 `yarn verify` 全量验证�?
+任何对这些契约的改动，必须先更新对应 Jest 用例，再 `yarn verify` 全量验证。

@@ -1,3 +1,8 @@
+---
+name: echo-scripts-reuse
+description: 指导修改回响、符文、博客和启动流程时选择并复用现有 Jest 测试，涵盖测试入口、目录和应保留的行为契约。
+---
+
 # Echo / Boot 测试套件契约规范
 
 v2026-07-29 起，本仓库所有 rune / echo / blog / boot 相关验证**全部**迁入 Jest 29（`tests/` 下）。`scripts/` 只保留打包 / 部署相关脚本（`after-pack.js`），不再有 `verify-*.js`、`scripts/blog/*`。
