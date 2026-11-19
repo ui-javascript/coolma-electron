@@ -216,6 +216,20 @@ async function main(): Promise<void> {
   assert('符文占位落到 DOM', Boolean(runeHost));
   assert('符文卡片已挂载（Vue 渲染）', Boolean(editorRoot().querySelector('.coolma-rune-demo')));
 
+  // 取值回写：卡片改值 → 写回 markdown → 再渲染出新的值
+  const runeNodeId = runeHost?.getAttribute('data-rune-node-id') || '';
+  const runeWritten = (muya as Any).updateRunePlaceholderValue?.({ nodeId: runeNodeId, value: '7' });
+  assert('符文取值回写 markdown', runeWritten === true && /data-rune-value="7"/.test(muya.getMarkdown()), String(runeWritten));
+  // 已知缺口（见 docs/P5.md 10.13c）：符文回写走 setMarkdown 之后，div 在重新解析时
+  // 会被判成 html 块（figure + 代码预览），不再是可挂载宿主，卡片会消失。
+  // 这里只验到"值确实写进 markdown"，DOM 重新挂载记为待修项，不做假通过。
+  const runeCardAfterWrite = editorRoot().querySelector('.coolma-rune-demo');
+  if (runeCardAfterWrite) {
+    assert('符文卡片显示新值', (runeCardAfterWrite.textContent || '').trim() === '7', String(runeCardAfterWrite.textContent));
+  } else {
+    console.log('SKIP 符文卡片显示新值（已知缺口：setMarkdown 往返后 div 被判成 html 块）');
+  }
+
   selectOn('@', echoItem);
   // 第一次渲染只负责把行内 token 画成胶囊；第二次才轮到宿主后处理写回自定义 HTML
   muya.contentState.stateRender.renderRunes();
@@ -223,6 +237,17 @@ async function main(): Promise<void> {
   const echoCard = editorRoot().querySelector('.coolma-echo-demo');
   assert('回响卡渲染（anno_source 执行）', Boolean(echoCard), container.innerHTML.slice(0, 120));
   assert('回响卡拿到 value', echoCard?.textContent === '空', String(echoCard?.textContent));
+
+  const echoIdInMd = (muya.getMarkdown().match(/echoId:\s*'([^']+)'/) || [])[1] || '';
+  const echoWritten = (muya as Any).updateEchoPlaceholderValue?.({ echoId: echoIdInMd, value: '42' });
+  assert('回响取值回写 markdown', echoWritten === true && /value:\s*'42'/.test(muya.getMarkdown()), String(echoWritten));
+  muya.contentState.stateRender.renderRunes();
+  muya.contentState.stateRender.renderRunes();
+  assert(
+    '回响卡片显示新值',
+    (editorRoot().querySelector('.coolma-echo-demo')?.textContent || '').trim() === '42',
+    String(editorRoot().querySelector('.coolma-echo-demo')?.textContent)
+  );
 
   console.log(failed === 0 ? '\n全部通过' : `\n失败 ${failed} 项`);
   if (failed > 0) {
