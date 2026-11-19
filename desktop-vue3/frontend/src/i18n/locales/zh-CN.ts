@@ -604,6 +604,7 @@ export default {
     "nav.needBaseUrl": "请先在云函数设置里填写 baseUrl。",
     "nav.needToken": "该接口需要登录 token，请在云函数设置里粘贴 uni-id-token。",
     "nav.loadFailed": "加载失败：{message}",
+    "ranking.fixedHeight": "固定评级高度",
   action: {
     newNote: '新建',
     settings: '设置',

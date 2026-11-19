@@ -604,6 +604,7 @@ export default {
     "nav.needBaseUrl": "Set the cloudFn baseUrl first.",
     "nav.needToken": "This endpoint needs a login token; paste your uni-id-token in cloudFn settings.",
     "nav.loadFailed": "Failed to load: {message}",
+    "ranking.fixedHeight": "Fixed tier height",
   action: {
     newNote: 'New',
     settings: 'Settings',

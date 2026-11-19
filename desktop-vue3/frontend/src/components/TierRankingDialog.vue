@@ -14,6 +14,7 @@
             v-for="(tier, tierIndex) in tiers"
             :key="tier.id"
             class="tier-row"
+            :data-tier="tier.id"
             :class="{ 'is-over': tierDragOver === tierIndex }"
             @dragover.prevent="tierDragOver = tierIndex"
             @dragleave="tierDragOver = tierDragOver === tierIndex ? -1 : tierDragOver"
@@ -40,13 +41,18 @@
             </div>
             <div
               class="tier-content"
-              @dragover.prevent.stop
-              @drop.prevent.stop="moveToTier(tierIndex)"
+              :style="{ overflowY: imageClass(tier) === 'multi-row' ? 'auto' : 'hidden' }"
+              @dragover.prevent.stop="onTierContentDragOver(tierIndex, $event)"
+              @dragleave.stop="onTierContentDragLeave(tierIndex, $event)"
+              @drop.prevent.stop="onTierContentDrop(tierIndex)"
             >
               <div
                 v-for="img in tier.images"
                 :key="img.id"
                 class="tier-image"
+                :class="imageClass(tier)"
+                :style="imageStyle(tier)"
+                :data-image-id="img.id"
                 draggable="true"
                 @dragstart="onImageDragStart($event, img, tierIndex)"
                 @dragend="onImageDragEnd"
@@ -126,6 +132,7 @@
             <li>{{ t('ranking.helpTier') }}</li>
           </ul>
           <label class="tier-check"><input type="checkbox" v-model="showNames" @change="saveState" /> {{ t('ranking.showNames') }}</label>
+          <label class="tier-check"><input type="checkbox" v-model="fixedHeight" @change="onFixedHeightChange" /> {{ t('ranking.fixedHeight') }}</label>
           <button type="button" class="tier-save" @click="saveAsImage">💾 {{ t('ranking.saveImage') }}</button>
         </div>
       </div>
@@ -216,6 +223,10 @@ const helpVisible = ref(false);
 const resetVisible = ref(false);
 const previewImage = ref('');
 const showNames = ref(false);
+const fixedHeight = ref(false);
+const dragOverImageId = ref('');
+const imageClassMap = ref<Record<string, string>>({});
+const imageStyleMap = ref<Record<string, Record<string, string>>>({});
 const boardRef = ref<HTMLElement | null>(null);
 const fileInput = ref<HTMLInputElement | null>(null);
 
@@ -258,8 +269,8 @@ function extractImageUrls(markdown: string): TierImage[] {
   return result;
 }
 
-function normalizeState(raw: unknown): { tiers: Tier[]; unassignedImages: TierImage[]; showNames: boolean } {
-  const data = (raw ?? {}) as { tiers?: Tier[]; unassignedImages?: TierImage[]; showImageNames?: boolean };
+function normalizeState(raw: unknown): { tiers: Tier[]; unassignedImages: TierImage[]; showNames: boolean; fixedHeight: boolean } {
+  const data = (raw ?? {}) as { tiers?: Tier[]; unassignedImages?: TierImage[]; showImageNames?: boolean; fixedHeightSetting?: boolean };
   const savedTiers = Array.isArray(data.tiers) && data.tiers.length > 0
     ? data.tiers.map((tier) => ({
       id: String(tier.id),
@@ -269,7 +280,12 @@ function normalizeState(raw: unknown): { tiers: Tier[]; unassignedImages: TierIm
     }))
     : cloneDefaults();
   const images = Array.isArray(data.unassignedImages) ? data.unassignedImages : [];
-  return { tiers: savedTiers, unassignedImages: images, showNames: Boolean(data.showImageNames) };
+  return {
+    tiers: savedTiers,
+    unassignedImages: images,
+    showNames: Boolean(data.showImageNames),
+    fixedHeight: Boolean(data.fixedHeightSetting),
+  };
 }
 
 async function loadState(): Promise<void> {
@@ -279,6 +295,7 @@ async function loadState(): Promise<void> {
   tiers.value = normalized.tiers;
   unassignedImages.value = normalized.unassignedImages;
   showNames.value = normalized.showNames;
+  fixedHeight.value = normalized.fixedHeight;
   // 没有历史状态且是笔记模式时，把笔记里的图片当候选
   if (!stored && props.mode === 'note' && props.noteContent) {
     unassignedImages.value = extractImageUrls(props.noteContent);
@@ -295,14 +312,24 @@ async function saveState(): Promise<void> {
     tiers: tiers.value,
     unassignedImages: unassignedImages.value,
     showImageNames: showNames.value,
+    fixedHeightSetting: fixedHeight.value,
   });
 }
+
+watch(
+  () => tiers.value.map((tier) => tier.images.length).join(','),
+  () => {
+    if (fixedHeight.value) {
+      void nextTick(recalcAll);
+    }
+  },
+);
 
 watch(
   () => props.modelValue,
   (open) => {
     if (open) {
-      void loadState();
+      void loadState().then(() => nextTick(recalcAll));
     }
   },
 );
@@ -363,9 +390,113 @@ function onImageDragStart(event: DragEvent, image: TierImage, tierIndex: number)
 
 function onImageDragEnd(): void {
   dragging.value = null;
+  dragOverImageId.value = '';
   tierDragOver.value = -1;
   galleryOver.value = false;
   deleteOver.value = false;
+}
+
+/**
+ * 固定高度：对齐 vue2 recalculateTierSizes。
+ * 基准 120px 图 + 5px gap：本档能一行放下 → single-row；
+ * 放不下但均分后每张 ≥70px → adaptive（按等宽算）；
+ * 再小 → multi-row（70px 固定宽、内容区滚动）。
+ */
+function measureTier(tier: Tier): { cls: string; style: Record<string, string> } {
+  if (!fixedHeight.value || tier.images.length === 0) {
+    return { cls: fixedHeight.value ? 'single-row' : '', style: {} };
+  }
+  const content = document.querySelector(`.tier-row[data-tier="${tier.id}"] .tier-content`) as HTMLElement | null;
+  if (!content || content.clientWidth === 0) {
+    return { cls: 'single-row', style: {} };
+  }
+  const containerWidth = content.clientWidth - 10;
+  const gap = 5;
+  const maxPerRow = Math.floor(containerWidth / (120 + gap));
+  if (tier.images.length <= maxPerRow) {
+    return { cls: 'single-row', style: {} };
+  }
+  const available = containerWidth - (tier.images.length - 1) * gap;
+  const calcWidth = Math.floor(available / tier.images.length);
+  if (calcWidth >= 70) {
+    return { cls: 'adaptive', style: { width: `${calcWidth}px`, height: `${calcWidth}px` } };
+  }
+  return { cls: 'multi-row', style: { width: '70px', height: '70px' } };
+}
+
+function recalcAll(): void {
+  const classes: Record<string, string> = {};
+  const styles: Record<string, Record<string, string>> = {};
+  tiers.value.forEach((tier) => {
+    const result = measureTier(tier);
+    classes[tier.id] = result.cls;
+    styles[tier.id] = result.style;
+  });
+  imageClassMap.value = classes;
+  imageStyleMap.value = styles;
+}
+
+function imageClass(tier: Tier): string {
+  if (!fixedHeight.value) {
+    return '';
+  }
+  return imageClassMap.value[tier.id] || 'single-row';
+}
+
+function imageStyle(tier: Tier): Record<string, string> {
+  if (!fixedHeight.value) {
+    return {};
+  }
+  return imageStyleMap.value[tier.id] || {};
+}
+
+function onFixedHeightChange(): void {
+  void nextTick(recalcAll);
+  void saveState();
+}
+
+function onTierContentDragOver(index: number, event: DragEvent): void {
+  tierDragOver.value = index;
+  const target = (event.target as HTMLElement | null)?.closest('.tier-image') as HTMLElement | null;
+  dragOverImageId.value = target?.dataset.imageId || '';
+}
+
+function onTierContentDragLeave(index: number, event: DragEvent): void {
+  const current = event.currentTarget as HTMLElement;
+  const rect = current.getBoundingClientRect();
+  if (event.clientX < rect.left || event.clientX >= rect.right || event.clientY < rect.top || event.clientY >= rect.bottom) {
+    if (tierDragOver.value === index) {
+      tierDragOver.value = -1;
+    }
+    dragOverImageId.value = '';
+  }
+}
+
+function onTierContentDrop(index: number): void {
+  const current = dragging.value;
+  if (!current) {
+    return;
+  }
+  if (current.tierIndex !== index) {
+    moveToTier(index);
+    dragOverImageId.value = '';
+    return;
+  }
+  const images = tiers.value[index].images;
+  const from = images.findIndex((item) => item.id === current.image.id);
+  if (from === -1) {
+    return;
+  }
+  const targetIndex = dragOverImageId.value ? images.findIndex((item) => item.id === dragOverImageId.value) : images.length - 1;
+  const to = targetIndex === -1 ? images.length - 1 : targetIndex;
+  if (from !== to) {
+    images.splice(from, 1);
+    images.splice(to, 0, current.image);
+    void saveState();
+  }
+  dragging.value = null;
+  dragOverImageId.value = '';
+  tierDragOver.value = -1;
 }
 
 function moveToTier(index: number): void {
@@ -599,7 +730,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeyDown));
 
 .tier-row {
   display: flex;
-  min-height: 84px;
+  min-height: 100px;
   background: #232323;
   border: 1px solid #2f2f2f;
   border-radius: 4px;
@@ -658,6 +789,10 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeyDown));
   cursor: grab;
   flex: none;
 }
+
+.tier-image.single-row { width: 100px; height: 100px; }
+.tier-image.multi-row { width: 70px; height: 70px; }
+.tier-image.adaptive { min-width: 70px; min-height: 70px; max-width: 100px; max-height: 100px; }
 
 .tier-image img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .tier-image-name {
