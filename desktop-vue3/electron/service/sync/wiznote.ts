@@ -1,6 +1,11 @@
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { app } from 'electron';
 import * as wizMarkdown from '@altairwei/wiz-markdown';
 import { settingsRepository } from '../db/settings-repository';
 import { notesRepository } from '../db/notes-repository';
+import { ATTACHMENT_ROOT_NAME, parseCoolmaUrl } from '../attachments';
+import { isLiteCategory, replaceCoolmaWithIndexFiles, replaceIndexFilesWithCoolma } from './wiznote-resources';
 
 /**
  * 为知笔记（WizNote）同步客户端。
@@ -14,7 +19,8 @@ import { notesRepository } from '../db/notes-repository';
  *   - 新建  POST {ks}/ks/note/create/{kbGuid}
  * 鉴权头 `X-Wiz-Token`；响应先判 `returnCode/code === 200`，再剥 `result`。
  *
- * 这份只做「登录 / 拉分类 / 拉笔记 / 推 dirty 笔记」，附件资源与冲突合并没做。
+ * 附件资源按 vue2 的 `index_files/<name>` ↔ `coolma://coolma.app/<kb>/<doc>/<name>` 做双向映射；
+ * 拉取时把服务端资源落到本地 temp 目录（protocol 处理器可直接读），推送时把本地资源 multipart 上传。
  */
 export interface WizConfig {
   baseUrl: string;
@@ -248,19 +254,143 @@ async function htmlToMarkdown(html: string): Promise<string> {
   return turndownService.turndown(html || '');
 }
 
+/**
+ * 把服务端资源落到本地 temp 目录（与 coolma:// 协议同一个根）。
+ * 优先用下载响应里的 url，失败再按为知两条常见下载路径兜底。
+ */
+async function cacheResource(
+  config: WizConfig,
+  docGuid: string,
+  resource: { name: string; url?: string },
+): Promise<string> {
+  const name = path.basename(resource.name);
+  if (!name || name !== resource.name || name.includes('..')) {
+    throw new Error(`invalid resource name: ${resource.name}`);
+  }
+  const dir = path.join(app.getPath('temp'), ATTACHMENT_ROOT_NAME, config.kbGuid, docGuid);
+  const target = path.join(dir, name);
+  const encodedName = encodeURIComponent(name);
+  const candidates = [
+    resource.url,
+    `${config.kbServer}/ks/resource/download/${config.kbGuid}/${docGuid}/${encodedName}`,
+    `${config.kbServer}/ks/resource/${config.kbGuid}/${docGuid}/${encodedName}`,
+  ].filter((item): item is string => Boolean(item));
+
+  let lastError: Error | null = null;
+  for (const candidate of candidates) {
+    const url = candidate.startsWith('http') ? candidate : `${config.kbServer}${candidate.startsWith('/') ? '' : '/'}${candidate}`;
+    try {
+      const response = await fetch(url, { headers: { 'X-Wiz-Token': config.token } });
+      if (!response.ok) {
+        lastError = new Error(`resource ${name} responded ${response.status}`);
+        continue;
+      }
+      const buffer = Buffer.from(await response.arrayBuffer());
+      if (buffer.length === 0) {
+        lastError = new Error(`resource ${name} empty`);
+        continue;
+      }
+      await mkdir(dir, { recursive: true });
+      await writeFile(target, buffer);
+      return name;
+    } catch (error) {
+      lastError = error as Error;
+    }
+  }
+  throw lastError ?? new Error(`resource ${name} not found`);
+}
+
 /** 为知下载的 HTML → 本地 Markdown；标题以 .md 结尾的走 wizMarkdown 提取。 */
-async function toMarkdown(note: DownloadedNote): Promise<string> {
+async function toMarkdown(
+  note: DownloadedNote,
+  config: WizConfig,
+  docGuid: string,
+): Promise<{ content: string; missing: number }> {
   const title = String(note.info?.title ?? '');
   let html = String(note.html ?? '');
-  (note.resources ?? []).forEach((resource) => {
-    if (resource?.name) {
-      html = html.split(`index_files/${resource.name}`).join(`./${resource.name}`);
+  let missing = 0;
+  const names = (note.resources ?? []).map((resource) => resource?.name).filter((name): name is string => Boolean(name));
+  html = replaceIndexFilesWithCoolma(html, config.kbGuid, docGuid, names);
+  for (const resource of note.resources ?? []) {
+    if (!resource?.name) {
+      continue;
     }
-  });
-  if (title.toLowerCase().endsWith('.md')) {
-    return wizMarkdown.extract(html, { convertImgTag: true, normalizeWhitespace: false });
+    try {
+      await cacheResource(config, docGuid, resource);
+    } catch {
+      missing += 1;
+    }
   }
-  return htmlToMarkdown(html);
+  const content = title.toLowerCase().endsWith('.md')
+    ? wizMarkdown.extract(html, { convertImgTag: true, normalizeWhitespace: false })
+    : await htmlToMarkdown(html);
+  return { content, missing };
+}
+
+/** 从 Markdown 里收集 coolma:// 资源名，并给出本地文件路径。 */
+function collectResources(markdown: string): Array<{ name: string; filePath: string }> {
+  const pattern = /coolma:\/\/coolma\.app\/([^/\s)]+)\/([^/\s)]+)\/([^/\s)]+)/g;
+  const seen = new Set<string>();
+  const result: Array<{ name: string; filePath: string }> = [];
+  for (const match of markdown.matchAll(pattern)) {
+    const [, kbGuid, docGuid, name] = match;
+    if (seen.has(name)) {
+      continue;
+    }
+    const parsed = parseCoolmaUrl(`coolma://coolma.app/${kbGuid}/${docGuid}/${name}`);
+    if (!parsed) {
+      continue;
+    }
+    seen.add(name);
+    result.push({
+      name,
+      filePath: path.join(app.getPath('temp'), ATTACHMENT_ROOT_NAME, parsed.kbGuid, parsed.docGuid, parsed.name),
+    });
+  }
+  return result;
+}
+
+/** 为知资源上传：POST /ks/resource/upload/{kb}/{doc} multipart（对齐 vue2 wiz-resource-helper）。 */
+async function uploadResource(
+  config: WizConfig,
+  docGuid: string,
+  name: string,
+  buffer: Buffer,
+): Promise<void> {
+  const form = new FormData();
+  form.append('kbGuid', config.kbGuid);
+  form.append('docGuid', docGuid);
+  form.append('data', new Blob([buffer]), name);
+  const response = await fetch(`${config.kbServer}/ks/resource/upload/${config.kbGuid}/${docGuid}`, {
+    method: 'POST',
+    headers: { 'X-Wiz-Token': config.token },
+    body: form,
+  });
+  const payload = (await response.json()) as Record<string, unknown>;
+  const code = Number(payload.returnCode ?? payload.code ?? 200);
+  const result = payload.result as { name?: string } | undefined;
+  if (code !== 200 || !result?.name) {
+    throw new Error(String(payload.externMessage ?? payload.returnMessage ?? `upload ${name} failed`));
+  }
+}
+
+/** 推送前把本地 coolma:// 链接换回 index_files/<name>（vue2 embedMDNote 的逆操作）。 */
+function toWizHtml(
+  markdown: string,
+  isLite: boolean,
+  config: WizConfig,
+  sourceDocGuid: string,
+  embedDocGuid: string,
+): { html: string; names: string[] } {
+  const resources = collectResources(markdown);
+  const names = resources.map((item) => item.name);
+  // 本地新笔记的图片链接里是 local_ 占位，替换时必须用真实的 note.docGuid；
+  // 真正 embed 时新笔记还没有远端 guid，用空串（与 vue2 createDoc 一致）。
+  const text = replaceCoolmaWithIndexFiles(markdown, config.kbGuid, sourceDocGuid, names);
+  return {
+    html: wizMarkdown.embed(text, { wrapWithPreTag: isLite, kbGuid: config.kbGuid, docGuid: embedDocGuid }),
+    names,
+  };
 }
 
 export interface PullResult {
@@ -282,7 +412,10 @@ export async function pull(input: { category?: string; limit?: number } = {}): P
   for (const summary of list) {
     try {
       const note = await download(summary.docGuid);
-      const content = await toMarkdown(note);
+      const { content, missing } = await toMarkdown(note, config, summary.docGuid);
+      if (missing > 0) {
+        errors.push(`${summary.title}: ${missing} 个附件未能缓存`);
+      }
       notesRepository.upsertRemote({
         docGuid: summary.docGuid,
         kbGuid: config.kbGuid,
@@ -323,56 +456,70 @@ export async function push(input: { limit?: number } = {}): Promise<PushResult> 
 
   for (const note of notes) {
     const docGuid = note.docGuid ?? '';
-    const isRemote = docGuid && !docGuid.startsWith('local_');
-    const html = wizMarkdown.embed(note.content ?? '', {
-      wrapWithPreTag: false,
+    const isRemote = Boolean(docGuid) && !docGuid.startsWith('local_');
+    const isLite = isLiteCategory(note.category);
+    const category = note.category || '/My Notes/';
+    const targetGuid = isRemote ? docGuid : '';
+    const { html, names } = toWizHtml(note.content ?? '', isLite, config, docGuid, targetGuid);
+    const resources = names.map((name) => ({ name }));
+    const payload = {
+      html,
+      title: note.title,
       kbGuid: config.kbGuid,
-      docGuid: isRemote ? docGuid : '',
-    });
+      resources,
+      type: isLite ? 'lite/markdown' : 'document',
+      tags: note.tags || '',
+      category,
+    };
+
+    let remoteGuid = targetGuid;
+    let createdHere = false;
     try {
-      if (isRemote) {
-        await request(
-          'PUT',
-          `${config.kbServer}/ks/note/save/${config.kbGuid}/${docGuid}?clientType=web&clientVersion=3.0&lang=zh-cn`,
-          {
-            html,
-            title: note.title,
-            kbGuid: config.kbGuid,
-            docGuid,
-            resources: [],
-            type: 'document',
-            tags: note.tags || '',
-            category: note.category || '/My Notes/',
-          },
-          config,
-          40000,
-        );
-        notesRepository.rebindDocGuid(note.id, docGuid, config.kbGuid);
-        pushed += 1;
-      } else {
+      if (!isRemote) {
         const result = await request<Record<string, unknown>>(
           'POST',
           `${config.kbServer}/ks/note/create/${config.kbGuid}`,
-          {
-            category: note.category || '/My Notes/',
-            kbGuid: config.kbGuid,
-            title: note.title || 'Untitled',
-            owner: config.email,
-            html,
-            type: 'document',
-            tags: note.tags || '',
-          },
+          { ...payload, docGuid: undefined, owner: config.email },
           config,
           40000,
         );
-        const newGuid = String(result?.guid ?? result?.docGuid ?? '');
-        if (!newGuid) {
+        remoteGuid = String(result?.guid ?? result?.docGuid ?? '');
+        if (!remoteGuid) {
           throw new Error('createNote returned no guid');
         }
-        notesRepository.rebindDocGuid(note.id, newGuid, config.kbGuid);
+        createdHere = true;
+        // 先绑定远端 guid，后续 save/附件失败时把 dirty 打回去，避免下次又建一篇重复的。
+        notesRepository.rebindDocGuid(note.id, remoteGuid, config.kbGuid);
+      }
+
+      // 本地附件上传到这篇远端笔记（新笔记创建后才有 docGuid）。
+      for (const item of collectResources(note.content ?? '')) {
+        try {
+          const buffer = await readFile(item.filePath);
+          await uploadResource(config, remoteGuid, item.name, buffer);
+        } catch (error) {
+          errors.push(`${note.title}: 附件 ${item.name} 上传失败 ${(error as Error).message}`);
+        }
+      }
+
+      // create 已带上正文；附件上传后再 save 一次，让服务端把 index_files 绑定到 docGuid。
+      await request(
+        'PUT',
+        `${config.kbServer}/ks/note/save/${config.kbGuid}/${remoteGuid}?clientType=web&clientVersion=3.0&lang=zh-cn`,
+        { ...payload, docGuid: remoteGuid },
+        config,
+        40000,
+      );
+      notesRepository.rebindDocGuid(note.id, remoteGuid, config.kbGuid);
+      if (isRemote) {
+        pushed += 1;
+      } else {
         created += 1;
       }
     } catch (error) {
+      if (createdHere) {
+        notesRepository.markDirty(note.id);
+      }
       failed += 1;
       errors.push(`${note.title}: ${(error as Error).message}`);
     }

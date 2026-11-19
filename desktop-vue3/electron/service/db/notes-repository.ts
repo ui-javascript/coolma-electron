@@ -313,6 +313,11 @@ export const notesRepository = {
       .run(docGuid, kbGuid, Date.now(), Date.now(), id);
   },
 
+  /** 推送中途失败时把 dirty 打回去，避免「已绑定远端 guid 但内容没存上」被当成已同步。 */
+  markDirty(id: number): void {
+    getDatabase().prepare('UPDATE notes SET dirty = 1, updated_at = ? WHERE id = ?').run(Date.now(), id);
+  },
+
   create(input: CreateNoteInput = {}): NoteRecord {
     const db = getDatabase();
     const now = Date.now();

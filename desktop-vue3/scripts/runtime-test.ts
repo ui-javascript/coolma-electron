@@ -620,6 +620,14 @@ async function main(): Promise<void> {
     assert('为知同步：embed→extract 往返保住标题与加粗', markdown.includes('# 标题') && markdown.includes('**粗**'), JSON.stringify(markdown));
     assert('为知同步：login/status/pull/push 通道齐全且白名单放行', [IPC_CHANNELS.sync.login, IPC_CHANNELS.sync.status, IPC_CHANNELS.sync.pull, IPC_CHANNELS.sync.push].every((c) => INVOKE_CHANNELS.has(c)), String(INVOKE_CHANNELS.size));
     assert('为知同步：login 空账号被 zod 拦下', !syncLoginSchema.safeParse({ userId: '', password: '' }).success, 'rejected');
+    const { isLiteCategory, replaceIndexFilesWithCoolma, replaceCoolmaWithIndexFiles } = await import('../electron/service/sync/wiznote-resources');
+    assert('为知同步：只有 Lite 分类算 lite/markdown（vue2 去斜杠判定）', isLiteCategory('/Lite/') && isLiteCategory('Lite') && !isLiteCategory('/My Notes/Lite2/'), 'Lite rule');
+    const mapped = replaceIndexFilesWithCoolma('<img src="index_files/a.png">', 'kb', 'doc', ['a.png']);
+    const back = replaceCoolmaWithIndexFiles('![](coolma://coolma.app/kb/doc/a.png)', 'kb', 'doc', ['a.png']);
+    assert('为知同步：index_files ↔ coolma:// 双向映射', mapped.includes('coolma://coolma.app/kb/doc/a.png') && back.includes('index_files/a.png'), `${mapped} / ${back}`);
+    const rebound = replaceCoolmaWithIndexFiles('![](coolma://coolma.app/kb/local_old/a.png)', 'kb', 'remote_new', ['a.png']);
+    assert('为知同步：本地笔记 rebind 后旧 local_ 图片仍能换回 index_files', rebound.includes('index_files/a.png'), rebound);
+    assert('为知同步：lite 笔记走 pre 包装（对齐 vue2 wrapWithPreTag）', wizMarkdown.embed('# t', { wrapWithPreTag: true, kbGuid: 'k', docGuid: '' }).includes('<pre>'), 'pre');
   }
 
     assertImport: {
