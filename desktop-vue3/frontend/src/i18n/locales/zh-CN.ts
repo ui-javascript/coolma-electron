@@ -535,6 +535,8 @@ export default {
     "settings.cloudFnUrlInvalid": "Base URL 需以 http(s):// 开头",
     "settings.cloudFnSaved": "云函数配置已保存",
     "settings.cloudFnUrlRequired": "请先填写 Base URL",
+    'editor.mindMapHtml': '导出 HTML',
+    'editor.mindMapHtmlSaved': 'HTML 已导出',
   action: {
     newNote: '新建',
     settings: '设置',

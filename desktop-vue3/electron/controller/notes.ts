@@ -3,6 +3,7 @@ import type { IpcResult } from '../shared/ipc/contract';
 import { fail, ok } from '../shared/ipc/result';
 import {
   noteCreateSchema,
+  noteExportTextSchema,
   notePngExportSchema,
   noteIdSchema,
   noteListSchema,
@@ -94,6 +95,35 @@ class NotesController {
       return ok({ canceled: false, filePath: result.filePath });
     } catch (error) {
       return failFromError(error, 'NOTE_EXPORT_ERROR');
+    }
+  }
+
+
+  /**
+   * 通用文本落盘（对齐 vue2 exportFile）：导图另存 HTML/SVG 走这里。
+   * 只写字符串，不碰笔记表。
+   */
+  async exportText(args?: unknown): Promise<IpcResult<{ canceled: boolean; filePath: string }>> {
+    try {
+      const { content, fileName, fileType } = noteExportTextSchema.parse(args);
+      const { dialog, app } = await import('electron');
+      const fs = await import('node:fs/promises');
+      const path = await import('node:path');
+      const ext = fileType;
+      const filterName = fileType === 'html' ? 'HTML File' : fileType === 'svg' ? 'SVG File' : 'Text File';
+      const safeName = String(fileName || 'export').replace(/[\\/:*?"<>|]+/g, '_');
+      const result = await dialog.showSaveDialog({
+        title: 'export',
+        defaultPath: path.join(app.getPath('documents'), `${safeName}.${ext}`),
+        filters: [{ name: filterName, extensions: [ext] }],
+      });
+      if (result.canceled || !result.filePath) {
+        return ok({ canceled: true, filePath: '' });
+      }
+      await fs.writeFile(result.filePath, content, 'utf-8');
+      return ok({ canceled: false, filePath: result.filePath });
+    } catch (error) {
+      return failFromError(error, 'NOTE_EXPORT_TEXT_ERROR');
     }
   }
 

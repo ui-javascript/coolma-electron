@@ -24,6 +24,12 @@ export const notePngExportSchema = z.object({
   dataUrl: z.string().min(1).max(60_000_000),
 });
 
+export const noteExportTextSchema = z.object({
+  content: z.string(),
+  fileName: z.string().min(1).max(200),
+  fileType: z.enum(['html', 'svg', 'txt']),
+});
+
 export const noteIdSchema = z.object({
   id: z.number().int().positive(),
 });

@@ -10,7 +10,7 @@
     @opened="generate"
     @closed="destroy"
   >
-    <div ref="containerRef" class="mind-map-container">
+    <div ref="containerRef" class="mind-map-container" @contextmenu.prevent="onContextMenu">
       <svg ref="svgRef" class="mind-map-svg" />
       <div class="mind-map-toolbar">
         <el-button-group>
@@ -31,18 +31,34 @@
           <el-icon><Picture /></el-icon>
           <span>{{ t('editor.mindMapPng') }}</span>
         </el-button>
+        <el-button size="small" @click="saveAsHtml">
+          <el-icon><Document /></el-icon>
+          <span>{{ t('editor.mindMapHtml') }}</span>
+        </el-button>
       </div>
       <p v-if="errorMessage" class="mind-map-error">{{ errorMessage }}</p>
     </div>
+    <ContextMenu
+      :visible="menu.visible"
+      :x="menu.x"
+      :y="menu.y"
+      :items="menuItems"
+      @select="onMenuSelect"
+      @close="menu.visible = false"
+    />
   </el-dialog>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { Aim, FullScreen, Picture, ZoomIn, ZoomOut } from '@element-plus/icons-vue';
+import { Aim, Document, FullScreen, Picture, ZoomIn, ZoomOut } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
-import { exportNotePng } from '@/services/ipc';
+import { exportNotePng, exportText } from '@/services/ipc';
+import ContextMenu from '@/components/ContextMenu.vue';
+import { buildMarkMapMenu } from '@/menus/markMap';
+import { useNotesStore } from '@/stores/notes';
+import type { ContextMenuItem } from '@/menus/types';
 
 /**
  * 思维导图：与 vue2 同一套 markmap（markmap-lib 转换、markmap-view 渲染），
@@ -71,6 +87,36 @@ const containerRef = ref<HTMLDivElement | null>(null);
 const svgRef = ref<SVGSVGElement | null>(null);
 const errorMessage = ref('');
 let markmap: ReturnType<MarkmapViewModule['Markmap']['create']> | null = null;
+
+const notesStore = useNotesStore();
+const menu = ref({ visible: false, x: 0, y: 0 });
+const menuItems = computed<ContextMenuItem[]>(() => buildMarkMapMenu({ htmlReady: true }));
+
+function onContextMenu(event: MouseEvent): void {
+  menu.value = { visible: true, x: event.clientX, y: event.clientY };
+}
+
+async function onMenuSelect(itemId: string): Promise<void> {
+  menu.value.visible = false;
+  if (itemId === 'saveAsHtml') {
+    await saveAsHtml();
+  }
+}
+
+async function saveAsHtml(): Promise<void> {
+  const inner = containerRef.value?.innerHTML ?? '';
+  if (!inner) {
+    return;
+  }
+  const result = await exportText({
+    content: inner,
+    fileName: notesStore.activeNote?.title || 'mindmap',
+    fileType: 'html',
+  });
+  if (result.ok && !result.data.canceled) {
+    ElMessage.success(t('editor.mindMapHtmlSaved'));
+  }
+}
 
 const visible = computed({
   get: () => props.modelValue,

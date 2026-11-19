@@ -535,6 +535,8 @@ export default {
     "settings.cloudFnUrlInvalid": "Base URL must start with http(s)://",
     "settings.cloudFnSaved": "Cloud function config saved",
     "settings.cloudFnUrlRequired": "Base URL is required",
+    'editor.mindMapHtml': 'Save as HTML',
+    'editor.mindMapHtmlSaved': 'HTML exported',
   action: {
     newNote: 'New',
     settings: 'Settings',

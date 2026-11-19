@@ -23,6 +23,7 @@ export const IPC_CHANNELS = {
     update: 'controller/notes/update',
     remove: 'controller/notes/remove',
     exportMarkdown: 'controller/notes/exportMarkdown',
+    exportText: 'controller/notes/exportText',
     exportMarkdownFolder: 'controller/notes/exportMarkdownFolder',
     exportPng: 'controller/notes/exportPng',
   },

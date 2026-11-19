@@ -174,6 +174,14 @@ export function removeNote(id: number): Promise<IpcResult<{ deleted: boolean }>>
   return invoke<{ deleted: boolean }>(IPC_CHANNELS.notes.remove, { id });
 }
 
+export function exportText(input: {
+  content: string;
+  fileName: string;
+  fileType: 'html' | 'svg' | 'txt';
+}): Promise<IpcResult<{ canceled: boolean; filePath: string }>> {
+  return invoke<{ canceled: boolean; filePath: string }>(IPC_CHANNELS.notes.exportText, input);
+}
+
 export function exportNoteMarkdown(id: number): Promise<IpcResult<{ canceled: boolean; filePath: string }>> {
   return invoke<{ canceled: boolean; filePath: string }>(IPC_CHANNELS.notes.exportMarkdown, { id });
 }

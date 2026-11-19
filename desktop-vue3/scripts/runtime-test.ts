@@ -526,6 +526,14 @@ async function main(): Promise<void> {
     assert('内置条目：注册后能在注册表查到', getBuiltinApps().some((app) => app.id === DELETE_EFFECT_APP_ID), 'registered');
 
 
+
+  exportText: {
+    const { noteExportTextSchema } = await import('@shared/ipc/schemas');
+    assert('导出：HTML/SVG/TXT 三种类型可校验', ['html', 'svg', 'txt'].every((t) => noteExportTextSchema.safeParse({ content: 'x', fileName: 'n', fileType: t }).success), 'types');
+    assert('导出：未知类型被拒', noteExportTextSchema.safeParse({ content: 'x', fileName: 'n', fileType: 'pdf' }).success === false, 'pdf');
+    assert('导出：空文件名被拒', noteExportTextSchema.safeParse({ content: 'x', fileName: '', fileType: 'html' }).success === false, 'empty');
+  }
+
   i18n: {
     const { hoistMisplacedKeys } = await import('@/i18n/hoist');
     const zhRaw = (await import('@/i18n/locales/zh-CN')).default as Record<string, any>;
