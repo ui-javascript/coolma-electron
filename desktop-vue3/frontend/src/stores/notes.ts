@@ -18,7 +18,12 @@ import {
   removeTag as removeTagIpc,
   updateNote as updateNoteIpc,
   type NoteCreateInput,
+  type NoteTemplate,
+  type NoteTemplateInput,
   type NoteUpdateInput,
+  listTemplates as listTemplatesIpc,
+  saveTemplate as saveTemplateIpc,
+  removeTemplate as removeTemplateIpc,
 } from '@/services/ipc';
 
 function toSummary(note: NoteRecord): NoteSummary {
@@ -47,6 +52,7 @@ export const useNotesStore = defineStore('notes', {
     activeNote: null as NoteRecord | null,
     loading: false,
     saving: false,
+    templates: [] as NoteTemplate[],
     error: '',
   }),
 
@@ -77,6 +83,34 @@ export const useNotesStore = defineStore('notes', {
 
       this.loading = false;
       return notesResult.ok;
+    },
+
+    /** 笔记模板列表（设置页卡片 + 新建笔记下拉共用）。 */
+    async loadTemplates(): Promise<void> {
+      const result = await listTemplatesIpc();
+      if (result.ok) {
+        this.templates = result.data;
+      }
+    },
+
+    async saveTemplate(input: NoteTemplateInput): Promise<NoteTemplate | null> {
+      const result = await saveTemplateIpc(input);
+      if (!result.ok) {
+        this.error = result.error.message;
+        return null;
+      }
+      await this.loadTemplates();
+      return result.data;
+    },
+
+    async removeTemplate(id: string): Promise<boolean> {
+      const result = await removeTemplateIpc(id);
+      if (!result.ok) {
+        this.error = result.error.message;
+        return false;
+      }
+      await this.loadTemplates();
+      return result.data;
     },
 
     async openNote(id: number): Promise<NoteRecord | null> {

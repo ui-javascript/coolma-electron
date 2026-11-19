@@ -315,7 +315,29 @@ const migration3: Migration = {
   },
 };
 
-export const MIGRATIONS: readonly Migration[] = [migration1, migration2, migration3];
+const migration4: Migration = {
+  version: 4,
+  name: 'create-note-templates',
+  up(db) {
+    // 表结构与 vue2 note-template-service 对齐：id 为客户端生成的稳定 TEXT 主键。
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS note_templates (
+        id          TEXT PRIMARY KEY,
+        name        TEXT NOT NULL,
+        "desc"      TEXT,
+        content     TEXT NOT NULL DEFAULT '',
+        is_builtin  INTEGER NOT NULL DEFAULT 0,
+        sort_order  INTEGER NOT NULL DEFAULT 0,
+        created_at  INTEGER NOT NULL,
+        updated_at  INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_note_tpl_name ON note_templates(name);
+      CREATE INDEX IF NOT EXISTS idx_note_tpl_sort_order ON note_templates(sort_order);
+    `);
+  },
+};
+
+export const MIGRATIONS: readonly Migration[] = [migration1, migration2, migration3, migration4];
 
 export function runMigrations(db: DB): number {
   db.exec(`

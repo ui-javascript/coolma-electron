@@ -10,6 +10,7 @@ import {
 } from '../shared/ipc/schemas';
 import { notesRepository } from '../service/db/notes-repository';
 import { markdownFileName, sanitizeFileName, stripDataUrlBase64 } from '../service/export-utils';
+import { templatesRepository } from '../service/db/templates-repository';
 import { failFromError } from './controller-utils';
 
 class NotesController {
@@ -41,7 +42,17 @@ class NotesController {
 
   async create(args?: unknown): Promise<IpcResult<NoteRecord>> {
     try {
-      return ok(notesRepository.create(noteCreateSchema.parse(args ?? {})));
+      const { templateId, ...rest } = noteCreateSchema.parse(args ?? {});
+      let templateContent: string | undefined;
+      if (templateId) {
+        const body = templatesRepository.contentOf(templateId);
+        if (body === null) {
+          console.warn('[notes.create] template not found, fallback to empty:', templateId);
+        } else {
+          templateContent = body;
+        }
+      }
+      return ok(notesRepository.create({ ...rest, templateContent }));
     } catch (error) {
       return failFromError(error, 'NOTE_CREATE_ERROR');
     }

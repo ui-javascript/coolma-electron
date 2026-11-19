@@ -63,6 +63,12 @@ export const IPC_CHANNELS = {
     echoSaveMany: 'controller/library/echoSaveMany',
     echoRemove: 'controller/library/echoRemove',
   },
+  templates: {
+    list: 'controller/templates/list',
+    save: 'controller/templates/save',
+    saveMany: 'controller/templates/saveMany',
+    remove: 'controller/templates/remove',
+  },
   database: {
     status: 'controller/database/status',
     importLegacy: 'controller/database/importLegacy',
@@ -103,6 +109,10 @@ export const INVOKE_CHANNELS = new Set<string>([
   IPC_CHANNELS.sync.pending,
   IPC_CHANNELS.library.runes,
   IPC_CHANNELS.library.echoes,
+  IPC_CHANNELS.templates.list,
+  IPC_CHANNELS.templates.save,
+  IPC_CHANNELS.templates.saveMany,
+  IPC_CHANNELS.templates.remove,
 ]);
 
 /**

@@ -15,6 +15,27 @@ export interface NoteCreateInput {
   content?: string;
   category?: string;
   tags?: string;
+  /** 笔记模板 id：主进程按「# 标题 + 模板正文」拼初始内容。 */
+  templateId?: string;
+}
+
+export interface NoteTemplate {
+  id: string;
+  name: string;
+  desc: string;
+  content: string;
+  isBuiltin: boolean;
+  sortOrder: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface NoteTemplateInput {
+  id: string;
+  name: string;
+  desc?: string;
+  content?: string;
+  sortOrder?: number;
 }
 
 export interface NoteUpdateInput {
@@ -246,4 +267,16 @@ export function allSettings(): Promise<IpcResult<Record<string, unknown>>> {
 
 export function setSetting(key: string, value: unknown): Promise<IpcResult<boolean>> {
   return invoke<boolean>(IPC_CHANNELS.settings.set, { key, value });
+}
+
+export function listTemplates(): Promise<IpcResult<NoteTemplate[]>> {
+  return invoke<NoteTemplate[]>(IPC_CHANNELS.templates.list);
+}
+
+export function saveTemplate(input: NoteTemplateInput): Promise<IpcResult<NoteTemplate>> {
+  return invoke<NoteTemplate>(IPC_CHANNELS.templates.save, input);
+}
+
+export function removeTemplate(id: string): Promise<IpcResult<boolean>> {
+  return invoke<boolean>(IPC_CHANNELS.templates.remove, { id });
 }

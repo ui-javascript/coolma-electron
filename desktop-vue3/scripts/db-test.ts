@@ -11,6 +11,7 @@ import { categoriesRepository } from '../electron/service/db/categories-reposito
 import { tagsRepository } from '../electron/service/db/tags-repository';
 import { settingsRepository } from '../electron/service/db/settings-repository';
 import { runesRepository, echoesRepository } from '../electron/service/db/library-repository';
+import { templatesRepository } from '../electron/service/db/templates-repository';
 import { syncLogRepository } from '../electron/service/db/sync-log-repository';
 import { runIntegrityCheck } from '../electron/service/db/diagnostics';
 import { backupFileName, isManagedBackupFile, listBackups, pruneBackups } from '../electron/service/db/backup-files';
@@ -34,7 +35,7 @@ setDatabase(handle.database);
 const schemaVersion = runMigrations(handle.database);
 
 // ===== 迁移 =====
-assert('迁移：version 走到 3', schemaVersion === 3, String(schemaVersion));
+assert('迁移：version 走到 4', schemaVersion === 4, String(schemaVersion));
 const tables = handle.database
   .prepare("SELECT name FROM sqlite_master WHERE type='table'")
   .all()
@@ -271,6 +272,25 @@ assert('体检：能抓到 tags 与 note_tags 不一致', dirtyReport.issues.som
   assert('回响：自定义分类入库往返', showy.category === 'showy', JSON.stringify(showy));
   const upd = runesRepository.save({ id: 'r-cat-1', name: '音乐符文', category: 'novel', sortOrder: 0 });
   assert('符文：更新可改分类', upd.category === 'novel', JSON.stringify(upd));
+}
+
+// 笔记模板（note_templates 表 + 建笔记拼模板）
+{
+  const saved = templatesRepository.saveOne({ id: 'tpl-1', name: '会议记录', desc: '周会用', content: '## 议程\n- 议题一' });
+  assert('模板：保存往返', saved.name === '会议记录' && saved.content.includes('议题一'), JSON.stringify(saved));
+  assert('模板：列表含新模板', templatesRepository.listAll().some((t) => t.id === 'tpl-1'));
+
+  const saved2 = templatesRepository.saveOne({ id: 'tpl-1', name: '会议记录 v2', content: '## 议程\n- 议题二', sortOrder: 3 });
+  assert('模板：upsert 覆盖', saved2.name === '会议记录 v2' && saved2.sortOrder === 3, JSON.stringify(saved2));
+
+  const withTpl = notesRepository.create({ title: '周会记录2', templateContent: templatesRepository.contentOf('tpl-1') ?? '' });
+  assert('模板：正文按模板拼接', withTpl.content.startsWith('# 周会记录2\n\n## 议程'), withTpl.content);
+
+  const plain = notesRepository.create({ title: '空笔记验证' });
+  assert('模板：无模板默认仅 H1', plain.content === '# 空笔记验证', plain.content);
+
+  assert('模板：删除生效', templatesRepository.remove('tpl-1') === true);
+  assert('模板：删除后列表不含', !templatesRepository.listAll().some((t) => t.id === 'tpl-1'));
 }
 
 console.log(failed === 0 ? '\n仓储层测试全部通过' : `\n仓储层测试失败 ${failed} 项`);

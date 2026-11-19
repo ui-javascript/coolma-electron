@@ -36,6 +36,8 @@ export interface ListNotesInput {
 export interface CreateNoteInput {
   title?: string;
   content?: string;
+  /** 模板正文（不含 H1），仓储拼成「# 标题\n\n正文」；与 vue2 createNote 一致。 */
+  templateContent?: string;
   category?: string;
   tags?: string;
 }
@@ -240,7 +242,13 @@ export const notesRepository = {
     const now = Date.now();
     const category = normalizeCategory(input.category);
     const title = generateUniqueTitle(category, input.title ?? 'Untitled');
-    const content = input.content ?? '';
+    const templateBody = String(input.templateContent ?? '').trim();
+    const content =
+      input.content !== undefined && input.content !== ''
+        ? input.content
+        : templateBody
+          ? `# ${title}\n\n${templateBody}`
+          : `# ${title}`;
     const tags = splitTags(input.tags).join(',');
 
     const docGuid = `local_${randomUUID()}`;

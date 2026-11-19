@@ -497,7 +497,7 @@ async function exportSelected(): Promise<void> {
   await exportFolder(folder);
 }
 
-async function createNote(): Promise<void> {
+async function createNote(payload?: { templateId?: string }): Promise<void> {
   if (creating.value) {
     return;
   }
@@ -506,9 +506,10 @@ async function createNote(): Promise<void> {
     keyword.value = '';
     searchResults.value = null;
     const title = t('notes.untitled');
+    // 有模板时不传 content，由主进程按「# 标题 + 模板正文」拼接（对齐 vue2 createNote）
     const note = await notesStore.create({
       title,
-      content: `# ${title}\n\n`,
+      ...(payload?.templateId ? { templateId: payload.templateId } : { content: `# ${title}\n\n` }),
       category: activeFolder.value || '/',
       tags: activeTag.value || '',
     });

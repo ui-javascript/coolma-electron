@@ -2,9 +2,23 @@
   <aside class="sidebar">
     <div class="sidebar-section-head">
       <span>{{ t('index.title') }}</span>
-      <el-button text size="small" :loading="creating" :title="t('action.newNote')" @click="emit('create-note')">
-        <el-icon><Plus /></el-icon>
-      </el-button>
+      <el-dropdown trigger="click" @command="createWithTemplate">
+        <el-button text size="small" :loading="creating" :title="t('action.newNote')">
+          <el-icon><Plus /></el-icon>
+        </el-button>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <el-dropdown-item command="">{{ t('noteTemplateEmptyOption') }}</el-dropdown-item>
+            <el-dropdown-item
+              v-for="tpl in notesStore.templates"
+              :key="tpl.id"
+              :command="tpl.id"
+            >
+              {{ tpl.name }}
+            </el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
     </div>
 
     <el-radio-group v-model="modeProxy" class="index-mode-switch" size="small">
@@ -110,7 +124,7 @@
 <script setup lang="ts">
 import { Clock, Delete, Document, Folder, FolderAdd, Plus } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { IndexModeEnum, type CalendarDateBasis, type IndexMode } from '@shared/enums/app';
 import { useNotesStore } from '@/stores/notes';
@@ -132,12 +146,21 @@ const props = defineProps<{
 const emit = defineEmits<{
   (event: 'update:mode', value: IndexMode): void;
   (event: 'update:filter', value: { folder?: string; tag?: string; timeGroup?: string; calendarDate?: string; calendarBasis?: CalendarDateBasis }): void;
-  (event: 'create-note'): void;
+  (event: 'create-note', payload?: { templateId?: string }): void;
   (event: 'export-folder', category: string): void;
 }>();
 
 const { t } = useI18n();
 const notesStore = useNotesStore();
+
+onMounted(() => {
+  void notesStore.loadTemplates();
+});
+
+/** 新建笔记：command 空串=空模板，否则为模板 id（对齐 vue2 buildTemplateOptions）。 */
+function createWithTemplate(command: string): void {
+  emit('create-note', command ? { templateId: command } : undefined);
+}
 
 const indexModes = IndexModeEnum.items;
 

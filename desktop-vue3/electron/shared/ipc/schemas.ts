@@ -33,6 +33,17 @@ export const noteCreateSchema = z.object({
   content: z.string().max(10_000_000).optional(),
   category: z.string().trim().max(500).optional(),
   tags: z.string().max(500).optional(),
+  /** 笔记模板 id：给了就按「# 标题 + 模板正文」拼初始内容。 */
+  templateId: z.string().trim().max(100).optional(),
+});
+
+export const noteTemplateSaveSchema = z.object({
+  id: z.string().trim().min(1).max(100),
+  name: z.string().trim().min(1).max(100),
+  desc: z.string().max(2000).optional(),
+  content: z.string().max(200_000).optional(),
+  isBuiltin: z.union([z.number(), z.boolean()]).optional(),
+  sortOrder: z.number().int().optional(),
 });
 
 export const noteUpdateSchema = z
