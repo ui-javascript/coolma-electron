@@ -150,6 +150,7 @@
       :pending="metaPending"
       @confirm="confirmTags"
     />
+    <BlogDeployDialog v-model="blogVisible" :category="blogCategory" />
     <TierRankingDialog
       v-model="tierVisible"
       :mode="tierMode"
@@ -181,6 +182,7 @@ import FullscreenOverlay from '@/components/FullscreenOverlay.vue';
 import SearchDialog from '@/components/SearchDialog.vue';
 import AiHelperDrawer from '@/components/AiHelperDrawer.vue';
 import TierRankingDialog from '@/components/TierRankingDialog.vue';
+import BlogDeployDialog from '@/components/BlogDeployDialog.vue';
 import NoteOutlineDrawer from '@/components/NoteOutlineDrawer.vue';
 import {
   findDeleteEffectEntry,
@@ -432,6 +434,9 @@ async function onTierFill(markdown: string): Promise<void> {
   await notesStore.save(note.id, { content: `${note.content ?? ''}${markdown}` });
 }
 
+const blogVisible = ref(false);
+const blogCategory = ref('');
+
 const tierVisible = ref(false);
 const tierMode = ref<'note' | 'category'>('note');
 const tierContextKey = ref('');
@@ -528,7 +533,8 @@ async function onFolderMenuCommand(command: string): Promise<void> {
       tierVisible.value = true;
       break;
     case 'exportToBlog':
-      ElMessage.info(t('notes.blogPending'));
+      blogCategory.value = category;
+      blogVisible.value = true;
       break;
     case 'copyMarkdown':
       ElMessage.info(t('notes.copyFolderPending'));

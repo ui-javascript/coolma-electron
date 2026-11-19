@@ -12,6 +12,13 @@ export const openExternalSchema = z.object({
   }),
 });
 
+export const blogExportSchema = z.object({
+  blogDir: z.string().min(1),
+  category: z.string().optional(),
+  theme: z.enum(['default', 'vdoing', 'hope', 'reco']).optional(),
+  includeCi: z.boolean().optional(),
+});
+
 export const emptyPayloadSchema = z.union([
   z.undefined(),
   z.null(),

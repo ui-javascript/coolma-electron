@@ -11,6 +11,7 @@ const INVOKE_CHANNELS = new Set<string>([
   'controller/app/updateDownload',
   'controller/app/updateInstall',
   'controller/app/openExternal',
+  'controller/app/pickDirectory',
   'controller/window/minimize',
   'controller/window/state',
   'controller/window/toggleMaximize',
@@ -51,6 +52,7 @@ const INVOKE_CHANNELS = new Set<string>([
   'controller/library/echoSave',
   'controller/library/echoSaveMany',
   'controller/library/echoRemove',
+  'controller/blog/export',
   'controller/cloudfn/invoke',
   'controller/ai/models',
   'controller/ai/saveModel',
@@ -76,6 +78,8 @@ const INVOKE_CHANNELS = new Set<string>([
   'controller/database/restore',
   'controller/database/openFolder',
 ]);
+
+
 
 
 const EVENT_CHANNELS = new Set<string>();

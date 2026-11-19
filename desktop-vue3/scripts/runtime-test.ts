@@ -586,6 +586,30 @@ async function main(): Promise<void> {
     assert('导航：openExternal 通道已登记且白名单放行', INVOKE_CHANNELS.has(IPC_CHANNELS.app.openExternal), IPC_CHANNELS.app.openExternal);
   }
 
+  blogDeploy: {
+    const fs = await import('node:fs/promises');
+    const os = await import('node:os');
+    const nodePath = await import('node:path');
+    const { writeBlogPosts, generateSidebarJson, exportCIWorkflows, shortlinkId } = await import('../electron/service/blog/deploy');
+    const tmp = await fs.mkdtemp(nodePath.join(os.tmpdir(), 'coolma-blog-'));
+    const result = await writeBlogPosts(tmp, [
+      { title: 'Hello', content: '# hi' },
+      { title: '02-World', content: 'world' },
+    ], 'default', '技术');
+    await generateSidebarJson(tmp, [{ title: 'Hello', content: '' }, { title: '02-World', content: '' }]);
+    assert('博客：写出两篇 _posts', result.writtenFiles === 2, String(result.writtenFiles));
+    const sidebar = JSON.parse(await fs.readFile(nodePath.join(tmp, 'sidebar.json'), 'utf-8'));
+    const posts = await fs.readdir(nodePath.join(tmp, '_posts'));
+    assert('博客：sidebar 的 path 与物理文件一一对应', sidebar._posts.every((item: { path: string }) => posts.includes(item.path.replace('_posts/', ''))), JSON.stringify(sidebar));
+    assert('博客：序号前缀不参与 shortlink（02-World 与 World 同 id）', shortlinkId('技术', '02-World') === shortlinkId('技术', 'World'), shortlinkId('技术', '02-World'));
+    const shortlink = JSON.parse(await fs.readFile(nodePath.join(tmp, '.vuepress', 'shortlink-map.json'), 'utf-8'));
+    assert('博客：shortlink-map 按 id 记 permalink', Object.keys(shortlink.byId).length >= 2 && Object.values(shortlink.byId).every((v: any) => v.permalink.endsWith('.html')), JSON.stringify(shortlink).slice(0, 80));
+    const ci1 = await exportCIWorkflows(tmp);
+    const ci2 = await exportCIWorkflows(tmp);
+    assert('博客：CI workflow 首次写三份、二次全跳过', ci1.written.length === 3 && ci2.skipped.length === 3, `${ci1.written.length}/${ci2.skipped.length}`);
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+
     assertImport: {
       const enabled = await isDeleteEffectEnabled();
       assert('内置条目：默认未启用（走原生确认框）', enabled === false, String(enabled));

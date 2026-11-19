@@ -1,4 +1,4 @@
-import { BrowserWindow, app, shell } from 'electron';
+import { BrowserWindow, app, dialog, shell } from 'electron';
 import { isDev } from 'ee-core/ps';
 import type { AppInfo, IpcResult } from '../shared/ipc/contract';
 import { emptyPayloadSchema, openExternalSchema } from '../shared/ipc/schemas';
@@ -98,6 +98,19 @@ class AppController {
       return ok({ downloading: true });
     } catch (error) {
       return fail('UPDATE_DOWNLOAD_ERROR', String((error as Error)?.message || error));
+    }
+  }
+
+  /** 选目录（博客部署要选 vuepress 源目录）。 */
+  async pickDirectory(args?: unknown): Promise<IpcResult<string | null>> {
+    try {
+      emptyPayloadSchema.parse(args);
+      const result = await dialog.showOpenDialog({
+        properties: ['openDirectory', 'createDirectory'],
+      });
+      return ok(result.canceled ? null : result.filePaths[0] ?? null);
+    } catch (error) {
+      return fail('PICK_DIRECTORY_ERROR', String((error as Error)?.message || error));
     }
   }
 
