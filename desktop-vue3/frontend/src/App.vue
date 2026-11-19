@@ -9,10 +9,12 @@
 import { onMounted } from 'vue';
 import WindowControls from '@/components/WindowControls.vue';
 import { hasIpc } from '@/services/ipc';
+import { installBusDialogs } from '@/services/busDialogEntries';
 
 const hasControls = hasIpc();
 
 onMounted(() => {
+  installBusDialogs();
   document.getElementById('loadingPage')?.remove();
 });
 </script>

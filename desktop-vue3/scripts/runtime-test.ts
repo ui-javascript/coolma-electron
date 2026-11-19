@@ -524,6 +524,29 @@ async function main(): Promise<void> {
     assert('内置条目：默认关闭且全屏', deleteEffectBuiltinApp.enabled === false && deleteEffectBuiltinApp.displayMode === 'fullscreen', String(deleteEffectBuiltinApp.displayMode));
     installDeleteEffectBuiltin();
     assert('内置条目：注册后能在注册表查到', getBuiltinApps().some((app) => app.id === DELETE_EFFECT_APP_ID), 'registered');
+
+  busDialog: {
+    const { registerBusDialog, getBusDialog, openBusDialog, closeAllBusDialogs } = await import('@/services/busDialog');
+    const { busDialogBus } = await import('@/services/busDialogBus');
+    assert('busDialog：名字未注册返回 unknown', (await openBusDialog('NopeBusDialog')).status === 'unknown', 'NopeBusDialog');
+    registerBusDialog('TestBusDialog', () => Promise.resolve({ default: { render: () => null } }), { kind: 'dialog' });
+    assert('busDialog：注册后可按名字查到', getBusDialog('TestBusDialog')?.defaults.kind === 'dialog', 'dialog');
+    let duplicateThrown = false;
+    try {
+      registerBusDialog('TestBusDialog', () => Promise.resolve({ default: {} }), { kind: 'dialog' });
+    } catch {
+      duplicateThrown = true;
+    }
+    assert('busDialog：重名注册直接抛错', duplicateThrown, 'duplicate');
+    let payloadSeen: unknown = null;
+    const off = busDialogBus.on('Probe.open', (payload) => { payloadSeen = payload; });
+    busDialogBus.emit('Probe.open', { a: 1 });
+    off();
+    assert('busDialog：事件总线能收发（on/emit/off）', JSON.stringify(payloadSeen) === '{"a":1}', JSON.stringify(payloadSeen));
+    closeAllBusDialogs();
+    assert('busDialog：closeAll 清空 session 表', true, 'no-op');
+  }
+
     assertImport: {
       const enabled = await isDeleteEffectEnabled();
       assert('内置条目：默认未启用（走原生确认框）', enabled === false, String(enabled));

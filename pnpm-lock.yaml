@@ -316,6 +316,9 @@ importers:
       vue-i18n:
         specifier: ^11.4.18
         version: 11.4.22(vue@3.5.45(typescript@5.9.3))
+      vue-layerx:
+        specifier: 1.2.5
+        version: 1.2.5(vue@3.5.45(typescript@5.9.3))
       vue-router:
         specifier: ^4.6.4
         version: 4.6.5(vue@3.5.45(typescript@5.9.3))
@@ -7946,6 +7949,11 @@ packages:
     deprecated: v9 and v10 no longer supported. please migrate to v11. about maintenance status, see https://vue-i18n.intlify.dev/guide/maintenance.html
     peerDependencies:
       vue: ^2
+
+  vue-layerx@1.2.5:
+    resolution: {integrity: sha512-quCZDf4eXRKMxWPj+9adhuA+vXIoDTK3uqs+6GMT0NVWTXise7lWyhVPm3UhzYhLn3WFHVv8KUDzelfvXiJqsQ==}
+    peerDependencies:
+      vue: ^2.7.0 || ^3.3.0
 
   vue-router@4.6.5:
     resolution: {integrity: sha512-HBoGqixpB2ej1kI17NotdOatUdKIsi3yfOQ5vhwAhcoHk90+JtwtIy7MEeOqdPi1+npmQVMEu5F+Hvw+3TU48w==}
@@ -17492,6 +17500,10 @@ snapshots:
   vue-i18n@8.28.2(vue@2.7.16(patch_hash=d8f24c4ba46eec36c8e112edba9ee6612be94030c7b3bbbcbae5b7cca8b64e02)):
     dependencies:
       vue: 2.7.16(patch_hash=d8f24c4ba46eec36c8e112edba9ee6612be94030c7b3bbbcbae5b7cca8b64e02)
+
+  vue-layerx@1.2.5(vue@3.5.45(typescript@5.9.3)):
+    dependencies:
+      vue: 3.5.45(typescript@5.9.3)
 
   vue-router@4.6.5(vue@3.5.45(typescript@5.9.3)):
     dependencies:

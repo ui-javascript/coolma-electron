@@ -45,3 +45,6 @@ allowBuilds:
   ssh2: false
   utf-8-validate: false
   vuepress@1.9.10: false
+
+minimumReleaseAgeExclude:
+  - vue-layerx@1.2.5

@@ -20,6 +20,9 @@
 
       <div class="topbar-actions">
         <el-tag :type="statusType" effect="light" round>{{ statusLabel }}</el-tag>
+        <el-button circle plain :title="t('aiHelper.title')" @click="aiDrawerVisible = true">
+          <el-icon><ChatDotRound /></el-icon>
+        </el-button>
         <el-button circle plain :title="t('search.title')" @click="searchVisible = true">
           <el-icon><Search /></el-icon>
         </el-button>
@@ -147,6 +150,7 @@
       :pending="metaPending"
       @confirm="confirmTags"
     />
+    <AiHelperDrawer v-model="aiDrawerVisible" :note-id="activeId" />
     <SearchDialog v-model="searchVisible" @select="selectNote" />
     <NoteOutlineDrawer v-model="outlineVisible" :markdown="activeContent" @jump="jumpToHeading" />
     <FullscreenOverlay ref="fullscreenOverlayRef" :app-entry="deleteEffectEntry" />
@@ -155,7 +159,7 @@
 </template>
 
 <script setup lang="ts">
-import { Document, Grid, Search, Setting } from '@element-plus/icons-vue';
+import { ChatDotRound, Document, Grid, Search, Setting } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Pane, Splitpanes } from 'splitpanes';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
@@ -168,6 +172,7 @@ import SkinEffects from '@/components/SkinEffects.vue';
 import MicroAppDrawer from '@/components/MicroAppDrawer.vue';
 import FullscreenOverlay from '@/components/FullscreenOverlay.vue';
 import SearchDialog from '@/components/SearchDialog.vue';
+import AiHelperDrawer from '@/components/AiHelperDrawer.vue';
 import NoteOutlineDrawer from '@/components/NoteOutlineDrawer.vue';
 import {
   findDeleteEffectEntry,
@@ -774,6 +779,7 @@ function handleShortcut(event: KeyboardEvent): void {
 
 const microDrawerVisible = ref(false);
 const searchVisible = ref(false);
+const aiDrawerVisible = ref(false);
 const outlineVisible = ref(false);
 const editorPaneRef = ref<InstanceType<typeof EditorPane> | null>(null);
 const sidebarRef = ref<InstanceType<typeof IndexSidebar> | null>(null);
