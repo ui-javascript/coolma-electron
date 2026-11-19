@@ -18,6 +18,8 @@
       <el-tab-pane :label="t('settings.groupLibrary')" name="library" />
       <el-tab-pane :label="t('settings.groupAi')" name="ai" />
       <el-tab-pane :label="t('settings.groupApps')" name="apps" />
+      <el-tab-pane :label="t('settings.groupServer')" name="server" />
+      <el-tab-pane :label="t('settings.groupCloudFn')" name="cloudFn" />
       <el-tab-pane :label="t('settings.groupAbout')" name="about" />
     </el-tabs>
 
@@ -58,6 +60,42 @@
         </div>
       </template>
       <SkinPickerCard />
+    </el-card>
+
+    <el-card v-show="groupTab === 'general'" class="settings-card" shadow="never">
+      <template #header>
+        <div class="card-heading">
+          <span>{{ t('settings.cdnInjectTitle') }}</span>
+        </div>
+      </template>
+      <SettingsCdnDepsCard />
+    </el-card>
+
+    <el-card v-show="groupTab === 'general'" class="settings-card" shadow="never">
+      <template #header>
+        <div class="card-heading">
+          <span>{{ t('settings.profile') }}</span>
+        </div>
+      </template>
+      <SettingsProfileCard />
+    </el-card>
+
+    <el-card v-show="groupTab === 'server'" class="settings-card" shadow="never">
+      <template #header>
+        <div class="card-heading">
+          <span>{{ t('settings.cloudServer') }}</span>
+        </div>
+      </template>
+      <SettingsServerPanel />
+    </el-card>
+
+    <el-card v-show="groupTab === 'cloudFn'" class="settings-card" shadow="never">
+      <template #header>
+        <div class="card-heading">
+          <span>{{ t('settings.cloudFnConfig') }}</span>
+        </div>
+      </template>
+      <SettingsCloudFnPanel />
     </el-card>
 
     <el-card v-show="groupTab === 'editor'" class="settings-card" shadow="never">
@@ -384,6 +422,10 @@ import SkinPickerCard from '@/components/SkinPickerCard.vue';
 import MicroAppsCard from '@/components/MicroAppsCard.vue';
 import { useAppStore, type AppTheme } from '@/stores/app';
 import LibraryManagePanel from '@/components/LibraryManagePanel.vue';
+import SettingsCdnDepsCard from '@/components/settings/SettingsCdnDepsCard.vue';
+import SettingsProfileCard from '@/components/settings/SettingsProfileCard.vue';
+import SettingsServerPanel from '@/components/settings/SettingsServerPanel.vue';
+import SettingsCloudFnPanel from '@/components/settings/SettingsCloudFnPanel.vue';
 import type { AppLocale } from '@/i18n';
 import {
   backupDatabase,
@@ -409,7 +451,7 @@ function saveAiProvider(value: string): void {
   localStorage.setItem('coolma.aiProvider', value);
 }
 
-const groupTab = ref<'general' | 'editor' | 'database' | 'library' | 'ai' | 'apps' | 'about'>('general');
+const groupTab = ref<'general' | 'editor' | 'database' | 'library' | 'ai' | 'apps' | 'server' | 'cloudFn' | 'about'>('general');
 const libraryTab = ref<'runes' | 'echoes'>('runes');
 
 function onLibraryChanged(): void {

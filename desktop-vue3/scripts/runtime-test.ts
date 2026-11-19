@@ -525,6 +525,17 @@ async function main(): Promise<void> {
     installDeleteEffectBuiltin();
     assert('内置条目：注册后能在注册表查到', getBuiltinApps().some((app) => app.id === DELETE_EFFECT_APP_ID), 'registered');
 
+
+  i18n: {
+    const { hoistMisplacedKeys } = await import('@/i18n/hoist');
+    const zhRaw = (await import('@/i18n/locales/zh-CN')).default as Record<string, any>;
+    const fixed = hoistMisplacedKeys(JSON.parse(JSON.stringify(zhRaw)) as Record<string, any>);
+    assert('i18n：扁平键提升后 search.title 可解析', typeof fixed.search?.title === 'string', JSON.stringify(fixed.search?.title));
+    assert('i18n：library 只留卡片管理键', typeof fixed.library?.management === 'string' && fixed.library?.['search.title'] === undefined, JSON.stringify(fixed.library?.management));
+    assert('i18n：settings.skin 归并进 settings 节点', typeof fixed.settings?.skin === 'string', JSON.stringify(fixed.settings?.skin));
+    assert('i18n：aiHelper.title 回到根级', typeof fixed.aiHelper?.title === 'string', JSON.stringify(fixed.aiHelper?.title));
+    assert('i18n：新面板键可在根级解析', typeof fixed.settings?.groupServer === 'string', JSON.stringify(fixed.settings?.groupServer));
+  }
   busDialog: {
     const { registerBusDialog, getBusDialog, openBusDialog, closeAllBusDialogs } = await import('@/services/busDialog');
     const { busDialogBus } = await import('@/services/busDialogBus');
