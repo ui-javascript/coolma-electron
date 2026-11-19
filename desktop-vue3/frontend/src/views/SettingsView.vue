@@ -61,6 +61,15 @@
     <el-card v-show="groupTab === 'editor'" class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
+          <span>{{ t('editorParsing') }}</span>
+        </div>
+      </template>
+      <ParsingSettingsCard />
+    </el-card>
+
+    <el-card v-show="groupTab === 'editor'" class="settings-card" shadow="never">
+      <template #header>
+        <div class="card-heading">
           <span>{{ t('noteTemplate') }}</span>
         </div>
       </template>
@@ -293,6 +302,7 @@ import type {
 } from '@shared/types/domain';
 import EditorPrefsCard from '@/components/EditorPrefsCard.vue';
 import NoteTemplateCard from '@/components/NoteTemplateCard.vue';
+import ParsingSettingsCard from '@/components/ParsingSettingsCard.vue';
 import { useAppStore, type AppTheme } from '@/stores/app';
 import LibraryManagePanel from '@/components/LibraryManagePanel.vue';
 import type { AppLocale } from '@/i18n';

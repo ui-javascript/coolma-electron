@@ -54,6 +54,8 @@ import { ElMessage } from 'element-plus';
 import { randomUUID } from '@/utils/id';
 import { useLibraryStore } from '@/stores/library';
 import { EchoCategoryEnum, RuneCategoryEnum, resolveLibraryCategory } from '@shared/enums/library';
+import { hasEchoParens, hasRuneTemplateDiv } from '@/utils/parsingRules';
+import { useAppStore } from '@/stores/app';
 import type { EchoCard, RuneCard } from '@shared/types/domain';
 
 /**
@@ -73,6 +75,7 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 const libraryStore = useLibraryStore();
+const appStore = useAppStore();
 const saving = ref(false);
 
 const visible = computed({
@@ -132,6 +135,17 @@ async function submit(): Promise<void> {
   const name = form.name.trim();
   if (!name) {
     ElMessage.warning(t('library.nameRequired'));
+    return;
+  }
+  // 解析开关校验（对齐 vue2 runeFormDialog/echoFormDialog submit 前置检查）
+  if (props.kind === 'rune' && appStore.prefs['parsing.runeRequireTemplateDiv'] === true
+    && !hasRuneTemplateDiv(source.value)) {
+    ElMessage.warning(t('editorParsingRuneDivMissing'));
+    return;
+  }
+  if (props.kind === 'echo' && appStore.prefs['parsing.echoRequireParens'] !== false
+    && !hasEchoParens(source.value, name)) {
+    ElMessage.warning(t('editorParsingEchoParensMissing'));
     return;
   }
   saving.value = true;
