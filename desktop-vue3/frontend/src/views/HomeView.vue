@@ -41,7 +41,7 @@
       </div>
     </header>
 
-    <Splitpanes class="workspace">
+    <Splitpanes class="workspace" @resized="onPanesResized">
       <Pane v-if="paneVisible.sidebar" :size="paneLayoutSizes.sidebar" :min-size="14" :max-size="25">
         <IndexSidebar
           ref="sidebarRef"
@@ -213,7 +213,8 @@ import { useNotesStore } from '@/stores/notes';
 import { useLibraryStore } from '@/stores/library';
 import { createMuyaPlugins } from '@/muyaPlugins';
 import { deriveTitle, folderName, noteDateKey, noteTags, noteTimeGroup } from '@/utils/note';
-import { nextPaneLayout, normalizePaneLayout, paneSizes, paneVisibility, PANE_LAYOUT_STORAGE, type PaneLayoutMode } from '@/utils/paneLayout';
+import { nextPaneLayout, normalizePaneLayout, paneSizes, paneSizesFromList, paneVisibility, PANE_LAYOUT_STORAGE, PANE_SIZES_STORAGE, type PaneLayoutMode } from '@/utils/paneLayout';
+import type { SplitpanesResizedPayload } from 'splitpanes';
 
 const { t } = useI18n();
 const router = useRouter();
@@ -266,7 +267,11 @@ function readPaneLayout(): PaneLayoutMode {
 
 const paneLayoutMode = ref<PaneLayoutMode>(readPaneLayout());
 const paneVisible = computed(() => paneVisibility(paneLayoutMode.value));
-const paneLayoutSizes = computed(() => paneSizes(paneLayoutMode.value));
+const paneSizeStore = ref<Record<string, number[]>>(readPaneSizeStore());
+const paneLayoutSizes = computed(() => {
+  return paneSizesFromList(paneLayoutMode.value, paneSizeStore.value[String(paneLayoutMode.value)])
+    ?? paneSizes(paneLayoutMode.value);
+});
 const paneLayoutTitle = computed(() => {
   const key = paneLayoutMode.value === 0
     ? 'view.threePane'
@@ -279,6 +284,67 @@ const paneLayoutTitle = computed(() => {
 function cyclePaneLayout(): void {
   paneLayoutMode.value = nextPaneLayout(paneLayoutMode.value);
   localStorage.setItem(PANE_LAYOUT_STORAGE, String(paneLayoutMode.value));
+}
+
+function readPaneSizeStore(): Record<string, number[]> {
+  try {
+    const raw = localStorage.getItem(PANE_SIZES_STORAGE);
+    const parsed = raw ? JSON.parse(raw) : {};
+    if (!parsed || typeof parsed !== 'object') {
+      return {};
+    }
+    const result: Record<string, number[]> = {};
+    for (const key of ['0', '1']) {
+      const mode = Number(key) as PaneLayoutMode;
+      const list = normalizePaneSizeListFromStore(mode, (parsed as Record<string, unknown>)[key]);
+      if (list) {
+        result[key] = list;
+      }
+    }
+    return result;
+  } catch {
+    return {};
+  }
+}
+
+function normalizePaneSizeListFromStore(mode: PaneLayoutMode, values: unknown): number[] | null {
+  // 复用纯函数的校验，但这里只需要数组本身。
+  const sizes = paneSizesFromList(mode, values);
+  if (!sizes) {
+    return null;
+  }
+  return mode === 0
+    ? [sizes.sidebar, sizes.list, sizes.editor]
+    : [sizes.list, sizes.editor];
+}
+
+let paneSizeSaveTimer: ReturnType<typeof setTimeout> | undefined;
+
+function onPanesResized(payload: SplitpanesResizedPayload): void {
+  // 只在真实拖拽结束时落库；切模式/挂载卸载也会触发 resized，但没有 event。
+  if (!payload.event) {
+    return;
+  }
+  const mode = paneLayoutMode.value;
+  if (mode === 2 || payload.panes.length !== (mode === 0 ? 3 : 2)) {
+    return;
+  }
+  const values = payload.panes.map((pane) => Number(pane.size));
+  const sizes = paneSizesFromList(mode, values);
+  if (!sizes) {
+    return;
+  }
+  paneSizeStore.value = {
+    ...paneSizeStore.value,
+    [String(mode)]: mode === 0 ? [sizes.sidebar, sizes.list, sizes.editor] : [sizes.list, sizes.editor],
+  };
+  if (paneSizeSaveTimer) {
+    clearTimeout(paneSizeSaveTimer);
+  }
+  paneSizeSaveTimer = setTimeout(() => {
+    localStorage.setItem(PANE_SIZES_STORAGE, JSON.stringify(paneSizeStore.value));
+    paneSizeSaveTimer = undefined;
+  }, 400);
 }
 
 const readCalendarBasis = (): CalendarDateBasis => {
@@ -885,6 +951,11 @@ onBeforeUnmount(() => {
   if (searchTimer) {
     clearTimeout(searchTimer);
     searchTimer = undefined;
+  }
+  if (paneSizeSaveTimer) {
+    clearTimeout(paneSizeSaveTimer);
+    paneSizeSaveTimer = undefined;
+    localStorage.setItem(PANE_SIZES_STORAGE, JSON.stringify(paneSizeStore.value));
   }
   void flushSave();
 });

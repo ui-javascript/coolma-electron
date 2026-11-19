@@ -616,6 +616,9 @@ async function main(): Promise<void> {
     assert('常规视图：三态可见性与 vue2 一致（2 只剩正文）', paneVisibility(0).sidebar && paneVisibility(0).list && paneVisibility(1).list && !paneVisibility(2).list, JSON.stringify([paneVisibility(0), paneVisibility(1), paneVisibility(2)]));
     assert('常规视图：非法/越界值归一成三栏', normalizePaneLayout('9') === 0 && normalizePaneLayout(null) === 0 && normalizePaneLayout(2) === 2, 'normalize');
     assert('常规视图：单栏正文占满、两栏列表 30%', paneSizes(2).editor === 100 && paneSizes(1).list === 30, JSON.stringify([paneSizes(1), paneSizes(2)]));
+    const { normalizePaneSizeList, paneSizesFromList } = await import('@/utils/paneLayout');
+    assert('常规视图：拖拽宽度合法值可还原（三栏/两栏）', normalizePaneSizeList(0, [20, 25, 55])?.length === 3 && paneSizesFromList(1, [35, 65])?.list === 35, 'sizes');
+    assert('常规视图：宽度长度不符/总和越界/负数一律判损坏', normalizePaneSizeList(0, [20, 80]) === null && normalizePaneSizeList(0, [20, 20, 20]) === null && normalizePaneSizeList(1, [-1, 101]) === null, 'invalid');
   }
 
   indexViews: {
