@@ -7,6 +7,9 @@
  * 验证的是引擎真实代码：selectItem → getTypeHandler → 应用侧处理器 → 引擎原语 → 段落写回。
  */
 import { JSDOM } from 'jsdom';
+import { buildSlidesHtml, escapeSlideHtml } from '../frontend/src/utils/slides';
+import { stripDataUrlBase64 } from '../electron/service/export-utils';
+import { coolmaUrl, hashImageName, parseCoolmaUrl } from '../electron/service/attachments';
 
 type Any = Record<string, any>;
 
@@ -255,6 +258,30 @@ async function main(): Promise<void> {
     (editorRoot().querySelector('.coolma-echo-demo')?.textContent || '').trim() === '42',
     String(editorRoot().querySelector('.coolma-echo-demo')?.textContent)
   );
+
+  // ===== 演示稿切片纯逻辑（L3 里再跑一遍，防止 vite/组件层改动悄悄破坏）=====
+  {
+    const manual = buildSlidesHtml({ markdown: '# A\n\n---\n\n# B', splitMode: 'manual', emptyTitle: '空', emptyHint: '提示' });
+    assert('演示：--- 切页', (manual.match(/<section data-markdown>/g) || []).length === 2);
+    const auto = buildSlidesHtml({ markdown: '# A\nt\n## B\nmore', splitMode: 'auto', emptyTitle: '空', emptyHint: '提示' });
+    assert('演示：按标题切页', (auto.match(/<section data-markdown>/g) || []).length === 2);
+    const escaped = escapeSlideHtml('<b class="x">&');
+    // 引擎 escapeHtml 只转 < > " '，& 原样保留 —— 与 L1 断言保持同一认知
+    assert('演示：切片转义与引擎同规则', escaped === '&lt;b class=&quot;x&quot;&gt;&', escaped);
+  }
+
+  // ===== PNG dataURL 剥离（与 L1 相同函数，但走 vite 打包路径）=====
+  {
+    const url = 'data:image/png;base64,' + 'aGk=';
+    assert('PNG：vite 打包下剥离正常', stripDataUrlBase64(url) === 'aGk=', stripDataUrlBase64(url));
+  }
+
+  // ===== 附件路径与 coolma 协议（渲染层会用的纯函数）=====
+  {
+    assert('附件：协议地址', coolmaUrl('kb', 'doc', 'a.png') === 'coolma://coolma.app/kb/doc/a.png');
+    assert('附件：拒绝穿越', parseCoolmaUrl('coolma://coolma.app/../../x') === null);
+    assert('附件：md5 命名稳定', hashImageName(Buffer.from('abc')) === hashImageName(Buffer.from('abc')));
+  }
 
   console.log(failed === 0 ? '\n全部通过' : `\n失败 ${failed} 项`);
   if (failed > 0) {
