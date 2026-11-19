@@ -287,8 +287,9 @@ export const MUYA_DEFAULT_OPTION = {
 //   'mermaid': `graph LR;\nYou-->|Mark Text|Me;`
 // }
 
-export const isOsx = window && window.navigator && /Mac/.test(window.navigator.platform)
-export const isWin = window && window.navigator.userAgent && /win32|wow32|win64|wow64/i.test(window.navigator.userAgent)
+const _nav = typeof window !== 'undefined' ? window.navigator : null
+export const isOsx = Boolean(_nav && _nav.platform && /Mac/.test(_nav.platform))
+export const isWin = Boolean(_nav && _nav.userAgent && /win32|wow32|win64|wow64/i.test(_nav.userAgent))
 // export const SMALLEST_BASE64 = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
 // export const isIOS = /(?:iPhone|iPad|iPod|iOS)/i.test(window.navigator.userAgent)
 export const defaultSearchOption = {

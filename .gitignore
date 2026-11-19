@@ -72,3 +72,6 @@ terminals/*.log
 
 # 最小运行验证的临时产物
 desktop-vue3/scripts/.rt-dist/
+# demo-vue2 stub 里有个 popper 子路径目录叫 dist，别被上面的 dist 规则吃掉
+!demo-vue2-vite-muya/stubs/popper.js/dist/
+!demo-vue2-vite-muya/stubs/popper.js/dist/**
