@@ -9,6 +9,7 @@ import { createRuneInsertHandler, readInheritFromTemplate } from '../../rune-cor
 import { markdownFileName, sanitizeFileName } from '../electron/service/export-utils';
 import { coolmaUrl, hashImageName, parseCoolmaUrl, resolveDocSegment } from '../electron/service/attachments';
 import { stripDataUrlBase64 } from '../electron/service/export-utils';
+import { buildPrintDocument, buildSlidesHtml } from '../frontend/src/utils/slides';
 
 type Call = [string, unknown];
 const calls: Call[] = [];
@@ -109,6 +110,23 @@ assert('回响转义单引号', buildEchoPlaceholderMarkup({ name: 'x', value: "
   const url = 'data:image/png;base64,' + Buffer.from('png-bytes').toString('base64');
   assert('PNG：剥出 base64 主体', Buffer.from(stripDataUrlBase64(url), 'base64').toString() === 'png-bytes');
   assert('PNG：无前缀原样返回', stripDataUrlBase64('abc') === 'abc');
+}
+
+// ===== 演示稿切片（对齐 vue2 previewPptDialog）=====
+{
+  const manual = buildSlidesHtml({ markdown: '# A\n\n---\n\n# B', splitMode: 'manual', emptyTitle: '空', emptyHint: '提示' });
+  assert('导图/演示：--- 切页数正确', (manual.match(/<section data-markdown>/g) || []).length === 2, String((manual.match(/<section data-markdown>/g) || []).length));
+  const vertical = buildSlidesHtml({ markdown: '# A\n\n--\n\n# B\n\n---\n\n# C', splitMode: 'manual', emptyTitle: '空', emptyHint: '提示' });
+  assert('导图/演示：-- 生成纵向分组', /<section>\s*<section data-markdown>/.test(vertical), vertical.slice(0, 90));
+  const auto = buildSlidesHtml({ markdown: '# A\ntext\n## B\nmore', splitMode: 'auto', emptyTitle: '空', emptyHint: '提示' });
+  assert('导图/演示：按标题切页为 2 页', (auto.match(/<section data-markdown>/g) || []).length === 2, String((auto.match(/<section data-markdown>/g) || []).length));
+  const empty = buildSlidesHtml({ markdown: '   ', splitMode: 'manual', emptyTitle: '空标题', emptyHint: '空提示' });
+  assert('导图/演示：空内容给占位页', empty.includes('空标题') && empty.includes('空提示'));
+  const doc = buildPrintDocument({ slidesHtml: '<section>x</section>', title: '预览<&>', mode: 'pdf' });
+  assert('导图/演示：导出文档含 print-pdf 样式', doc.includes('print-pdf/print-pdf.css'));
+  // 与引擎 escapeHtml 保持同一套规则：只转 < > " '，不转 &
+  assert('导图/演示：导出文档标题已转义', doc.includes('预览&lt;&&gt;'), doc.match(/<title>.*<\/title>/)?.[0] || '');
+  assert('导图/演示：native 模式含 window.print', buildPrintDocument({ slidesHtml: '', title: 't', mode: 'native' }).includes('window.print()'));
 }
 
 console.log(failed === 0 ? '\n全部通过' : `\n失败 ${failed} 项`);

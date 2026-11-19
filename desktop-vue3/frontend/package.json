@@ -24,7 +24,10 @@
     "vue-router": "^4.6.4",
     "libs-muya-v3": "workspace:*",
     "monaco-editor": "0.38.0",
-    "html2canvas": "^1.4.1"
+    "html2canvas": "^1.4.1",
+    "markmap-lib": "^0.11.6",
+    "markmap-view": "^0.2.6",
+    "reveal.js": "4.6.1"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.2.4",

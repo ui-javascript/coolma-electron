@@ -74,6 +74,14 @@
           :status-error="appStore.error"
           :app-info="appStore.appInfo"
           @delete="deleteActiveNote"
+          @mind-map="mindMapVisible = true"
+          @ppt-preview="pptPreviewVisible = true"
+        />
+        <PreviewPptDialog v-model="pptPreviewVisible" :markdown="activeContent" />
+        <MindMapDialog
+          v-model="mindMapVisible"
+          :markdown="activeContent"
+          :note-id="activeSummary?.id ?? null"
         />
       </Pane>
     </Splitpanes>
@@ -114,6 +122,8 @@ import { useRouter } from 'vue-router';
 import { IndexModeEnum, type IndexMode } from '@shared/enums/app';
 import type { NoteSummary } from '@shared/types/domain';
 import EditorPane from '@/components/EditorPane.vue';
+import MindMapDialog from '@/components/MindMapDialog.vue';
+import PreviewPptDialog from '@/components/PreviewPptDialog.vue';
 import IndexSidebar from '@/components/IndexSidebar.vue';
 import MoveNoteDialog from '@/components/MoveNoteDialog.vue';
 import NoteContextMenu from '@/components/NoteContextMenu.vue';
@@ -149,6 +159,8 @@ const activeTimeGroup = ref('');
 const activeContent = ref('');
 const creating = ref(false);
 const lastSavedAt = ref(0);
+const mindMapVisible = ref(false);
+const pptPreviewVisible = ref(false);
 const searchResults = ref<NoteSummary[] | null>(null);
 const selectedIds = ref<number[]>([]);
 

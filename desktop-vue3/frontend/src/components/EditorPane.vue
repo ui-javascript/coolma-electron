@@ -8,6 +8,14 @@
             <el-icon><Switch /></el-icon>
             <span>{{ sourceMode ? t('editor.toWysiwyg') : t('editor.toSource') }}</span>
           </el-button>
+          <el-button text size="small" :title="t('editor.mindMap')" @click="emit('mind-map')">
+            <el-icon><Share /></el-icon>
+            <span>{{ t('editor.mindMap') }}</span>
+          </el-button>
+          <el-button text size="small" :title="t('preview.pptPreview')" @click="emit('ppt-preview')">
+            <el-icon><Monitor /></el-icon>
+            <span>{{ t('preview.pptPreview') }}</span>
+          </el-button>
           <span class="editor-meta-title">{{ summary.title }}</span>
         </div>
         <div class="editor-meta-right">
@@ -53,7 +61,7 @@
 </template>
 
 <script setup lang="ts">
-import { Delete, Switch } from '@element-plus/icons-vue';
+import { Delete, Monitor, Share, Switch } from '@element-plus/icons-vue';
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { AppInfo } from '@shared/ipc/contract';
@@ -85,6 +93,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   (event: 'update:content', value: string): void;
   (event: 'delete'): void;
+  (event: 'mind-map'): void;
+  (event: 'ppt-preview'): void;
 }>();
 
 const { t } = useI18n();
