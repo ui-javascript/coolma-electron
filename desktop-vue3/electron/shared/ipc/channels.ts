@@ -39,6 +39,7 @@ export const IPC_CHANNELS = {
     list: 'controller/tags/list',
     create: 'controller/tags/create',
     remove: 'controller/tags/remove',
+    syncIndex: 'controller/tags/syncIndex',
   },
   settings: {
     all: 'controller/settings/all',

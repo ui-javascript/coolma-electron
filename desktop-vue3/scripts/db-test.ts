@@ -134,6 +134,40 @@ handle.database
 const dirtyReport = runIntegrityCheck();
 assert('体检：能抓到 tags 与 note_tags 不一致', dirtyReport.issues.some((issue) => issue.kind === 'TAG_STRING_WITHOUT_LINKS'), JSON.stringify(dirtyReport.issues.map((i) => `${i.kind}:${i.count}`)));
 
+// ===== 标签一致性治理（notes.tags 字符串为准，note_tags 是派生索引）=====
+{
+  // 制造漂移：字符串是「甲,乙」，但关系表只连了「甲」
+  // （注意：TAG_DRIFT 的定义是「两边都有，但集合不同」；只剩一边会被归到另两类问题）
+  const driftNote = notesRepository.create({ title: '漂移笔记', content: '', category: '/工作', tags: '甲,乙' });
+  handle.database
+    .prepare('DELETE FROM note_tags WHERE note_id = ? AND tag_id = (SELECT id FROM tags WHERE name = ?)')
+    .run(driftNote.id, '乙');
+  const driftedReport = runIntegrityCheck();
+  assert('标签治理：先制造出 TAG_DRIFT', driftedReport.issues.some((i) => i.kind === 'TAG_DRIFT'), JSON.stringify(driftedReport.issues.map((i) => i.kind)));
+
+  const synced = tagsRepository.syncFromNotes();
+  assert('标签治理：重建后有连接', synced.links >= 2, JSON.stringify(synced));
+  const afterSync = runIntegrityCheck();
+  assert('标签治理：重建后 TAG_DRIFT 消失', afterSync.issues.every((i) => i.kind !== 'TAG_DRIFT'), JSON.stringify(afterSync.issues.map((i) => i.kind)));
+  const again = tagsRepository.syncFromNotes();
+  assert('标签治理：重建幂等（不重复加标签）', again.tagsAdded === 0, JSON.stringify(again));
+
+  // 删除标签必须同时从字符串里摘掉，否则会留下幽灵标签
+  const ghostTagId = tagsRepository.create('幽灵', '#ff0000').id;
+  notesRepository.update(driftNote.id, { tags: '甲,乙,幽灵' });
+  const beforeRemove = notesRepository.get(driftNote.id);
+  assert('标签治理：删除前字符串含幽灵', beforeRemove?.tags === '甲,乙,幽灵', beforeRemove?.tags);
+  tagsRepository.remove(ghostTagId);
+  const afterRemove = notesRepository.get(driftNote.id);
+  assert('标签治理：删除后字符串不再含幽灵', afterRemove?.tags === '甲,乙', afterRemove?.tags);
+  const linksAfterRemove = handle.database
+    .prepare('SELECT COUNT(*) AS c FROM note_tags WHERE note_id = ?')
+    .get(driftNote.id) as { c: number };
+  assert('标签治理：删除后关系表同步收缩', Number(linksAfterRemove.c) === 2, String(linksAfterRemove.c));
+  const finalReport = runIntegrityCheck();
+  assert('标签治理：治理后整体一致', finalReport.issues.every((i) => i.kind !== 'TAG_DRIFT' && i.kind !== 'TAG_STRING_WITHOUT_LINKS'), JSON.stringify(finalReport.issues.map((i) => i.kind)));
+}
+
 console.log(failed === 0 ? '\n仓储层测试全部通过' : `\n仓储层测试失败 ${failed} 项`);
 if (failed > 0) {
   process.exitCode = 1;

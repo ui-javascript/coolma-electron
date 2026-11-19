@@ -103,9 +103,14 @@
       <template #header>
         <div class="card-heading">
           <span>{{ t('settings.integrity') }}</span>
-          <el-button text size="small" :loading="integrityBusy" @click="runCheck">
-            {{ t('settings.integrityRun') }}
-          </el-button>
+          <div class="integrity-actions">
+            <el-button text size="small" :loading="tagSyncBusy" @click="handleSyncTagIndex">
+              {{ t('settings.tagSyncIndex') }}
+            </el-button>
+            <el-button text size="small" :loading="integrityBusy" @click="runCheck">
+              {{ t('settings.integrityRun') }}
+            </el-button>
+          </div>
         </div>
       </template>
 
@@ -150,6 +155,7 @@
           </li>
         </ul>
         <p v-else class="integrity-meta">{{ t('settings.integrityEmpty') }}</p>
+        <p class="integrity-meta">{{ t('settings.tagSyncHint') }}</p>
       </template>
     </el-card>
 
@@ -214,6 +220,7 @@ import {
   getPendingSync,
   openDatabaseFolder,
   runDiagnostics,
+  syncTagIndex,
 } from '@/services/ipc';
 
 const { t } = useI18n();
@@ -310,6 +317,30 @@ async function handleBackup(): Promise<void> {
   } else {
     ElMessage.error(result.error.message);
   }
+}
+
+const tagSyncBusy = ref(false);
+
+/**
+ * 以 notes.tags 字符串为准重建标签索引（幂等）。
+ * 不做反向修复：字符串是导出与同步的依据，索引坏了重建即可。
+ */
+async function handleSyncTagIndex(): Promise<void> {
+  tagSyncBusy.value = true;
+  const result = await syncTagIndex();
+  tagSyncBusy.value = false;
+  if (result.ok === false) {
+    ElMessage.error(result.error.message);
+    return;
+  }
+  ElMessage.success(
+    t('settings.tagSyncDone', {
+      notes: result.data.notes,
+      links: result.data.links,
+      added: result.data.tagsAdded,
+    }),
+  );
+  await runCheck();
 }
 
 async function runCheck(): Promise<void> {

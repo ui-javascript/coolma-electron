@@ -168,6 +168,10 @@ export function createTag(name: string, color?: string): Promise<IpcResult<TagRe
   return invoke<TagRecord>(IPC_CHANNELS.tags.create, { name, color });
 }
 
+export function syncTagIndex(): Promise<IpcResult<{ notes: number; links: number; tagsAdded: number }>> {
+  return invoke<{ notes: number; links: number; tagsAdded: number }>(IPC_CHANNELS.tags.syncIndex);
+}
+
 export function removeTag(id: number): Promise<IpcResult<{ deleted: boolean }>> {
   return invoke<{ deleted: boolean }>(IPC_CHANNELS.tags.remove, { id });
 }
