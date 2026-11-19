@@ -29,6 +29,7 @@
         </div>
       </div>
       <MuyaEditor
+        ref="muyaRef"
         v-show="!sourceMode"
         v-model="contentProxy"
         :theme="theme"
@@ -37,7 +38,7 @@
         class="muya-editor"
       />
       <!-- 双编辑器：源码模式用 Monaco，同一份内容，只有激活的视图回写 -->
-      <SourceEditor v-if="sourceMode" v-model="contentProxy" :theme="theme" class="source-editor-host" />
+      <SourceEditor ref="monacoRef" v-if="sourceMode" v-model="contentProxy" :theme="theme" class="source-editor-host" />
     </template>
 
     <el-empty v-else :description="t('editor.emptyHint')">
@@ -62,7 +63,12 @@
 
 <script setup lang="ts">
 import { Delete, Monitor, Share, Switch } from '@element-plus/icons-vue';
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref } from 'vue';
+import {
+  muyaCursorToPosition,
+  positionToMuyaCursor,
+  type MonacoPosition,
+} from '@/utils/cursor';
 import { useI18n } from 'vue-i18n';
 import type { AppInfo } from '@shared/ipc/contract';
 import type { AppTheme } from '@shared/enums/app';
@@ -108,8 +114,30 @@ const sourceMode = ref(false);
 
 /** 双编辑器切换：不销毁 Muya（v-show），避免来回切换丢撤销栈与滚动位置。 */
 function toggleSourceMode(): void {
-  sourceMode.value = !sourceMode.value;
+  // 光标同步（复刻 vue2 isSourceMode watcher）：切换前记下当前视图光标，切换后落到另一视图
+  if (!sourceMode.value) {
+    const cursor = muyaRef.value?.getCursor?.();
+    pendingCursor.value = cursor ? muyaCursorToPosition(cursor) : { lineNumber: 1, column: 1 };
+    sourceMode.value = true;
+    // Monaco 是 v-if 新挂载，等它 onMounted 完成后落位
+    void nextTick(() => {
+      monacoRef.value?.setCursor?.(pendingCursor.value);
+    });
+    return;
+  }
+  const position = monacoRef.value?.getCursor?.() ?? { lineNumber: 1, column: 1 };
+  pendingCursor.value = position;
+  sourceMode.value = false;
+  void nextTick(() => {
+    // 引擎收 0-based { line, ch }，与 Monaco 的 1-based 差 1，走 utils/cursor 统一换算
+    muyaRef.value?.setCursor?.(positionToMuyaCursor(pendingCursor.value));
+  });
 }
+
+const muyaRef = ref<any>(null);
+const monacoRef = ref<any>(null);
+const pendingCursor = ref<MonacoPosition | null>(null);
+
 
 const libraryStore = useLibraryStore();
 const notesStore = useNotesStore();

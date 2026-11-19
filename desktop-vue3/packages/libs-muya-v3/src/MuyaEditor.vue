@@ -156,6 +156,11 @@ defineExpose({
   blur: () => editor?.blur(),
   getMarkdown: () => editor?.getMarkdown() ?? '',
   setMarkdown: (value: string) => editor?.setMarkdown(value),
+  /** 光标读写（引擎 core 已有 getCursor/setCursor，这里只做对外暴露） */
+  getCursor: () => editor?.getCursor() ?? null,
+  setCursor: (cursor: unknown) => editor?.setCursor(cursor),
+  /** 带光标的重载：切换笔记/源码模式时用 markdown + cursor 一次性落位 */
+  setMarkdownWithCursor: (value: string, cursor: unknown) => editor?.setMarkdown(value, cursor, false),
 });
 </script>
 

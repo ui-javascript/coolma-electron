@@ -9,6 +9,7 @@
 import { JSDOM } from 'jsdom';
 import { buildSlidesHtml, escapeSlideHtml } from '../frontend/src/utils/slides';
 import { stripDataUrlBase64 } from '../electron/service/export-utils';
+import { muyaCursorToPosition, positionToMuyaCursor } from '../frontend/src/utils/cursor';
 import { coolmaUrl, hashImageName, parseCoolmaUrl } from '../electron/service/attachments';
 
 type Any = Record<string, any>;
@@ -281,6 +282,48 @@ async function main(): Promise<void> {
     assert('附件：协议地址', coolmaUrl('kb', 'doc', 'a.png') === 'coolma://coolma.app/kb/doc/a.png');
     assert('附件：拒绝穿越', parseCoolmaUrl('coolma://coolma.app/../../x') === null);
     assert('附件：md5 命名稳定', hashImageName(Buffer.from('abc')) === hashImageName(Buffer.from('abc')));
+  }
+
+  // ===== 光标同步：engine setMarkdown(md, cursor) / getCursor 往返 =====
+  {
+    const md = '第一段文字\n\n第二段文字\n';
+    const cursor = { anchor: { line: 0, ch: 2 }, focus: { line: 0, ch: 2 } };
+    muya.setMarkdown(md, cursor, false);
+    const back = muya.getCursor();
+    const focus = back?.focus ?? back?.anchor ?? null;
+    assert(
+      '光标：setMarkdown 带 cursor 后 getCursor 落位一致',
+      Boolean(focus) && Number(focus.line) === 0 && Number(focus.ch) === 2,
+      JSON.stringify(back),
+    );
+
+    // 越界光标（行号大于总行数）不应抛错，引擎内部会裁剪
+    let riskyThrew = false;
+    try {
+      muya.setCursor({ anchor: { line: 99, ch: 99 }, focus: { line: 99, ch: 99 } });
+    } catch {
+      riskyThrew = true;
+    }
+    assert('光标：越界 cursor 不抛错', riskyThrew === false);
+  }
+
+  // ===== 光标口径换算：引擎 0-based ↔ Monaco 1-based =====
+  {
+    const pos = muyaCursorToPosition({ focus: { line: 4, ch: 6 } });
+    assert('光标换算：Muya→Monaco 加 1', pos.lineNumber === 5 && pos.column === 7, JSON.stringify(pos));
+
+    const cur = positionToMuyaCursor({ lineNumber: 5, column: 7 });
+    assert('光标换算：Monaco→Muya 减 1', cur.focus.line === 4 && cur.focus.ch === 6, JSON.stringify(cur));
+
+    // 边界：Monaco 极端值不应算出负数
+    const low = positionToMuyaCursor({ lineNumber: 0, column: 0 });
+    assert('光标换算：下界钳零', low.focus.line === 0 && low.focus.ch === 0, JSON.stringify(low));
+    const none = muyaCursorToPosition(null);
+    assert('光标换算：空光标兜底 1,1', none.lineNumber === 1 && none.column === 1, JSON.stringify(none));
+
+    // 往返一致
+    const round = muyaCursorToPosition(positionToMuyaCursor({ lineNumber: 3, column: 2 }));
+    assert('光标换算：往返稳定', round.lineNumber === 3 && round.column === 2, JSON.stringify(round));
   }
 
   console.log(failed === 0 ? '\n全部通过' : `\n失败 ${failed} 项`);

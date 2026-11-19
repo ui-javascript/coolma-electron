@@ -27,7 +27,9 @@ export default class Muya {
   on(event: string, listener: (payload: any) => void): void;
   off(event: string, listener: (payload: any) => void): void;
   getMarkdown(): string;
-  setMarkdown(markdown: string): void;
+  setMarkdown(markdown: string, cursor?: unknown, isRenderCursor?: boolean): void;
+  getCursor(): { anchor?: { line: number; ch: number }; focus?: { line: number; ch: number } } | null;
+  setCursor(cursor: unknown): void;
   getWordCount(markdown?: string): number;
   focus(): void;
   blur(isRemoveAllRange?: boolean, unSelect?: boolean): void;

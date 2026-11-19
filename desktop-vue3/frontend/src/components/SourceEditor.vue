@@ -76,6 +76,43 @@ onBeforeUnmount(() => {
   editor?.dispose();
   editor = null;
 });
+
+/** 光标读写（对齐 vue2 Monaco.vue：line/column 1-based 并做限幅，防 Illegal value 抛错）。 */
+function getCursor(): { lineNumber: number; column: number } {
+  const position = editor?.getPosition();
+  if (!position) {
+    return { lineNumber: 1, column: 1 };
+  }
+  return {
+    lineNumber: Math.max(1, Number(position.lineNumber) || 1),
+    column: Math.max(1, Number(position.column) || 1),
+  };
+}
+
+function setCursor(position: { lineNumber?: number; column?: number } | null | undefined): void {
+  if (!editor) {
+    return;
+  }
+  const model = editor.getModel();
+  if (!model) {
+    return;
+  }
+  const lineCount = model.getLineCount();
+  const rawLine = Number(position?.lineNumber);
+  const rawColumn = Number(position?.column);
+  const lineNumber = Number.isFinite(rawLine) && rawLine >= 1 && rawLine <= lineCount
+    ? Math.floor(rawLine)
+    : 1;
+  const maxColumn = model.getLineMaxColumn(lineNumber);
+  const column = Number.isFinite(rawColumn) && rawColumn >= 1 && rawColumn <= maxColumn
+    ? Math.floor(rawColumn)
+    : 1;
+  editor.setPosition({ lineNumber, column });
+  editor.revealPositionInCenterIfOutsideViewport({ lineNumber, column });
+  editor.focus();
+}
+
+defineExpose({ getCursor, setCursor });
 </script>
 
 <style scoped>
