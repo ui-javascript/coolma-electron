@@ -379,6 +379,42 @@ assert('体检：能抓到 tags 与 note_tags 不一致', dirtyReport.issues.som
   assert('AI：模型可删', aiModelsRepository.remove(m2.id) === true);
 }
 
+// 标签改名 / 批量删除 / 清理未使用
+{
+  const tagA = tagsRepository.create('改名前');
+  const tagB = tagsRepository.create('保留');
+  const tagC = tagsRepository.create('待清理A');
+  const noteIds: number[] = [];
+  for (let i = 0; i < 2; i += 1) {
+    const note = notesRepository.create({ title: `tag case ${i}`, content: '# t\n', category: '默认', tags: '改名前,保留' });
+    noteIds.push(note.id);
+  }
+  tagsRepository.syncFromNotes();
+  const countsBefore = tagsRepository.list().find((t) => t.name === '改名前')?.noteCount ?? 0;
+  assert('标签：改名前进 note_tags 有计数', countsBefore === 2, String(countsBefore));
+
+  const renamed = tagsRepository.rename(tagA.id, '改名后');
+  assert('标签：改名成功', renamed.success === true && renamed.name === '改名后', JSON.stringify(renamed));
+  const afterRows = notesRepository.list({ limit: 1000 }).items.filter((n) => noteIds.includes(n.id));
+  assert('标签：改名同步改写 notes.tags 字符串', afterRows.every((n) => n.tags === '改名后,保留'), JSON.stringify(afterRows.map((n) => n.tags)));
+  assert('标签：改名后计数跟随', (tagsRepository.list().find((t) => t.name === '改名后')?.noteCount ?? 0) === 2);
+  assert('标签：旧名不再存在', !tagsRepository.list().some((t) => t.name === '改名前'));
+
+  const dupRename = tagsRepository.rename(tagB.id, '改名后');
+  assert('标签：撞名被拒', dupRename.success === false && dupRename.code === 'TAG_DUPLICATE_NAME', JSON.stringify(dupRename));
+
+  // 待清理C 无引用 → 清理未使用应删掉它，保留有引用的
+  const cleaned = tagsRepository.cleanupUnused();
+  assert('标签：清理未使用命中未引用标签', cleaned >= 1, String(cleaned));
+  assert('标签：有引用的标签不被清理', tagsRepository.list().some((t) => t.name === '改名后'));
+
+  const removedMany = tagsRepository.removeMany([tagB.id, tagC.id]);
+  assert('标签：批量删除返回条数', removedMany >= 1, String(removedMany));
+  assert('标签：批量删除后 notes.tags 摘干净', notesRepository.list({ limit: 1000 }).items
+    .filter((n) => noteIds.includes(n.id))
+    .every((n) => n.tags === '改名后'), JSON.stringify(notesRepository.list({ limit: 1000 }).items.filter((n) => noteIds.includes(n.id)).map((n) => n.tags)));
+}
+
 console.log(failed === 0 ? '\n仓储层测试全部通过' : `\n仓储层测试失败 ${failed} 项`);
 if (failed > 0) {
   process.exitCode = 1;

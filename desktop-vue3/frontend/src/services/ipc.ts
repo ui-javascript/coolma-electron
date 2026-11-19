@@ -408,3 +408,43 @@ export function saveAiSkill(input: AiSkillSaveInput): Promise<IpcResult<AiSkill>
 export function removeAiSkill(id: number): Promise<IpcResult<boolean>> {
   return invoke<boolean>(IPC_CHANNELS.ai.removeSkill, { id });
 }
+
+export interface TagRenameResult {
+  success: boolean;
+  code?: string;
+  name?: string;
+}
+
+export function renameTag(id: number, name: string): Promise<IpcResult<TagRenameResult>> {
+  return invoke<TagRenameResult>(IPC_CHANNELS.tags.rename, { id, name });
+}
+
+export function removeTags(ids: number[]): Promise<IpcResult<{ deleted: number }>> {
+  return invoke<{ deleted: number }>(IPC_CHANNELS.tags.removeMany, { ids });
+}
+
+export function cleanupUnusedTags(): Promise<IpcResult<{ deleted: number }>> {
+  return invoke<{ deleted: number }>(IPC_CHANNELS.tags.cleanupUnused);
+}
+
+export interface AiChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+export interface AiChatOutput {
+  content: string;
+  finishReason: string | null;
+  truncated: boolean;
+  model: string;
+  usage: unknown;
+}
+
+export function aiChat(input: {
+  modelId?: number;
+  messages: AiChatMessage[];
+  temperature?: number;
+  maxTokens?: number;
+}): Promise<IpcResult<AiChatOutput>> {
+  return invoke<AiChatOutput>(IPC_CHANNELS.ai.chat, input);
+}

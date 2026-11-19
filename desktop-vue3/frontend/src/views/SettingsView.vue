@@ -282,6 +282,24 @@
       <AiSkillsCard />
     </el-card>
 
+    <el-card v-show="groupTab === 'ai'" class="settings-card" shadow="never">
+      <template #header>
+        <div class="card-heading">
+          <span>{{ t('aiTagTitle') }}</span>
+        </div>
+      </template>
+      <TagsManageCard />
+    </el-card>
+
+    <el-card v-show="groupTab === 'ai'" class="settings-card" shadow="never">
+      <template #header>
+        <div class="card-heading">
+          <span>{{ t('aiAutoTagTitle') }}</span>
+        </div>
+      </template>
+      <AutoTagCard />
+    </el-card>
+
     <el-card v-show="groupTab === 'about'" class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
@@ -341,6 +359,8 @@ import NoteTemplateCard from '@/components/NoteTemplateCard.vue';
 import ParsingSettingsCard from '@/components/ParsingSettingsCard.vue';
 import AiModelsCard from '@/components/AiModelsCard.vue';
 import AiSkillsCard from '@/components/AiSkillsCard.vue';
+import TagsManageCard from '@/components/TagsManageCard.vue';
+import AutoTagCard from '@/components/AutoTagCard.vue';
 import { useAppStore, type AppTheme } from '@/stores/app';
 import LibraryManagePanel from '@/components/LibraryManagePanel.vue';
 import type { AppLocale } from '@/i18n';

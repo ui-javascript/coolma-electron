@@ -109,6 +109,30 @@ export const tagRemoveSchema = z.object({
   id: z.number().int().positive(),
 });
 
+export const tagRenameSchema = z.object({
+  id: z.number().int().positive(),
+  name: z.string().trim().min(1).max(24),
+});
+
+export const tagRemoveManySchema = z.object({
+  ids: z.array(z.number().int().positive()).min(1).max(500),
+});
+
+export const aiChatSchema = z.object({
+  modelId: z.number().int().positive().optional(),
+  messages: z
+    .array(
+      z.object({
+        role: z.enum(['system', 'user', 'assistant']),
+        content: z.string().max(20000),
+      }),
+    )
+    .min(1)
+    .max(12),
+  temperature: z.number().min(0).max(2).optional(),
+  maxTokens: z.number().int().min(1).max(8192).optional(),
+});
+
 export const settingsGetSchema = z.object({
   key: z.string().trim().min(1).max(200),
 });

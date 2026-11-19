@@ -10,6 +10,14 @@ import { JSDOM } from 'jsdom';
 import { buildSlidesHtml, escapeSlideHtml } from '../frontend/src/utils/slides';
 import { stripDataUrlBase64 } from '../electron/service/export-utils';
 import { muyaCursorToPosition, positionToMuyaCursor } from '../frontend/src/utils/cursor';
+import {
+  MAX_TAG_NAME_LENGTH,
+  buildAutoTagMessages,
+  condenseNoteContent,
+  filterUntaggedNotes,
+  normalizeTagName,
+  parseTagNames,
+} from '../frontend/src/utils/autotag';
 import { coolmaUrl, hashImageName, parseCoolmaUrl } from '../electron/service/attachments';
 
 type Any = Record<string, any>;
@@ -324,6 +332,30 @@ async function main(): Promise<void> {
     // 往返一致
     const round = muyaCursorToPosition(positionToMuyaCursor({ lineNumber: 3, column: 2 }));
     assert('光标换算：往返稳定', round.lineNumber === 3 && round.column === 2, JSON.stringify(round));
+  }
+
+  // ===== AI 打标纯函数（normalizeTagName / parseTagNames / prompt）=====
+  {
+    assert('打标：去 # 前缀', normalizeTagName('#  读书笔记') === '读书笔记', normalizeTagName('#  读书笔记'));
+    assert('打标：去序号与尾标点', normalizeTagName('1. 效率工具，') === '效率工具', normalizeTagName('1. 效率工具，'));
+    assert('打标：去引号与括号', normalizeTagName('["前端"]') === '前端', normalizeTagName('["前端"]'));
+    assert('打标：超长截断', normalizeTagName('a'.repeat(40)).length === MAX_TAG_NAME_LENGTH);
+
+    const jsonNames = parseTagNames('```json\n["读书笔记","效率工具","读书笔记"]\n```', { maxTags: 5 });
+    assert('打标：JSON 数组解析 + 去重', jsonNames.join('|') === '读书笔记|效率工具', JSON.stringify(jsonNames));
+
+    const looseNames = parseTagNames('前端、后端\n测试', { maxTags: 2 });
+    assert('打标：松散文本切分 + 限条', looseNames.length === 2 && looseNames[0] === '前端', JSON.stringify(looseNames));
+
+    const condensed = condenseNoteContent('```js\nconst a = 1\n```\n# 标题\n[链接](https://x.test) 正文', 100);
+    assert('打标：正文压缩去代码块与链接址', !condensed.includes('const a') && !condensed.includes('https://') && condensed.includes('正文'), condensed);
+
+    const messages = buildAutoTagMessages({ title: '笔记', content: '正文', existingTagNames: ['前端'], maxTags: 2 });
+    assert('打标：messages 两段', messages.length === 2 && messages[0].role === 'system', JSON.stringify(messages.map((m) => m.role)));
+    assert('打标：prompt 含已有标签与上限', messages[1].content.includes('- 前端') && messages[1].content.includes('1-2 个标签'), messages[1].content.slice(0, 80));
+
+    const untagged = filterUntaggedNotes([{ tags: '' }, { tags: 'a,b' }, { tags: '   ' }, {}]);
+    assert('打标：候选只留未打标', untagged.length === 3, String(untagged.length));
   }
 
   console.log(failed === 0 ? '\n全部通过' : `\n失败 ${failed} 项`);

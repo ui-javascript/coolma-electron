@@ -7,6 +7,7 @@ import {
   type AiModelRawRow,
 } from '../service/db/ai-repository';
 import {
+  aiChatSchema,
   aiModelSaveSchema,
   aiSkillSaveSchema,
   aiIdSchema,
@@ -103,6 +104,53 @@ async function testOpenAiCompatible(config: AiModelRawRow): Promise<void> {
   await response.json();
 }
 
+function extractMessageText(message: unknown): string {
+  if (!message || typeof message !== 'object') {
+    return '';
+  }
+  const content = (message as { content?: unknown }).content;
+  if (typeof content === 'string') {
+    return content;
+  }
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => (typeof part === 'string' ? part : String((part as { text?: unknown })?.text ?? '')))
+      .join('');
+  }
+  return '';
+}
+
+interface AiChatOutput {
+  content: string;
+  finishReason: string | null;
+  truncated: boolean;
+  model: string;
+  usage: unknown;
+}
+
+/** 解析默认可用模型：默认优先，其次任意启用中的模型（与 vue2 getDefaultConfig 口径一致）。 */
+function resolveChatConfig(modelId?: number): AiModelRawRow | null {
+  const rows = aiModelsRepository.list();
+  if (modelId) {
+    return rows.find((row) => row.id === modelId) ?? null;
+  }
+  return rows.find((row) => row.isDefault && row.enabled) ?? rows.find((row) => row.enabled) ?? null;
+}
+
+function assertConfigUsable(config: AiModelRawRow): string[] {
+  const missing: string[] = [];
+  if (!config.baseUrl.trim()) {
+    missing.push('base_url');
+  }
+  if (!config.model.trim()) {
+    missing.push('model');
+  }
+  if (!config.apiKeyEncrypted) {
+    missing.push('api_key');
+  }
+  return missing;
+}
+
 /** AI 模型配置 / 技能（复刻 vue2 db:getAiModelConfigs 系列通道）。 */
 class AiController {
   async models(): Promise<IpcResult<ReturnType<typeof toModelView>[]>> {
@@ -196,6 +244,72 @@ class AiController {
       return ok(true);
     } catch (error) {
       return failFromError(error, 'AI_MODEL_TEST_FAILED');
+    }
+  }
+
+  /**
+   * 通用 chat 补全（autoTag / 后续 AI 功能共用）。
+   * API Key 只在主进程解密，渲染层拿不到明文。
+   */
+  async chat(args?: unknown): Promise<IpcResult<AiChatOutput>> {
+    try {
+      const input = aiChatSchema.parse(args ?? {});
+      const config = resolveChatConfig(input.modelId);
+      if (!config) {
+        return { ok: false, error: { code: 'AI_TAG_NO_DEFAULT_CONFIG', message: '没有可用的 AI 模型配置' } };
+      }
+      const missing = assertConfigUsable(config);
+      if (missing.length > 0) {
+        return {
+          ok: false,
+          error: { code: 'AI_TAG_CONFIG_INCOMPLETE', message: `缺少字段: ${missing.join(', ')}` },
+        };
+      }
+      if (config.providerType !== PROVIDER_OPENAI_COMPATIBLE) {
+        return { ok: false, error: { code: 'AI_MODEL_UNSUPPORTED_PROVIDER', message: '暂只支持 openai-compatible' } };
+      }
+
+      const headers = parseJsonField(config.headersJson);
+      const extraConfig = parseJsonField(config.extraConfigJson);
+      const url = `${String(config.baseUrl || '').replace(/\/$/, '')}/chat/completions`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${decryptKey(config.apiKeyEncrypted, config.apiKeyEncryptedVersion)}`,
+          ...headers,
+        },
+        body: JSON.stringify({
+          model: config.model,
+          messages: input.messages,
+          temperature: input.temperature ?? 0.2,
+          max_tokens: input.maxTokens ?? 1024,
+          ...extraConfig,
+          stream: false,
+        }),
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        return { ok: false, error: { code: 'AI_CHAT_HTTP_ERROR', message: errorText || `HTTP ${response.status}` } };
+      }
+      const payload = (await response.json()) as {
+        choices?: Array<{ message?: unknown; finish_reason?: string }>;
+        model?: string;
+        usage?: unknown;
+      };
+      const choice = payload.choices?.[0];
+      const content = extractMessageText(choice?.message);
+      const finishReason = choice?.finish_reason ?? null;
+      const truncated = finishReason === 'length';
+      return ok({
+        content,
+        finishReason,
+        truncated,
+        model: String(payload.model || config.model || 'unknown'),
+        usage: payload.usage ?? null,
+      });
+    } catch (error) {
+      return failFromError(error, 'AI_CHAT_ERROR');
     }
   }
 

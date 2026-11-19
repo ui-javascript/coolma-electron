@@ -111,6 +111,79 @@ export const tagsRepository = {
   },
 
   /**
+   * 改名。
+   *
+   * 同样以 notes.tags 字符串为权威：改名必须把字符串里的旧名换成新名，
+   * 否则 note_tags 重建后旧名会复活成幽灵标签。
+   * 撞名（大小写无关）返回 { success: false, code: 'TAG_DUPLICATE_NAME' }，对齐 vue2。
+   */
+  rename(id: number, rawName: string): { success: boolean; code?: string; name?: string } {
+    const db = getDatabase();
+    const clean = String(rawName ?? '').trim();
+    if (!clean) {
+      return { success: false, code: 'TAG_EMPTY_NAME' };
+    }
+    const row = db.prepare('SELECT name FROM tags WHERE id = ?').get(id) as { name: string } | undefined;
+    if (!row) {
+      return { success: false, code: 'TAG_NOT_FOUND' };
+    }
+    const oldName = row.name;
+    if (clean === oldName) {
+      return { success: true, name: clean };
+    }
+    const dup = db
+      .prepare('SELECT id FROM tags WHERE LOWER(name) = LOWER(?) AND id != ?')
+      .get(clean, id) as { id: number } | undefined;
+    if (dup) {
+      return { success: false, code: 'TAG_DUPLICATE_NAME' };
+    }
+
+    const write = db.transaction(() => {
+      db.prepare('UPDATE tags SET name = ? WHERE id = ?').run(clean, id);
+      const noteRows = db
+        .prepare("SELECT id, tags FROM notes WHERE tags IS NOT NULL AND TRIM(tags) != ''")
+        .all() as Array<{ id: number; tags: string }>;
+      const update = db.prepare('UPDATE notes SET tags = ?, updated_at = ? WHERE id = ?');
+      let touched = 0;
+      for (const note of noteRows) {
+        const parts = note.tags.split(',').map((tag) => tag.trim()).filter(Boolean);
+        if (!parts.includes(oldName)) {
+          continue;
+        }
+        const next = Array.from(new Set(parts.map((tag) => (tag === oldName ? clean : tag)))).join(',');
+        update.run(next, Date.now(), note.id);
+        touched += 1;
+      }
+      return touched;
+    });
+
+    write();
+    return { success: true, name: clean };
+  },
+
+  /** 批量删除（单事务内逐个走 remove 语义，返回实际删除条数）。 */
+  removeMany(ids: number[]): number {
+    let deleted = 0;
+    for (const id of ids) {
+      if (this.remove(id)) {
+        deleted += 1;
+      }
+    }
+    return deleted;
+  },
+
+  /** 清理未被任何笔记引用的标签（count = 0）。返回删除条数。 */
+  cleanupUnused(): number {
+    const rows = getDatabase()
+      .prepare(
+        `SELECT t.id FROM tags t
+          WHERE NOT EXISTS (SELECT 1 FROM note_tags nt WHERE nt.tag_id = t.id)`,
+      )
+      .all() as Array<{ id: number }>;
+    return this.removeMany(rows.map((row) => row.id));
+  },
+
+  /**
    * 用 notes.tags 重建 note_tags 索引（幂等，可反复执行）。
    *
    * 这是「一致性治理」的修复动作：体检发现 TAG_DRIFT / 关系缺失时，
