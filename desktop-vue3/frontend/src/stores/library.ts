@@ -51,16 +51,6 @@ export const useLibraryStore = defineStore('library', {
       return true;
     },
 
-    async deleteRuneCard(id: string): Promise<boolean> {
-      const result = await removeRune(id);
-      if (result.ok === false) {
-        this.error = result.error.message;
-        return false;
-      }
-      await this.load(true);
-      return true;
-    },
-
     async saveEchoCard(payload: EchoSavePayload): Promise<EchoCard | null> {
       const result = await saveEcho(payload);
       if (result.ok === false) {
@@ -82,14 +72,28 @@ export const useLibraryStore = defineStore('library', {
       return true;
     },
 
-    async deleteEchoCard(id: string): Promise<boolean> {
-      const result = await removeEcho(id);
-      if (result.ok === false) {
-        this.error = result.error.message;
-        return false;
+    async deleteCards(kind: 'rune' | 'echo', ids: readonly string[]): Promise<{ removed: string[]; error: string }> {
+      const remove = kind === 'rune' ? removeRune : removeEcho;
+      const removed = new Set<string>();
+      let error = '';
+      for (const id of new Set(ids)) {
+        try {
+          const result = await remove(id);
+          if (result.ok && result.data.deleted) {
+            removed.add(id);
+          } else if (!result.ok) {
+            error ||= result.error.message;
+          }
+        } catch (cause) {
+          error ||= cause instanceof Error ? cause.message : String(cause);
+        }
       }
-      await this.load(true);
-      return true;
+      if (kind === 'rune') {
+        this.runes = this.runes.filter((item) => !removed.has(item.id));
+      } else {
+        this.echoes = this.echoes.filter((item) => !removed.has(item.id));
+      }
+      return { removed: [...removed], error };
     },
 
     async load(force = false): Promise<boolean> {

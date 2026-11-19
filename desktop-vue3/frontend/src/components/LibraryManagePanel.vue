@@ -16,13 +16,24 @@
     <div class="library-head">
       <span class="library-title">
         {{ kind === 'rune' ? t('library.runesTitle') : t('library.echoesTitle') }}
-        <el-tag size="small" effect="plain">{{ items.length }}</el-tag>
+        <el-tag size="small" effect="plain">{{ categoryItems.length }}</el-tag>
       </span>
-      <div class="library-actions">
+      <div v-if="selectionMode" class="library-actions">
+        <el-button size="small" :disabled="deleting" @click="exitSelection">{{ t('action.cancel') }}</el-button>
+        <el-button size="small" type="danger" plain :loading="deleting" :disabled="!selectedCards.length" @click="askRemove(selectedCards, true)">
+          {{ t('library.deleteSelected', { count: selectedCards.length }) }}
+        </el-button>
+      </div>
+      <div v-else-if="!builtinCategory" class="library-actions">
         <el-button size="small" plain @click="importVisible = true">
           {{ t('pack.import') }}
         </el-button>
-        <el-button size="small" plain @click="exportPack">{{ t('pack.export') }}</el-button>
+        <el-button size="small" plain :disabled="!customCards.length" @click="exportVisible = true">
+          {{ t('library.exportCategory') }}
+        </el-button>
+        <el-button size="small" type="danger" plain :disabled="!customCards.length || sorting" @click="selectionMode = true">
+          {{ t('library.batchDelete') }}
+        </el-button>
         <el-button size="small" type="primary" plain @click="openCreate">
           <el-icon><Plus /></el-icon>
           {{ t('library.add') }}
@@ -30,60 +41,77 @@
       </div>
     </div>
 
-    <p class="library-hint">{{ t('library.dragHint') }}</p>
+    <p class="library-hint">{{ t(builtinCategory ? 'library.builtinHint' : selectionMode ? 'library.selectionHint' : 'library.dragHint') }}</p>
 
     <div class="library-grid">
       <div
         v-for="(item, index) in categoryItems"
         :key="item.id"
         class="library-card"
-        draggable="true"
-        @dragstart="onDragStart(index)"
+        :class="{ 'is-selected': selectedIds.has(item.id), 'is-builtin': isBuiltinLibraryCard(item.id) }"
+        :draggable="!selectionMode && !sorting && !deleting && !isBuiltinLibraryCard(item.id)"
+        @dragstart="onDragStart($event, index)"
         @dragover.prevent
         @drop="onDrop(index)"
         @dragend="dragIndex = -1"
-        @click="openEdit(item)"
+        @click="onCardClick(item)"
       >
+        <el-checkbox
+          v-if="selectionMode && !isBuiltinLibraryCard(item.id)"
+          :model-value="selectedIds.has(item.id)"
+          :aria-label="item.name"
+          :disabled="deleting"
+          @click.stop
+          @change="toggleSelected(item.id)"
+        />
         <span class="card-avatar" :style="{ background: item.color || '#909399' }">{{ initialOf(item.name) }}</span>
         <div class="card-body">
-          <span class="card-name">{{ item.name }}</span>
+          <div class="card-heading">
+            <span class="card-name">{{ item.name }}</span>
+            <el-tag v-if="isBuiltinLibraryCard(item.id)" size="small" effect="plain">{{ t('library.builtinBadge') }}</el-tag>
+          </div>
           <span class="card-desc">{{ item.desc || '—' }}</span>
         </div>
-        <div class="card-ops">
-          <el-button text size="small" @click.stop="openEdit(item)">
-            <el-icon><Edit /></el-icon>
+        <div v-if="!selectionMode" class="card-ops">
+          <el-button text size="small" :aria-label="t(isBuiltinLibraryCard(item.id) && production ? 'library.viewCard' : 'library.editCard')" @click.stop="openEdit(item)">
+            <el-icon v-if="isBuiltinLibraryCard(item.id) && production"><View /></el-icon>
+            <el-icon v-else><Edit /></el-icon>
           </el-button>
-          <el-button text size="small" type="danger" @click.stop="askRemove(item)">
+          <el-button v-if="!isBuiltinLibraryCard(item.id)" text size="small" type="danger"
+            :aria-label="t('action.delete')" :disabled="sorting || deleting" @click.stop="askRemove([item])">
             <el-icon><Delete /></el-icon>
           </el-button>
         </div>
       </div>
     </div>
-    <p v-if="categoryItems.length === 0" class="library-empty">{{ t('library.empty') }}</p>
+    <p v-if="categoryItems.length === 0" class="library-empty">{{ t(builtinCategory ? 'library.noBuiltins' : 'library.empty') }}</p>
 
     <LibraryFormDialog
       v-model="formVisible"
       :kind="kind"
       :editing="editing"
+      :initial-category="activeCategory"
+      :readonly="production && Boolean(editing && isBuiltinLibraryCard(editing.id))"
       @saved="emit('changed')"
     />
 
-    <PackImportDialog v-model="importVisible" :kind="props.kind === 'rune' ? 'runes' : 'echoes'" @imported="onImported" />
+    <PackImportDialog v-model="importVisible" :kind="packKind" :initial-category="activeCategory" @imported="onImported" />
+    <packExportDialog v-model="exportVisible" :kind="packKind" :cards="customCards" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Delete, Edit, Plus } from '@element-plus/icons-vue';
+import { Delete, Edit, Plus, View } from '@element-plus/icons-vue';
 import type { EchoCard, RuneCard } from '@shared/types/domain';
+import { isBuiltinLibraryCard } from '@shared/types/libraryCard';
 import { useLibraryStore } from '@/stores/library';
 import { EchoCategoryEnum, RuneCategoryEnum, resolveLibraryCategory } from '@shared/enums/library';
 import LibraryFormDialog from './LibraryFormDialog.vue';
 import PackImportDialog from './PackImportDialog.vue';
-import { buildPack } from '@/services/pack';
-import { exportPackFile } from '@/services/ipc';
+import packExportDialog from './packExportDialog.vue';
 
 /**
  * 符文/回响管理：卡片网格 + 拖拽排序 + 编辑/删除。
@@ -105,6 +133,10 @@ const items = computed(() => (props.kind === 'rune' ? libraryStore.runes : libra
 /** 当前分类（默认 general / marker，与 vue2 面板一致）。 */
 const activeCategory = ref(resolveLibraryCategory(props.kind, ''));
 const importVisible = ref(false);
+const exportVisible = ref(false);
+const packKind = computed(() => props.kind === 'rune' ? 'runes' : 'echoes');
+const builtinCategory = computed(() => props.kind === 'echo' && activeCategory.value === EchoCategoryEnum.Builtin);
+const production = import.meta.env.PROD;
 
 /** 卡片首字：中文取首字、英文取首字母大写（对齐 vue2 runeCard 的图标兜底）。 */
 function initialOf(name: string): string {
@@ -115,25 +147,17 @@ function initialOf(name: string): string {
   return /[A-Za-z]/.test(first) ? first.toUpperCase() : first;
 }
 
-function onImported(): void {
-  void libraryStore.load();
-}
-
-/** 导出当前 kind 的全部自定义卡为 Pack v1 JSON（对齐 vue2 buildEchoPack/buildRunePack：不导内置与审计字段）。 */
-async function exportPack(): Promise<void> {
-  const list = (props.kind === 'rune' ? libraryStore.runes : libraryStore.echoes) as Array<Record<string, unknown>>;
-  const kind: 'runes' | 'echoes' = props.kind === 'rune' ? 'runes' : 'echoes';
-  const content = buildPack(kind, list);
-  const fileName = `coolma-${kind}-pack-${new Date().toISOString().slice(0, 10)}.json`;
-  const result = await exportPackFile(fileName, content);
-  if (result.ok && result.data) {
-    ElMessage.success(t('pack.exported', { path: result.data }));
+async function onImported(): Promise<void> {
+  if (await libraryStore.load(true)) {
+    emit('changed');
+  } else {
+    ElMessage.error(libraryStore.error);
   }
 }
 
 const categoryEnum = computed(() => (props.kind === 'rune' ? RuneCategoryEnum : EchoCategoryEnum));
 
-/** 分类 Tab：默认分类恒第一，其余按卡片数降序（对齐 vue2 categoryOptions 排序）。 */
+/** 分类 Tab：符文固定「通用」在首位，回响固定「内置」在首位，其余按卡片数降序。 */
 const categoryTabs = computed(() => {
   const list = categoryEnum.value.items as Array<{ value: string; label: string }>;
   const countOf = (value: string) =>
@@ -147,11 +171,36 @@ const categoryTabs = computed(() => {
 const categoryItems = computed(() =>
   items.value.filter((item) => resolveLibraryCategory(props.kind, item.category) === activeCategory.value),
 );
+const customCards = computed(() => categoryItems.value.filter((item) => !isBuiltinLibraryCard(item.id)));
+const selectionMode = ref(false);
+const selectedIds = ref(new Set<string>());
+const selectedCards = computed(() => customCards.value.filter((item) => selectedIds.value.has(item.id)));
+const deleting = ref(false);
+const sorting = ref(false);
+
+function exitSelection(): void {
+  selectionMode.value = false;
+  selectedIds.value.clear();
+}
+
+watch(activeCategory, () => {
+  exitSelection();
+  dragIndex.value = -1;
+});
+
+function toggleSelected(id: string): void {
+  if (deleting.value || isBuiltinLibraryCard(id)) return;
+  if (!selectedIds.value.delete(id)) selectedIds.value.add(id);
+}
+
+function onCardClick(item: RuneCard | EchoCard): void {
+  if (selectionMode.value) toggleSelected(item.id);
+  else openEdit(item);
+}
 
 const formVisible = ref(false);
 const editing = ref<RuneCard | EchoCard | null>(null);
 const dragIndex = ref(-1);
-let sortTimer: ReturnType<typeof setTimeout> | null = null;
 
 function openCreate(): void {
   editing.value = null;
@@ -163,42 +212,58 @@ function openEdit(item: RuneCard | EchoCard): void {
   formVisible.value = true;
 }
 
-async function askRemove(item: RuneCard | EchoCard): Promise<void> {
+async function askRemove(cards: ReadonlyArray<RuneCard | EchoCard>, batch = false): Promise<void> {
+  const targets = cards.filter((card) => !isBuiltinLibraryCard(card.id));
+  if (!targets.length || deleting.value || sorting.value) return;
+  deleting.value = true;
   try {
-    await ElMessageBox.confirm(t('library.deleteConfirm', { name: item.name }), t('action.delete'), {
-      type: 'warning',
-      confirmButtonText: t('action.delete'),
-      cancelButtonText: t('action.cancel'),
-    });
-  } catch {
-    return;
+    try {
+      await ElMessageBox.confirm(
+        batch ? t('library.batchDeleteConfirm', { count: targets.length }) : t('library.deleteConfirm', { name: targets[0].name }),
+        t(batch ? 'library.batchDelete' : 'action.delete'),
+        { type: 'warning', confirmButtonText: t('action.delete'), cancelButtonText: t('action.cancel') },
+      );
+    } catch {
+      return;
+    }
+    const { removed, error } = await libraryStore.deleteCards(props.kind, targets.map((card) => card.id));
+    removed.forEach((id) => selectedIds.value.delete(id));
+    if (removed.length < targets.length) {
+      ElMessage.error(batch
+        ? t('library.batchDeletePartial', { removed: removed.length, total: targets.length, reason: error || t('library.deleteFailed') })
+        : error || t('library.deleteFailed'));
+    } else {
+      if (batch) exitSelection();
+      ElMessage.success(t(batch ? 'library.batchDeleteSuccess' : 'library.deleteSuccess', { count: removed.length }));
+    }
+    if (removed.length) emit('changed');
+  } finally {
+    deleting.value = false;
   }
-  const ok = props.kind === 'rune'
-    ? await libraryStore.deleteRuneCard(item.id)
-    : await libraryStore.deleteEchoCard(item.id);
-  if (!ok) {
-    ElMessage.error(libraryStore.error || t('library.deleteFailed'));
-    return;
-  }
-  ElMessage.success(t('library.deleteSuccess'));
-  emit('changed');
 }
 
-/** 拖拽排序：松手后按新顺序重写 sort_order，批量保存（200ms 防抖，避免连续拖拽疯狂写库）。 */
-function onDragStart(index: number): void {
+/** 拖拽结束时一次性保存顺序；保存期间不允许删除，避免旧排序数据重新写入已删卡片。 */
+function onDragStart(event: DragEvent, index: number): void {
+  const card = categoryItems.value[index];
+  if (!card || selectionMode.value || sorting.value || deleting.value || isBuiltinLibraryCard(card.id)) {
+    event.preventDefault();
+    return;
+  }
   dragIndex.value = index;
+  event.dataTransfer?.setData('text/plain', String(index));
 }
 
 async function onDrop(index: number): Promise<void> {
   const from = dragIndex.value;
   dragIndex.value = -1;
-  if (from < 0 || from === index) {
+  if (from < 0 || from === index || selectionMode.value || sorting.value || deleting.value) {
     return;
   }
   // 分类过滤视图里拖拽：换算成「全列表」中的位置再移动，
   // 然后全量重编号 0..n-1，保证跨分类的全局顺序不被打乱
   const dragged = categoryItems.value[from];
   const target = categoryItems.value[index];
+  if (!dragged || !target || isBuiltinLibraryCard(dragged.id)) return;
   const full = [...items.value];
   const draggedGlobal = full.findIndex((item) => item.id === dragged.id);
   const targetGlobal = full.findIndex((item) => item.id === target.id);
@@ -207,39 +272,29 @@ async function onDrop(index: number): Promise<void> {
   }
   const next = [...full];
   const [moved] = next.splice(draggedGlobal, 1);
-  const adjustedTarget = next.findIndex((item) => item.id === target.id);
-  next.splice(adjustedTarget, 0, moved);
-  // 先改内存让 UI 立即生效，再防抖落库
+  next.splice(targetGlobal, 0, moved);
+  // 先改内存让 UI 立即生效，再批量落库。
   if (props.kind === 'rune') {
     libraryStore.runes = next as RuneCard[];
   } else {
     libraryStore.echoes = next as EchoCard[];
   }
 
-  if (sortTimer) {
-    clearTimeout(sortTimer);
-  }
-  sortTimer = setTimeout(async () => {
-    const payloads = next.map((item, order) => ({
-      id: item.id,
-      name: item.name,
-      desc: item.desc,
-      color: item.color,
-      icon: item.icon,
-      category: item.category,
-      sortOrder: order,
-      ...(props.kind === 'rune'
-        ? { template: (item as RuneCard).template, inheritFromPrevious: (item as RuneCard).inheritFromPrevious }
-        : { annoSource: (item as EchoCard).annoSource, renderType: (item as EchoCard).renderType }),
-    }));
+  sorting.value = true;
+  try {
     const ok = props.kind === 'rune'
-      ? await libraryStore.saveRuneOrder(payloads as never)
-      : await libraryStore.saveEchoOrder(payloads as never);
+      ? await libraryStore.saveRuneOrder((next as RuneCard[]).map((item, sortOrder) => ({ ...item, sortOrder })))
+      : await libraryStore.saveEchoOrder((next as EchoCard[]).map((item, sortOrder) => ({ ...item, sortOrder })));
     if (!ok) {
       ElMessage.error(libraryStore.error || t('library.sortFailed'));
       await libraryStore.load(true);
     }
-  }, 200);
+  } catch (cause) {
+    ElMessage.error(cause instanceof Error ? cause.message : t('library.sortFailed'));
+    await libraryStore.load(true);
+  } finally {
+    sorting.value = false;
+  }
 }
 </script>
 
@@ -291,6 +346,8 @@ async function onDrop(index: number): Promise<void> {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .library-title {
@@ -320,13 +377,28 @@ async function onDrop(index: number): Promise<void> {
   border: 1px solid var(--el-border-color-light);
   border-radius: 8px;
   background: var(--el-fill-color-blank);
-  cursor: grab;
+  cursor: pointer;
 }
 
-.library-card { cursor: pointer; }
+.library-card[draggable='true'] { cursor: grab; }
 
 .library-card:hover {
   border-color: var(--el-color-primary-light-5);
+}
+
+.library-card.is-selected {
+  border-color: var(--el-color-primary);
+  background: var(--el-color-primary-light-9);
+}
+
+.library-card.is-builtin {
+  background: var(--el-fill-color-light);
+}
+
+.card-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .card-avatar {

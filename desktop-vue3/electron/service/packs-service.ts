@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { isBuiltinLibraryCard } from '../shared/types/libraryCard';
 import { getDatabase } from './db/connection';
 
 /**
@@ -7,7 +8,7 @@ import { getDatabase } from './db/connection';
  * 预览只读不写；提交时对 DB 重新核对（stale 防护）：
  *   - createNames 必须仍然无同名；
  *   - replaceNames 必须命中现存非内置行（vue2：BUILTIN_PROTECTED / NOT_FOUND / NAME_TAKEN）。
- * 内置保护约定：DB 中 id 以 __builtin_ 开头的行视为内置，禁止覆盖/删除。
+ * 内置卡使用共享的 ID 规则识别，禁止覆盖。
  */
 
 export type PackKind = 'runes' | 'echoes';
@@ -35,10 +36,6 @@ interface DbRow {
 
 function nameKey(name: string): string {
   return String(name ?? '').trim().toLowerCase();
-}
-
-function isBuiltinRow(row: DbRow): boolean {
-  return String(row.id ?? '').startsWith('__builtin_');
 }
 
 function normalizeEntry(kind: PackKind, raw: unknown): { ok: boolean; item?: PackEntry; reason?: string; name?: string } {
@@ -110,7 +107,7 @@ export function previewImport(
     }
     const name = normalized.item.name;
     const existing = byKey.get(nameKey(name));
-    if (existing && isBuiltinRow(existing)) {
+    if (existing && isBuiltinLibraryCard(existing.id)) {
       group.builtinBlocked.push({ index, name });
       continue;
     }
@@ -157,7 +154,7 @@ export function commitImport(kind: PackKind, input: CommitInput): CommitResult {
       continue;
     }
     const existing = byKey.get(nameKey(name));
-    if (existing && isBuiltinRow(existing)) {
+    if (existing && isBuiltinLibraryCard(existing.id)) {
       skipped.push({ name, reason: 'BUILTIN_PROTECTED' });
       continue;
     }
@@ -180,7 +177,7 @@ export function commitImport(kind: PackKind, input: CommitInput): CommitResult {
       skipped.push({ name, reason: 'NOT_FOUND' });
       continue;
     }
-    if (isBuiltinRow(existing)) {
+    if (isBuiltinLibraryCard(existing.id)) {
       skipped.push({ name, reason: 'BUILTIN_PROTECTED' });
       continue;
     }

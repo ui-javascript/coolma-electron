@@ -1,4 +1,5 @@
 import type { EchoCard, RuneCard } from '../../shared/types/domain';
+import { isBuiltinLibraryCard } from '../../shared/types/libraryCard';
 import { getDatabase } from './connection';
 
 interface RuneRow {
@@ -240,9 +241,9 @@ const writeLayer = {
   saveManyEchoes: (items: EchoSaveInput[], options?: { skipDuplicates?: boolean }) =>
     saveMany('echoes', items, saveEcho, options),
   removeRune: (id: string): boolean =>
-    getDatabase().prepare('DELETE FROM runes WHERE id = ?').run(id).changes > 0,
+    !isBuiltinLibraryCard(id) && getDatabase().prepare('DELETE FROM runes WHERE id = ?').run(id).changes > 0,
   removeEcho: (id: string): boolean =>
-    getDatabase().prepare('DELETE FROM echoes WHERE id = ?').run(id).changes > 0,
+    !isBuiltinLibraryCard(id) && getDatabase().prepare('DELETE FROM echoes WHERE id = ?').run(id).changes > 0,
 };
 
 export const runesRepository = Object.assign(runesRepositoryRef, {

@@ -66,7 +66,7 @@ import {
   type PackParseResult,
 } from '@/services/pack';
 import { commitPack, fetchRemotePack, previewPack } from '@/services/ipc';
-import { EchoCategoryEnum, RuneCategoryEnum } from '@shared/enums/library';
+import { EchoCategoryEnum, RuneCategoryEnum, resolveLibraryCategory } from '@shared/enums/library';
 
 type PreviewGroup = {
   previewAt: number;
@@ -79,6 +79,7 @@ type PreviewGroup = {
 const props = defineProps<{
   modelValue: boolean;
   kind: PackKind;
+  initialCategory?: string;
 }>();
 
 const emit = defineEmits<{
@@ -102,7 +103,7 @@ const fileInput = ref<HTMLInputElement | null>(null);
 
 const categoryItems = computed(() =>
   props.kind === 'echoes'
-    ? (EchoCategoryEnum.items as Array<{ value: string; label: string }>)
+    ? (EchoCategoryEnum.items as Array<{ value: string; label: string }>).filter((item) => item.value !== EchoCategoryEnum.Builtin)
     : (RuneCategoryEnum.items as Array<{ value: string; label: string }>)
 );
 
@@ -125,7 +126,9 @@ watch(
       return;
     }
     reset();
-    targetCategory.value = props.kind === 'echoes' ? 'marker' : 'general';
+    const kind = props.kind === 'echoes' ? 'echo' : 'rune';
+    const initial = resolveLibraryCategory(kind, props.initialCategory);
+    targetCategory.value = kind === 'echo' && initial === EchoCategoryEnum.Builtin ? EchoCategoryEnum.Marker : initial;
   },
   { immediate: true },
 );

@@ -51,6 +51,10 @@ const echoes = echoesRepository.list();
 assert('播种：内置符文 >0', runes.length > 0, String(runes.length));
 assert('播种：内置回响 >0', echoes.length > 0, String(echoes.length));
 assert('播种：符文带 id 与名称', Boolean(runes[0]?.id && runes[0]?.name), JSON.stringify(runes[0]));
+assert('符文/回响：内置示例不可删除',
+  !runesRepository.remove('builtin-rune-counter') && !echoesRepository.remove('builtin-echo-demo')
+    && runesRepository.list().some((item) => item.id === 'builtin-rune-counter')
+    && echoesRepository.list().some((item) => item.id === 'builtin-echo-demo'));
 
 // ===== 笔记创建与唯一标题 =====
 const first = notesRepository.create({ title: '测试笔记', content: 'hello', category: '/工作' });
@@ -340,6 +344,12 @@ assert('体检：能抓到 tags 与 note_tags 不一致', dirtyReport.issues.som
 
   // 内置保护：__builtin_ 前缀行不可覆盖
   echoesRepository.save({ id: '__builtin_x', name: '内置回响', annoSource: 'b' });
+  const protectedGroup = previewImport('echoes', [
+    { name: '内置回响', anno_source: 'b' },
+    { name: 'demo', anno_source: 'b' },
+  ], 'marker');
+  assert('Pack：旧版内置卡和 Vue 3 示例都归入内置保护',
+    protectedGroup.builtinBlocked.length === 2 && !echoesRepository.remove('__builtin_x'));
   const blocked = commitImport('echoes', {
     createNames: [], replaceNames: ['内置回响'], targetCategory: 'marker',
     previewAt: Date.now(), sourceByName: { 内置回响: { name: '内置回响', anno_source: 'x' } },

@@ -9,13 +9,16 @@ const LIBRARY_OWN_KEYS = new Set([
   'templatePlaceholder', 'annoPlaceholder', 'inherit', 'inheritHint', 'newRune', 'editRune',
   'newEcho', 'editEcho', 'nameRequired', 'saveFailed', 'saveSuccess', 'deleteFailed',
   'deleteSuccess', 'sortFailed', 'deleteConfirm',
+  'builtinBadge', 'builtinHint', 'noBuiltins', 'editCard', 'viewCard', 'selectionHint',
+  'batchDelete', 'deleteSelected', 'batchDeleteConfirm', 'batchDeleteSuccess', 'batchDeletePartial',
+  'exportCategory', 'exportRunes', 'exportEchoes', 'exportCount', 'exportMore',
 ]);
 
 /**
  * 历史遗留修正：前几批把 `'search.title'`、`groupGeneral`、`aiEntry`、`'pack.import'`
  * 这类根级键误写进了 `library` 对象里（缩进错位），`t('search.title')` 根本查不到，
  * 界面会直接显示 key。这里在初始化时把它们提升回根级：带点的按路径建树，
- * 不带点的直接挂根；`library` 只保留卡片管理自己的 30 个键。
+ * 不带点的直接挂根；`library` 只保留卡片管理自己的键。
  */
 function nestDottedKeys(messages: Messages): void {
   Object.keys(messages).forEach((key) => {

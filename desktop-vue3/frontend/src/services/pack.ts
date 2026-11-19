@@ -3,6 +3,10 @@
  * 格式与 vue2 完全互通：memocast.echo-pack / memocast.rune-pack，version 1。
  * vue2 的 DB 比对在主进程（db:previewEchoImport）；vue3 走 controller/packs 通道。
  */
+import { resolveLibraryCategory } from '@shared/enums/library';
+import { isBuiltinLibraryCard } from '@shared/types/libraryCard';
+import type { EchoCard, RuneCard } from '@shared/types/domain';
+
 export type PackKind = 'runes' | 'echoes';
 
 export const ECHO_PACK_FORMAT = 'memocast.echo-pack';
@@ -140,8 +144,19 @@ export function computeFileDuplicates(entries: PackParseResult['entries']): Arra
 }
 
 /** 导出为 Pack v1 JSON（不导出 id/is_builtin/审计字段，与 vue2 一致）。 */
-export function buildPack(kind: PackKind, items: Array<Record<string, unknown>>): string {
-  const list = items.filter((item) => item && !item.isBuiltin && !item.is_builtin);
+export function buildPack(kind: PackKind, items: ReadonlyArray<RuneCard | EchoCard>): string {
+  const list = items.filter((item) => !isBuiltinLibraryCard(item.id)).map((item) => {
+    const common = {
+      name: item.name.trim(),
+      desc: item.desc,
+      category: resolveLibraryCategory(kind === 'echoes' ? 'echo' : 'rune', item.category),
+      color: item.color,
+      icon: item.icon,
+    };
+    return 'annoSource' in item
+      ? { ...common, anno_source: item.annoSource, render_type: item.renderType }
+      : { ...common, template: item.template, inherit_from_previous: item.inheritFromPrevious };
+  });
   const payload = {
     format: kind === 'echoes' ? ECHO_PACK_FORMAT : RUNE_PACK_FORMAT,
     version: PACK_VERSION,

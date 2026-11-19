@@ -1,23 +1,23 @@
 <template>
   <el-dialog
     v-model="visible"
-    :title="kind === 'rune' ? (form.id && exists ? t('library.editRune') : t('library.newRune')) : (form.id && exists ? t('library.editEcho') : t('library.newEcho'))"
+    :title="readonly ? t('library.viewCard') : kind === 'rune' ? t(exists ? 'library.editRune' : 'library.newRune') : t(exists ? 'library.editEcho' : 'library.newEcho')"
     width="560px"
     append-to-body
     destroy-on-close
   >
     <el-form label-width="92px" @submit.prevent>
       <el-form-item :label="t('library.name')" required>
-        <el-input v-model="form.name" :placeholder="t('library.namePlaceholder')" maxlength="100" />
+        <el-input v-model="form.name" :readonly="readonly" :placeholder="t('library.namePlaceholder')" maxlength="100" />
       </el-form-item>
       <el-form-item :label="t('library.desc')">
-        <el-input v-model="form.desc" :placeholder="t('library.descPlaceholder')" maxlength="200" />
+        <el-input v-model="form.desc" :readonly="readonly" :placeholder="t('library.descPlaceholder')" maxlength="200" />
       </el-form-item>
       <el-form-item :label="t('library.color')">
-        <el-color-picker v-model="form.color" />
+        <el-color-picker v-model="form.color" :disabled="readonly" />
       </el-form-item>
       <el-form-item :label="t('library.category')">
-        <el-select v-model="form.category" filterable class="category-select">
+        <el-select v-model="form.category" :disabled="readonly" filterable class="category-select">
           <el-option
             v-for="option in categoryOptions"
             :key="option.value"
@@ -29,6 +29,7 @@
       <el-form-item :label="t('library.source')">
         <el-input
           v-model="source"
+          :readonly="readonly"
           type="textarea"
           :rows="kind === 'rune' ? 8 : 6"
           :placeholder="kind === 'rune' ? t('library.templatePlaceholder') : t('library.annoPlaceholder')"
@@ -36,13 +37,13 @@
         />
       </el-form-item>
       <el-form-item v-if="kind === 'rune'" :label="t('library.inherit')">
-        <el-switch v-model="inheritOn" />
+        <el-switch v-model="inheritOn" :disabled="readonly" />
         <span class="form-hint">{{ t('library.inheritHint') }}</span>
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button @click="visible = false">{{ t('action.cancel') }}</el-button>
-      <el-button type="primary" :loading="saving" @click="submit">{{ t('action.confirm') }}</el-button>
+      <el-button @click="visible = false">{{ t(readonly ? 'window.close' : 'action.cancel') }}</el-button>
+      <el-button v-if="!readonly" type="primary" :loading="saving" @click="submit">{{ t('action.confirm') }}</el-button>
     </template>
   </el-dialog>
 </template>
@@ -66,6 +67,8 @@ const props = defineProps<{
   modelValue: boolean;
   kind: 'rune' | 'echo';
   editing: RuneCard | EchoCard | null;
+  initialCategory?: string;
+  readonly?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -123,7 +126,7 @@ watch(
       form.name = '';
       form.desc = '';
       form.color = props.kind === 'rune' ? '#7E57C2' : '#26A69A';
-      form.category = resolveLibraryCategory(props.kind, '');
+      form.category = resolveLibraryCategory(props.kind, props.initialCategory);
       source.value = '';
       inheritOn.value = false;
     }
@@ -132,6 +135,7 @@ watch(
 );
 
 async function submit(): Promise<void> {
+  if (props.readonly) return;
   const name = form.name.trim();
   if (!name) {
     ElMessage.warning(t('library.nameRequired'));
@@ -156,7 +160,9 @@ async function submit(): Promise<void> {
         name,
         desc: form.desc.trim(),
         color: form.color,
+        icon: props.editing?.icon,
         category: form.category,
+        sortOrder: props.editing?.sortOrder,
         template: source.value,
         inheritFromPrevious: inheritOn.value ? 1 : 0,
       });
@@ -170,7 +176,10 @@ async function submit(): Promise<void> {
         name,
         desc: form.desc.trim(),
         color: form.color,
+        icon: props.editing?.icon,
         category: form.category,
+        sortOrder: props.editing?.sortOrder,
+        renderType: (props.editing as EchoCard | null)?.renderType,
         annoSource: source.value,
       });
       if (!saved) {
