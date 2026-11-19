@@ -20,6 +20,9 @@
 
       <div class="topbar-actions">
         <el-tag :type="statusType" effect="light" round>{{ statusLabel }}</el-tag>
+        <el-button circle plain :title="paneLayoutTitle" class="pane-layout-btn" @click="cyclePaneLayout">
+          <el-icon><Operation /></el-icon>
+        </el-button>
         <el-button circle plain :title="t('aiHelper.title')" @click="aiDrawerVisible = true">
           <el-icon><ChatDotRound /></el-icon>
         </el-button>
@@ -39,7 +42,7 @@
     </header>
 
     <Splitpanes class="workspace">
-      <Pane :size="18" :min-size="14" :max-size="25">
+      <Pane v-if="paneVisible.sidebar" :size="paneLayoutSizes.sidebar" :min-size="14" :max-size="25">
         <IndexSidebar
           ref="sidebarRef"
           :mode="indexMode"
@@ -60,7 +63,7 @@
         />
       </Pane>
 
-      <Pane :size="27" :min-size="20" :max-size="40">
+      <Pane v-if="paneVisible.list" :size="paneLayoutSizes.list" :min-size="20" :max-size="40">
         <NoteListPane
           :dense="denseMode"
           v-model:keyword="keyword"
@@ -82,7 +85,7 @@
         />
       </Pane>
 
-      <Pane :size="55">
+      <Pane :size="paneLayoutSizes.editor">
         <EditorPane
           ref="editorPaneRef"
           v-model:content="activeContent"
@@ -167,7 +170,7 @@
 </template>
 
 <script setup lang="ts">
-import { ChatDotRound, Document, Grid, Search, Setting } from '@element-plus/icons-vue';
+import { ChatDotRound, Document, Grid, Operation, Search, Setting } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Pane, Splitpanes } from 'splitpanes';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
@@ -210,6 +213,7 @@ import { useNotesStore } from '@/stores/notes';
 import { useLibraryStore } from '@/stores/library';
 import { createMuyaPlugins } from '@/muyaPlugins';
 import { deriveTitle, folderName, noteDateKey, noteTags, noteTimeGroup } from '@/utils/note';
+import { nextPaneLayout, normalizePaneLayout, paneSizes, paneVisibility, PANE_LAYOUT_STORAGE, type PaneLayoutMode } from '@/utils/paneLayout';
 
 const { t } = useI18n();
 const router = useRouter();
@@ -255,6 +259,27 @@ function readIndexMode(): IndexMode {
 }
 
 const indexMode = ref<IndexMode>(readIndexMode());
+
+function readPaneLayout(): PaneLayoutMode {
+  return normalizePaneLayout(localStorage.getItem(PANE_LAYOUT_STORAGE));
+}
+
+const paneLayoutMode = ref<PaneLayoutMode>(readPaneLayout());
+const paneVisible = computed(() => paneVisibility(paneLayoutMode.value));
+const paneLayoutSizes = computed(() => paneSizes(paneLayoutMode.value));
+const paneLayoutTitle = computed(() => {
+  const key = paneLayoutMode.value === 0
+    ? 'view.threePane'
+    : paneLayoutMode.value === 1
+      ? 'view.listEditor'
+      : 'view.editorOnly';
+  return `${t('view.switchView')} · ${t(key)}`;
+});
+
+function cyclePaneLayout(): void {
+  paneLayoutMode.value = nextPaneLayout(paneLayoutMode.value);
+  localStorage.setItem(PANE_LAYOUT_STORAGE, String(paneLayoutMode.value));
+}
 
 const readCalendarBasis = (): CalendarDateBasis => {
   const saved = localStorage.getItem('coolma.calendarBasis');

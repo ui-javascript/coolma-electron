@@ -655,6 +655,10 @@ export default {
     "settings.syncLoginDone": "Signed in",
     "settings.syncCustomFnNotReady": "Custom cloudFn sync is not wired",
     "settings.syncCustomFnNotReadyHint": "vue2 uses a cloud-router custom function protocol; v3 only implements the official WizNote API. Switch to WizNote to use it.",
+    "view.switchView": "Switch view",
+    "view.threePane": "Three panes: sidebar + list + editor",
+    "view.listEditor": "Two panes: list + editor",
+    "view.editorOnly": "Editor only",
   action: {
     newNote: 'New',
     settings: 'Settings',

@@ -655,6 +655,10 @@ export default {
     "settings.syncLoginDone": "登录成功",
     "settings.syncCustomFnNotReady": "自建云函数同步还没接",
     "settings.syncCustomFnNotReadyHint": "vue2 走 cloud-router 的自定义云函数协议；v3 目前只实现了为知官方 API。切到「为知笔记」可用。",
+    "view.switchView": "切换视图",
+    "view.threePane": "三栏：侧栏 + 列表 + 正文",
+    "view.listEditor": "两栏：列表 + 正文",
+    "view.editorOnly": "单栏：只看正文",
   action: {
     newNote: '新建',
     settings: '设置',

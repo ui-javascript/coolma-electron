@@ -610,6 +610,14 @@ async function main(): Promise<void> {
     await fs.rm(tmp, { recursive: true, force: true });
   }
 
+  paneLayout: {
+    const { normalizePaneLayout, nextPaneLayout, paneVisibility, paneSizes } = await import('@/utils/paneLayout');
+    assert('常规视图：布局循环 0→1→2→0（对齐 vue2 cyclePaneLayout）', nextPaneLayout(0) === 1 && nextPaneLayout(1) === 2 && nextPaneLayout(2) === 0, 'cycle');
+    assert('常规视图：三态可见性与 vue2 一致（2 只剩正文）', paneVisibility(0).sidebar && paneVisibility(0).list && paneVisibility(1).list && !paneVisibility(2).list, JSON.stringify([paneVisibility(0), paneVisibility(1), paneVisibility(2)]));
+    assert('常规视图：非法/越界值归一成三栏', normalizePaneLayout('9') === 0 && normalizePaneLayout(null) === 0 && normalizePaneLayout(2) === 2, 'normalize');
+    assert('常规视图：单栏正文占满、两栏列表 30%', paneSizes(2).editor === 100 && paneSizes(1).list === 30, JSON.stringify([paneSizes(1), paneSizes(2)]));
+  }
+
   indexViews: {
     const { buildCategoryTree, buildTagTreemapData } = await import('@/utils/categoryTree');
     const tree = buildCategoryTree([
