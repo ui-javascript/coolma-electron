@@ -454,7 +454,7 @@ const folderMenuItems = computed<ContextMenuItem[]>(() =>
     // 当前没有登录态概念（同步服务面板还没复刻），本地库全量可用 → 按已登录处理
     isLogin: true,
     tierRankingReady: true,
-    blogReady: false,
+    blogReady: true,
   }) as unknown as ContextMenuItem[],
 );
 
