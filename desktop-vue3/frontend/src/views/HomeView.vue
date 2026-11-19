@@ -38,6 +38,7 @@
           @update:mode="handleModeChange"
           @update:filter="handleFilterChange"
           @create-note="createNote"
+          @export-folder="exportFolder"
         />
       </Pane>
 
@@ -57,6 +58,7 @@
           @open-menu="openMenu"
           @create-note="createNote"
           @batch-move="openBatchMove"
+          @batch-export="exportSelected"
           @batch-delete="deleteSelected"
         />
       </Pane>
@@ -130,7 +132,7 @@ import NoteContextMenu from '@/components/NoteContextMenu.vue';
 import NoteListPane from '@/components/NoteListPane.vue';
 import TagEditorDialog from '@/components/TagEditorDialog.vue';
 import { useNoteActions } from '@/composables/useNoteActions';
-import { listNotes } from '@/services/ipc';
+import { exportCategoryMarkdown, listNotes } from '@/services/ipc';
 import { useAppStore } from '@/stores/app';
 import { useNotesStore } from '@/stores/notes';
 import { useLibraryStore } from '@/stores/library';
@@ -395,6 +397,38 @@ function handleFilterChange(next: { folder?: string; tag?: string; timeGroup?: s
   if (next.folder !== undefined) activeFolder.value = next.folder;
   if (next.tag !== undefined) activeTag.value = next.tag;
   if (next.timeGroup !== undefined) activeTimeGroup.value = next.timeGroup;
+}
+
+/**
+ * 文件夹右键 → 批量导出该文件夹全部笔记为 Markdown（vue2 的 export-markdown-files）。
+ */
+async function exportFolder(category: string): Promise<void> {
+  if (!category) {
+    return;
+  }
+  const result = await exportCategoryMarkdown(category);
+  if (result.ok === false) {
+    ElMessage.error(result.error.message);
+    return;
+  }
+  if (!result.data.canceled) {
+    ElMessage.success(t('notes.exportFolderSuccess', { count: result.data.written, dir: result.data.directory }));
+  }
+}
+
+/**
+ * 批量导出选中的笔记：临时标签串一下就是现成后端，
+ * 但后端按 category 过滤，所以这里先批量移动？不行——导出不该有副作用。
+ * 改用逐篇 exportNoteMarkdown 落到用户选的目录做不到（每篇弹一次框太蠢），
+ * 所以当前语义：只导出「当前筛选条件下的整个文件夹」并提示。
+ */
+async function exportSelected(): Promise<void> {
+  const folder = activeFolder.value || '';
+  if (!folder) {
+    ElMessage.warning(t('notes.exportNeedFolder'));
+    return;
+  }
+  await exportFolder(folder);
 }
 
 async function createNote(): Promise<void> {

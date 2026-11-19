@@ -27,6 +27,10 @@
           <el-icon><FolderOpened /></el-icon>
           {{ t('board.move') }}
         </el-button>
+        <el-button size="small" plain @click="emit('batch-export')">
+          <el-icon><Download /></el-icon>
+          {{ t('board.export') }}
+        </el-button>
         <el-button size="small" type="danger" plain :loading="batchPending" @click="emit('batch-delete')">
           <el-icon><Delete /></el-icon>
           {{ t('board.delete') }}
@@ -88,7 +92,7 @@
 </template>
 
 <script setup lang="ts">
-import { Delete, FolderOpened, MoreFilled, Plus, Search } from '@element-plus/icons-vue';
+import { Delete, Download, FolderOpened, MoreFilled, Plus, Search } from '@element-plus/icons-vue';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { NoteSummary } from '@shared/types/domain';
@@ -109,6 +113,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (event: 'update:keyword', value: string): void;
   (event: 'update:selected', value: number[]): void;
+  (event: 'batch-export'): void;
   (event: 'select', id: number): void;
   (event: 'open-menu', note: NoteSummary, native: MouseEvent): void;
   (event: 'create-note'): void;

@@ -33,6 +33,7 @@
             class="index-row"
             :class="{ active: folderFilter === folder.category }"
             @click="selectFolder(folder.category)"
+            @contextmenu.prevent="emit('export-folder', folder.category)"
           >
             <el-icon><Folder /></el-icon>
             <span class="index-label">{{ folder.name }}</span>
@@ -120,6 +121,7 @@ const emit = defineEmits<{
   (event: 'update:mode', value: IndexMode): void;
   (event: 'update:filter', value: { folder?: string; tag?: string; timeGroup?: string }): void;
   (event: 'create-note'): void;
+  (event: 'export-folder', category: string): void;
 }>();
 
 const { t } = useI18n();
