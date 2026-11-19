@@ -8,6 +8,9 @@
 export const IPC_CHANNELS = {
   app: {
     info: 'controller/app/info',
+    updateCheck: 'controller/app/updateCheck',
+    updateDownload: 'controller/app/updateDownload',
+    updateInstall: 'controller/app/updateInstall',
   },
   window: {
     minimize: 'controller/window/minimize',
@@ -102,6 +105,9 @@ export const IPC_CHANNELS = {
 
 export const INVOKE_CHANNELS = new Set<string>([
   IPC_CHANNELS.app.info,
+  IPC_CHANNELS.app.updateCheck,
+  IPC_CHANNELS.app.updateDownload,
+  IPC_CHANNELS.app.updateInstall,
   IPC_CHANNELS.window.minimize,
   IPC_CHANNELS.window.state,
   IPC_CHANNELS.window.toggleMaximize,

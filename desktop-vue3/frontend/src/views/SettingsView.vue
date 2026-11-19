@@ -393,7 +393,15 @@
         show-icon
         :title="t('settings.securityNote')"
       />
+
+      <div class="update-row">
+        <el-button size="small" :loading="updateChecking" @click="handleCheckUpdate">
+          {{ t('update.check') }}
+        </el-button>
+      </div>
     </el-card>
+
+    <UpdateDialog v-model="updateVisible" />
   </div>
 </template>
 
@@ -434,6 +442,7 @@ import SettingsProfileCard from '@/components/settings/SettingsProfileCard.vue';
 import SettingsServerPanel from '@/components/settings/SettingsServerPanel.vue';
 import SettingsCloudFnPanel from '@/components/settings/SettingsCloudFnPanel.vue';
 import NoteImportDialog from '@/components/NoteImportDialog.vue';
+import UpdateDialog from '@/components/UpdateDialog.vue';
 import type { AppLocale } from '@/i18n';
 import {
   backupDatabase,
@@ -460,6 +469,8 @@ function saveAiProvider(value: string): void {
 }
 
 const noteImportVisible = ref(false);
+const updateVisible = ref(false);
+const updateChecking = ref(false);
 const groupTab = ref<'general' | 'editor' | 'database' | 'library' | 'ai' | 'apps' | 'server' | 'cloudFn' | 'about'>('general');
 const libraryTab = ref<'runes' | 'echoes'>('runes');
 
@@ -513,6 +524,17 @@ function formatBytes(bytes: number): string {
 async function loadSyncQueue(): Promise<void> {
   const result = await getPendingSync();
   syncSummary.value = result.ok ? result.data.summary : null;
+}
+
+async function handleCheckUpdate(): Promise<void> {
+  updateChecking.value = true;
+  const { checkUpdate } = await import('@/services/updater');
+  const result = await checkUpdate();
+  updateChecking.value = false;
+  if (result.ok === false) {
+    ElMessage.warning(result.error.message);
+  }
+  updateVisible.value = true;
 }
 
 async function loadDbStatus(): Promise<void> {

@@ -527,6 +527,14 @@ async function main(): Promise<void> {
 
 
 
+
+  updater: {
+    const { IPC_CHANNELS } = await import('@shared/ipc/channels');
+    assert('更新：三个通道都在 IPC_CHANNELS', ['updateCheck', 'updateDownload', 'updateInstall'].every((k) => typeof (IPC_CHANNELS.app as Record<string, string>)[k] === 'string'), 'channels');
+    const { INVOKE_CHANNELS } = await import('@shared/ipc/channels');
+    assert('更新：三个通道都登记进白名单集合', ['controller/app/updateCheck', 'controller/app/updateDownload', 'controller/app/updateInstall'].every((c) => INVOKE_CHANNELS.has(c)), 'renderer');
+  }
+
   exportText: {
     const { noteExportTextSchema } = await import('@shared/ipc/schemas');
     assert('导出：HTML/SVG/TXT 三种类型可校验', ['html', 'svg', 'txt'].every((t) => noteExportTextSchema.safeParse({ content: 'x', fileName: 'n', fileType: t }).success), 'types');

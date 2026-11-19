@@ -7,6 +7,9 @@ import type { CoolmaApi, IpcResult } from '../shared/ipc/contract';
  */
 const INVOKE_CHANNELS = new Set<string>([
   'controller/app/info',
+  'controller/app/updateCheck',
+  'controller/app/updateDownload',
+  'controller/app/updateInstall',
   'controller/window/minimize',
   'controller/window/state',
   'controller/window/toggleMaximize',
