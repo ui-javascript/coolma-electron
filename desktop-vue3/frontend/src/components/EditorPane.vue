@@ -3,7 +3,11 @@
     <template v-if="summary">
       <div class="editor-meta">
         <div class="editor-meta-left">
-          <el-tag type="success" effect="plain" size="small">Muya</el-tag>
+          <el-tag type="success" effect="plain" size="small">{{ sourceMode ? 'Monaco' : 'Muya' }}</el-tag>
+          <el-button text size="small" class="mode-toggle" @click="toggleSourceMode">
+            <el-icon><Switch /></el-icon>
+            <span>{{ sourceMode ? t('editor.toWysiwyg') : t('editor.toSource') }}</span>
+          </el-button>
           <span class="editor-meta-title">{{ summary.title }}</span>
         </div>
         <div class="editor-meta-right">
@@ -17,12 +21,15 @@
         </div>
       </div>
       <MuyaEditor
+        v-show="!sourceMode"
         v-model="contentProxy"
         :theme="theme"
         :plugins="plugins"
         :options="editorOptions"
         class="muya-editor"
       />
+      <!-- 双编辑器：源码模式用 Monaco，同一份内容，只有激活的视图回写 -->
+      <SourceEditor v-if="sourceMode" v-model="contentProxy" :theme="theme" class="source-editor-host" />
     </template>
 
     <el-empty v-else :description="t('editor.emptyHint')">
@@ -46,8 +53,8 @@
 </template>
 
 <script setup lang="ts">
-import { Delete } from '@element-plus/icons-vue';
-import { computed, onMounted } from 'vue';
+import { Delete, Switch } from '@element-plus/icons-vue';
+import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { AppInfo } from '@shared/ipc/contract';
 import type { AppTheme } from '@shared/enums/app';
@@ -58,6 +65,7 @@ import { createQuickInsertProvider } from '@/editor/quickInsert';
 import { quickInsertTypes } from '@/editor/insertHandlers';
 import { useLibraryStore } from '@/stores/library';
 import { useNotesStore } from '@/stores/notes';
+import SourceEditor from '@/components/SourceEditor.vue';
 
 const props = defineProps<{
   summary: NoteSummary | null;
@@ -84,6 +92,13 @@ const contentProxy = computed({
   get: () => props.content,
   set: (value: string) => emit('update:content', value),
 });
+
+const sourceMode = ref(false);
+
+/** 双编辑器切换：不销毁 Muya（v-show），避免来回切换丢撤销栈与滚动位置。 */
+function toggleSourceMode(): void {
+  sourceMode.value = !sourceMode.value;
+}
 
 const libraryStore = useLibraryStore();
 const notesStore = useNotesStore();

@@ -112,6 +112,8 @@ export default {
     unnamedRune: '符文',
     unnamedEcho: '回响',
     emptyTitle: '选择一篇笔记',
+    toSource: '源码模式',
+    toWysiwyg: '所见即所得',
     emptyHint: '左侧选一篇笔记，或新建一篇开始写作。',
     phase: 'P3 数据层',
     phaseDesc: 'SQLite schema v1、旧库导入与 typed IPC 已就绪；笔记已接真实数据。',

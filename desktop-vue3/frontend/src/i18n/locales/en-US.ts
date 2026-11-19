@@ -112,6 +112,8 @@ export default {
     unnamedRune: 'Rune',
     unnamedEcho: 'Echo',
     emptyTitle: 'Select a note',
+    toSource: 'Source mode',
+    toWysiwyg: 'WYSIWYG',
     emptyHint: 'Pick a note on the left, or create a new one to start writing.',
     phase: 'P3 data layer',
     phaseDesc: 'SQLite schema v1, legacy import and typed IPC are ready; notes now use real data.',
