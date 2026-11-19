@@ -64,6 +64,7 @@ import { formatNoteDate, noteTags } from '@/utils/note';
 import { createQuickInsertProvider } from '@/editor/quickInsert';
 import { quickInsertTypes } from '@/editor/insertHandlers';
 import { useLibraryStore } from '@/stores/library';
+import { saveAttachmentImage } from '@/services/ipc';
 import { useNotesStore } from '@/stores/notes';
 import SourceEditor from '@/components/SourceEditor.vue';
 
@@ -107,6 +108,46 @@ const notesStore = useNotesStore();
  * @ 快捷面板的数据源：符文与回响。
  * provider 每次打开都读 store 里的内存缓存，不在按键路径上发 IPC。
  */
+const readFileAsBase64 = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+
+const extOfFile = (file: File): string => {
+  const fromName = file.name?.match(/\.([a-z0-9]+)$/i)?.[1];
+  if (fromName) {
+    return `.${fromName.toLowerCase()}`;
+  }
+  const fromType = file.type?.split('/')[1];
+  return fromType ? `.${fromType.toLowerCase()}` : '.png';
+};
+
+/**
+ * 粘贴/拖入图片 → 落盘到本地附件目录 → 返回 coolma:// 地址写进 markdown。
+ * 对齐 vue2 的 save-temp-image + resource-loader 那套路径约定。
+ */
+async function savePastedImage(file: File): Promise<string> {
+  const summary = props.summary;
+  if (!summary) {
+    return '';
+  }
+  const base64 = await readFileAsBase64(file);
+  const result = await saveAttachmentImage({
+    base64,
+    ext: extOfFile(file),
+    kbGuid: summary.kbGuid,
+    docGuid: summary.docGuid,
+    noteId: summary.id,
+  });
+  if (result.ok === false) {
+    return '';
+  }
+  return result.data.url;
+}
+
 const editorOptions = {
   quickInsertProvider: createQuickInsertProvider(
     () => ({
@@ -118,6 +159,13 @@ const editorOptions = {
   ),
   // 领域插入语义由 app 注入，引擎只负责定位 @ 和调用这里。
   quickInsertTypes,
+  // 图片落盘：引擎把 File 交过来，应用侧存盘并回写 coolma:// 地址
+  imageAction: async (file: File | string) => {
+    if (typeof File !== 'undefined' && file instanceof File) {
+      return savePastedImage(file);
+    }
+    return '';
+  },
 };
 
 onMounted(() => {

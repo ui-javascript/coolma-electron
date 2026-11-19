@@ -30,6 +30,10 @@ export const IPC_CHANNELS = {
     create: 'controller/categories/create',
     remove: 'controller/categories/remove',
   },
+  attachments: {
+    saveImage: 'controller/attachments/saveImage',
+    dir: 'controller/attachments/dir',
+  },
   tags: {
     list: 'controller/tags/list',
     create: 'controller/tags/create',

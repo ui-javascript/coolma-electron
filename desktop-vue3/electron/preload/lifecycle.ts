@@ -11,6 +11,14 @@ class Lifecycle {
   async electronAppReady(): Promise<void> {
     logger.info('[lifecycle] electron-app-ready');
 
+    // 图片附件协议：coolma://coolma.app/<kb>/<doc>/<name>
+    try {
+      const { registerCoolmaProtocol } = await import('../service/coolma-protocol');
+      registerCoolmaProtocol();
+    } catch (error) {
+      logger.error('[lifecycle] register coolma protocol failed');
+    }
+
     // Frameless window: remove the native menu entirely (File/Edit/View/...).
     Menu.setApplicationMenu(null);
 

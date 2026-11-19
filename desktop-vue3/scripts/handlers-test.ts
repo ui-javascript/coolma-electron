@@ -7,6 +7,7 @@
 import { createEchoInsertHandler, buildEchoPlaceholderMarkup } from '../../echo-core/src/index';
 import { createRuneInsertHandler, readInheritFromTemplate } from '../../rune-core/src/index';
 import { markdownFileName, sanitizeFileName } from '../electron/service/export-utils';
+import { coolmaUrl, hashImageName, parseCoolmaUrl, resolveDocSegment } from '../electron/service/attachments';
 
 type Call = [string, unknown];
 const calls: Call[] = [];
@@ -88,6 +89,18 @@ assert('回响转义单引号', buildEchoPlaceholderMarkup({ name: 'x', value: "
   assert('导出文件名：非法字符替换', sanitizeFileName('a/b:c*?"<>|') === 'a_b_c______', sanitizeFileName('a/b:c*?"<>|'));
   assert('导出文件名：空标题兜底', sanitizeFileName('   ') === 'Untitled', sanitizeFileName('   '));
   assert('导出文件名：后缀为 .md', markdownFileName('周报') === '周报.md', markdownFileName('周报'));
+}
+
+// ===== 附件路径与协议解析（纯函数）=====
+{
+  assert('附件：同一图片名稳定', hashImageName(Buffer.from('abc')) === hashImageName(Buffer.from('abc')));
+  assert('附件：不同内容不同名', hashImageName(Buffer.from('abc')) !== hashImageName(Buffer.from('abd')));
+  assert('附件：本地笔记目录兜底', resolveDocSegment('local_123', 7) === 'local_123', resolveDocSegment('local_123', 7));
+  assert('附件：无 docGuid 用 noteId', resolveDocSegment(null, 7) === 'note-7', resolveDocSegment(null, 7));
+  assert('附件：协议地址形态', coolmaUrl('kb1', 'doc1', 'a.png') === 'coolma://coolma.app/kb1/doc1/a.png', coolmaUrl('kb1', 'doc1', 'a.png'));
+  assert('附件：协议解析三段', JSON.stringify(parseCoolmaUrl('coolma://coolma.app/kb1/doc1/a.png')) === JSON.stringify({ kbGuid: 'kb1', docGuid: 'doc1', name: 'a.png' }));
+  assert('附件：拒绝路径穿越', parseCoolmaUrl('coolma://coolma.app/kb1/../../etc/passwd') === null);
+  assert('附件：段数不对返回 null', parseCoolmaUrl('coolma://coolma.app/kb1/a.png') === null);
 }
 
 console.log(failed === 0 ? '\n全部通过' : `\n失败 ${failed} 项`);

@@ -127,6 +127,20 @@ export function exportCategoryMarkdown(
   );
 }
 
+export interface SaveAttachmentInput {
+  base64: string;
+  ext?: string;
+  kbGuid?: string | null;
+  docGuid?: string | null;
+  noteId?: number | null;
+}
+
+export function saveAttachmentImage(
+  input: SaveAttachmentInput,
+): Promise<IpcResult<{ url: string; filePath: string; name: string }>> {
+  return invoke<{ url: string; filePath: string; name: string }>(IPC_CHANNELS.attachments.saveImage, input);
+}
+
 export function listCategories(): Promise<IpcResult<CategoryRecord[]>> {
   return invoke<CategoryRecord[]>(IPC_CHANNELS.categories.list);
 }
