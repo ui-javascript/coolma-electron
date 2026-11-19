@@ -9,7 +9,7 @@
         :class="{ active: tab.value === activeCategory }"
         @click="activeCategory = tab.value"
       >
-        {{ tab.label }}
+        {{ t(tab.label) }}
         <span class="tab-count">{{ tab.count }}</span>
       </button>
     </div>
@@ -72,7 +72,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { Delete, Edit, Plus } from '@element-plus/icons-vue';
 import type { EchoCard, RuneCard } from '@shared/types/domain';
 import { useLibraryStore } from '@/stores/library';
-import { categoriesOf, resolveCategory, type LibraryCategory } from '@/utils/libraryCategories';
+import { EchoCategoryEnum, RuneCategoryEnum, resolveLibraryCategory } from '@shared/enums/library';
 import LibraryFormDialog from './LibraryFormDialog.vue';
 
 /**
@@ -93,33 +93,23 @@ const libraryStore = useLibraryStore();
 const items = computed(() => (props.kind === 'rune' ? libraryStore.runes : libraryStore.echoes) as Array<RuneCard | EchoCard>);
 
 /** 当前分类（默认 general / marker，与 vue2 面板一致）。 */
-const activeCategory = ref(resolveCategory(props.kind, ''));
+const activeCategory = ref(resolveLibraryCategory(props.kind, ''));
 
-function labelOf(category: LibraryCategory): string {
-  return locale.value === 'zh-CN' ? category.zh : category.en;
-}
-
-const { locale } = useI18n();
+const categoryEnum = computed(() => (props.kind === 'rune' ? RuneCategoryEnum : EchoCategoryEnum));
 
 /** 分类 Tab：默认分类恒第一，其余按卡片数降序（对齐 vue2 categoryOptions 排序）。 */
 const categoryTabs = computed(() => {
-  const list = categoriesOf(props.kind);
-  const general = list[0];
-  const rest = list.slice(1).map((category) => ({
-    ...category,
-    label: labelOf(category),
-    count: items.value.filter((item) => resolveCategory(props.kind, item.category) === category.value).length,
-  }));
+  const list = categoryEnum.value.items as Array<{ value: string; label: string }>;
+  const countOf = (value: string) =>
+    items.value.filter((item) => resolveLibraryCategory(props.kind, item.category) === value).length;
+  const rest = list.slice(1).map((category) => ({ ...category, count: countOf(category.value) }));
   rest.sort((a, b) => b.count - a.count);
-  return [
-    { ...general, label: labelOf(general), count: items.value.filter((item) => resolveCategory(props.kind, item.category) === general.value).length },
-    ...rest,
-  ];
+  return [{ ...list[0], count: countOf(list[0].value) }, ...rest];
 });
 
 /** 当前分类下的卡片。 */
 const categoryItems = computed(() =>
-  items.value.filter((item) => resolveCategory(props.kind, item.category) === activeCategory.value),
+  items.value.filter((item) => resolveLibraryCategory(props.kind, item.category) === activeCategory.value),
 );
 
 const formVisible = ref(false);

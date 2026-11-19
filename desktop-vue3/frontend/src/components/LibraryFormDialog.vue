@@ -21,7 +21,7 @@
           <el-option
             v-for="option in categoryOptions"
             :key="option.value"
-            :label="option.label"
+            :label="t(option.label)"
             :value="option.value"
           />
         </el-select>
@@ -53,7 +53,7 @@ import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import { randomUUID } from '@/utils/id';
 import { useLibraryStore } from '@/stores/library';
-import { categoriesOf, resolveCategory, type LibraryCategory } from '@/utils/libraryCategories';
+import { EchoCategoryEnum, RuneCategoryEnum, resolveLibraryCategory } from '@shared/enums/library';
 import type { EchoCard, RuneCard } from '@shared/types/domain';
 
 /**
@@ -90,15 +90,10 @@ const form = reactive({
   category: 'general',
 });
 
-/** 分类下拉：当前 locale 的文案，非法值回退默认分类。 */
+/** 分类下拉：label 是 i18n key，模板里 t() 翻译（与 app.ts 同款用法）。 */
 const categoryOptions = computed(() =>
-  categoriesOf(props.kind).map((category: LibraryCategory) => ({
-    value: category.value,
-    label: locale.value === 'zh-CN' ? category.zh : category.en,
-  })),
+  (props.kind === 'rune' ? RuneCategoryEnum : EchoCategoryEnum).items as Array<{ value: string; label: string }>,
 );
-
-const { locale } = useI18n();
 const source = ref('');
 const inheritOn = ref(false);
 
@@ -113,7 +108,7 @@ watch(
       form.name = props.editing.name;
       form.desc = props.editing.desc;
       form.color = props.editing.color;
-      form.category = resolveCategory(props.kind, props.editing.category);
+      form.category = resolveLibraryCategory(props.kind, props.editing.category);
       if (props.kind === 'rune') {
         source.value = (props.editing as RuneCard).template;
         inheritOn.value = Boolean((props.editing as RuneCard).inheritFromPrevious);
@@ -125,7 +120,7 @@ watch(
       form.name = '';
       form.desc = '';
       form.color = props.kind === 'rune' ? '#7E57C2' : '#26A69A';
-      form.category = resolveCategory(props.kind, '');
+      form.category = resolveLibraryCategory(props.kind, '');
       source.value = '';
       inheritOn.value = false;
     }
