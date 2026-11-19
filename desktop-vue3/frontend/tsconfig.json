@@ -17,11 +17,18 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@shared/*": ["../electron/shared/*"]
+      "@shared/*": ["../electron/shared/*"],
+      "echo-core": ["../../echo-core/src/index.ts"],
+      "rune-core": ["../../rune-core/src/index.ts"]
     },
     "types": ["vite/client"]
   },
   "include": [
+    "../packages/libs-muya-v3/src/**/*.ts",
+    "../packages/plugins-muya-echo/src/**/*.ts",
+    "../packages/plugins-muya-rune/src/**/*.ts",
+    "../../echo-core/src/**/*.ts",
+    "../../rune-core/src/**/*.ts",
     "src/**/*.ts",
     "src/**/*.d.ts",
     "src/**/*.vue",

@@ -27,211 +27,119 @@
 
     <Splitpanes class="workspace">
       <Pane :size="18" :min-size="14" :max-size="25">
-        <aside class="sidebar">
-          <div class="sidebar-section-head">
-            <span>{{ t('index.title') }}</span>
-            <el-button text size="small" :loading="creating" @click="createNote">
-              <el-icon><Plus /></el-icon>
-            </el-button>
-          </div>
-
-          <el-radio-group v-model="indexMode" class="index-mode-switch" size="small" @change="handleModeChange">
-            <el-radio-button v-for="mode in indexModes" :key="mode.value" :value="mode.value">
-              {{ t(mode.label) }}
-            </el-radio-button>
-          </el-radio-group>
-
-          <button type="button" class="index-row index-all" :class="{ active: isAllScope }" @click="clearFilters">
-            <el-icon><Document /></el-icon>
-            <span class="index-label">{{ t('index.all') }}</span>
-            <span class="side-count">{{ notesStore.total }}</span>
-          </button>
-
-          <div class="index-panel">
-            <template v-if="indexMode === IndexModeEnum.Folder">
-              <button
-                v-for="folder in folders"
-                :key="folder.category"
-                type="button"
-                class="index-row"
-                :class="{ active: activeFolder === folder.category }"
-                @click="selectFolder(folder.category)"
-              >
-                <el-icon><Folder /></el-icon>
-                <span class="index-label">{{ folder.name }}</span>
-                <span class="side-count">{{ folder.count }}</span>
-              </button>
-              <p v-if="folders.length === 0" class="index-empty">{{ t('index.empty') }}</p>
-            </template>
-
-            <template v-else-if="indexMode === IndexModeEnum.Tag">
-              <div class="tag-cloud">
-                <el-tag
-                  v-for="tag in tags"
-                  :key="tag.name"
-                  :effect="activeTag === tag.name ? 'dark' : 'plain'"
-                  round
-                  class="tag-chip"
-                  @click="selectTag(tag.name)"
-                >
-                  {{ tag.name }} · {{ tag.count }}
-                </el-tag>
-              </div>
-              <p v-if="tags.length === 0" class="index-empty">{{ t('index.empty') }}</p>
-            </template>
-
-            <template v-else>
-              <button
-                v-for="group in timeGroups"
-                :key="group.key"
-                type="button"
-                class="index-row"
-                :class="{ active: activeTimeGroup === group.key }"
-                @click="selectTimeGroup(group.key)"
-              >
-                <el-icon><Clock /></el-icon>
-                <span class="index-label">{{ t(group.label) }}</span>
-                <span class="side-count">{{ group.count }}</span>
-              </button>
-            </template>
-          </div>
-
-          <div class="sidebar-footer">
-            <span class="phase-dot" />
-            <span>P3 · SQLite</span>
-          </div>
-        </aside>
+        <IndexSidebar
+          :mode="indexMode"
+          :folder-filter="activeFolder"
+          :tag-filter="activeTag"
+          :time-group-filter="activeTimeGroup"
+          :creating="creating"
+          :total="notesStore.total"
+          :phase-label="phaseLabel"
+          @update:mode="handleModeChange"
+          @update:filter="handleFilterChange"
+          @create-note="createNote"
+        />
       </Pane>
 
       <Pane :size="27" :min-size="20" :max-size="40">
-        <section class="notes-pane">
-        <div class="notes-toolbar">
-          <div>
-            <h1>{{ t('notes.title') }}</h1>
-            <p>{{ t('notes.count', { count: filteredNotes.length }) }} · {{ currentFilterLabel }}</p>
-          </div>
-          <el-button type="primary" size="small" :loading="creating" @click="createNote">
-            <el-icon><Plus /></el-icon>
-            {{ t('action.newNote') }}
-          </el-button>
-        </div>
-
-        <el-input v-model="keyword" class="notes-search" :placeholder="t('search.placeholder')" clearable>
-          <template #prefix>
-            <el-icon><Search /></el-icon>
-          </template>
-        </el-input>
-
-        <div v-loading="notesStore.loading" class="note-list">
-          <button
-            v-for="note in filteredNotes"
-            :key="note.id"
-            type="button"
-            class="note-item"
-            :class="{ active: note.id === activeId }"
-            @click="selectNote(note.id)"
-          >
-            <div class="note-item-head">
-              <span class="note-title">{{ note.title }}</span>
-              <el-icon class="note-more"><MoreFilled /></el-icon>
-            </div>
-            <p class="note-excerpt">{{ note.excerpt }}</p>
-            <div class="note-meta">
-              <span>{{ formatNoteDate(note) }}</span>
-              <el-tag size="small" effect="plain">{{ primaryTag(note) }}</el-tag>
-              <span v-if="extraTagCount(note) > 0" class="note-tag-extra">+{{ extraTagCount(note) }}</span>
-            </div>
-          </button>
-
-          <el-empty
-            v-if="!notesStore.loading && filteredNotes.length === 0"
-            :description="notesStore.notes.length === 0 ? t('notes.noNotes') : t('notes.empty')"
-            :image-size="72"
-          />
-        </div>
-        </section>
+        <NoteListPane
+          v-model:keyword="keyword"
+          :notes="filteredNotes"
+          :active-id="activeId"
+          :selected-ids="selectedIds"
+          :loading="notesStore.loading"
+          :creating="creating"
+          :filter-label="currentFilterLabel"
+          :total="notesStore.total"
+          :batch-pending="batchPending"
+          @update:selected="selectedIds = $event"
+          @select="selectNote"
+          @open-menu="openMenu"
+          @create-note="createNote"
+          @batch-move="openBatchMove"
+          @batch-delete="deleteSelected"
+        />
       </Pane>
 
       <Pane :size="55">
-        <main class="editor-pane">
-        <template v-if="activeSummary">
-          <div class="editor-meta">
-            <div class="editor-meta-left">
-              <el-tag type="success" effect="plain" size="small">Muya</el-tag>
-              <span class="editor-meta-title">{{ activeSummary.title }}</span>
-            </div>
-            <div class="editor-meta-right">
-              <span class="editor-meta-note">
-                {{ noteTags(activeSummary).join(' · ') || t('notes.untagged') }} · {{ formatNoteDate(activeSummary) }}
-              </span>
-              <span v-if="saveHint" class="save-hint" :class="{ saving: notesStore.saving }">{{ saveHint }}</span>
-              <el-button text type="danger" size="small" :title="t('action.delete')" @click="deleteActiveNote">
-                <el-icon><Delete /></el-icon>
-              </el-button>
-            </div>
-          </div>
-          <MuyaEditor
-            v-if="activeSummary"
-            v-model="activeContent"
-            :theme="appStore.theme"
-            :plugins="muyaPlugins"
-            class="muya-editor"
-          />
-        </template>
-
-        <el-empty v-else :description="t('editor.emptyHint')">
-          <template #image>
-            <div class="empty-mark">C</div>
-          </template>
-          <p class="empty-title">{{ t('editor.emptyTitle') }}</p>
-        </el-empty>
-
-        <footer class="statusbar">
-          <span class="statusbar-left">
-            <span class="status-dot" :class="statusType" />
-            {{ statusLabel }}
-          </span>
-          <span v-if="appInfo" class="statusbar-right">
-            v{{ appInfo.version }} · Electron {{ appInfo.electron }} · {{ appInfo.platform }}/{{ appInfo.arch }}
-          </span>
-          <span v-else class="statusbar-right">{{ appStore.error || t('status.unavailable') }}</span>
-        </footer>
-        </main>
+        <EditorPane
+          v-model:content="activeContent"
+          :summary="activeSummary"
+          :theme="appStore.theme"
+          :plugins="muyaPlugins"
+          :save-hint="saveHint"
+          :saving="notesStore.saving"
+          :status-label="statusLabel"
+          :status-type="statusType"
+          :status-error="appStore.error"
+          :app-info="appStore.appInfo"
+          @delete="deleteActiveNote"
+        />
       </Pane>
     </Splitpanes>
+
+    <NoteContextMenu
+      :visible="menuVisible"
+      :x="menuX"
+      :y="menuY"
+      @command="handleMenuCommand"
+      @close="closeMenu"
+    />
+
+    <MoveNoteDialog
+      v-model="moveVisible"
+      :current="moveFromCategory"
+      :folders="folderPaths"
+      :pending="metaPending"
+      @confirm="confirmMove"
+    />
+
+    <TagEditorDialog
+      v-model="tagVisible"
+      :value="tagValue"
+      :options="notesStore.tags"
+      :pending="metaPending"
+      @confirm="confirmTags"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import {
-  Clock,
-  Delete,
-  Document,
-  Folder,
-  MoreFilled,
-  Plus,
-  Search,
-  Setting,
-} from '@element-plus/icons-vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { Search, Setting } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
 import { Pane, Splitpanes } from 'splitpanes';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { IndexModeEnum, type IndexMode } from '@shared/enums/app';
 import type { NoteSummary } from '@shared/types/domain';
-import { MuyaEditor } from 'libs-muya';
+import EditorPane from '@/components/EditorPane.vue';
+import IndexSidebar from '@/components/IndexSidebar.vue';
+import MoveNoteDialog from '@/components/MoveNoteDialog.vue';
+import NoteContextMenu from '@/components/NoteContextMenu.vue';
+import NoteListPane from '@/components/NoteListPane.vue';
+import TagEditorDialog from '@/components/TagEditorDialog.vue';
+import { useNoteActions } from '@/composables/useNoteActions';
 import { listNotes } from '@/services/ipc';
 import { useAppStore } from '@/stores/app';
 import { useNotesStore } from '@/stores/notes';
-import { muyaPlugins } from '@/muyaPlugins';
-
-const DAY_MS = 24 * 60 * 60 * 1000;
+import { useLibraryStore } from '@/stores/library';
+import { createMuyaPlugins } from '@/muyaPlugins';
+import { deriveTitle, folderName, noteTags, noteTimeGroup } from '@/utils/note';
 
 const { t } = useI18n();
 const router = useRouter();
 const appStore = useAppStore();
 const notesStore = useNotesStore();
+const libraryStore = useLibraryStore();
+
+// 符文/回响卡片只来自库；空库时插件就装成空卡片，库加载完成会触发重装。
+const muyaPlugins = computed(() => createMuyaPlugins({
+  runes: libraryStore.runes,
+  echoes: libraryStore.echoes,
+}));
+
+const phaseLabel = 'P3 · SQLite';
 
 const keyword = ref('');
 const activeId = ref<number | null>(null);
@@ -242,6 +150,7 @@ const activeContent = ref('');
 const creating = ref(false);
 const lastSavedAt = ref(0);
 const searchResults = ref<NoteSummary[] | null>(null);
+const selectedIds = ref<number[]>([]);
 
 let loadedId: number | null = null;
 let loadedContent = '';
@@ -260,127 +169,6 @@ function readIndexMode(): IndexMode {
 }
 
 const indexMode = ref<IndexMode>(readIndexMode());
-const indexModes = IndexModeEnum.items;
-
-function splitTags(raw: string): string[] {
-  return raw
-    .split(',')
-    .map((tag) => tag.trim())
-    .filter(Boolean);
-}
-
-function noteTags(note: Pick<NoteSummary, 'tags'>): string[] {
-  return splitTags(note.tags);
-}
-
-function primaryTag(note: Pick<NoteSummary, 'tags'>): string {
-  return noteTags(note)[0] ?? t('notes.untagged');
-}
-
-function extraTagCount(note: Pick<NoteSummary, 'tags'>): number {
-  return Math.max(0, noteTags(note).length - 1);
-}
-
-function folderName(category: string): string {
-  const parts = category.split('/').filter(Boolean);
-  return parts.length > 0 ? parts[parts.length - 1] : t('notes.rootFolder');
-}
-
-function startOfToday(): number {
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  return now.getTime();
-}
-
-function noteTimeGroup(note: NoteSummary): 'today' | 'yesterday' | 'week' | 'earlier' {
-  const timestamp = note.updatedAt || note.createdAt;
-  if (!timestamp) {
-    return 'earlier';
-  }
-  const today = startOfToday();
-  if (timestamp >= today) {
-    return 'today';
-  }
-  if (timestamp >= today - DAY_MS) {
-    return 'yesterday';
-  }
-  if (timestamp >= today - 6 * DAY_MS) {
-    return 'week';
-  }
-  return 'earlier';
-}
-
-function pad(value: number): string {
-  return String(value).padStart(2, '0');
-}
-
-function formatNoteDate(note: NoteSummary): string {
-  const timestamp = note.updatedAt || note.createdAt;
-  if (!timestamp) {
-    return '';
-  }
-  const date = new Date(timestamp);
-  const time = `${pad(date.getHours())}:${pad(date.getMinutes())}`;
-  const today = startOfToday();
-  if (timestamp >= today) {
-    return `${t('time.today')} ${time}`;
-  }
-  if (timestamp >= today - DAY_MS) {
-    return `${t('time.yesterday')} ${time}`;
-  }
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
-
-const folders = computed(() => {
-  const counts = new Map<string, number>();
-  for (const note of notesStore.notes) {
-    const category = note.category || '/';
-    counts.set(category, (counts.get(category) ?? 0) + 1);
-  }
-  for (const category of notesStore.categories) {
-    if (!counts.has(category.category) && category.noteCount > 0) {
-      counts.set(category.category, category.noteCount);
-    }
-  }
-
-  return Array.from(counts, ([category, count]) => ({
-    category,
-    name: folderName(category),
-    count,
-  })).sort((left, right) => right.count - left.count || left.name.localeCompare(right.name));
-});
-
-const tags = computed(() => {
-  const counts = new Map<string, number>();
-  for (const note of notesStore.notes) {
-    for (const tag of noteTags(note)) {
-      counts.set(tag, (counts.get(tag) ?? 0) + 1);
-    }
-  }
-  for (const tag of notesStore.tags) {
-    if (!counts.has(tag.name) && tag.noteCount > 0) {
-      counts.set(tag.name, tag.noteCount);
-    }
-  }
-
-  return Array.from(counts, ([name, count]) => ({ name, count })).sort(
-    (left, right) => right.count - left.count || left.name.localeCompare(right.name),
-  );
-});
-
-const timeGroups = computed(() => {
-  const definitions = [
-    { key: 'today', label: 'time.today' },
-    { key: 'yesterday', label: 'time.yesterday' },
-    { key: 'week', label: 'time.week' },
-    { key: 'earlier', label: 'time.earlier' },
-  ] as const;
-
-  return definitions.map((group) => ({
-    ...group,
-    count: notesStore.notes.filter((note) => noteTimeGroup(note) === group.key).length,
-  }));
-});
 
 const filteredNotes = computed(() => {
   const query = keyword.value.trim().toLowerCase();
@@ -404,16 +192,23 @@ const filteredNotes = computed(() => {
 const activeSummary = computed(
   () => notesStore.notes.find((note) => note.id === activeId.value) ?? null,
 );
-const isAllScope = computed(
-  () => !activeFolder.value && !activeTag.value && !activeTimeGroup.value,
+
+const folderPaths = computed(() =>
+  Array.from(new Set(notesStore.notes.map((note) => note.category || '/'))),
 );
 
 const currentFilterLabel = computed(() => {
-  if (activeFolder.value) return folderName(activeFolder.value);
+  if (activeFolder.value) return folderName(activeFolder.value, t('notes.rootFolder'));
   if (activeTag.value) return `#${activeTag.value}`;
   if (activeTimeGroup.value) {
-    const group = timeGroups.value.find((item) => item.key === activeTimeGroup.value);
-    return group ? t(group.label) : t('index.all');
+    const keys: Record<string, string> = {
+      today: 'time.today',
+      yesterday: 'time.yesterday',
+      week: 'time.week',
+      earlier: 'time.earlier',
+    };
+    const label = keys[activeTimeGroup.value];
+    return label ? t(label) : t('index.all');
   }
   return t('index.all');
 });
@@ -425,8 +220,44 @@ const saveHint = computed(() => {
 });
 
 const statusLabel = computed(() => t(appStore.statusLabel));
-const appInfo = computed(() => appStore.appInfo);
 const statusType = computed(() => appStore.statusTagType);
+
+/** 删除/移动后选中下一条可见笔记；列表空了就回到 null。 */
+function nextActiveId(): number | null {
+  return filteredNotes.value[0]?.id ?? null;
+}
+
+const {
+  menuVisible,
+  menuX,
+  menuY,
+  openMenu,
+  closeMenu,
+  handleMenuCommand,
+  moveVisible,
+  moveFromCategory,
+  confirmMove,
+  tagVisible,
+  tagValue,
+  confirmTags,
+  metaPending,
+  batchPending,
+  openBatchMove,
+  deleteSelected,
+  deleteActiveNote,
+} = useNoteActions({
+  activeId,
+  activeSummary,
+  selectedIds,
+  searchResults,
+  folderPaths,
+  flushSave,
+  nextActiveId,
+  getLoadedId: () => loadedId,
+  setLoadedTitle: (title: string) => {
+    loadedTitle = title;
+  },
+});
 
 watch(
   filteredNotes,
@@ -434,14 +265,14 @@ watch(
     if (!list.some((note) => note.id === activeId.value)) {
       activeId.value = list[0]?.id ?? null;
     }
+    const alive = new Set(list.map((note) => note.id));
+    const kept = selectedIds.value.filter((id) => alive.has(id));
+    if (kept.length !== selectedIds.value.length) {
+      selectedIds.value = kept;
+    }
   },
   { immediate: true },
 );
-
-function deriveTitle(markdown: string, fallback: string): string {
-  const heading = markdown.match(/^#\s+(.+)$/m)?.[1]?.trim();
-  return (heading || fallback).slice(0, 300);
-}
 
 async function flushSave(): Promise<void> {
   if (saveTimer) {
@@ -542,37 +373,16 @@ function selectNote(id: number): void {
   activeId.value = id;
 }
 
-function handleModeChange(value: string | number | boolean | undefined): void {
-  if (typeof value !== 'string') {
-    return;
-  }
-  indexMode.value = value as IndexMode;
-  localStorage.setItem('coolma.indexMode', indexMode.value);
-  clearFilters();
+function handleModeChange(mode: IndexMode): void {
+  indexMode.value = mode;
+  localStorage.setItem('coolma.indexMode', mode);
+  handleFilterChange({ folder: '', tag: '', timeGroup: '' });
 }
 
-function clearFilters(): void {
-  activeFolder.value = '';
-  activeTag.value = '';
-  activeTimeGroup.value = '';
-}
-
-function selectFolder(category: string): void {
-  activeFolder.value = activeFolder.value === category ? '' : category;
-  activeTag.value = '';
-  activeTimeGroup.value = '';
-}
-
-function selectTag(name: string): void {
-  activeTag.value = activeTag.value === name ? '' : name;
-  activeFolder.value = '';
-  activeTimeGroup.value = '';
-}
-
-function selectTimeGroup(key: string): void {
-  activeTimeGroup.value = activeTimeGroup.value === key ? '' : key;
-  activeFolder.value = '';
-  activeTag.value = '';
+function handleFilterChange(next: { folder?: string; tag?: string; timeGroup?: string }): void {
+  if (next.folder !== undefined) activeFolder.value = next.folder;
+  if (next.tag !== undefined) activeTag.value = next.tag;
+  if (next.timeGroup !== undefined) activeTimeGroup.value = next.timeGroup;
 }
 
 async function createNote(): Promise<void> {
@@ -600,41 +410,38 @@ async function createNote(): Promise<void> {
   }
 }
 
-async function deleteActiveNote(): Promise<void> {
-  const current = activeSummary.value;
-  if (!current) {
-    return;
-  }
-
-  try {
-    await ElMessageBox.confirm(
-      t('notes.deleteConfirm', { title: current.title }),
-      t('action.delete'),
-      { type: 'warning', confirmButtonText: t('action.delete') },
-    );
-  } catch {
-    return;
-  }
-
-  await flushSave();
-  const deleted = await notesStore.remove(current.id);
-  if (!deleted) {
-    ElMessage.error(notesStore.error || t('notes.deleteFailed'));
-    return;
-  }
-
-  ElMessage.success(t('notes.deleteSuccess'));
-  if (searchResults.value) {
-    searchResults.value = searchResults.value.filter((note) => note.id !== current.id);
-  }
-  activeId.value = filteredNotes.value[0]?.id ?? null;
-}
-
 function openSettings(): void {
   void router.push('/settings');
 }
 
+/**
+ * 本地快捷键：与 vue2 的键盘习惯对齐。
+ * Ctrl/Cmd+N 新建、Ctrl/Cmd+F 聚焦搜索、Ctrl/Cmd+S 立即保存。
+ */
+function handleShortcut(event: KeyboardEvent): void {
+  if (!(event.ctrlKey || event.metaKey) || event.altKey) {
+    return;
+  }
+
+  const key = event.key.toLowerCase();
+  if (key === 'n') {
+    event.preventDefault();
+    void createNote();
+    return;
+  }
+  if (key === 'f') {
+    event.preventDefault();
+    document.querySelector<HTMLInputElement>('.topbar-search input')?.focus();
+    return;
+  }
+  if (key === 's') {
+    event.preventDefault();
+    void flushSave();
+  }
+}
+
 onMounted(async () => {
+  window.addEventListener('keydown', handleShortcut);
   void appStore.init();
   const loaded = await notesStore.loadAll();
   if (!loaded) {
@@ -643,6 +450,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleShortcut);
   if (saveTimer) {
     clearTimeout(saveTimer);
     saveTimer = undefined;

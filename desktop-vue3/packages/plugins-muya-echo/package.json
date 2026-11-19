@@ -8,6 +8,9 @@
     ".": "./src/index.ts"
   },
   "peerDependencies": {
-    "libs-muya": "workspace:*"
+    "libs-muya-v3": "workspace:*"
+  },
+  "dependencies": {
+    "echo-core": "link:../../../echo-core"
   }
 }

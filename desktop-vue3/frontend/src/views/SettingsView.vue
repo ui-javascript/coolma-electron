@@ -79,6 +79,78 @@
           {{ t('settings.dbOpenFolder') }}
         </el-button>
       </div>
+
+      <div v-if="syncSummary" class="sync-queue">
+        <div class="integrity-head">
+          <span>{{ t('settings.syncQueue') }}</span>
+          <el-tag :type="syncSummary.total > 0 ? 'warning' : 'success'" effect="light" size="small">
+            {{ syncSummary.total }}
+          </el-tag>
+        </div>
+        <p class="integrity-meta">
+          {{
+            t('settings.syncQueueDetail', {
+              create: syncSummary.create,
+              update: syncSummary.update,
+              delete: syncSummary.delete,
+            })
+          }}
+        </p>
+      </div>
+    </el-card>
+
+    <el-card class="settings-card" shadow="never">
+      <template #header>
+        <div class="card-heading">
+          <span>{{ t('settings.integrity') }}</span>
+          <el-button text size="small" :loading="integrityBusy" @click="runCheck">
+            {{ t('settings.integrityRun') }}
+          </el-button>
+        </div>
+      </template>
+
+      <el-alert
+        v-if="!integrity"
+        type="info"
+        :closable="false"
+        show-icon
+        :title="t('settings.integrityHint')"
+      />
+
+      <template v-else>
+        <div class="integrity-summary">
+          <el-tag :type="integrity.healthy ? 'success' : 'warning'" effect="light" size="small">
+            {{
+              integrity.healthy
+                ? t('settings.integrityHealthy')
+                : t('settings.integrityIssues', { count: issueCount })
+            }}
+          </el-tag>
+          <span class="integrity-meta">
+            {{
+              t('settings.integrityStats', {
+                notes: integrity.notes,
+                tags: integrity.tags,
+                links: integrity.noteTagLinks,
+                pending: integrity.pendingSync,
+              })
+            }}
+          </span>
+        </div>
+
+        <ul v-if="integrity.issues.length > 0" class="integrity-list">
+          <li v-for="issue in integrity.issues" :key="issue.kind">
+            <div class="integrity-head">
+              <span>{{ issue.label }}</span>
+              <el-tag size="small" effect="plain">{{ issue.count }}</el-tag>
+            </div>
+            <ul class="integrity-samples">
+              <li v-for="sample in issue.samples" :key="sample">{{ sample }}</li>
+            </ul>
+          </li>
+        </ul>
+        <p v-else class="integrity-meta">{{ t('settings.integrityEmpty') }}</p>
+      </template>
     </el-card>
 
     <el-card class="settings-card" shadow="never">
@@ -128,14 +200,20 @@ import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { AppLocaleEnum, AppThemeEnum, BootStatusEnum } from '@shared/enums/app';
-import type { DatabaseStatus } from '@shared/types/domain';
+import type {
+  DatabaseStatus,
+  IntegrityReport,
+  PendingSyncSummary,
+} from '@shared/types/domain';
 import { useAppStore, type AppTheme } from '@/stores/app';
 import type { AppLocale } from '@/i18n';
 import {
   backupDatabase,
   getDatabaseStatus,
   importLegacyDatabase,
+  getPendingSync,
   openDatabaseFolder,
+  runDiagnostics,
 } from '@/services/ipc';
 
 const { t } = useI18n();
@@ -149,6 +227,13 @@ const localeOptions = AppLocaleEnum.items;
 const dbStatus = ref<DatabaseStatus | null>(null);
 const dbLoading = ref(false);
 const dbBusy = ref(false);
+
+const syncSummary = ref<PendingSyncSummary | null>(null);
+const integrity = ref<IntegrityReport | null>(null);
+const integrityBusy = ref(false);
+const issueCount = computed(() =>
+  (integrity.value?.issues ?? []).reduce((sum, issue) => sum + issue.count, 0),
+);
 
 const theme = computed<AppTheme>({
   get: () => appStore.theme,
@@ -178,10 +263,16 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
+async function loadSyncQueue(): Promise<void> {
+  const result = await getPendingSync();
+  syncSummary.value = result.ok ? result.data.summary : null;
+}
+
 async function loadDbStatus(): Promise<void> {
   dbLoading.value = true;
   const result = await getDatabaseStatus();
   dbLoading.value = false;
+  void loadSyncQueue();
   if (result.ok) {
     dbStatus.value = result.data;
   } else {
@@ -216,6 +307,17 @@ async function handleBackup(): Promise<void> {
 
   if (result.ok) {
     ElMessage.success(t('settings.dbBackupSuccess', { path: result.data.path }));
+  } else {
+    ElMessage.error(result.error.message);
+  }
+}
+
+async function runCheck(): Promise<void> {
+  integrityBusy.value = true;
+  const result = await runDiagnostics();
+  integrityBusy.value = false;
+  if (result.ok) {
+    integrity.value = result.data;
   } else {
     ElMessage.error(result.error.message);
   }

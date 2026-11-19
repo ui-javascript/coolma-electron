@@ -1,5 +1,6 @@
 import type { CategoryRecord } from '../../shared/types/domain';
 import { getDatabase } from './database';
+import { normalizeCategory } from './notes-repository';
 
 interface CategoryRow {
   category: string;
@@ -42,10 +43,12 @@ export const categoriesRepository = {
   }): CategoryRecord {
     const db = getDatabase();
     const now = Date.now();
-    const category = input.category.trim();
-    if (!category) {
+    const category = normalizeCategory(input.category);
+    if (!category || category === '/') {
       throw new Error('Category is required');
     }
+    // 父路径由规范化后的 category 推导，避免调用方传入不一致的 parent。
+    const parent = input.parent !== undefined ? normalizeCategory(input.parent) : parentOf(category);
 
     db.prepare(
       `INSERT INTO local_categories (category, parent, kb_guid, local_only, created_at, updated_at)
@@ -57,24 +60,53 @@ export const categoriesRepository = {
          updated_at = excluded.updated_at`,
     ).run(
       category,
-      input.parent?.trim() ?? '',
+      parent,
       input.kbGuid ?? '',
       input.localOnly ? 1 : 0,
       now,
       now,
     );
 
+    const noteCount = this.countNotes(category);
+
     return {
       category,
-      parent: input.parent?.trim() ?? '',
+      parent,
       kbGuid: input.kbGuid ?? '',
       localOnly: input.localOnly ? 1 : 0,
-      noteCount: 0,
+      noteCount,
     };
   },
 
+  /** 该 category 下真实笔记数量；控制器据此拒绝删除非空文件夹。 */
+  countNotes(category: string): number {
+    const row = getDatabase()
+      .prepare('SELECT COUNT(*) AS count FROM notes WHERE category = ?')
+      .get(normalizeCategory(category)) as { count: number };
+    return Number(row.count) || 0;
+  },
+
   remove(category: string): boolean {
-    const info = getDatabase().prepare('DELETE FROM local_categories WHERE category = ?').run(category);
+    const normalized = normalizeCategory(category);
+    if (normalized === '/') {
+      return false;
+    }
+    const info = getDatabase()
+      .prepare('DELETE FROM local_categories WHERE category = ?')
+      .run(normalized);
     return info.changes > 0;
   },
+
+  /** 父目录；根目录下的一级文件夹父路径为 '/'。 */
+  parentOf(category: string): string {
+    return parentOf(normalizeCategory(category));
+  },
 };
+
+function parentOf(category: string): string {
+  const parts = category.split('/').filter(Boolean);
+  if (parts.length <= 1) {
+    return '/';
+  }
+  return `/${parts.slice(0, -1).join('/')}`;
+}

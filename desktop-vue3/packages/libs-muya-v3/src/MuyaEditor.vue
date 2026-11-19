@@ -42,6 +42,28 @@ function applyReadonly(): void {
   editable?.setAttribute('contenteditable', props.readonly ? 'false' : 'true');
 }
 
+function disposePlugins(): void {
+  for (const dispose of pluginDisposers.splice(0)) {
+    try {
+      dispose();
+    } catch (error) {
+      console.warn('[libs-muya] plugin dispose failed:', error);
+    }
+  }
+}
+
+function installPlugins(instance: Muya): void {
+  if (!host.value) {
+    return;
+  }
+  for (const plugin of props.plugins ?? []) {
+    const dispose = plugin.install({ editor: instance, container: host.value });
+    if (typeof dispose === 'function') {
+      pluginDisposers.push(dispose);
+    }
+  }
+}
+
 onMounted(() => {
   if (!host.value) {
     return;
@@ -71,12 +93,7 @@ onMounted(() => {
     emit('selectionChange', payload);
   });
 
-  for (const plugin of props.plugins) {
-    const dispose = plugin.install({ editor: instance, container: host.value });
-    if (typeof dispose === 'function') {
-      pluginDisposers.push(dispose);
-    }
-  }
+  installPlugins(instance);
 
   applyReadonly();
   emit('ready', instance);
@@ -104,14 +121,22 @@ watch(
   () => applyReadonly(),
 );
 
-onBeforeUnmount(() => {
-  for (const dispose of pluginDisposers.splice(0)) {
-    try {
-      dispose();
-    } catch (error) {
-      console.warn('[libs-muya] plugin dispose failed:', error);
+// 插件依赖的数据（符文/回响卡片）是异步从库里读的，挂载时可能还是空的。
+// props.plugins 一变就整体重装：先 dispose 旧实例，再装新的，编辑器本身不重建。
+watch(
+  () => props.plugins,
+  () => {
+    if (!editor) {
+      return;
     }
-  }
+    disposePlugins();
+    installPlugins(editor);
+    applyReadonly();
+  },
+);
+
+onBeforeUnmount(() => {
+  disposePlugins();
   try {
     editor?.destroy();
   } catch (error) {

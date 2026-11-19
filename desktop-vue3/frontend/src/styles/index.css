@@ -390,6 +390,49 @@ button {
   gap: 12px;
 }
 
+.notes-toolbar-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.select-all {
+  margin-top: 2px;
+  height: 22px;
+}
+
+.select-all .el-checkbox__label {
+  display: none;
+}
+
+.batch-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 7px 10px;
+  border: 1px solid color-mix(in srgb, var(--coolma-primary) 18%, transparent);
+  border-radius: 9px;
+  background: var(--coolma-primary-soft);
+}
+
+.batch-count {
+  color: var(--coolma-primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.batch-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.batch-actions .el-button + .el-button {
+  margin-left: 0;
+}
+
 .notes-toolbar h1 {
   margin: 0;
   font-size: 18px;
@@ -442,6 +485,20 @@ button {
   background: var(--coolma-primary-soft);
 }
 
+.note-item.selected {
+  border-color: color-mix(in srgb, var(--coolma-primary) 32%, transparent);
+  background: color-mix(in srgb, var(--coolma-primary-soft) 70%, transparent);
+}
+
+.note-check {
+  height: 16px;
+  margin-right: 2px;
+}
+
+.note-check .el-checkbox__label {
+  display: none;
+}
+
 .note-item-head {
   display: flex;
   align-items: center;
@@ -458,14 +515,88 @@ button {
 }
 
 .note-more {
+  display: inline-flex;
   flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
   color: var(--coolma-muted);
+  cursor: pointer;
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.note-more:hover {
+  background: var(--coolma-hover);
+  color: var(--coolma-primary);
 }
 
 .note-item:hover .note-more,
 .note-item.active .note-more {
+  opacity: 1;
+}
+
+.index-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 6px 4px;
+}
+
+.index-toolbar .el-button {
+  height: 24px;
+  padding: 0 6px;
+  color: var(--coolma-muted);
+  font-size: 11px;
+}
+
+.index-toolbar .el-button:hover {
+  color: var(--coolma-primary);
+}
+
+.index-row-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-top: 2px;
+}
+
+.index-row-wrap .index-row {
+  margin-top: 0;
+  padding-right: 26px;
+}
+
+.index-delete {
+  position: absolute;
+  right: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--coolma-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.index-delete:hover {
+  background: var(--coolma-hover);
+  color: #f56c6c;
+}
+
+.index-row-wrap:hover .index-delete {
   opacity: 1;
 }
 
@@ -832,3 +963,42 @@ button {
     display: none;
   }
 }
+
+/* 数据体检卡片 */
+.integrity-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.integrity-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.integrity-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.integrity-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.integrity-samples {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+  color: var(--muted);
+}
+

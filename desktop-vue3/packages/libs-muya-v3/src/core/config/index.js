@@ -244,6 +244,9 @@ export const EXPORT_DOMPURIFY_CONFIG = {
 
 export const MUYA_DEFAULT_OPTION = {
   fontSize: 16,
+  // @ 快捷面板的类型处理器注册表：{ [meta.type]: (item, context) => void }。
+  // 引擎只保留「定位插入点 + 调用处理器」，具体领域语义（符文/回响/笔记引用）由调用方注入。
+  quickInsertTypes: {},
   lineHeight: 1.6,
   focusMode: false,
   markdown: '',

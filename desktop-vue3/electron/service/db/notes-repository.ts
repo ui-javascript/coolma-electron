@@ -6,6 +6,7 @@ import type {
   NoteSummary,
 } from '../../shared/types/domain';
 import { getDatabase } from './database';
+import { syncLogRepository } from './sync-log-repository';
 
 interface NoteRow {
   id: number;
@@ -45,6 +46,58 @@ export interface UpdateNoteInput {
   category?: string;
   tags?: string;
   dirty?: number;
+}
+
+/** 根目录的几种历史写法，全部归一到 `'/'`，避免同一层级被拆成多个文件夹。 */
+const ROOT_CATEGORY_ALIASES = new Set(['', '/', 'OFFLINE_ROOT_CATEGORY', '/我的笔记/', '/My Notes/']);
+
+export function normalizeCategory(category?: string | null): string {
+  const raw = String(category ?? '').trim();
+  if (!raw || ROOT_CATEGORY_ALIASES.has(raw)) {
+    return '/';
+  }
+  const withPrefix = raw.startsWith('/') ? raw : `/${raw}`;
+  const trimmed = withPrefix.replace(/\/+$/g, '');
+  return trimmed || '/';
+}
+
+export function normalizeTitle(title?: string | null): string {
+  const normalized = String(title ?? '')
+    .replace(/\u00a0/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return normalized || 'Untitled';
+}
+
+/**
+ * 与 vue2 的 `generateUniqueNoteTitleInCategory` 对齐：
+ * 同类目下若已存在同名标题，追加 ` (2)`、` (3)`，并保留扩展名。
+ * 旧库上的唯一索引会直接抛 SQLITE_CONSTRAINT，这里提前收敛掉。
+ */
+export function generateUniqueTitle(category: string, baseTitle: string, excludeId?: number): string {
+  const title = normalizeTitle(baseTitle);
+  const rows = getDatabase()
+    .prepare('SELECT id, title FROM notes WHERE category = ?')
+    .all(category) as Array<{ id: number; title: string }>;
+
+  const taken = new Set(
+    rows
+      .filter((row) => row.id !== excludeId)
+      .map((row) => normalizeTitle(row.title).toLowerCase()),
+  );
+
+  if (!taken.has(title.toLowerCase())) {
+    return title;
+  }
+
+  let counter = 2;
+  const lastDot = title.lastIndexOf('.');
+  const base = lastDot > 0 ? title.slice(0, lastDot) : title;
+  const ext = lastDot > 0 ? title.slice(lastDot) : '';
+  while (taken.has(`${base} (${counter})${ext}`.toLowerCase())) {
+    counter += 1;
+  }
+  return `${base} (${counter})${ext}`;
 }
 
 function excerptOf(content: string): string {
@@ -99,6 +152,10 @@ function replaceNoteTags(noteId: number, rawTags: string | undefined): void {
   const tags = splitTags(rawTags);
   db.prepare('DELETE FROM note_tags WHERE note_id = ?').run(noteId);
 
+  if (tags.length === 0) {
+    return;
+  }
+
   const insertTag = db.prepare('INSERT OR IGNORE INTO tags (name, color, created_at) VALUES (?, ?, ?)');
   const findTag = db.prepare('SELECT id FROM tags WHERE name = ?');
   const attach = db.prepare('INSERT OR IGNORE INTO note_tags (note_id, tag_id) VALUES (?, ?)');
@@ -112,19 +169,23 @@ function replaceNoteTags(noteId: number, rawTags: string | undefined): void {
   }
 }
 
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
 function buildWhere(input: ListNotesInput): { sql: string; params: unknown[] } {
   const clauses: string[] = [];
   const params: unknown[] = [];
 
   if (input.query?.trim()) {
-    const like = `%${input.query.trim()}%`;
-    clauses.push('(n.title LIKE ? OR n.content LIKE ?)');
+    const like = `%${escapeLike(input.query.trim())}%`;
+    clauses.push("(n.title LIKE ? ESCAPE '\\' OR n.content LIKE ? ESCAPE '\\')");
     params.push(like, like);
   }
 
   if (input.category) {
     clauses.push('n.category = ?');
-    params.push(input.category);
+    params.push(normalizeCategory(input.category));
   }
 
   if (input.tag) {
@@ -177,23 +238,31 @@ export const notesRepository = {
   create(input: CreateNoteInput = {}): NoteRecord {
     const db = getDatabase();
     const now = Date.now();
-    const title = input.title?.trim() || 'Untitled';
+    const category = normalizeCategory(input.category);
+    const title = generateUniqueTitle(category, input.title ?? 'Untitled');
     const content = input.content ?? '';
-    const category = input.category?.trim() || '/';
     const tags = splitTags(input.tags).join(',');
 
-    const info = db
-      .prepare(
-        `INSERT INTO notes (
-           doc_guid, kb_guid, title, content, category, tags,
-           data_created, data_modified, local_modified, server_modified,
-           created_at, updated_at, dirty
-         ) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, 1)`,
-      )
-      .run(`local_${randomUUID()}`, title, content, category, tags, now, now, now, now, now);
+    const docGuid = `local_${randomUUID()}`;
 
-    const id = Number(info.lastInsertRowid);
-    replaceNoteTags(id, tags);
+    const write = db.transaction(() => {
+      const info = db
+        .prepare(
+          `INSERT INTO notes (
+             doc_guid, kb_guid, title, content, category, tags,
+             data_created, data_modified, local_modified, server_modified,
+             created_at, updated_at, dirty
+           ) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, 1)`,
+        )
+        .run(docGuid, title, content, category, tags, now, now, now, now, now);
+
+      const id = Number(info.lastInsertRowid);
+      replaceNoteTags(id, tags);
+      syncLogRepository.record({ noteId: id, action: 'create', docGuid, kbGuid: null });
+      return id;
+    });
+
+    const id = write();
     return this.get(id) as NoteRecord;
   },
 
@@ -211,9 +280,13 @@ export const notesRepository = {
       params.push(value);
     };
 
-    if (input.title !== undefined) set('title', input.title.trim() || 'Untitled');
+    const category = input.category !== undefined ? normalizeCategory(input.category) : current.category;
+
+    if (input.title !== undefined) {
+      set('title', generateUniqueTitle(category, input.title, id));
+    }
     if (input.content !== undefined) set('content', input.content);
-    if (input.category !== undefined) set('category', input.category.trim() || '/');
+    if (input.category !== undefined) set('category', category);
     if (input.tags !== undefined) set('tags', splitTags(input.tags).join(','));
     if (input.dirty !== undefined) set('dirty', input.dirty ? 1 : 0);
 
@@ -224,17 +297,53 @@ export const notesRepository = {
       set('dirty', 1);
     }
 
-    db.prepare(`UPDATE notes SET ${fields.join(', ')} WHERE id = ?`).run(...params, id);
-    if (input.tags !== undefined) {
-      replaceNoteTags(id, input.tags);
-    }
+    const nextDirty = input.dirty === undefined ? 1 : input.dirty ? 1 : 0;
 
+    const write = db.transaction(() => {
+      db.prepare(`UPDATE notes SET ${fields.join(', ')} WHERE id = ?`).run(...params, id);
+      if (input.tags !== undefined) {
+        replaceNoteTags(id, input.tags);
+      }
+      // dirty=0 表示调用方已确认服务端一致（如导入/回填），不应再进队列。
+      if (nextDirty === 1) {
+        syncLogRepository.record({
+          noteId: id,
+          action: 'update',
+          docGuid: current.docGuid,
+          kbGuid: current.kbGuid,
+        });
+      }
+    });
+
+    write();
     return this.get(id);
   },
 
   remove(id: number): boolean {
-    const info = getDatabase().prepare('DELETE FROM notes WHERE id = ?').run(id);
-    return info.changes > 0;
+    const db = getDatabase();
+    const snapshot = this.get(id);
+    if (!snapshot) {
+      return false;
+    }
+    // 从未同步过的本地笔记（local_ 前缀）服务端根本不存在，删除不需要通知服务端。
+    const needsRemoteDelete = Boolean(snapshot.docGuid) && !snapshot.docGuid!.startsWith('local_');
+
+    const remove = db.transaction(() => {
+      // 外键已是 ON DELETE CASCADE，这里显式清一次作为兜底（旧库可能没有开外键）。
+      db.prepare('DELETE FROM note_tags WHERE note_id = ?').run(id);
+      const removed = db.prepare('DELETE FROM notes WHERE id = ?').run(id).changes > 0;
+      if (removed && needsRemoteDelete) {
+        // note_id 必须为 NULL：CASCADE 会连同日志一起删掉，删除事件只能靠 doc_guid 定位。
+        syncLogRepository.record({
+          noteId: null,
+          action: 'delete',
+          docGuid: snapshot.docGuid,
+          kbGuid: snapshot.kbGuid,
+        });
+      }
+      return removed;
+    });
+    return remove();
   },
 
   stats(): NoteStats {

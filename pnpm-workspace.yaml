@@ -1,13 +1,27 @@
 packages:
+  # 单一 workspace：desktop-vue3 只是子包，它的 frontend 与 packages/* 在根显式登记，
+  # 否则根 install 会把整个目录当成单个项目重排，削掉 frontend/node_modules（实测 -824）。
   - desktop-vue3
+  - desktop-vue3/frontend
+  - desktop-vue3/packages/*
   # desktop-vue2 uses its own Yarn lockfile.
   - libs-muya
+  - echo-core
+  - rune-core
   - demo-vue2-vite-muya
   - tpl-vuepress1-voding-muya
   - tpl-vitepress1-teek-muya
 
 # Keep a flat node_modules layout for the pnpm workspace.
 nodeLinker: hoisted
+
+# 原 desktop-vue3/pnpm-workspace.yaml 的设置，迁移到唯一的根配置。
+onlyBuiltDependencies:
+  - electron
+  - esbuild
+
+ignoredBuiltDependencies:
+  - better-sqlite3
 
 overrides:
   '@types/minimatch': 5.1.2

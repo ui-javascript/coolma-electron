@@ -1,0 +1,13 @@
+{
+  "name": "echo-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Echo 卡片纯逻辑：快捷面板 item、占位文本、插入处理器（零框架依赖）",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src"
+  ]
+}

@@ -39,6 +39,16 @@ export const IPC_CHANNELS = {
     set: 'controller/settings/set',
     remove: 'controller/settings/remove',
   },
+  diagnostics: {
+    run: 'controller/diagnostics/run',
+  },
+  sync: {
+    pending: 'controller/sync/pending',
+  },
+  library: {
+    runes: 'controller/library/runes',
+    echoes: 'controller/library/echoes',
+  },
   database: {
     status: 'controller/database/status',
     importLegacy: 'controller/database/importLegacy',
@@ -73,6 +83,10 @@ export const INVOKE_CHANNELS = new Set<string>([
   IPC_CHANNELS.database.importLegacy,
   IPC_CHANNELS.database.backup,
   IPC_CHANNELS.database.openFolder,
+  IPC_CHANNELS.diagnostics.run,
+  IPC_CHANNELS.sync.pending,
+  IPC_CHANNELS.library.runes,
+  IPC_CHANNELS.library.echoes,
 ]);
 
 /**

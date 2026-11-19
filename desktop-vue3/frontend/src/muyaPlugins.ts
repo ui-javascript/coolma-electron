@@ -1,20 +1,21 @@
 import { createEchoPlugin } from 'plugins-muya-echo';
 import { createRunePlugin } from 'plugins-muya-rune';
+import type { EchoCard, RuneCard } from '@shared/types/domain';
 
-export const muyaPlugins = [
-  createEchoPlugin({
-    cards: [{
-      id: 'demo-echo',
-      name: 'demo',
-      type: 'echo',
-      anno_source: 'export default { type: "echo", render (props = {}) { return "<span class=\"coolma-echo-demo\">" + String(props.value || props.prompt || "demo") + "</span>" } }',
-    }],
-  }),
-  createRunePlugin({
-    cards: [{
-      id: 'demo-rune',
-      name: 'counter',
-      template: '<template><button class="coolma-rune-demo" type="button" @click="increment">{{ value || 0 }}</button></template><script>export default { props: { value: { default: 0 }, onValueChange: { default: null } }, methods: { increment () { if (this.onValueChange) this.onValueChange({ value: Number(this.value || 0) + 1 }) } } }</script>',
-    }],
-  }),
-];
+export interface MuyaPluginSource {
+  runes: RuneCard[];
+  echoes: EchoCard[];
+}
+
+/**
+ * 由库数据（SQLite）构造 Muya 插件。
+ *
+ * 这里不再有任何硬编码 demo 卡片：符文/回响的来源只有库，
+ * 数据异步就绪后 MuyaEditor 会重装插件（见 libs-muya-v3/src/MuyaEditor.vue 的 watch）。
+ */
+export function createMuyaPlugins(source: MuyaPluginSource): unknown[] {
+  return [
+    createEchoPlugin({ cards: source.echoes as never }),
+    createRunePlugin({ cards: source.runes as never }),
+  ];
+}

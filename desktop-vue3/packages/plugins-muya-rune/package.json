@@ -8,10 +8,11 @@
     ".": "./src/index.ts"
   },
   "peerDependencies": {
-    "libs-muya": "workspace:*",
-    "vue": "^3.5.0"
+    "vue": "^3.5.0",
+    "libs-muya-v3": "workspace:*"
   },
   "dependencies": {
-    "@vue/compiler-dom": "^3.5.45"
+    "@vue/compiler-dom": "^3.5.45",
+    "rune-core": "link:../../../rune-core"
   }
 }

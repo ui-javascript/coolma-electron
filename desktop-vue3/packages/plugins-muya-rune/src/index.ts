@@ -1,4 +1,4 @@
-import { defineMuyaPlugin, extendQuickInsertProvider, type MuyaPlugin } from 'libs-muya';
+import { defineMuyaPlugin, type MuyaPlugin } from 'libs-muya-v3';
 import { createRuneRendererCtor } from './runeRenderer';
 
 export interface RuneCard {
@@ -24,13 +24,8 @@ export function createRunePlugin(options: RunePluginOptions = {}): MuyaPlugin {
       runtimeEditor.options.runeRendererCtor = createRuneRendererCtor;
       runtimeEditor.options.enableRuneVueRenderer = true;
       runtimeEditor.options.memocastMuya = runtimeEditor;
-      extendQuickInsertProvider(editor, (context) => {
-        const items = (cards as RuneCard[])
-          .filter((card: RuneCard) => card && (card.name || card.id))
-          .map((card: RuneCard) => context.createRuneItem(card));
-        const section = 'Rune / 符文';
-        return { sectionName: section, items: { [section]: items } };
-      });
+      // 快捷面板的数据源由应用侧统一提供（它读库），插件只负责渲染与解析，
+      // 不再自己往 quickInsertProvider 里塞一份，否则面板会出现重复分组。
       if (typeof runtimeEditor.updateRunePlaceholderValue !== 'function') {
         runtimeEditor.updateRunePlaceholderValue = ({ nodeId = '', value = '' }: { nodeId?: string; value?: unknown } = {}) => {
           const target = String(nodeId || '').trim();

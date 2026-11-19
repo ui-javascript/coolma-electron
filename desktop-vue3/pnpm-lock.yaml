@@ -166,6 +166,9 @@ importers:
 
   packages/plugins-muya-echo:
     dependencies:
+      echo-core:
+        specifier: link:../../../echo-core
+        version: link:../../../echo-core
       libs-muya:
         specifier: workspace:*
         version: link:../libs-muya
@@ -178,6 +181,9 @@ importers:
       libs-muya:
         specifier: workspace:*
         version: link:../libs-muya
+      rune-core:
+        specifier: link:../../../rune-core
+        version: link:../../../rune-core
       vue:
         specifier: ^3.5.0
         version: 3.5.45(typescript@5.9.3)

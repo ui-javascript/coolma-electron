@@ -241,7 +241,81 @@ const migration1: Migration = {
   },
 };
 
-export const MIGRATIONS: readonly Migration[] = [migration1];
+const migration2: Migration = {
+  version: 2,
+  name: 'query-performance-indexes',
+  up(db) {
+    // 列表默认按 updated_at 倒序，标签筛选走 note_tags.tag_id，同步队列按 synced 扫描。
+    // 这些都是纯索引补充，可重复执行，不改变任何列定义。
+    for (const sql of [
+      `CREATE INDEX IF NOT EXISTS idx_notes_updated_at ON notes(updated_at)`,
+      `CREATE INDEX IF NOT EXISTS idx_notes_created_at ON notes(created_at)`,
+      `CREATE INDEX IF NOT EXISTS idx_notes_title ON notes(title)`,
+      `CREATE INDEX IF NOT EXISTS idx_note_tags_tag ON note_tags(tag_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_sync_log_synced ON sync_log(synced)`,
+      `CREATE INDEX IF NOT EXISTS idx_sync_log_note ON sync_log(note_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_tags_name_lower ON tags(LOWER(name))`,
+    ]) {
+      try {
+        db.exec(sql);
+      } catch (error) {
+        console.warn('[db] index creation skipped:', sql, error instanceof Error ? error.message : error);
+      }
+    }
+  },
+};
+
+const BUILTIN_RUNE_TEMPLATE = `<template><button class="coolma-rune-counter" type="button" @click="increment">{{ value || 0 }}</button></template><script>export default { props: { value: { default: 0 }, onValueChange: { default: null } }, methods: { increment () { if (this.onValueChange) this.onValueChange({ value: Number(this.value || 0) + 1 }) } } }</script>`;
+
+const BUILTIN_ECHO_SOURCE = `export default { type: "echo", render (props = {}) { return "<span class=\\"coolma-echo-demo\\">" + String(props.value || props.prompt || "demo") + "</span>" } }`;
+
+const migration3: Migration = {
+  version: 3,
+  name: 'seed-builtin-runes-and-echoes',
+  up(db) {
+    // 只在表为空时播种，避免覆盖用户已有的卡片（旧库导入后这里会跳过）。
+    const now = Date.now();
+    try {
+      db.prepare(
+        `INSERT INTO runes (id, name, "desc", color, icon, template, category, sort_order, inherit_from_previous, created_at, updated_at)
+         SELECT ?, ?, ?, ?, ?, ?, 'general', 0, 0, ?, ?
+          WHERE NOT EXISTS (SELECT 1 FROM runes)`,
+      ).run(
+        'builtin-rune-counter',
+        'counter',
+        '点击即加一的示例符文',
+        '#7E57C2',
+        'auto_awesome',
+        BUILTIN_RUNE_TEMPLATE,
+        now,
+        now,
+      );
+    } catch (error) {
+      console.warn('[db] seed rune skipped:', error instanceof Error ? error.message : error);
+    }
+
+    try {
+      db.prepare(
+        `INSERT INTO echoes (id, name, "desc", color, icon, anno_source, render_type, category, sort_order, created_at, updated_at)
+         SELECT ?, ?, ?, ?, ?, ?, 'anno', 'marker', 0, ?, ?
+          WHERE NOT EXISTS (SELECT 1 FROM echoes)`,
+      ).run(
+        'builtin-echo-demo',
+        'demo',
+        '最小可用的回响示例',
+        '#26A69A',
+        'graphic_eq',
+        BUILTIN_ECHO_SOURCE,
+        now,
+        now,
+      );
+    } catch (error) {
+      console.warn('[db] seed echo skipped:', error instanceof Error ? error.message : error);
+    }
+  },
+};
+
+export const MIGRATIONS: readonly Migration[] = [migration1, migration2, migration3];
 
 export function runMigrations(db: DB): number {
   db.exec(`

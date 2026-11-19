@@ -1,0 +1,13 @@
+{
+  "name": "rune-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Rune 卡片纯逻辑：快捷面板 item、SFC props 解析（零框架依赖）",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src"
+  ]
+}

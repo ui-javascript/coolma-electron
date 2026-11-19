@@ -33,10 +33,12 @@ export default defineConfig(({ mode }) => {
       alias: {
         '@': path.resolve(__dirname, 'src'),
         '@shared': path.resolve(__dirname, '../electron/shared'),
+        'echo-core': path.resolve(__dirname, '../../echo-core/src'),
+        'rune-core': path.resolve(__dirname, '../../rune-core/src'),
       },
     },
     optimizeDeps: {
-      exclude: ['libs-muya'],
+      exclude: ['libs-muya-v3'],
     },
     server: {
       host: devHost,
