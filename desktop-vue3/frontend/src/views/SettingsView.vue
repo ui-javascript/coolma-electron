@@ -74,10 +74,45 @@
           <el-icon><Download /></el-icon>
           {{ t('settings.dbBackup') }}
         </el-button>
+        <el-button :disabled="dbBusy" @click="handleRestorePick">
+          <el-icon><RefreshLeft /></el-icon>
+          {{ t('settings.dbRestore') }}
+        </el-button>
         <el-button text @click="handleOpenFolder">
           <el-icon><FolderOpened /></el-icon>
           {{ t('settings.dbOpenFolder') }}
         </el-button>
+      </div>
+
+      <div class="backup-list">
+        <div class="integrity-head">
+          <span>{{ t('settings.dbBackupList') }}</span>
+          <el-button text size="small" :loading="backupBusy" @click="loadBackups">
+            {{ t('settings.dbBackupRefresh') }}
+          </el-button>
+        </div>
+        <el-table v-if="backups.length > 0" :data="backups" size="small" class="backup-table">
+          <el-table-column prop="name" :label="t('settings.dbBackupName')" min-width="220" />
+          <el-table-column :label="t('settings.dbBackupSize')" width="110">
+            <template #default="{ row }">{{ formatBytes(row.sizeBytes) }}</template>
+          </el-table-column>
+          <el-table-column :label="t('settings.dbBackupTime')" width="180">
+            <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
+          </el-table-column>
+          <el-table-column :label="t('settings.dbBackupKind')" width="110">
+            <template #default="{ row }">
+              <el-tag size="small" effect="plain">{{ row.kind }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column width="90" align="right">
+            <template #default="{ row }">
+              <el-button text size="small" type="warning" :disabled="dbBusy" @click="handleRestoreRow(row)">
+                {{ t('settings.dbRestore') }}
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <p v-else class="integrity-meta">{{ t('settings.dbBackupEmpty') }}</p>
       </div>
 
       <div v-if="syncSummary" class="sync-queue">
@@ -199,14 +234,16 @@ import {
   Download,
   FolderOpened,
   Refresh,
+  RefreshLeft,
   Upload,
 } from '@element-plus/icons-vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { AppLocaleEnum, AppThemeEnum, BootStatusEnum } from '@shared/enums/app';
 import type {
+  BackupEntry,
   DatabaseStatus,
   IntegrityReport,
   PendingSyncSummary,
@@ -221,6 +258,8 @@ import {
   openDatabaseFolder,
   runDiagnostics,
   syncTagIndex,
+  listBackups,
+  restoreDatabase,
 } from '@/services/ipc';
 
 const { t } = useI18n();
@@ -314,9 +353,65 @@ async function handleBackup(): Promise<void> {
 
   if (result.ok) {
     ElMessage.success(t('settings.dbBackupSuccess', { path: result.data.path }));
+    await loadBackups();
   } else {
     ElMessage.error(result.error.message);
   }
+}
+
+const backupBusy = ref(false);
+const backups = ref<BackupEntry[]>([]);
+
+function formatTime(ms: number): string {
+  return new Date(ms).toLocaleString();
+}
+
+async function loadBackups(): Promise<void> {
+  backupBusy.value = true;
+  const result = await listBackups();
+  backupBusy.value = false;
+  if (result.ok === false) {
+    ElMessage.error(result.error.message);
+    return;
+  }
+  backups.value = result.data;
+}
+
+/** 恢复是不可逆操作（有回滚点兜底），必须让用户确认一次。 */
+async function confirmAndRestore(path: string | undefined, label: string): Promise<void> {
+  const confirmed = await ElMessageBox.confirm(
+    t('settings.dbRestoreConfirm', { name: label }),
+    t('settings.dbRestore'),
+    { type: 'warning', confirmButtonText: t('settings.dbRestoreConfirmOk'), cancelButtonText: t('settings.dbRestoreConfirmCancel') },
+  ).catch(() => false);
+  if (confirmed === false) {
+    return;
+  }
+  dbBusy.value = true;
+  const result = await restoreDatabase(path);
+  dbBusy.value = false;
+  if (result.ok === false) {
+    ElMessage.error(result.error.message);
+    return;
+  }
+  if (result.data === null) {
+    return;
+  }
+  ElMessage.success(
+    t('settings.dbRestoreSuccess', {
+      notes: result.data.counts,
+      schema: result.data.schemaVersion,
+    }),
+  );
+  await Promise.all([loadDbStatus(), loadBackups(), runCheck()]);
+}
+
+async function handleRestorePick(): Promise<void> {
+  await confirmAndRestore(undefined, t('settings.dbRestorePickLabel'));
+}
+
+async function handleRestoreRow(row: BackupEntry): Promise<void> {
+  await confirmAndRestore(row.path, row.name);
 }
 
 const tagSyncBusy = ref(false);
@@ -363,6 +458,7 @@ async function handleOpenFolder(): Promise<void> {
 
 onMounted(() => {
   void appStore.init();
+  void loadBackups();
   void loadDbStatus();
 });
 

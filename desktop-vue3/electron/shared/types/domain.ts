@@ -143,3 +143,22 @@ export interface EchoCard {
   annoSource: string;
   renderType: string;
 }
+
+/** 备份文件条目（设置页列表用）。 */
+export interface BackupEntry {
+  name: string;
+  path: string;
+  sizeBytes: number;
+  createdAt: number;
+  kind: 'manual' | 'import' | 'pre-restore';
+}
+
+/** 恢复结果：成功时带上回滚点与升级前后的 schema 版本。 */
+export interface RestoreResult {
+  restored: boolean;
+  sourcePath: string;
+  backupPath: string | null;
+  counts: number;
+  schemaVersion: number;
+  previousSchemaVersion: number;
+}

@@ -61,6 +61,8 @@ export const IPC_CHANNELS = {
     status: 'controller/database/status',
     importLegacy: 'controller/database/importLegacy',
     backup: 'controller/database/backup',
+    backups: 'controller/database/backups',
+    restore: 'controller/database/restore',
     openFolder: 'controller/database/openFolder',
   },
 } as const;

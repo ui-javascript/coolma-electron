@@ -1,18 +1,6 @@
 import { IPC_CHANNELS } from '@shared/ipc/channels';
 import type { AppInfo, IpcResult } from '@shared/ipc/contract';
-import type {
-  CategoryRecord,
-  DatabaseStatus,
-  ImportResult,
-  EchoCard,
-  IntegrityReport,
-  PendingSyncSummary,
-  RuneCard,
-  SyncLogEntry,
-  NoteListResult,
-  NoteRecord,
-  TagRecord,
-} from '@shared/types/domain';
+import type { BackupEntry, CategoryRecord, DatabaseStatus, EchoCard, ImportResult, IntegrityReport, NoteListResult, NoteRecord, PendingSyncSummary, RestoreResult, RuneCard, SyncLogEntry, TagRecord } from '@shared/types/domain';
 
 export interface NoteListInput {
   query?: string;
@@ -182,6 +170,14 @@ export function getDatabaseStatus(): Promise<IpcResult<DatabaseStatus>> {
 
 export function importLegacyDatabase(): Promise<IpcResult<ImportResult | null>> {
   return invoke<ImportResult | null>(IPC_CHANNELS.database.importLegacy, {});
+}
+
+export function listBackups(): Promise<IpcResult<BackupEntry[]>> {
+  return invoke<BackupEntry[]>(IPC_CHANNELS.database.backups);
+}
+
+export function restoreDatabase(path?: string): Promise<IpcResult<RestoreResult | null>> {
+  return invoke<RestoreResult | null>(IPC_CHANNELS.database.restore, path ? { path } : {});
 }
 
 export function backupDatabase(): Promise<IpcResult<{ path: string }>> {

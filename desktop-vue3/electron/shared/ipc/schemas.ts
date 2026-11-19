@@ -88,3 +88,9 @@ export const databaseImportSchema = z
     path: z.string().min(1).max(4096).optional(),
   })
   .default({});
+
+export const databaseRestoreSchema = z
+  .object({
+    path: z.string().min(1).max(4096).optional(),
+  })
+  .default({});

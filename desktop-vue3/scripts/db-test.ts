@@ -13,6 +13,10 @@ import { settingsRepository } from '../electron/service/db/settings-repository';
 import { runesRepository, echoesRepository } from '../electron/service/db/library-repository';
 import { syncLogRepository } from '../electron/service/db/sync-log-repository';
 import { runIntegrityCheck } from '../electron/service/db/diagnostics';
+import { backupFileName, isManagedBackupFile, listBackups, pruneBackups } from '../electron/service/db/backup-files';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 let failed = 0;
 
@@ -166,6 +170,39 @@ assert('体检：能抓到 tags 与 note_tags 不一致', dirtyReport.issues.som
   assert('标签治理：删除后关系表同步收缩', Number(linksAfterRemove.c) === 2, String(linksAfterRemove.c));
   const finalReport = runIntegrityCheck();
   assert('标签治理：治理后整体一致', finalReport.issues.every((i) => i.kind !== 'TAG_DRIFT' && i.kind !== 'TAG_STRING_WITHOUT_LINKS'), JSON.stringify(finalReport.issues.map((i) => i.kind)));
+}
+
+// ===== 备份命名 / 列表 / 保留策略（纯文件系统逻辑，不碰 better-sqlite3）=====
+{
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'coolma-backup-'));
+
+  assert('备份：文件名形状可识别', isManagedBackupFile('coolma-2026-01-02T03-04-05-678Z.db'), backupFileName('coolma', new Date('2026-01-02T03:04:05.678Z')));
+  assert('备份：pre-restore 可识别', isManagedBackupFile('pre-restore-2026-01-02T03-04-05-678Z.db'));
+  assert('备份：外部文件不算托管备份', isManagedBackupFile('my-notes.db') === false);
+  assert('备份：非 db 后缀不算', isManagedBackupFile('coolma-2026.db.bak') === false);
+
+  // 造 10 份 manual + 1 份 pre-restore + 1 个外来文件
+  for (let i = 0; i < 10; i += 1) {
+    const name = `coolma-2026-01-0${i + 1}T00-00-00-000Z.db`;
+    fs.writeFileSync(path.join(dir, name), 'x');
+    fs.utimesSync(path.join(dir, name), new Date(`2026-01-${String(i + 1).padStart(2, '0')}T00:00:00Z`), new Date(`2026-01-${String(i + 1).padStart(2, '0')}T00:00:00Z`));
+  }
+  fs.writeFileSync(path.join(dir, 'pre-restore-2026-02-01T00-00-00-000Z.db'), 'y');
+  fs.writeFileSync(path.join(dir, 'user-own.db'), 'z');
+
+  const entries = listBackups(dir);
+  assert('备份：列表只含托管文件', entries.length === 11, String(entries.length));
+  assert('备份：按时间倒序', entries[0].name.startsWith('pre-restore'), entries[0]?.name);
+  assert('备份：kind 分类正确', entries.filter((e) => e.kind === 'manual').length === 10, String(entries.filter((e) => e.kind === 'manual').length));
+
+  const removed = pruneBackups(3, dir);
+  assert('备份：保留 3 份手动备份', removed.length === 7, String(removed.length));
+  const left = listBackups(dir);
+  assert('备份：pre-restore 不被清理', left.some((e) => e.kind === 'pre-restore'), JSON.stringify(left.map((e) => e.name)));
+  assert('备份：外来文件不被清理', fs.existsSync(path.join(dir, 'user-own.db')));
+  assert('备份：剩余手动备份为最新 3 份', left.filter((e) => e.kind === 'manual').length === 3, String(left.filter((e) => e.kind === 'manual').length));
+
+  fs.rmSync(dir, { recursive: true, force: true });
 }
 
 console.log(failed === 0 ? '\n仓储层测试全部通过' : `\n仓储层测试失败 ${failed} 项`);
