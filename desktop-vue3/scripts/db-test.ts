@@ -13,6 +13,8 @@ import { settingsRepository } from '../electron/service/db/settings-repository';
 import { runesRepository, echoesRepository } from '../electron/service/db/library-repository';
 import { templatesRepository } from '../electron/service/db/templates-repository';
 import { previewImport, commitImport } from '../electron/service/packs-service';
+import { aiModelsRepository, aiSkillsRepository } from '../electron/service/db/ai-repository';
+import { getDatabase } from '../electron/service/db/connection';
 import { syncLogRepository } from '../electron/service/db/sync-log-repository';
 import { runIntegrityCheck } from '../electron/service/db/diagnostics';
 import { backupFileName, isManagedBackupFile, listBackups, pruneBackups } from '../electron/service/db/backup-files';
@@ -347,6 +349,34 @@ assert('体检：能抓到 tags 与 note_tags 不一致', dirtyReport.issues.som
   // 符文 kind：缺 template 为无效
   const runeGroup = previewImport('runes', [{ name: '无模板符文', template: '' }], 'general');
   assert('Pack：符文缺 template 无效', runeGroup.invalidItems.length === 1 && runeGroup.invalidItems[0].reason === 'EMPTY_TEMPLATE', JSON.stringify(runeGroup));
+}
+
+// AI 模型 / 技能仓储
+{
+  const m = aiModelsRepository.save({ name: 'gpt 测试', providerType: 'openai-compatible', baseUrl: 'https://api.test/v1', model: 'gpt-4o-mini', apiKeyEncrypted: 'enc-1', apiKeyEncryptedVersion: 2, isDefault: true });
+  assert('AI：模型保存往返', Boolean(m.id) && m.isDefault && m.apiKeyEncrypted === 'enc-1', JSON.stringify(m));
+  const m2 = aiModelsRepository.save({ name: '备用', providerType: 'portkey', baseUrl: 'https://gw.test', model: 'x' });
+  assert('AI：保存非默认不清已有默认', aiModelsRepository.list().find((r) => r.name === '备用')?.isDefault === false
+    && aiModelsRepository.list().find((r) => r.name === 'gpt 测试')?.isDefault === true, JSON.stringify(aiModelsRepository.list()));
+  aiModelsRepository.setDefault(m.id);
+  assert('AI：setDefault 生效', aiModelsRepository.get(m.id)?.isDefault === true);
+
+  const upd = aiModelsRepository.save({ id: m.id, name: 'gpt 测试 v2', providerType: 'openai-compatible', baseUrl: 'https://api.test/v1', model: 'gpt-4o-mini' });
+  assert('AI：更新不改密文', upd.apiKeyEncrypted === 'enc-1' && upd.name === 'gpt 测试 v2', JSON.stringify(upd));
+
+  const sk = aiSkillsRepository.save({ name: '摘要', title: '总结', content: '请总结' });
+  assert('AI：技能保存往返', sk.builtin === false && sk.title === '总结', JSON.stringify(sk));
+  const sk2 = aiSkillsRepository.save({ name: '翻译', content: 'translate' });
+  assert('AI：技能列表按 sort/id', aiSkillsRepository.list().map((x) => x.name).join(',') === '摘要,翻译');
+
+  // 内置技能保护：直接插 builtin=1 行，验证不可删/列表不含
+  const raw = getDatabase();
+  raw.prepare(`INSERT INTO ai_skills (name, title, content, builtin, enabled, sort_order, created_at, updated_at) VALUES ('内置', '', '', 1, 1, 0, ?, ?)`).run(Date.now(), Date.now());
+  assert('AI：列表排除内置', !aiSkillsRepository.list().some((x) => x.builtin));
+  const builtinRow = raw.prepare('SELECT id FROM ai_skills WHERE name = ?').get('内置') as { id: number };
+  assert('AI：内置技能不可删', aiSkillsRepository.remove(builtinRow.id) === false);
+  assert('AI：自定义技能可删', aiSkillsRepository.remove(sk.id) === true);
+  assert('AI：模型可删', aiModelsRepository.remove(m2.id) === true);
 }
 
 console.log(failed === 0 ? '\n仓储层测试全部通过' : `\n仓储层测试失败 ${failed} 项`);

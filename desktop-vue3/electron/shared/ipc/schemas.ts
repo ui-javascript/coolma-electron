@@ -162,3 +162,32 @@ export const librarySaveManySchema = z.object({
   items: z.array(z.record(z.string(), z.unknown())).max(2000).default([]),
   skipDuplicates: z.boolean().optional(),
 });
+
+export const aiModelSaveSchema = z.object({
+  id: z.number().int().positive().optional(),
+  name: z.string().trim().min(1).max(100),
+  providerType: z.enum(['openai-compatible', 'portkey']),
+  baseUrl: z.string().trim().max(500).default(''),
+  model: z.string().trim().max(200).default(''),
+  apiKey: z.string().max(500).optional(),
+  clearApiKey: z.boolean().optional(),
+  virtualKey: z.string().max(500).optional(),
+  clearVirtualKey: z.boolean().optional(),
+  isDefault: z.boolean().optional(),
+  enabled: z.boolean().optional(),
+  headersJson: z.string().max(10_000).optional(),
+  extraConfigJson: z.string().max(20_000).optional(),
+});
+
+export const aiSkillSaveSchema = z.object({
+  id: z.number().int().positive().optional(),
+  name: z.string().trim().min(1).max(100),
+  title: z.string().trim().max(200).optional(),
+  content: z.string().max(100_000).optional(),
+  enabled: z.boolean().optional(),
+  sortOrder: z.number().int().optional(),
+});
+
+export const aiIdSchema = z.object({
+  id: z.number().int().positive(),
+});

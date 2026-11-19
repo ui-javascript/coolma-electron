@@ -323,3 +323,88 @@ export function fetchRemotePack(sourceUrl: string): Promise<IpcResult<{ text: st
 export function exportPackFile(fileName: string, content: string): Promise<IpcResult<string>> {
   return invoke<string>(IPC_CHANNELS.packs.exportFile, { fileName, content });
 }
+
+export interface AiModelView {
+  id: number;
+  name: string;
+  providerType: 'openai-compatible' | 'portkey';
+  baseUrl: string;
+  model: string;
+  isDefault: boolean;
+  enabled: boolean;
+  headersJson: string;
+  extraConfigJson: string;
+  hasApiKey: boolean;
+  apiKeyMasked: string;
+  hasVirtualKey: boolean;
+  virtualKeyMasked: string;
+}
+
+export interface AiModelSaveInput {
+  id?: number;
+  name: string;
+  providerType: 'openai-compatible' | 'portkey';
+  baseUrl?: string;
+  model?: string;
+  apiKey?: string;
+  clearApiKey?: boolean;
+  virtualKey?: string;
+  clearVirtualKey?: boolean;
+  isDefault?: boolean;
+  enabled?: boolean;
+  headersJson?: string;
+  extraConfigJson?: string;
+}
+
+export interface AiSkill {
+  id: number;
+  name: string;
+  title: string;
+  content: string;
+  builtin: boolean;
+  enabled: boolean;
+  sortOrder: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface AiSkillSaveInput {
+  id?: number;
+  name: string;
+  title?: string;
+  content?: string;
+  enabled?: boolean;
+  sortOrder?: number;
+}
+
+export function listAiModels(): Promise<IpcResult<AiModelView[]>> {
+  return invoke<AiModelView[]>(IPC_CHANNELS.ai.models);
+}
+
+export function saveAiModel(input: AiModelSaveInput): Promise<IpcResult<AiModelView>> {
+  return invoke<AiModelView>(IPC_CHANNELS.ai.saveModel, input);
+}
+
+export function removeAiModel(id: number): Promise<IpcResult<boolean>> {
+  return invoke<boolean>(IPC_CHANNELS.ai.removeModel, { id });
+}
+
+export function setDefaultAiModel(id: number): Promise<IpcResult<boolean>> {
+  return invoke<boolean>(IPC_CHANNELS.ai.setDefaultModel, { id });
+}
+
+export function testAiModel(id: number): Promise<IpcResult<true>> {
+  return invoke<true>(IPC_CHANNELS.ai.testModel, { id });
+}
+
+export function listAiSkills(): Promise<IpcResult<AiSkill[]>> {
+  return invoke<AiSkill[]>(IPC_CHANNELS.ai.skills);
+}
+
+export function saveAiSkill(input: AiSkillSaveInput): Promise<IpcResult<AiSkill>> {
+  return invoke<AiSkill>(IPC_CHANNELS.ai.saveSkill, input);
+}
+
+export function removeAiSkill(id: number): Promise<IpcResult<boolean>> {
+  return invoke<boolean>(IPC_CHANNELS.ai.removeSkill, { id });
+}

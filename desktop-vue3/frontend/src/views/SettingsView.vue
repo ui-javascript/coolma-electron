@@ -16,6 +16,7 @@
       <el-tab-pane :label="t('settings.groupEditor')" name="editor" />
       <el-tab-pane :label="t('settings.groupDatabase')" name="database" />
       <el-tab-pane :label="t('settings.groupLibrary')" name="library" />
+      <el-tab-pane :label="t('settings.groupAi')" name="ai" />
       <el-tab-pane :label="t('settings.groupAbout')" name="about" />
     </el-tabs>
 
@@ -246,6 +247,41 @@
       </el-tabs>
     </el-card>
 
+    <el-card v-show="groupTab === 'ai'" class="settings-card" shadow="never">
+      <template #header>
+        <div class="card-heading">
+          <span>{{ t('aiEntry') }}</span>
+        </div>
+      </template>
+      <el-form label-width="110px" label-position="left">
+        <el-form-item :label="t('aiAssistantProviderLabel')">
+          <el-select v-model="aiProvider" class="ai-provider-select" @change="saveAiProvider">
+            <el-option :label="t('aiAssistantProviderBuiltin')" value="builtin" />
+            <el-option :label="t('aiAssistantProviderDoubao')" value="doubao" />
+          </el-select>
+          <span class="pref-hint">{{ t('aiAssistantEntryHint') }}</span>
+        </el-form-item>
+      </el-form>
+    </el-card>
+
+    <el-card v-show="groupTab === 'ai'" class="settings-card" shadow="never">
+      <template #header>
+        <div class="card-heading">
+          <span>{{ t('aiModel') }}</span>
+        </div>
+      </template>
+      <AiModelsCard />
+    </el-card>
+
+    <el-card v-show="groupTab === 'ai'" class="settings-card" shadow="never">
+      <template #header>
+        <div class="card-heading">
+          <span>{{ t('aiSkill') }}</span>
+        </div>
+      </template>
+      <AiSkillsCard />
+    </el-card>
+
     <el-card v-show="groupTab === 'about'" class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
@@ -303,6 +339,8 @@ import type {
 import EditorPrefsCard from '@/components/EditorPrefsCard.vue';
 import NoteTemplateCard from '@/components/NoteTemplateCard.vue';
 import ParsingSettingsCard from '@/components/ParsingSettingsCard.vue';
+import AiModelsCard from '@/components/AiModelsCard.vue';
+import AiSkillsCard from '@/components/AiSkillsCard.vue';
 import { useAppStore, type AppTheme } from '@/stores/app';
 import LibraryManagePanel from '@/components/LibraryManagePanel.vue';
 import type { AppLocale } from '@/i18n';
@@ -322,7 +360,15 @@ const { t } = useI18n();
 const router = useRouter();
 const appStore = useAppStore();
 
-const groupTab = ref<'general' | 'editor' | 'database' | 'library' | 'about'>('general');
+const aiProvider = ref<'builtin' | 'doubao'>(
+  localStorage.getItem('coolma.aiProvider') === 'doubao' ? 'doubao' : 'builtin',
+);
+
+function saveAiProvider(value: string): void {
+  localStorage.setItem('coolma.aiProvider', value);
+}
+
+const groupTab = ref<'general' | 'editor' | 'database' | 'library' | 'ai' | 'about'>('general');
 const libraryTab = ref<'runes' | 'echoes'>('runes');
 
 function onLibraryChanged(): void {
