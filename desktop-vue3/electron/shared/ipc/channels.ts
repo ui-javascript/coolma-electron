@@ -11,6 +11,7 @@ export const IPC_CHANNELS = {
     updateCheck: 'controller/app/updateCheck',
     updateDownload: 'controller/app/updateDownload',
     updateInstall: 'controller/app/updateInstall',
+    openExternal: 'controller/app/openExternal',
   },
   window: {
     minimize: 'controller/window/minimize',
@@ -70,6 +71,9 @@ export const IPC_CHANNELS = {
     echoSaveMany: 'controller/library/echoSaveMany',
     echoRemove: 'controller/library/echoRemove',
   },
+  cloudfn: {
+    invoke: 'controller/cloudfn/invoke',
+  },
   ai: {
     models: 'controller/ai/models',
     saveModel: 'controller/ai/saveModel',
@@ -108,6 +112,7 @@ export const INVOKE_CHANNELS = new Set<string>([
   IPC_CHANNELS.app.updateCheck,
   IPC_CHANNELS.app.updateDownload,
   IPC_CHANNELS.app.updateInstall,
+  IPC_CHANNELS.app.openExternal,
   IPC_CHANNELS.window.minimize,
   IPC_CHANNELS.window.state,
   IPC_CHANNELS.window.toggleMaximize,
@@ -139,6 +144,7 @@ export const INVOKE_CHANNELS = new Set<string>([
   IPC_CHANNELS.sync.pending,
   IPC_CHANNELS.library.runes,
   IPC_CHANNELS.library.echoes,
+  IPC_CHANNELS.cloudfn.invoke,
   IPC_CHANNELS.ai.models,
   IPC_CHANNELS.ai.saveModel,
   IPC_CHANNELS.ai.removeModel,

@@ -1,6 +1,17 @@
 import { z } from 'zod';
 
 /** Payload for controller methods that accept no meaningful arguments. */
+export const cloudFnInvokeSchema = z.object({
+  url: z.string().min(1),
+  data: z.record(z.string(), z.unknown()).optional(),
+});
+
+export const openExternalSchema = z.object({
+  url: z.string().url().refine((value) => /^(https?:|mailto:)/i.test(value), {
+    message: 'only http(s)/mailto urls can be opened externally',
+  }),
+});
+
 export const emptyPayloadSchema = z.union([
   z.undefined(),
   z.null(),

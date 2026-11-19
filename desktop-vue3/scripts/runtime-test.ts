@@ -574,6 +574,18 @@ async function main(): Promise<void> {
     assert('busDialog：closeAll 清空 session 表', true, 'no-op');
   }
 
+  navigation: {
+    const { __testing } = await import('@/services/cloudfn');
+    const { IPC_CHANNELS, INVOKE_CHANNELS } = await import('@shared/ipc/channels');
+    const normalized = __testing.normalizeItem({ id: 7, name: '导航 A', summary: '一句话', img: 'https://x/a.png', url: 'https://x/a' });
+    assert('导航：vue2 字段兜底（name/summary/img/url）', normalized?.title === '导航 A' && normalized?.desc === '一句话' && normalized?.imageUrl === 'https://x/a.png' && normalized?.targetUrl === 'https://x/a', JSON.stringify(normalized));
+    assert('导航：空对象返回 null', __testing.normalizeItem({}) === null, 'null');
+    const rows = __testing.extractList({ rows: [{ a: 1 }] });
+    assert('导航：四种列表壳都能拆（data/rows/list/records）', Array.isArray(rows) && rows.length === 1, JSON.stringify(rows));
+    assert('导航：cloudfn.invoke 通道已登记且白名单放行', IPC_CHANNELS.cloudfn.invoke === 'controller/cloudfn/invoke' && INVOKE_CHANNELS.has(IPC_CHANNELS.cloudfn.invoke), IPC_CHANNELS.cloudfn.invoke);
+    assert('导航：openExternal 通道已登记且白名单放行', INVOKE_CHANNELS.has(IPC_CHANNELS.app.openExternal), IPC_CHANNELS.app.openExternal);
+  }
+
     assertImport: {
       const enabled = await isDeleteEffectEnabled();
       assert('内置条目：默认未启用（走原生确认框）', enabled === false, String(enabled));

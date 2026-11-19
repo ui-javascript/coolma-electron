@@ -1,7 +1,7 @@
-import { BrowserWindow, app } from 'electron';
+import { BrowserWindow, app, shell } from 'electron';
 import { isDev } from 'ee-core/ps';
 import type { AppInfo, IpcResult } from '../shared/ipc/contract';
-import { emptyPayloadSchema } from '../shared/ipc/schemas';
+import { emptyPayloadSchema, openExternalSchema } from '../shared/ipc/schemas';
 import { fail, ok } from '../shared/ipc/result';
 
 type UpdaterEvent =
@@ -98,6 +98,17 @@ class AppController {
       return ok({ downloading: true });
     } catch (error) {
       return fail('UPDATE_DOWNLOAD_ERROR', String((error as Error)?.message || error));
+    }
+  }
+
+  /** 用系统浏览器打开外链（复刻 vue2 `$q.electron.shell.openExternal`）。 */
+  async openExternal(args?: unknown): Promise<IpcResult<true>> {
+    try {
+      const { url } = openExternalSchema.parse(args);
+      await shell.openExternal(url);
+      return ok(true as const);
+    } catch (error) {
+      return fail('OPEN_EXTERNAL_ERROR', String((error as Error)?.message || error));
     }
   }
 

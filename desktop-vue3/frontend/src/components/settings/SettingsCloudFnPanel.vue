@@ -52,8 +52,9 @@
       <el-tab-pane :label="t('settings.cloudFnNavigation')" name="navigation">
         <el-alert type="info" :closable="false" show-icon class="cloudfn-hint" :title="t('settings.navigationHint')" />
         <div class="cloudfn-nav">
-          <el-button type="primary" plain disabled>{{ t('settings.openNavigation') }}（P0-14 待做）</el-button>
+          <el-button type="primary" plain @click="navVisible = true">{{ t('settings.openNavigation') }}</el-button>
         </div>
+        <NavigationDialog v-model="navVisible" @go-config="subTab = 'config'" />
       </el-tab-pane>
     </el-tabs>
 
@@ -76,12 +77,14 @@ import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import { Hide, View } from '@element-plus/icons-vue';
 import { useAppStore } from '@/stores/app';
+import NavigationDialog from '@/components/NavigationDialog.vue';
 
 const STORAGE_KEY = 'setting/cloudFn/config';
 const { t } = useI18n();
 const appStore = useAppStore();
 
 const subTab = ref<'config' | 'navigation'>('config');
+const navVisible = ref(false);
 const showToken = ref(false);
 const testing = ref(false);
 const demoVisible = ref(false);
