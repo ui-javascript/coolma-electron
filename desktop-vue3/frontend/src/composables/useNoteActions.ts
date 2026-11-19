@@ -2,6 +2,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, ref, type ComputedRef, type Ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { NoteSummary } from '@shared/types/domain';
+import { exportNoteMarkdown } from '@/services/ipc';
 import { useNotesStore } from '@/stores/notes';
 import type { NoteMenuCommand } from '@/types/noteMenu';
 import { folderName, noteTags } from '@/utils/note';
@@ -71,6 +72,26 @@ export function useNoteActions(options: UseNoteActionsOptions) {
       ElMessage.success(t('notes.copySuccess'));
     } catch {
       ElMessage.error(t('notes.copyFailed'));
+    }
+  }
+
+  /**
+   * 导出为 Markdown 文件（对齐 vue2：保存框由主进程弹，结果只回来路径）。
+   */
+  async function exportMarkdown(note: NoteSummary): Promise<void> {
+    try {
+      await options.flushSave();
+      const result = await exportNoteMarkdown(note.id);
+      if (result.ok === false) {
+        ElMessage.error(result.error.message || t('notes.exportFailed'));
+        return;
+      }
+      if (result.data.canceled) {
+        return;
+      }
+      ElMessage.success(t('notes.exportSuccess', { path: result.data.filePath }));
+    } catch {
+      ElMessage.error(t('notes.exportFailed'));
     }
   }
 
@@ -163,6 +184,9 @@ export function useNoteActions(options: UseNoteActionsOptions) {
         break;
       case 'copy':
         await copyMarkdown(note);
+        break;
+      case 'export':
+        await exportMarkdown(note);
         break;
       case 'delete':
         await deleteNote(note);

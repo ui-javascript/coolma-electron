@@ -114,6 +114,19 @@ export function removeNote(id: number): Promise<IpcResult<{ deleted: boolean }>>
   return invoke<{ deleted: boolean }>(IPC_CHANNELS.notes.remove, { id });
 }
 
+export function exportNoteMarkdown(id: number): Promise<IpcResult<{ canceled: boolean; filePath: string }>> {
+  return invoke<{ canceled: boolean; filePath: string }>(IPC_CHANNELS.notes.exportMarkdown, { id });
+}
+
+export function exportCategoryMarkdown(
+  category: string,
+): Promise<IpcResult<{ canceled: boolean; directory: string; written: number }>> {
+  return invoke<{ canceled: boolean; directory: string; written: number }>(
+    IPC_CHANNELS.notes.exportMarkdownFolder,
+    { category, limit: 5000, offset: 0 },
+  );
+}
+
 export function listCategories(): Promise<IpcResult<CategoryRecord[]>> {
   return invoke<CategoryRecord[]>(IPC_CHANNELS.categories.list);
 }

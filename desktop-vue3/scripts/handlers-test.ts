@@ -6,6 +6,7 @@
  */
 import { createEchoInsertHandler, buildEchoPlaceholderMarkup } from '../../echo-core/src/index';
 import { createRuneInsertHandler, readInheritFromTemplate } from '../../rune-core/src/index';
+import { markdownFileName, sanitizeFileName } from '../electron/service/export-utils';
 
 type Call = [string, unknown];
 const calls: Call[] = [];
@@ -81,6 +82,13 @@ const echoText = calls.find((c) => c[0] === 'text')?.[1] as string;
 assert('回响占位格式正确', /^@demo\{echoId: '[0-9a-f-]+', value: '上一行的内容'\}\(\)/.test(echoText));
 assert('回响空名 → false', echoHandler({ meta: {} }, makeContext()) === false);
 assert('回响转义单引号', buildEchoPlaceholderMarkup({ name: 'x', value: "含'引号" }).includes("\\'"));
+
+// ===== 导出文件名清洗（纯函数，不需要 Electron）=====
+{
+  assert('导出文件名：非法字符替换', sanitizeFileName('a/b:c*?"<>|') === 'a_b_c______', sanitizeFileName('a/b:c*?"<>|'));
+  assert('导出文件名：空标题兜底', sanitizeFileName('   ') === 'Untitled', sanitizeFileName('   '));
+  assert('导出文件名：后缀为 .md', markdownFileName('周报') === '周报.md', markdownFileName('周报'));
+}
 
 console.log(failed === 0 ? '\n全部通过' : `\n失败 ${failed} 项`);
 if (failed > 0) {
