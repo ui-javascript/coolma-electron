@@ -12,6 +12,7 @@ import { tagsRepository } from '../electron/service/db/tags-repository';
 import { settingsRepository } from '../electron/service/db/settings-repository';
 import { runesRepository, echoesRepository } from '../electron/service/db/library-repository';
 import { templatesRepository } from '../electron/service/db/templates-repository';
+import { previewImport, commitImport } from '../electron/service/packs-service';
 import { syncLogRepository } from '../electron/service/db/sync-log-repository';
 import { runIntegrityCheck } from '../electron/service/db/diagnostics';
 import { backupFileName, isManagedBackupFile, listBackups, pruneBackups } from '../electron/service/db/backup-files';
@@ -291,6 +292,61 @@ assert('体检：能抓到 tags 与 note_tags 不一致', dirtyReport.issues.som
 
   assert('模板：删除生效', templatesRepository.remove('tpl-1') === true);
   assert('模板：删除后列表不含', !templatesRepository.listAll().some((t) => t.id === 'tpl-1'));
+}
+
+// Pack v1 批量导入：预览分组 + stale 提交
+{
+  const group = previewImport('echoes', [
+    { name: '新回响A', anno_source: 'export default {}', render_type: 'anno' },
+    { name: '冲突回响', anno_source: 'export default {}' },
+    { name: '', anno_source: 'x' },
+    { name: '缺正文', anno_source: '' },
+    '__builtin 保护行模拟见下',
+  ], 'marker');
+  assert('Pack：无效条目分组（空名+缺正文+非对象）', group.invalidItems.length === 3, JSON.stringify(group.invalidItems));
+  assert('Pack：新条目分组（此时尚无同名行）', group.newItems.length === 2, JSON.stringify(group.newItems));
+  assert('Pack：非对象条目无效', group.invalidItems.some((it) => it.reason === 'NOT_OBJECT'));
+
+  // 预置一个同名回响，验证冲突分组
+  echoesRepository.save({ id: 'e-pack-1', name: '冲突回响', annoSource: 'export default {}' });
+  const group2 = previewImport('echoes', [{ name: '冲突回响', anno_source: 'export default 2' }], 'marker');
+  assert('Pack：同名进冲突组', group2.conflictItems.length === 1, JSON.stringify(group2.conflictItems));
+
+  // 提交：新增 + 覆盖
+  const commit = commitImport('echoes', {
+    createNames: ['新回响A'],
+    replaceNames: ['冲突回响'],
+    targetCategory: 'showy',
+    previewAt: group2.previewAt,
+    sourceByName: {
+      新回响A: { name: '新回响A', desc: '', anno_source: 'export default {}', render_type: 'anno' },
+      冲突回响: { name: '冲突回响', desc: '', anno_source: 'export default 2', render_type: 'anno' },
+    },
+  });
+  assert('Pack：提交新增+覆盖', commit.created === 1 && commit.replaced === 1, JSON.stringify(commit));
+  const createdRow = echoesRepository.list().find((e) => e.name === '新回响A');
+  assert('Pack：新条目落库且分类为目标分类', Boolean(createdRow) && createdRow?.category === 'showy', JSON.stringify(createdRow));
+  const replacedRow = echoesRepository.list().find((e) => e.name === '冲突回响');
+  assert('Pack：覆盖条目正文已更新', String(replacedRow?.annoSource ?? '').includes('2'), JSON.stringify(replacedRow));
+
+  // stale：replace 名字已不存在 → skipped
+  const stale = commitImport('echoes', {
+    createNames: [], replaceNames: ['不存在的名字'], targetCategory: 'marker',
+    previewAt: Date.now(), sourceByName: { 不存在的名字: { name: '不存在的名字', anno_source: 'x' } },
+  });
+  assert('Pack：stale 名字进 skipped', stale.skipped.length === 1 && stale.skipped[0].reason === 'NOT_FOUND', JSON.stringify(stale));
+
+  // 内置保护：__builtin_ 前缀行不可覆盖
+  echoesRepository.save({ id: '__builtin_x', name: '内置回响', annoSource: 'b' });
+  const blocked = commitImport('echoes', {
+    createNames: [], replaceNames: ['内置回响'], targetCategory: 'marker',
+    previewAt: Date.now(), sourceByName: { 内置回响: { name: '内置回响', anno_source: 'x' } },
+  });
+  assert('Pack：内置行覆盖被拒', blocked.skipped.length === 1 && blocked.skipped[0].reason === 'BUILTIN_PROTECTED', JSON.stringify(blocked));
+
+  // 符文 kind：缺 template 为无效
+  const runeGroup = previewImport('runes', [{ name: '无模板符文', template: '' }], 'general');
+  assert('Pack：符文缺 template 无效', runeGroup.invalidItems.length === 1 && runeGroup.invalidItems[0].reason === 'EMPTY_TEMPLATE', JSON.stringify(runeGroup));
 }
 
 console.log(failed === 0 ? '\n仓储层测试全部通过' : `\n仓储层测试失败 ${failed} 项`);

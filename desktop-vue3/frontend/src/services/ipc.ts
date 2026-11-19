@@ -280,3 +280,46 @@ export function saveTemplate(input: NoteTemplateInput): Promise<IpcResult<NoteTe
 export function removeTemplate(id: string): Promise<IpcResult<boolean>> {
   return invoke<boolean>(IPC_CHANNELS.templates.remove, { id });
 }
+
+export interface PackPreviewGroup {
+  previewAt: number;
+  targetCategory: string;
+  newItems: Array<{ index: number; name: string; selected: boolean }>;
+  conflictItems: Array<{ index: number; name: string; selected: boolean }>;
+  builtinBlocked: Array<{ index: number; name: string }>;
+  invalidItems: Array<{ index: number; reason: string; name: string }>;
+  dbNameCount: number;
+}
+
+export interface PackCommitResult {
+  created: number;
+  replaced: number;
+  skipped: Array<{ name: string; reason: string }>;
+}
+
+export function previewPack(input: {
+  kind: 'runes' | 'echoes';
+  entries: Array<Record<string, unknown>>;
+  targetCategory?: string;
+}): Promise<IpcResult<PackPreviewGroup>> {
+  return invoke<PackPreviewGroup>(IPC_CHANNELS.packs.preview, input);
+}
+
+export function commitPack(input: {
+  kind: 'runes' | 'echoes';
+  createNames: string[];
+  replaceNames: string[];
+  targetCategory?: string;
+  previewAt: number;
+  sourceByName: Record<string, Record<string, unknown>>;
+}): Promise<IpcResult<PackCommitResult>> {
+  return invoke<PackCommitResult>(IPC_CHANNELS.packs.commit, input);
+}
+
+export function fetchRemotePack(sourceUrl: string): Promise<IpcResult<{ text: string; finalUrl: string }>> {
+  return invoke<{ text: string; finalUrl: string }>(IPC_CHANNELS.packs.fetchRemote, { sourceUrl });
+}
+
+export function exportPackFile(fileName: string, content: string): Promise<IpcResult<string>> {
+  return invoke<string>(IPC_CHANNELS.packs.exportFile, { fileName, content });
+}

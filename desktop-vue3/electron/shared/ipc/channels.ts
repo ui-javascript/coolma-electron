@@ -63,6 +63,12 @@ export const IPC_CHANNELS = {
     echoSaveMany: 'controller/library/echoSaveMany',
     echoRemove: 'controller/library/echoRemove',
   },
+  packs: {
+    preview: 'controller/packs/preview',
+    commit: 'controller/packs/commit',
+    fetchRemote: 'controller/packs/fetchRemote',
+    exportFile: 'controller/packs/exportFile',
+  },
   templates: {
     list: 'controller/templates/list',
     save: 'controller/templates/save',
@@ -109,6 +115,10 @@ export const INVOKE_CHANNELS = new Set<string>([
   IPC_CHANNELS.sync.pending,
   IPC_CHANNELS.library.runes,
   IPC_CHANNELS.library.echoes,
+  IPC_CHANNELS.packs.preview,
+  IPC_CHANNELS.packs.commit,
+  IPC_CHANNELS.packs.fetchRemote,
+  IPC_CHANNELS.packs.exportFile,
   IPC_CHANNELS.templates.list,
   IPC_CHANNELS.templates.save,
   IPC_CHANNELS.templates.saveMany,

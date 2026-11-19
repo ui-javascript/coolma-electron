@@ -19,6 +19,10 @@
         <el-tag size="small" effect="plain">{{ items.length }}</el-tag>
       </span>
       <div class="library-actions">
+        <el-button size="small" plain @click="importVisible = true">
+          {{ t('pack.import') }}
+        </el-button>
+        <el-button size="small" plain @click="exportPack">{{ t('pack.export') }}</el-button>
         <el-button size="small" type="primary" plain @click="openCreate">
           <el-icon><Plus /></el-icon>
           {{ t('library.add') }}
@@ -62,6 +66,8 @@
       :editing="editing"
       @saved="emit('changed')"
     />
+
+    <PackImportDialog v-model="importVisible" :kind="props.kind === 'rune' ? 'runes' : 'echoes'" @imported="onImported" />
   </div>
 </template>
 
@@ -74,6 +80,9 @@ import type { EchoCard, RuneCard } from '@shared/types/domain';
 import { useLibraryStore } from '@/stores/library';
 import { EchoCategoryEnum, RuneCategoryEnum, resolveLibraryCategory } from '@shared/enums/library';
 import LibraryFormDialog from './LibraryFormDialog.vue';
+import PackImportDialog from './PackImportDialog.vue';
+import { buildPack } from '@/services/pack';
+import { exportPackFile } from '@/services/ipc';
 
 /**
  * 符文/回响管理：卡片网格 + 拖拽排序 + 编辑/删除。
@@ -94,6 +103,23 @@ const items = computed(() => (props.kind === 'rune' ? libraryStore.runes : libra
 
 /** 当前分类（默认 general / marker，与 vue2 面板一致）。 */
 const activeCategory = ref(resolveLibraryCategory(props.kind, ''));
+const importVisible = ref(false);
+
+function onImported(): void {
+  void libraryStore.load();
+}
+
+/** 导出当前 kind 的全部自定义卡为 Pack v1 JSON（对齐 vue2 buildEchoPack/buildRunePack：不导内置与审计字段）。 */
+async function exportPack(): Promise<void> {
+  const list = (props.kind === 'rune' ? libraryStore.runes : libraryStore.echoes) as Array<Record<string, unknown>>;
+  const kind: 'runes' | 'echoes' = props.kind === 'rune' ? 'runes' : 'echoes';
+  const content = buildPack(kind, list);
+  const fileName = `coolma-${kind}-pack-${new Date().toISOString().slice(0, 10)}.json`;
+  const result = await exportPackFile(fileName, content);
+  if (result.ok && result.data) {
+    ElMessage.success(t('pack.exported', { path: result.data }));
+  }
+}
 
 const categoryEnum = computed(() => (props.kind === 'rune' ? RuneCategoryEnum : EchoCategoryEnum));
 

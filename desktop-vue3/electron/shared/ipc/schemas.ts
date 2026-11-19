@@ -37,6 +37,30 @@ export const noteCreateSchema = z.object({
   templateId: z.string().trim().max(100).optional(),
 });
 
+export const packPreviewSchema = z.object({
+  kind: z.enum(['runes', 'echoes']),
+  entries: z.array(z.unknown()).max(500),
+  targetCategory: z.string().trim().max(64).optional(),
+});
+
+export const packCommitSchema = z.object({
+  kind: z.enum(['runes', 'echoes']),
+  createNames: z.array(z.string().trim().min(1).max(100)).max(500),
+  replaceNames: z.array(z.string().trim().min(1).max(100)).max(500),
+  targetCategory: z.string().trim().max(64).optional(),
+  previewAt: z.number().int().positive(),
+  sourceByName: z.record(z.string(), z.unknown()),
+});
+
+export const packRemoteSchema = z.object({
+  sourceUrl: z.string().trim().min(1).max(2000),
+});
+
+export const packExportSchema = z.object({
+  fileName: z.string().trim().min(1).max(200),
+  content: z.string().max(10_000_000),
+});
+
 export const noteTemplateSaveSchema = z.object({
   id: z.string().trim().min(1).max(100),
   name: z.string().trim().min(1).max(100),
