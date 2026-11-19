@@ -1,5 +1,5 @@
 import type { TagRecord } from '../../shared/types/domain';
-import { getDatabase } from './database';
+import { getDatabase } from './connection';
 
 interface TagRow {
   id: number;

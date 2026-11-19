@@ -5,6 +5,7 @@ import { app } from 'electron';
 import { logger } from 'ee-core/log';
 import type { DatabaseStatus } from '../../shared/types/domain';
 import { runMigrations } from './migrations';
+import { clearDatabase, getDatabase as getCurrentDatabase, setDatabase, type SqlDatabase } from './connection';
 
 type DB = Database.Database;
 
@@ -35,7 +36,8 @@ export function initDatabase(options: { filePath?: string } = {}): DB {
     database.pragma('synchronous = NORMAL');
     database.pragma('wal_autocheckpoint = 1000');
 
-    const schemaVersion = runMigrations(database);
+    const schemaVersion = runMigrations(database as unknown as SqlDatabase);
+    setDatabase(database as unknown as SqlDatabase);
     db = database;
     dbPath = filePath;
     logger.info('[db] ready:', filePath, 'schemaVersion:', schemaVersion);
@@ -52,11 +54,8 @@ export function initDatabase(options: { filePath?: string } = {}): DB {
   }
 }
 
-export function getDatabase(): DB {
-  if (!db) {
-    throw new Error('Database is not initialized');
-  }
-  return db;
+export function getDatabase(): SqlDatabase {
+  return getCurrentDatabase();
 }
 
 export function closeDatabase(): void {
@@ -70,6 +69,7 @@ export function closeDatabase(): void {
   } finally {
     db = null;
     dbPath = '';
+    clearDatabase();
   }
 }
 

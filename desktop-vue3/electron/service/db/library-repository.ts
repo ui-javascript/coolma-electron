@@ -1,5 +1,5 @@
 import type { EchoCard, RuneCard } from '../../shared/types/domain';
-import { getDatabase } from './database';
+import { getDatabase } from './connection';
 
 interface RuneRow {
   id: string;

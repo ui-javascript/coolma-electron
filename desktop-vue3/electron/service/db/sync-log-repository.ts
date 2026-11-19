@@ -1,4 +1,4 @@
-import { getDatabase } from './database';
+import { getDatabase } from './connection';
 import type {
   PendingSyncSummary,
   SyncAction,

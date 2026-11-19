@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
+import type { SqlDatabase } from './connection';
 import { logger } from 'ee-core/log';
 import type { ImportCounts, ImportResult } from '../../shared/types/domain';
 import {
@@ -15,14 +16,14 @@ interface CountRow {
   count: number;
 }
 
-function tableExists(db: Database.Database, table: string): boolean {
+function tableExists(db: SqlDatabase, table: string): boolean {
   const row = db
     .prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = ?")
     .get(table) as CountRow;
   return Number(row.count) > 0;
 }
 
-function countRows(db: Database.Database, table: string): number {
+function countRows(db: Database.Database | SqlDatabase, table: string): number {
   if (!tableExists(db, table)) {
     return 0;
   }
@@ -30,7 +31,7 @@ function countRows(db: Database.Database, table: string): number {
   return Number(row.count) || 0;
 }
 
-function readCounts(db: Database.Database): ImportCounts {
+function readCounts(db: Database.Database | SqlDatabase): ImportCounts {
   return {
     notes: countRows(db, 'notes'),
     tags: countRows(db, 'tags'),

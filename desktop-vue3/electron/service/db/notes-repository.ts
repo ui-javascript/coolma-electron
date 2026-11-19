@@ -5,7 +5,7 @@ import type {
   NoteStats,
   NoteSummary,
 } from '../../shared/types/domain';
-import { getDatabase } from './database';
+import { getDatabase } from './connection';
 import { syncLogRepository } from './sync-log-repository';
 
 interface NoteRow {

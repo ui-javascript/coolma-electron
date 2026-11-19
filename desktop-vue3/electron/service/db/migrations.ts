@@ -1,6 +1,6 @@
-import type Database from 'better-sqlite3';
+import type { SqlDatabase } from './connection';
 
-type DB = Database.Database;
+type DB = SqlDatabase;
 
 interface Migration {
   version: number;

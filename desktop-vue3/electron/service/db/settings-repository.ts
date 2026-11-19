@@ -1,4 +1,4 @@
-import { getDatabase } from './database';
+import { getDatabase } from './connection';
 
 function decode(value: string | null): unknown {
   if (value === null || value === '') {

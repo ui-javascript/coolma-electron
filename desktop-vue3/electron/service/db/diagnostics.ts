@@ -1,4 +1,4 @@
-import { getDatabase } from './database';
+import { getDatabase } from './connection';
 import type { IntegrityIssue, IntegrityReport } from '../../shared/types/domain';
 
 const SAMPLE_LIMIT = 5;

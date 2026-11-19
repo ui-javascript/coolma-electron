@@ -26,7 +26,8 @@
     "start": "ee-bin start",
     "typecheck": "tsc --noEmit -p tsconfig.json && pnpm --dir frontend run typecheck",
     "rebuild:sqlite": "node scripts/fetch-better-sqlite3-prebuild.mjs",
-    "icon": "ee-bin icon"
+    "icon": "ee-bin icon",
+    "test:db": "node -e \"require('esbuild').buildSync({entryPoints:['scripts/db-test.ts'],bundle:true,format:'cjs',platform:'node',outfile:'/tmp/coolma-db-test.js',logLevel:'error'})\" && node /tmp/coolma-db-test.js"
   },
   "dependencies": {
     "better-sqlite3": "^12.11.1",
