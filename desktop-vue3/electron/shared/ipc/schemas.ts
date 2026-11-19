@@ -19,6 +19,12 @@ export const blogExportSchema = z.object({
   includeCi: z.boolean().optional(),
 });
 
+export const blogBuildSchema = z.object({
+  blogDir: z.string().min(1),
+  packageManager: z.enum(['npm', 'pnpm', 'yarn']).optional(),
+  script: z.string().min(1).optional(),
+});
+
 export const emptyPayloadSchema = z.union([
   z.undefined(),
   z.null(),

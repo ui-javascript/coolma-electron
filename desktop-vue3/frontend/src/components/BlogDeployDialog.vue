@@ -28,6 +28,21 @@
       </el-form-item>
     </el-form>
 
+    <div class="blog-build-bar">
+      <el-select v-model="packageManager" class="blog-pm" :disabled="building">
+        <el-option value="npm" label="npm" />
+        <el-option value="pnpm" label="pnpm" />
+        <el-option value="yarn" label="yarn" />
+      </el-select>
+      <el-button type="primary" plain :loading="building" :disabled="!lastResult" @click="runBuild">{{ t('blog.build') }}</el-button>
+      <el-button v-if="building" type="danger" plain @click="stopBuild">{{ t('blog.cancelBuild') }}</el-button>
+      <span class="field-hint">{{ t('blog.buildHint') }}</span>
+    </div>
+
+    <div v-if="progress.length" class="blog-progress">
+      <div v-for="(line, index) in progress" :key="index" class="blog-progress-line" :class="{ 'is-err': line.stream === 'stderr' }">{{ line.message }}</div>
+    </div>
+
     <div v-if="lastResult" class="blog-result">
       <div class="blog-result-title">{{ t('blog.resultTitle') }}</div>
       <ul>
@@ -35,6 +50,7 @@
         <li>{{ t('blog.resultShortlinks', { count: lastResult.shortlinkCount }) }}</li>
         <li v-if="lastResult.workflows.written.length">{{ t('blog.resultWorkflows', { names: lastResult.workflows.written.join(', ') }) }}</li>
         <li v-if="lastResult.workflows.skipped.length">{{ t('blog.resultSkipped', { names: lastResult.workflows.skipped.join(', ') }) }}</li>
+        <li v-if="distDir" class="blog-result-dist">{{ t('blog.distDir', { dir: distDir }) }}</li>
         <li class="blog-result-gap">{{ t('blog.buildGap') }}</li>
       </ul>
     </div>
@@ -61,8 +77,8 @@ import { computed, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import { useAppStore } from '@/stores/app';
-import { exportBlog, pickDirectory } from '@/services/blog';
-import type { BlogExportOutput } from '@/services/blog';
+import { buildBlog, cancelBlogBuild, exportBlog, onBlogProgress, pickDirectory } from '@/services/blog';
+import type { BlogBuildProgress, BlogExportOutput } from '@/services/blog';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -83,6 +99,11 @@ const form = reactive<{ blogDir: string; theme: 'default' | 'vdoing' | 'hope' | 
   includeCi: false,
 });
 const exporting = ref(false);
+const building = ref(false);
+const packageManager = ref<'npm' | 'pnpm' | 'yarn'>('npm');
+const progress = ref<BlogBuildProgress[]>([]);
+const distDir = ref('');
+let offProgress: (() => void) | null = null;
 const lastResult = ref<BlogExportOutput | null>(null);
 
 const visible = computed({
@@ -95,6 +116,23 @@ watch(
   (open) => {
     if (open) {
       void loadConfig();
+      offProgress?.();
+      offProgress = onBlogProgress((event) => {
+        progress.value.push(event);
+        if (progress.value.length > 80) {
+          progress.value.splice(0, progress.value.length - 80);
+        }
+        if (event.stage === 'done') {
+          distDir.value = event.message;
+          building.value = false;
+        }
+        if (event.stage === 'error' || event.stage === 'cancelled') {
+          building.value = false;
+        }
+      });
+    } else {
+      offProgress?.();
+      offProgress = null;
     }
   },
 );
@@ -121,6 +159,33 @@ async function chooseDir(): Promise<void> {
     form.blogDir = result.data;
     await saveConfig();
   } else if (!result.ok) {
+    ElMessage.error(result.error.message);
+  }
+}
+
+async function runBuild(): Promise<void> {
+  if (!form.blogDir.trim()) {
+    ElMessage.warning(t('blog.needDir'));
+    return;
+  }
+  building.value = true;
+  progress.value = [];
+  distDir.value = '';
+  try {
+    const result = await buildBlog({ blogDir: form.blogDir.trim(), packageManager: packageManager.value });
+    if (!result.ok) {
+      ElMessage.error(t('blog.buildFailed', { message: result.error.message }));
+      return;
+    }
+    ElMessage.success(t('blog.buildDone'));
+  } finally {
+    building.value = false;
+  }
+}
+
+async function stopBuild(): Promise<void> {
+  const result = await cancelBlogBuild();
+  if (!result.ok) {
     ElMessage.error(result.error.message);
   }
 }
@@ -158,6 +223,13 @@ async function runExport(): Promise<void> {
 .blog-dir-row { display: flex; gap: 8px; width: 100%; }
 .blog-theme { width: 160px; }
 .field-hint { font-size: 12px; color: var(--el-text-color-secondary); line-height: 1.5; width: 100%; }
+.blog-build-bar { display: flex; align-items: center; gap: 8px; margin: 4px 0 10px; flex-wrap: wrap; }
+.blog-pm { width: 110px; }
+.blog-progress { max-height: 180px; overflow-y: auto; border: 1px solid var(--el-border-color-lighter); border-radius: 8px; background: #0f172a08; padding: 8px 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.5; }
+.blog-progress-line { white-space: pre-wrap; word-break: break-all; }
+.blog-progress-line.is-err { color: var(--el-color-danger); }
+.blog-result-dist { word-break: break-all; }
+
 .blog-result { border: 1px solid var(--el-border-color-lighter); border-radius: 8px; padding: 10px 14px; background: var(--el-fill-color-lighter); }
 .blog-result-title { font-weight: 600; font-size: 13px; margin-bottom: 6px; }
 .blog-result ul { margin: 0; padding-left: 18px; font-size: 12px; line-height: 1.8; }

@@ -1,11 +1,12 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { IpcResult } from '../shared/ipc/contract';
-import { blogExportSchema } from '../shared/ipc/schemas';
+import { blogBuildSchema, blogExportSchema } from '../shared/ipc/schemas';
 import { fail, ok } from '../shared/ipc/result';
 import { notesRepository } from '../service/db/notes-repository';
 import { exportCIWorkflows, ensureReadme, generateSidebarJson, writeBlogPosts } from '../service/blog/deploy';
 import type { BlogNote } from '../service/blog/deploy';
+import { cancelBlogBuild, runBlogBuild } from '../service/blog/build';
 import { failFromError } from './controller-utils';
 
 export interface BlogExportResult {
@@ -17,12 +18,7 @@ export interface BlogExportResult {
 }
 
 class BlogController {
-  /**
-   * 把本地笔记写进 vuepress 博客目录（P0-10 的本地一半）。
-   *
-   * vue2 的完整链路是：拿笔记 → 写产物 → 主进程 vuepress build → GitHub dispatch / SFTP。
-   * 这里只做「拿笔记 → 写产物」；构建与推送没有接（不装样子）。
-   */
+  /** 把本地笔记写进 vuepress 博客目录（P0-10 的本地产物一半）。 */
   async export(args?: unknown): Promise<IpcResult<BlogExportResult>> {
     try {
       const input = blogExportSchema.parse(args);
@@ -70,6 +66,29 @@ class BlogController {
       });
     } catch (error) {
       return failFromError(error, 'BLOG_EXPORT_ERROR');
+    }
+  }
+
+  /** 在博客目录跑构建脚本；进度通过 `blog-deploy-progress` 事件推送。 */
+  async build(args?: unknown): Promise<IpcResult<{ distDir: string; script: string }>> {
+    try {
+      const input = blogBuildSchema.parse(args);
+      const result = await runBlogBuild(input);
+      if (!result.ok) {
+        return fail(result.error || 'BLOG_BUILD_ERROR', result.error || 'build failed');
+      }
+      return ok({ distDir: result.distDir || '', script: result.script || '' });
+    } catch (error) {
+      return failFromError(error, 'BLOG_BUILD_ERROR');
+    }
+  }
+
+  async cancel(args?: unknown): Promise<IpcResult<{ cancelled: boolean }>> {
+    try {
+      blogBuildSchema.partial().parse(args ?? {});
+      return ok({ cancelled: cancelBlogBuild() });
+    } catch (error) {
+      return failFromError(error, 'BLOG_CANCEL_ERROR');
     }
   }
 }

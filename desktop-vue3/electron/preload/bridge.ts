@@ -53,6 +53,8 @@ const INVOKE_CHANNELS = new Set<string>([
   'controller/library/echoSaveMany',
   'controller/library/echoRemove',
   'controller/blog/export',
+  'controller/blog/build',
+  'controller/blog/cancel',
   'controller/cloudfn/invoke',
   'controller/ai/models',
   'controller/ai/saveModel',
@@ -82,7 +84,8 @@ const INVOKE_CHANNELS = new Set<string>([
 
 
 
-const EVENT_CHANNELS = new Set<string>();
+
+const EVENT_CHANNELS = new Set<string>(['blog-deploy-progress']);
 
 const api: CoolmaApi = {
   async invoke<T = unknown>(channel: string, payload?: unknown): Promise<IpcResult<T>> {

@@ -74,6 +74,8 @@ export const IPC_CHANNELS = {
   },
   blog: {
     export: 'controller/blog/export',
+    build: 'controller/blog/build',
+    cancel: 'controller/blog/cancel',
   },
   cloudfn: {
     invoke: 'controller/cloudfn/invoke',
@@ -150,6 +152,8 @@ export const INVOKE_CHANNELS = new Set<string>([
   IPC_CHANNELS.library.runes,
   IPC_CHANNELS.library.echoes,
   IPC_CHANNELS.blog.export,
+  IPC_CHANNELS.blog.build,
+  IPC_CHANNELS.blog.cancel,
   IPC_CHANNELS.cloudfn.invoke,
   IPC_CHANNELS.ai.models,
   IPC_CHANNELS.ai.saveModel,
@@ -174,4 +178,4 @@ export const INVOKE_CHANNELS = new Set<string>([
  * Main -> renderer push events. Add channels here and in the preload bridge
  * before exposing them to the renderer.
  */
-export const EVENT_CHANNELS = new Set<string>();
+export const EVENT_CHANNELS = new Set<string>(['blog-deploy-progress']);
