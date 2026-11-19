@@ -70,6 +70,21 @@ export default function htmlTag (h, cursor, block, token, outerClass) {
           }
         }
 
+        // 符文占位在行内通道里是 span 宿主，但挂载逻辑读的是 dataset.runeNodeId 之类；
+        // 这些属性原本只是普通 attrs，不搬到 dataset 就会被判定"缺字段"直接跳过
+        const RUNE_DATA_KEYS = {
+          'data-rune-name': 'runeName',
+          'data-rune-id': 'runeId',
+          'data-rune-node-id': 'runeNodeId',
+          'data-rune-value': 'runeValue'
+        }
+        for (const [attrName, datasetKey] of Object.entries(RUNE_DATA_KEYS)) {
+          if (Object.prototype.hasOwnProperty.call(attrs, attrName)) {
+            data.dataset[datasetKey] = attrs[attrName]
+            delete data.attrs[attrName]
+          }
+        }
+
         return [
           h(`span.${tagClassName}.${CLASS_OR_ID.AG_OUTPUT_REMOVE}`, {
             attrs: {
