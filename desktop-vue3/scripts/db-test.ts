@@ -263,6 +263,16 @@ assert('体检：能抓到 tags 与 note_tags 不一致', dirtyReport.issues.som
   assert('面板：内置卡片仍在列表', runesRepository.list().length > 0 && echoesRepository.list().length > 0);
 }
 
+// 分类字段往返（分类 Tab 批次）
+{
+  const music = runesRepository.save({ id: 'r-cat-1', name: '音乐符文', category: 'music' });
+  assert('符文：自定义分类入库往返', music.category === 'music', JSON.stringify(music));
+  const showy = echoesRepository.save({ id: 'e-cat-1', name: '特效回响', category: 'showy' });
+  assert('回响：自定义分类入库往返', showy.category === 'showy', JSON.stringify(showy));
+  const upd = runesRepository.save({ id: 'r-cat-1', name: '音乐符文', category: 'novel', sortOrder: 0 });
+  assert('符文：更新可改分类', upd.category === 'novel', JSON.stringify(upd));
+}
+
 console.log(failed === 0 ? '\n仓储层测试全部通过' : `\n仓储层测试失败 ${failed} 项`);
 if (failed > 0) {
   process.exitCode = 1;

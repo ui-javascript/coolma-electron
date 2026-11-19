@@ -155,6 +155,7 @@ export default {
     desc: '描述',
     descPlaceholder: '选填，一句话说明用途',
     color: '颜色',
+    category: '分类',
     source: '源码',
     templatePlaceholder: '符文模板，留空则生成最小可用模板',
     annoPlaceholder: '回响源码，留空则生成最小可用实现',

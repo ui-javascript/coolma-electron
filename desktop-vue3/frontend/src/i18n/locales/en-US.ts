@@ -155,6 +155,7 @@ export default {
     desc: 'Description',
     descPlaceholder: 'Optional, one-line purpose',
     color: 'Color',
+    category: 'Category',
     source: 'Source',
     templatePlaceholder: 'Rune template, leave empty for a minimal template',
     annoPlaceholder: 'Echo source, leave empty for a minimal implementation',

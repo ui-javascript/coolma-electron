@@ -1,5 +1,18 @@
 <template>
   <div class="library-panel">
+    <div class="category-tabs">
+      <button
+        v-for="tab in categoryTabs"
+        :key="tab.value"
+        type="button"
+        class="category-tab"
+        :class="{ active: tab.value === activeCategory }"
+        @click="activeCategory = tab.value"
+      >
+        {{ tab.label }}
+        <span class="tab-count">{{ tab.count }}</span>
+      </button>
+    </div>
     <div class="library-head">
       <span class="library-title">
         {{ kind === 'rune' ? t('library.runesTitle') : t('library.echoesTitle') }}
@@ -17,7 +30,7 @@
 
     <div class="library-grid">
       <div
-        v-for="(item, index) in items"
+        v-for="(item, index) in categoryItems"
         :key="item.id"
         class="library-card"
         draggable="true"
@@ -41,7 +54,7 @@
         </div>
       </div>
     </div>
-    <p v-if="items.length === 0" class="library-empty">{{ t('library.empty') }}</p>
+    <p v-if="categoryItems.length === 0" class="library-empty">{{ t('library.empty') }}</p>
 
     <LibraryFormDialog
       v-model="formVisible"
@@ -59,6 +72,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { Delete, Edit, Plus } from '@element-plus/icons-vue';
 import type { EchoCard, RuneCard } from '@shared/types/domain';
 import { useLibraryStore } from '@/stores/library';
+import { categoriesOf, resolveCategory, type LibraryCategory } from '@/utils/libraryCategories';
 import LibraryFormDialog from './LibraryFormDialog.vue';
 
 /**
@@ -77,6 +91,36 @@ const { t } = useI18n();
 const libraryStore = useLibraryStore();
 
 const items = computed(() => (props.kind === 'rune' ? libraryStore.runes : libraryStore.echoes) as Array<RuneCard | EchoCard>);
+
+/** 当前分类（默认 general / marker，与 vue2 面板一致）。 */
+const activeCategory = ref(resolveCategory(props.kind, ''));
+
+function labelOf(category: LibraryCategory): string {
+  return locale.value === 'zh-CN' ? category.zh : category.en;
+}
+
+const { locale } = useI18n();
+
+/** 分类 Tab：默认分类恒第一，其余按卡片数降序（对齐 vue2 categoryOptions 排序）。 */
+const categoryTabs = computed(() => {
+  const list = categoriesOf(props.kind);
+  const general = list[0];
+  const rest = list.slice(1).map((category) => ({
+    ...category,
+    label: labelOf(category),
+    count: items.value.filter((item) => resolveCategory(props.kind, item.category) === category.value).length,
+  }));
+  rest.sort((a, b) => b.count - a.count);
+  return [
+    { ...general, label: labelOf(general), count: items.value.filter((item) => resolveCategory(props.kind, item.category) === general.value).length },
+    ...rest,
+  ];
+});
+
+/** 当前分类下的卡片。 */
+const categoryItems = computed(() =>
+  items.value.filter((item) => resolveCategory(props.kind, item.category) === activeCategory.value),
+);
 
 const formVisible = ref(false);
 const editing = ref<RuneCard | EchoCard | null>(null);
@@ -125,9 +169,20 @@ async function onDrop(index: number): Promise<void> {
   if (from < 0 || from === index) {
     return;
   }
-  const next = [...items.value];
-  const [moved] = next.splice(from, 1);
-  next.splice(index, 0, moved);
+  // 分类过滤视图里拖拽：换算成「全列表」中的位置再移动，
+  // 然后全量重编号 0..n-1，保证跨分类的全局顺序不被打乱
+  const dragged = categoryItems.value[from];
+  const target = categoryItems.value[index];
+  const full = [...items.value];
+  const draggedGlobal = full.findIndex((item) => item.id === dragged.id);
+  const targetGlobal = full.findIndex((item) => item.id === target.id);
+  if (draggedGlobal < 0 || targetGlobal < 0) {
+    return;
+  }
+  const next = [...full];
+  const [moved] = next.splice(draggedGlobal, 1);
+  const adjustedTarget = next.findIndex((item) => item.id === target.id);
+  next.splice(adjustedTarget, 0, moved);
   // 先改内存让 UI 立即生效，再防抖落库
   if (props.kind === 'rune') {
     libraryStore.runes = next as RuneCard[];
@@ -145,6 +200,7 @@ async function onDrop(index: number): Promise<void> {
       desc: item.desc,
       color: item.color,
       icon: item.icon,
+      category: item.category,
       sortOrder: order,
       ...(props.kind === 'rune'
         ? { template: (item as RuneCard).template, inheritFromPrevious: (item as RuneCard).inheritFromPrevious }
@@ -162,6 +218,45 @@ async function onDrop(index: number): Promise<void> {
 </script>
 
 <style scoped>
+.category-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.category-tab {
+  border: 1px solid var(--el-border-color-light);
+  background: var(--el-fill-color-blank);
+  border-radius: 14px;
+  padding: 3px 10px;
+  font-size: 12px;
+  color: var(--el-text-color-regular);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.category-tab:hover {
+  border-color: var(--el-color-primary-light-5);
+}
+
+.category-tab.active {
+  background: var(--el-color-primary-light-9);
+  border-color: var(--el-color-primary);
+  color: var(--el-color-primary);
+}
+
+.tab-count {
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
+}
+
+.category-tab.active .tab-count {
+  color: var(--el-color-primary);
+}
+
 .library-panel {
   width: 100%;
 }

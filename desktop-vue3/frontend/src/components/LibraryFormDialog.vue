@@ -16,6 +16,16 @@
       <el-form-item :label="t('library.color')">
         <el-color-picker v-model="form.color" />
       </el-form-item>
+      <el-form-item :label="t('library.category')">
+        <el-select v-model="form.category" filterable class="category-select">
+          <el-option
+            v-for="option in categoryOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          />
+        </el-select>
+      </el-form-item>
       <el-form-item :label="t('library.source')">
         <el-input
           v-model="source"
@@ -43,6 +53,7 @@ import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import { randomUUID } from '@/utils/id';
 import { useLibraryStore } from '@/stores/library';
+import { categoriesOf, resolveCategory, type LibraryCategory } from '@/utils/libraryCategories';
 import type { EchoCard, RuneCard } from '@shared/types/domain';
 
 /**
@@ -76,7 +87,18 @@ const form = reactive({
   name: '',
   desc: '',
   color: '#7E57C2',
+  category: 'general',
 });
+
+/** 分类下拉：当前 locale 的文案，非法值回退默认分类。 */
+const categoryOptions = computed(() =>
+  categoriesOf(props.kind).map((category: LibraryCategory) => ({
+    value: category.value,
+    label: locale.value === 'zh-CN' ? category.zh : category.en,
+  })),
+);
+
+const { locale } = useI18n();
 const source = ref('');
 const inheritOn = ref(false);
 
@@ -91,6 +113,7 @@ watch(
       form.name = props.editing.name;
       form.desc = props.editing.desc;
       form.color = props.editing.color;
+      form.category = resolveCategory(props.kind, props.editing.category);
       if (props.kind === 'rune') {
         source.value = (props.editing as RuneCard).template;
         inheritOn.value = Boolean((props.editing as RuneCard).inheritFromPrevious);
@@ -102,6 +125,7 @@ watch(
       form.name = '';
       form.desc = '';
       form.color = props.kind === 'rune' ? '#7E57C2' : '#26A69A';
+      form.category = resolveCategory(props.kind, '');
       source.value = '';
       inheritOn.value = false;
     }
@@ -123,6 +147,7 @@ async function submit(): Promise<void> {
         name,
         desc: form.desc.trim(),
         color: form.color,
+        category: form.category,
         template: source.value,
         inheritFromPrevious: inheritOn.value ? 1 : 0,
       });
@@ -136,6 +161,7 @@ async function submit(): Promise<void> {
         name,
         desc: form.desc.trim(),
         color: form.color,
+        category: form.category,
         annoSource: source.value,
       });
       if (!saved) {
@@ -155,6 +181,10 @@ async function submit(): Promise<void> {
 <style scoped>
 .mono {
   font-family: 'JetBrains Mono', Consolas, monospace;
+}
+
+.category-select {
+  width: 200px;
 }
 
 .form-hint {
