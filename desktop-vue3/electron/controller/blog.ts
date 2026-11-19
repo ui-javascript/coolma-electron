@@ -1,12 +1,13 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { IpcResult } from '../shared/ipc/contract';
-import { blogBuildSchema, blogExportSchema } from '../shared/ipc/schemas';
+import { blogBuildSchema, blogDispatchSchema, blogExportSchema } from '../shared/ipc/schemas';
 import { fail, ok } from '../shared/ipc/result';
 import { notesRepository } from '../service/db/notes-repository';
 import { exportCIWorkflows, ensureReadme, generateSidebarJson, writeBlogPosts } from '../service/blog/deploy';
 import type { BlogNote } from '../service/blog/deploy';
 import { cancelBlogBuild, runBlogBuild } from '../service/blog/build';
+import { dispatchWorkflow } from '../service/blog/github';
 import { failFromError } from './controller-utils';
 
 export interface BlogExportResult {
@@ -80,6 +81,20 @@ class BlogController {
       return ok({ distDir: result.distDir || '', script: result.script || '' });
     } catch (error) {
       return failFromError(error, 'BLOG_BUILD_ERROR');
+    }
+  }
+
+  /** 触发 GitHub Actions workflow（对应 vue2「部署」里的 dispatch 分支）。 */
+  async dispatchGitHub(args?: unknown): Promise<IpcResult<{ dispatched: boolean }>> {
+    try {
+      const input = blogDispatchSchema.parse(args);
+      const result = await dispatchWorkflow(input);
+      if (!result.ok) {
+        return fail('BLOG_DISPATCH_ERROR', result.error || 'dispatch failed');
+      }
+      return ok({ dispatched: true });
+    } catch (error) {
+      return failFromError(error, 'BLOG_DISPATCH_ERROR');
     }
   }
 

@@ -55,6 +55,7 @@ const INVOKE_CHANNELS = new Set<string>([
   'controller/blog/export',
   'controller/blog/build',
   'controller/blog/cancel',
+  'controller/blog/dispatchGitHub',
   'controller/cloudfn/invoke',
   'controller/ai/models',
   'controller/ai/saveModel',
@@ -80,6 +81,7 @@ const INVOKE_CHANNELS = new Set<string>([
   'controller/database/restore',
   'controller/database/openFolder',
 ]);
+
 
 
 

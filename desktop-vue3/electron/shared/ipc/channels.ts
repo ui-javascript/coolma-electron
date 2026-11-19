@@ -76,6 +76,7 @@ export const IPC_CHANNELS = {
     export: 'controller/blog/export',
     build: 'controller/blog/build',
     cancel: 'controller/blog/cancel',
+    dispatchGitHub: 'controller/blog/dispatchGitHub',
   },
   cloudfn: {
     invoke: 'controller/cloudfn/invoke',
@@ -154,6 +155,7 @@ export const INVOKE_CHANNELS = new Set<string>([
   IPC_CHANNELS.blog.export,
   IPC_CHANNELS.blog.build,
   IPC_CHANNELS.blog.cancel,
+  IPC_CHANNELS.blog.dispatchGitHub,
   IPC_CHANNELS.cloudfn.invoke,
   IPC_CHANNELS.ai.models,
   IPC_CHANNELS.ai.saveModel,

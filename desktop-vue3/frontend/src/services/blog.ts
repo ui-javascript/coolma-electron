@@ -43,5 +43,16 @@ export function onBlogProgress(listener: (event: BlogBuildProgress) => void): ()
   return api.on(BLOG_PROGRESS_CHANNEL, (payload) => listener(payload as BlogBuildProgress));
 }
 
+export interface BlogGithubConfig {
+  owner: string;
+  repo: string;
+  workflowId: string;
+  branch?: string;
+  token: string;
+}
+
+export const dispatchBlogGithub = (input: BlogGithubConfig): Promise<IpcResult<{ dispatched: boolean }>> =>
+  invoke<{ dispatched: boolean }>(IPC_CHANNELS.blog.dispatchGitHub, input);
+
 export const pickDirectory = (): Promise<IpcResult<string | null>> =>
   invoke<string | null>(IPC_CHANNELS.app.pickDirectory);

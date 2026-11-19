@@ -25,6 +25,15 @@ export const blogBuildSchema = z.object({
   script: z.string().min(1).optional(),
 });
 
+export const blogDispatchSchema = z.object({
+  owner: z.string().min(1),
+  repo: z.string().min(1),
+  workflowId: z.string().min(1),
+  branch: z.string().optional(),
+  token: z.string().min(1),
+  inputs: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+});
+
 export const emptyPayloadSchema = z.union([
   z.undefined(),
   z.null(),

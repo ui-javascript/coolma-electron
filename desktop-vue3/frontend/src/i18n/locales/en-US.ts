@@ -634,6 +634,13 @@ export default {
     "blog.buildFailed": "Build failed: {message}",
     "blog.distDir": "Output: {dir}",
     "blog.buildGap": "Not run: GitHub workflow_dispatch, SFTP upload (present in vue2 main handler, not ported).",
+    "blog.githubTitle": "Trigger GitHub Actions (optional)",
+    "blog.githubHint": "Only fires workflow_dispatch; code push/build runs inside the Action. This repo has workflows disabled — enable them on GitHub first.",
+    "blog.githubDispatch": "Dispatch workflow",
+    "blog.githubTokenHint": "Token is stored locally (setting/blog/github) and never written into the blog directory.",
+    "blog.githubNeedFields": "owner / repo / token are required",
+    "blog.githubDone": "Dispatched — check GitHub Actions",
+    "blog.githubFailed": "Dispatch failed: {message}",
   action: {
     newNote: 'New',
     settings: 'Settings',

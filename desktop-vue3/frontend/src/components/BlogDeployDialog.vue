@@ -39,6 +39,28 @@
       <span class="field-hint">{{ t('blog.buildHint') }}</span>
     </div>
 
+    <el-collapse class="blog-github">
+      <el-collapse-item name="github">
+        <template #title>
+          <span class="blog-github-title">{{ t('blog.githubTitle') }}</span>
+        </template>
+        <div class="field-hint blog-github-hint">{{ t('blog.githubHint') }}</div>
+        <el-form label-width="96px" class="github-form">
+          <el-form-item label="owner"><el-input v-model="github.owner" spellcheck="false" /></el-form-item>
+          <el-form-item label="repo"><el-input v-model="github.repo" spellcheck="false" /></el-form-item>
+          <el-form-item label="workflow"><el-input v-model="github.workflowId" spellcheck="false" placeholder="blog-build.yml" /></el-form-item>
+          <el-form-item label="branch"><el-input v-model="github.branch" spellcheck="false" placeholder="main" /></el-form-item>
+          <el-form-item label="token">
+            <el-input v-model="github.token" type="password" show-password spellcheck="false" />
+          </el-form-item>
+        </el-form>
+        <div class="blog-build-bar">
+          <el-button type="primary" plain :loading="dispatching" @click="runDispatch">{{ t('blog.githubDispatch') }}</el-button>
+          <span class="field-hint">{{ t('blog.githubTokenHint') }}</span>
+        </div>
+      </el-collapse-item>
+    </el-collapse>
+
     <div v-if="progress.length" class="blog-progress">
       <div v-for="(line, index) in progress" :key="index" class="blog-progress-line" :class="{ 'is-err': line.stream === 'stderr' }">{{ line.message }}</div>
     </div>
@@ -77,7 +99,7 @@ import { computed, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import { useAppStore } from '@/stores/app';
-import { buildBlog, cancelBlogBuild, exportBlog, onBlogProgress, pickDirectory } from '@/services/blog';
+import { buildBlog, cancelBlogBuild, dispatchBlogGithub, exportBlog, onBlogProgress, pickDirectory } from '@/services/blog';
 import type { BlogBuildProgress, BlogExportOutput } from '@/services/blog';
 
 const props = defineProps<{
@@ -104,6 +126,9 @@ const packageManager = ref<'npm' | 'pnpm' | 'yarn'>('npm');
 const progress = ref<BlogBuildProgress[]>([]);
 const distDir = ref('');
 let offProgress: (() => void) | null = null;
+const GITHUB_KEY = 'setting/blog/github';
+const github = reactive({ owner: 'ui-javascript', repo: 'coolma-electron', workflowId: 'blog-build.yml', branch: 'main', token: '' });
+const dispatching = ref(false);
 const lastResult = ref<BlogExportOutput | null>(null);
 
 const visible = computed({
@@ -147,6 +172,10 @@ async function loadConfig(): Promise<void> {
     form.theme = saved.theme;
   }
   form.includeCi = Boolean(saved?.includeCi);
+  const savedGithub = appStore.prefs[GITHUB_KEY] as Partial<typeof github> | undefined;
+  if (savedGithub) {
+    Object.assign(github, savedGithub);
+  }
 }
 
 async function saveConfig(): Promise<void> {
@@ -180,6 +209,25 @@ async function runBuild(): Promise<void> {
     ElMessage.success(t('blog.buildDone'));
   } finally {
     building.value = false;
+  }
+}
+
+async function runDispatch(): Promise<void> {
+  if (!github.owner || !github.repo || !github.token) {
+    ElMessage.warning(t('blog.githubNeedFields'));
+    return;
+  }
+  dispatching.value = true;
+  try {
+    await appStore.setPref(GITHUB_KEY, { ...github });
+    const result = await dispatchBlogGithub({ ...github });
+    if (!result.ok) {
+      ElMessage.error(t('blog.githubFailed', { message: result.error.message }));
+      return;
+    }
+    ElMessage.success(t('blog.githubDone'));
+  } finally {
+    dispatching.value = false;
   }
 }
 
@@ -225,6 +273,11 @@ async function runExport(): Promise<void> {
 .field-hint { font-size: 12px; color: var(--el-text-color-secondary); line-height: 1.5; width: 100%; }
 .blog-build-bar { display: flex; align-items: center; gap: 8px; margin: 4px 0 10px; flex-wrap: wrap; }
 .blog-pm { width: 110px; }
+.blog-github { margin: 4px 0 10px; }
+.blog-github-title { font-size: 13px; font-weight: 600; }
+.blog-github-hint { margin-bottom: 8px; }
+.github-form :deep(.el-form-item) { margin-bottom: 8px; }
+
 .blog-progress { max-height: 180px; overflow-y: auto; border: 1px solid var(--el-border-color-lighter); border-radius: 8px; background: #0f172a08; padding: 8px 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.5; }
 .blog-progress-line { white-space: pre-wrap; word-break: break-all; }
 .blog-progress-line.is-err { color: var(--el-color-danger); }

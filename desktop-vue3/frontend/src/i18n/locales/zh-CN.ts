@@ -634,6 +634,13 @@ export default {
     "blog.buildFailed": "构建失败：{message}",
     "blog.distDir": "产物目录：{dir}",
     "blog.buildGap": "未执行：GitHub workflow_dispatch、SFTP 上传（vue2 主进程 handler 有，v3 未移植）。",
+    "blog.githubTitle": "GitHub Actions 触发（可选）",
+    "blog.githubHint": "只触发 workflow_dispatch；代码推送/构建在 Action 里跑。仓库的 workflow 现在是禁用状态，先在 GitHub 打开。",
+    "blog.githubDispatch": "触发 workflow",
+    "blog.githubTokenHint": "token 只存在本地设置库（setting/blog/github），不会写进博客目录。",
+    "blog.githubNeedFields": "owner / repo / token 都要填",
+    "blog.githubDone": "已触发，去 GitHub Actions 看进度",
+    "blog.githubFailed": "触发失败：{message}",
   action: {
     newNote: '新建',
     settings: '设置',
