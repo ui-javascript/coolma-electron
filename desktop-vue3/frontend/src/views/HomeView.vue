@@ -20,6 +20,12 @@
 
       <div class="topbar-actions">
         <el-tag :type="statusType" effect="light" round>{{ statusLabel }}</el-tag>
+        <el-button circle plain :title="t('search.title')" @click="searchVisible = true">
+          <el-icon><Search /></el-icon>
+        </el-button>
+        <el-button circle plain :title="t('outline.title')" @click="outlineVisible = true">
+          <el-icon><Document /></el-icon>
+        </el-button>
         <el-button circle plain :title="t('microApps.open')" @click="microDrawerVisible = true">
           <el-icon><Grid /></el-icon>
         </el-button>
@@ -73,6 +79,7 @@
 
       <Pane :size="55">
         <EditorPane
+          ref="editorPaneRef"
           v-model:content="activeContent"
           :summary="activeSummary"
           :theme="appStore.theme"
@@ -119,13 +126,15 @@
       :pending="metaPending"
       @confirm="confirmTags"
     />
+    <SearchDialog v-model="searchVisible" @select="selectNote" />
+    <NoteOutlineDrawer v-model="outlineVisible" :markdown="activeContent" @jump="jumpToHeading" />
     <FullscreenOverlay ref="fullscreenOverlayRef" :app-entry="deleteEffectEntry" />
     <MicroAppDrawer v-model="microDrawerVisible" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { Grid, Search, Setting } from '@element-plus/icons-vue';
+import { Document, Grid, Search, Setting } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Pane, Splitpanes } from 'splitpanes';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
@@ -137,6 +146,8 @@ import EditorPane from '@/components/EditorPane.vue';
 import SkinEffects from '@/components/SkinEffects.vue';
 import MicroAppDrawer from '@/components/MicroAppDrawer.vue';
 import FullscreenOverlay from '@/components/FullscreenOverlay.vue';
+import SearchDialog from '@/components/SearchDialog.vue';
+import NoteOutlineDrawer from '@/components/NoteOutlineDrawer.vue';
 import {
   findDeleteEffectEntry,
   installMicroAppsBuiltins,
@@ -455,6 +466,13 @@ watch(keyword, (value) => {
   }, 250);
 });
 
+function jumpToHeading(index: number): void {
+  const scrolled = editorPaneRef.value?.scrollToHeading?.(index) ?? false;
+  if (!scrolled) {
+    ElMessage.info(t('outline.jumpFailed'));
+  }
+}
+
 function selectNote(id: number): void {
   activeId.value = id;
 }
@@ -613,6 +631,9 @@ function handleShortcut(event: KeyboardEvent): void {
 }
 
 const microDrawerVisible = ref(false);
+const searchVisible = ref(false);
+const outlineVisible = ref(false);
+const editorPaneRef = ref<InstanceType<typeof EditorPane> | null>(null);
 const deleteEffectEntry = ref<MicroApp | null>(null);
 const fullscreenOverlayRef = ref<InstanceType<typeof FullscreenOverlay> | null>(null);
 const skinEffectsRef = ref<any>(null);

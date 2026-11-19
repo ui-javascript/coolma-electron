@@ -427,6 +427,39 @@ async function main(): Promise<void> {
   }
 
 
+
+  // ── 大纲 / 搜索片段 ──
+  {
+    const { buildOutline, flattenOutline } = await import('@/utils/outline');
+    const md = [
+      '---',
+      'title: 元信息不该进大纲',
+      '---',
+      '# 一级',
+      '正文',
+      '## 二级 A',
+      '```',
+      '# 代码块里的井号不算标题',
+      '```',
+      '### 三级',
+      '## 二级 B',
+    ].join('\n');
+    const tree = buildOutline(md);
+    assert('大纲：忽略 front-matter 与代码块', tree.length === 1 && tree[0].label === '一级', JSON.stringify(tree.map((n) => n.label)));
+    assert('大纲：二级挂到一级下', (tree[0].children ?? []).map((n) => n.label).join('/') === '二级 A/二级 B', JSON.stringify(tree[0].children?.map((n) => n.label)));
+    const flat = flattenOutline(tree);
+    assert('大纲：展平后 4 个标题且顺序正确', flat.length === 4 && flat[3].label === '二级 B', JSON.stringify(flat.map((n) => n.label)));
+    assert('大纲：行号是 0 基且指向标题行', flat[0].line === 3, String(flat[0].line));
+    assert('大纲：空文档返回空树', buildOutline('').length === 0 && buildOutline('#').length === 0);
+
+    const { highlightSnippet } = await import('@/utils/search');
+    const long = 'a'.repeat(40) + '关键词' + 'b'.repeat(60);
+    const snippet = highlightSnippet(long, '关键词', 40);
+    assert('搜索：命中片段带省略号且含关键词', snippet.includes('关键词') && snippet.startsWith('…') && snippet.endsWith('…'), snippet);
+    assert('搜索：无关键词按长度截断', highlightSnippet('x'.repeat(100), '', 20).length === 20, String(highlightSnippet('x'.repeat(100), '', 20).length));
+    assert('搜索：空文本返回空串', highlightSnippet('', 'x') === '');
+  }
+
   // ── 全屏桥 / 通用桥 / 内置条目 ──
   {
     const { defaultResolveRequest, updateCursorPosCache, summonFullscreen, isFullscreenBridgeInstalled } = await import(

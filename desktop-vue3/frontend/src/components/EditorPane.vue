@@ -209,4 +209,21 @@ const editorOptions = {
 onMounted(() => {
   void libraryStore.load();
 });
+/**
+ * 大纲跳转：按标题序号滚动到对应块。
+ * 引擎没有 scrollToHeader API（vue2 是走 bus 让 contentState 自己滚），
+ * 这里按 DOM 里第 n 个 h1-h6 定位——标题顺序与 buildOutline 的展平顺序一致。
+ */
+function scrollToHeading(index: number): boolean {
+  const container = muyaRef.value?.getEditor?.()?.container as HTMLElement | undefined;
+  const headings = container?.querySelectorAll?.('h1,h2,h3,h4,h5,h6') ?? [];
+  const target = headings[index] as HTMLElement | undefined;
+  if (!target) {
+    return false;
+  }
+  target.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  return true;
+}
+
+defineExpose({ scrollToHeading, toggleSourceMode });
 </script>
