@@ -10,6 +10,7 @@ import { JSDOM } from 'jsdom';
 import { buildSlidesHtml, escapeSlideHtml } from '../frontend/src/utils/slides';
 import { stripDataUrlBase64 } from '../electron/service/export-utils';
 import { muyaCursorToPosition, positionToMuyaCursor } from '../frontend/src/utils/cursor';
+import { DEFAULT_SKIN, SKIN_LIST, applySkinThemeColor } from '../frontend/src/utils/skin';
 import {
   MAX_TAG_NAME_LENGTH,
   buildAutoTagMessages,
@@ -356,6 +357,26 @@ async function main(): Promise<void> {
 
     const untagged = filterUntaggedNotes([{ tags: '' }, { tags: 'a,b' }, { tags: '   ' }, {}]);
     assert('打标：候选只留未打标', untagged.length === 3, String(untagged.length));
+  }
+
+  // ===== 皮肤：主题色变量落点 =====
+  {
+    const root = document.documentElement;
+
+    applySkinThemeColor('nezha');
+    assert('皮肤：nezha 写 --themeColor', root.style.getPropertyValue('--themeColor') === 'rgba(181, 129, 125, 1)', root.style.getPropertyValue('--themeColor'));
+    assert('皮肤：nezha 写 90% 档', /rgba\(181, 129, 125, (0\.)?9\)/.test(root.style.getPropertyValue('--themeColor90')), root.style.getPropertyValue('--themeColor90'));
+    assert('皮肤：nezha 覆盖 Element 主色', root.style.getPropertyValue('--el-color-primary') === '#b5817d', root.style.getPropertyValue('--el-color-primary'));
+    assert('皮肤：nezha 生成 light-9', root.style.getPropertyValue('--el-color-primary-light-9').startsWith('rgb('), root.style.getPropertyValue('--el-color-primary-light-9'));
+
+    applySkinThemeColor('infp');
+    assert('皮肤：infp 换色生效', root.style.getPropertyValue('--themeColor') === 'rgba(33, 181, 111, 1)', root.style.getPropertyValue('--themeColor'));
+    assert('皮肤：infp 覆盖 Element 主色', root.style.getPropertyValue('--el-color-primary') === '#21b56f');
+
+    applySkinThemeColor('baiyang');
+    assert('皮肤：baiyang 清空主题色', root.style.getPropertyValue('--themeColor') === '', root.style.getPropertyValue('--themeColor'));
+    assert('皮肤：baiyang 清空 Element 主色（回落自带蓝）', root.style.getPropertyValue('--el-color-primary') === '');
+    assert('皮肤：三套皮枚举固定', SKIN_LIST.join('|') === 'baiyang|nezha|infp' && DEFAULT_SKIN === 'baiyang');
   }
 
   console.log(failed === 0 ? '\n全部通过' : `\n失败 ${failed} 项`);

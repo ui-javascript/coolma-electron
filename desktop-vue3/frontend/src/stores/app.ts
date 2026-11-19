@@ -9,6 +9,7 @@ import {
   type BootStatus,
 } from '@shared/enums/app';
 import { allSettings, getAppInfo, setSetting } from '@/services/ipc';
+import { DEFAULT_SKIN, SKIN_LIST, applySkinThemeColor, type Skin } from '@/utils/skin';
 import { i18n } from '@/i18n';
 
 export type { AppLocale, AppTheme, BootStatus } from '@shared/enums/app';
@@ -17,6 +18,11 @@ function readTheme(): AppTheme {
   return localStorage.getItem('coolma.theme') === AppThemeEnum.Dark
     ? AppThemeEnum.Dark
     : AppThemeEnum.Light;
+}
+
+function readSkin(): Skin {
+  const stored = localStorage.getItem('coolma.skin') as Skin | null;
+  return stored && SKIN_LIST.includes(stored) ? stored : DEFAULT_SKIN;
 }
 
 function readLocale(): AppLocale {
@@ -28,6 +34,7 @@ function readLocale(): AppLocale {
 export const useAppStore = defineStore('app', {
   state: () => ({
     theme: readTheme(),
+    skin: readSkin(),
     locale: readLocale(),
     appInfo: null as AppInfo | null,
     status: BootStatusEnum.Idle as BootStatus,
@@ -91,6 +98,15 @@ export const useAppStore = defineStore('app', {
     applyTheme(): void {
       document.documentElement.classList.toggle('dark', this.theme === AppThemeEnum.Dark);
       document.documentElement.dataset.theme = this.theme;
+      // 皮肤主色在重启后也要还原：Element Plus 的 primary 变量不随 class 变
+      applySkinThemeColor(this.skin);
+    },
+
+    /** 换肤：落 localStorage + 立刻刷 CSS 变量（特效由调用方决定是否播放）。 */
+    setSkin(skin: Skin): void {
+      this.skin = skin;
+      localStorage.setItem('coolma.skin', skin);
+      applySkinThemeColor(skin);
     },
 
     setTheme(theme: AppTheme): void {

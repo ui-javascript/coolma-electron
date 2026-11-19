@@ -50,6 +50,15 @@
       </el-form>
     </el-card>
 
+    <el-card v-show="groupTab === 'general'" class="settings-card" shadow="never">
+      <template #header>
+        <div class="card-heading">
+          <span>{{ t('settings.skin') }}</span>
+        </div>
+      </template>
+      <SkinPickerCard />
+    </el-card>
+
     <el-card v-show="groupTab === 'editor'" class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
@@ -361,6 +370,7 @@ import AiModelsCard from '@/components/AiModelsCard.vue';
 import AiSkillsCard from '@/components/AiSkillsCard.vue';
 import TagsManageCard from '@/components/TagsManageCard.vue';
 import AutoTagCard from '@/components/AutoTagCard.vue';
+import SkinPickerCard from '@/components/SkinPickerCard.vue';
 import { useAppStore, type AppTheme } from '@/stores/app';
 import LibraryManagePanel from '@/components/LibraryManagePanel.vue';
 import type { AppLocale } from '@/i18n';

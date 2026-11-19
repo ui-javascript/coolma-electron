@@ -1,5 +1,6 @@
 <template>
   <div class="app-shell">
+    <SkinEffects ref="skinEffectsRef" />
     <header class="topbar">
       <div class="brand">
         <div class="brand-mark">C</div>
@@ -127,6 +128,7 @@ import { useRouter } from 'vue-router';
 import { IndexModeEnum, NoteOrderTypeEnum, type CalendarDateBasis, type IndexMode } from '@shared/enums/app';
 import type { NoteSummary } from '@shared/types/domain';
 import EditorPane from '@/components/EditorPane.vue';
+import SkinEffects from '@/components/SkinEffects.vue';
 import MindMapDialog from '@/components/MindMapDialog.vue';
 import PreviewPptDialog from '@/components/PreviewPptDialog.vue';
 import IndexSidebar from '@/components/IndexSidebar.vue';
@@ -137,6 +139,7 @@ import TagEditorDialog from '@/components/TagEditorDialog.vue';
 import { useNoteActions } from '@/composables/useNoteActions';
 import { exportCategoryMarkdown, listNotes } from '@/services/ipc';
 import { useAppStore } from '@/stores/app';
+import { skinEffectBus } from '@/services/skinEffectBus';
 import { useNotesStore } from '@/stores/notes';
 import { useLibraryStore } from '@/stores/library';
 import { createMuyaPlugins } from '@/muyaPlugins';
@@ -553,7 +556,11 @@ function handleShortcut(event: KeyboardEvent): void {
   }
 }
 
+const skinEffectsRef = ref<any>(null);
+let detachSkinEffect: (() => void) | null = null;
+
 onMounted(async () => {
+  detachSkinEffect = skinEffectBus.on((skin) => skinEffectsRef.value?.play?.(skin));
   window.addEventListener('keydown', handleShortcut);
   void appStore.init();
   const loaded = await notesStore.loadAll();
@@ -563,6 +570,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  detachSkinEffect?.();
   window.removeEventListener('keydown', handleShortcut);
   if (saveTimer) {
     clearTimeout(saveTimer);

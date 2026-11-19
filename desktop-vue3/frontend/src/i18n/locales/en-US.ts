@@ -374,6 +374,9 @@ export default {
     aiAutoTagApplyFailed: 'Failed to apply tags',
     aiAutoTagAppliedOne: '"{title}": {count} tags applied',
     aiAutoTagAppliedAll: '{count} notes applied',
+    'settings.skin': 'Skin',
+    'settings.skinHint': 'Skins only change the accent color and switch animation',
+    'settings.skinSwitched': 'Switched to skin "{name}"',
   action: {
     newNote: 'New',
     settings: 'Settings',
@@ -469,5 +472,13 @@ export default {
     ready: 'Ready',
     failed: 'Failed',
     applied: 'Applied',
+  },
+  skin: {
+    baiyang: 'Baiyang',
+    baiyangDesc: 'Default blue, hearts on switch',
+    nezha: 'Nezha',
+    nezhaDesc: 'Ochre red accent, flames on switch',
+    infp: 'INFP',
+    infpDesc: 'Teal green accent, butterflies on switch',
   },
 };

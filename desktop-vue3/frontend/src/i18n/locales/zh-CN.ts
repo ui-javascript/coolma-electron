@@ -374,6 +374,9 @@ export default {
     aiAutoTagApplyFailed: '应用标签失败',
     aiAutoTagAppliedOne: '「{title}」已打 {count} 个标签',
     aiAutoTagAppliedAll: '已应用 {count} 篇',
+    'settings.skin': '皮肤',
+    'settings.skinHint': '换肤只改主题色与切换动画，不影响编辑器内容',
+    'settings.skinSwitched': '已切换到「{name}」皮肤',
   action: {
     newNote: '新建',
     settings: '设置',
@@ -469,5 +472,13 @@ export default {
     ready: '有建议',
     failed: '失败',
     applied: '已应用',
+  },
+  skin: {
+    baiyang: '白羊',
+    baiyangDesc: '默认蓝，切换时落爱心',
+    nezha: '哪吒',
+    nezhaDesc: '赭红主色，切换时起火焰',
+    infp: 'INFP',
+    infpDesc: '青绿主色，切换时飞蝴蝶',
   },
 };
