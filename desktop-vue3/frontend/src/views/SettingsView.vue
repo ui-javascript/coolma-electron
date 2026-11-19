@@ -17,6 +17,7 @@
       <el-tab-pane :label="t('settings.groupDatabase')" name="database" />
       <el-tab-pane :label="t('settings.groupLibrary')" name="library" />
       <el-tab-pane :label="t('settings.groupAi')" name="ai" />
+      <el-tab-pane :label="t('settings.groupApps')" name="apps" />
       <el-tab-pane :label="t('settings.groupAbout')" name="about" />
     </el-tabs>
 
@@ -309,6 +310,15 @@
       <AutoTagCard />
     </el-card>
 
+    <el-card v-show="groupTab === 'apps'" class="settings-card" shadow="never">
+      <template #header>
+        <div class="card-heading">
+          <span>{{ t('microApps.title') }}</span>
+        </div>
+      </template>
+      <MicroAppsCard />
+    </el-card>
+
     <el-card v-show="groupTab === 'about'" class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
@@ -371,6 +381,7 @@ import AiSkillsCard from '@/components/AiSkillsCard.vue';
 import TagsManageCard from '@/components/TagsManageCard.vue';
 import AutoTagCard from '@/components/AutoTagCard.vue';
 import SkinPickerCard from '@/components/SkinPickerCard.vue';
+import MicroAppsCard from '@/components/MicroAppsCard.vue';
 import { useAppStore, type AppTheme } from '@/stores/app';
 import LibraryManagePanel from '@/components/LibraryManagePanel.vue';
 import type { AppLocale } from '@/i18n';
@@ -398,7 +409,7 @@ function saveAiProvider(value: string): void {
   localStorage.setItem('coolma.aiProvider', value);
 }
 
-const groupTab = ref<'general' | 'editor' | 'database' | 'library' | 'ai' | 'about'>('general');
+const groupTab = ref<'general' | 'editor' | 'database' | 'library' | 'ai' | 'apps' | 'about'>('general');
 const libraryTab = ref<'runes' | 'echoes'>('runes');
 
 function onLibraryChanged(): void {

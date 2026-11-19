@@ -9,6 +9,13 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   plugins: [vue()],
   root: fileURLToPath(new URL('..', import.meta.url)),
+  resolve: {
+    alias: [
+      // runtime-test 会直接引渲染层的 utils / services，需要补上前端那套 @ 别名
+      { find: /^@\//, replacement: fileURLToPath(new URL('../frontend/src/', import.meta.url)) },
+      { find: /^@shared\//, replacement: fileURLToPath(new URL('../electron/shared/', import.meta.url)) },
+    ],
+  },
   build: {
     ssr: true,
     outDir: fileURLToPath(new URL('.rt-dist', import.meta.url)),

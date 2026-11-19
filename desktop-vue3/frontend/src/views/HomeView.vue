@@ -20,6 +20,9 @@
 
       <div class="topbar-actions">
         <el-tag :type="statusType" effect="light" round>{{ statusLabel }}</el-tag>
+        <el-button circle plain :title="t('microApps.open')" @click="microDrawerVisible = true">
+          <el-icon><Grid /></el-icon>
+        </el-button>
         <el-button circle plain :title="t('action.settings')" @click="openSettings">
           <el-icon><Setting /></el-icon>
         </el-button>
@@ -115,11 +118,12 @@
       :pending="metaPending"
       @confirm="confirmTags"
     />
+    <MicroAppDrawer v-model="microDrawerVisible" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { Search, Setting } from '@element-plus/icons-vue';
+import { Grid, Search, Setting } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { Pane, Splitpanes } from 'splitpanes';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
@@ -129,6 +133,7 @@ import { IndexModeEnum, NoteOrderTypeEnum, type CalendarDateBasis, type IndexMod
 import type { NoteSummary } from '@shared/types/domain';
 import EditorPane from '@/components/EditorPane.vue';
 import SkinEffects from '@/components/SkinEffects.vue';
+import MicroAppDrawer from '@/components/MicroAppDrawer.vue';
 import MindMapDialog from '@/components/MindMapDialog.vue';
 import PreviewPptDialog from '@/components/PreviewPptDialog.vue';
 import IndexSidebar from '@/components/IndexSidebar.vue';
@@ -556,6 +561,7 @@ function handleShortcut(event: KeyboardEvent): void {
   }
 }
 
+const microDrawerVisible = ref(false);
 const skinEffectsRef = ref<any>(null);
 let detachSkinEffect: (() => void) | null = null;
 

@@ -10,6 +10,15 @@ import { JSDOM } from 'jsdom';
 import { buildSlidesHtml, escapeSlideHtml } from '../frontend/src/utils/slides';
 import { stripDataUrlBase64 } from '../electron/service/export-utils';
 import { muyaCursorToPosition, positionToMuyaCursor } from '../frontend/src/utils/cursor';
+import {
+  buildDefaultMicroApps,
+  diffMicroAppsForReload,
+  mergeBuiltInApps,
+  normalizeMicroApp,
+  normalizeMicroApps,
+  pickDefaultApp,
+  resolveActiveUrl,
+} from '../frontend/src/services/microApps';
 import { DEFAULT_SKIN, SKIN_LIST, applySkinThemeColor } from '../frontend/src/utils/skin';
 import {
   MAX_TAG_NAME_LENGTH,
@@ -377,6 +386,44 @@ async function main(): Promise<void> {
     assert('皮肤：baiyang 清空主题色', root.style.getPropertyValue('--themeColor') === '', root.style.getPropertyValue('--themeColor'));
     assert('皮肤：baiyang 清空 Element 主色（回落自带蓝）', root.style.getPropertyValue('--el-color-primary') === '');
     assert('皮肤：三套皮枚举固定', SKIN_LIST.join('|') === 'baiyang|nezha|infp' && DEFAULT_SKIN === 'baiyang');
+  }
+
+  // ===== 微应用数据层（归一化 / 默认选取 / 重建判定）=====
+  {
+    const iframeApp = normalizeMicroApp({ id: 'a', name: 'A', url: 'https://a.test/' });
+    assert('微应用：默认走 iframe 模式', iframeApp?.loadMode === 'iframe' && iframeApp.enabled === true, JSON.stringify(iframeApp));
+
+    const moduleApp = normalizeMicroApp({ id: 'b', name: 'B', loadMode: 'module', libName: 'hel-demo' });
+    assert('微应用：module 模式保留库名', moduleApp?.loadMode === 'module' && moduleApp.libName === 'hel-demo', JSON.stringify(moduleApp));
+
+    assert('微应用：缺 id 的记录被丢弃', normalizeMicroApp({ name: 'no id' } as any) === null);
+
+    const normalized = normalizeMicroApps([
+      { id: 'x', name: 'X', isDefault: true },
+      { id: 'y', name: 'Y', isDefault: true },
+    ]);
+    assert('微应用：最多一个默认', normalized.filter((app) => app.isDefault).length === 1, JSON.stringify(normalized.map((a) => a.isDefault)));
+
+    const picked = pickDefaultApp(normalized);
+    assert('微应用：默认应用优先默认项', picked?.id === 'x', JSON.stringify(picked));
+
+    assert('微应用：开发态取 devUrl 的解析函数可用', resolveActiveUrl({ ...iframeApp!, devUrl: 'http://localhost:3333/', url: 'https://prod/' }) === 'https://prod/', resolveActiveUrl(iframeApp));
+
+    const dirty = diffMicroAppsForReload(
+      [{ id: 'a', name: 'A', url: 'https://a.test/' }, { id: 'gone', name: 'G' }],
+      [{ id: 'a', name: 'A', url: 'https://a.test/v2/' }],
+    );
+    assert('微应用：url 变化与被删都判为需重建', dirty.includes('a') && dirty.includes('gone'), JSON.stringify(dirty));
+
+    const stable = diffMicroAppsForReload([{ id: 'a', name: 'A', url: 'https://a.test/' }], [{ id: 'a', name: 'A2', url: 'https://a.test/' }]);
+    assert('微应用：只改名字不重建', stable.length === 0, JSON.stringify(stable));
+
+    const defaults = buildDefaultMicroApps();
+    assert('微应用：默认列表三条', defaults.length === 3 && defaults[0].id === 'box-im', JSON.stringify(defaults.map((a) => a.id)));
+    assert('微应用：默认列表首项是默认项', defaults.find((a) => a.isDefault)?.id === 'box-im');
+
+    const merged = mergeBuiltInApps([{ id: 'only', name: 'Only' }]);
+    assert('微应用：合并内置不吞用户条目', merged.some((app) => app.id === 'only'), JSON.stringify(merged.map((a) => a.id)));
   }
 
   console.log(failed === 0 ? '\n全部通过' : `\n失败 ${failed} 项`);
