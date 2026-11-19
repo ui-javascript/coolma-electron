@@ -15,6 +15,7 @@ export default {
     folder: '文件夹',
     tag: '标签',
     time: '时间',
+    calendar: '日历',
     all: '全部笔记',
     empty: '暂无索引项',
   },
@@ -212,6 +213,8 @@ export default {
   echoCategoryMarker: '标记',
   echoCategoryTypography: '排版',
 
+  calendarBasisCreated: '按创建时间',
+  calendarBasisModified: '按修改时间',
   action: {
     newNote: '新建',
     settings: '设置',

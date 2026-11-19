@@ -15,6 +15,7 @@ export default {
     folder: 'Folders',
     tag: 'Tags',
     time: 'Time',
+    calendar: 'Calendar',
     all: 'All notes',
     empty: 'No index items',
   },
@@ -212,6 +213,8 @@ export default {
   echoCategoryMarker: 'Marker',
   echoCategoryTypography: 'Typography',
 
+  calendarBasisCreated: 'By created time',
+  calendarBasisModified: 'By modified time',
   action: {
     newNote: 'New',
     settings: 'Settings',

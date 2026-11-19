@@ -31,6 +31,8 @@
           :mode="indexMode"
           :folder-filter="activeFolder"
           :tag-filter="activeTag"
+          :calendar-date="calendarDate"
+          :calendar-basis="calendarBasis"
           :time-group-filter="activeTimeGroup"
           :creating="creating"
           :total="notesStore.total"
@@ -121,7 +123,7 @@ import { Pane, Splitpanes } from 'splitpanes';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
-import { IndexModeEnum, type IndexMode } from '@shared/enums/app';
+import { IndexModeEnum, type CalendarDateBasis, type IndexMode } from '@shared/enums/app';
 import type { NoteSummary } from '@shared/types/domain';
 import EditorPane from '@/components/EditorPane.vue';
 import MindMapDialog from '@/components/MindMapDialog.vue';
@@ -137,7 +139,7 @@ import { useAppStore } from '@/stores/app';
 import { useNotesStore } from '@/stores/notes';
 import { useLibraryStore } from '@/stores/library';
 import { createMuyaPlugins } from '@/muyaPlugins';
-import { deriveTitle, folderName, noteTags, noteTimeGroup } from '@/utils/note';
+import { deriveTitle, folderName, noteDateKey, noteTags, noteTimeGroup } from '@/utils/note';
 
 const { t } = useI18n();
 const router = useRouter();
@@ -184,6 +186,14 @@ function readIndexMode(): IndexMode {
 
 const indexMode = ref<IndexMode>(readIndexMode());
 
+const readCalendarBasis = (): CalendarDateBasis => {
+  const saved = localStorage.getItem('coolma.calendarBasis');
+  return saved === 'created' ? 'created' : 'modified';
+};
+
+const calendarDate = ref('');
+const calendarBasis = ref<CalendarDateBasis>(readCalendarBasis());
+
 const filteredNotes = computed(() => {
   const query = keyword.value.trim().toLowerCase();
   const useServerSearch = Boolean(query && searchResults.value);
@@ -193,13 +203,17 @@ const filteredNotes = computed(() => {
     const tagMatch = !activeTag.value || noteTagList.includes(activeTag.value);
     const folderMatch = !activeFolder.value || note.category === activeFolder.value;
     const timeMatch = !activeTimeGroup.value || noteTimeGroup(note) === activeTimeGroup.value;
+    const calendarMatch =
+      indexMode.value !== IndexModeEnum.Calendar ||
+      !calendarDate.value ||
+      noteDateKey(note, calendarBasis.value) === calendarDate.value;
     const textMatch =
       useServerSearch ||
       !query ||
       note.title.toLowerCase().includes(query) ||
       note.excerpt.toLowerCase().includes(query) ||
       noteTagList.some((tag) => tag.toLowerCase().includes(query));
-    return tagMatch && folderMatch && timeMatch && textMatch;
+    return tagMatch && folderMatch && timeMatch && calendarMatch && textMatch;
   });
 });
 
@@ -390,13 +404,24 @@ function selectNote(id: number): void {
 function handleModeChange(mode: IndexMode): void {
   indexMode.value = mode;
   localStorage.setItem('coolma.indexMode', mode);
-  handleFilterChange({ folder: '', tag: '', timeGroup: '' });
+  handleFilterChange({ folder: '', tag: '', timeGroup: '', calendarDate: '' });
 }
 
-function handleFilterChange(next: { folder?: string; tag?: string; timeGroup?: string }): void {
+function handleFilterChange(next: {
+  folder?: string;
+  tag?: string;
+  timeGroup?: string;
+  calendarDate?: string;
+  calendarBasis?: CalendarDateBasis;
+}): void {
   if (next.folder !== undefined) activeFolder.value = next.folder;
   if (next.tag !== undefined) activeTag.value = next.tag;
   if (next.timeGroup !== undefined) activeTimeGroup.value = next.timeGroup;
+  if (next.calendarDate !== undefined) calendarDate.value = next.calendarDate;
+  if (next.calendarBasis !== undefined) {
+    calendarBasis.value = next.calendarBasis;
+    localStorage.setItem('coolma.calendarBasis', next.calendarBasis);
+  }
 }
 
 /**

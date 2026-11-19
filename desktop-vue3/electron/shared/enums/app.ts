@@ -40,9 +40,17 @@ export type BootStatusItem = (typeof BootStatusEnum)['items'][number];
 export const IndexModeEnum = Enum({
   Folder: { value: 'folder', label: 'index.folder', icon: 'Folder' },
   Tag: { value: 'tag', label: 'index.tag', icon: 'CollectionTag' },
+  Calendar: { value: 'calendar', label: 'index.calendar', icon: 'Calendar' },
   Time: { value: 'time', label: 'index.time', icon: 'Clock' },
 });
 
 export type IndexMode = (typeof IndexModeEnum)['values'][number];
 export type IndexModeItem = (typeof IndexModeEnum)['items'][number];
 
+/** 日历日期基准（对齐 vue2 CalendarDateBasisEnum：默认 modified）。 */
+export const CalendarDateBasisEnum = Enum({
+  Created: { value: 'created', label: 'calendarBasisCreated' },
+  Modified: { value: 'modified', label: 'calendarBasisModified' },
+});
+
+export type CalendarDateBasis = (typeof CalendarDateBasisEnum)['values'][number];

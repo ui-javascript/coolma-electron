@@ -75,6 +75,15 @@
         <p v-if="tags.length === 0" class="index-empty">{{ t('index.empty') }}</p>
       </template>
 
+      <template v-else-if="mode === IndexModeEnum.Calendar">
+        <CalendarPanel
+          v-model="calendarDateProxy"
+          :basis="calendarBasis"
+          :notes="notesStore.notes"
+          @update:basis="emit('update:filter', { calendarBasis: $event })"
+        />
+      </template>
+
       <template v-else>
         <button
           v-for="group in timeGroups"
@@ -103,15 +112,18 @@ import { Clock, Delete, Document, Folder, FolderAdd, Plus } from '@element-plus/
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { IndexModeEnum, type IndexMode } from '@shared/enums/app';
+import { IndexModeEnum, type CalendarDateBasis, type IndexMode } from '@shared/enums/app';
 import { useNotesStore } from '@/stores/notes';
 import { folderName, noteTags, noteTimeGroup } from '@/utils/note';
+import CalendarPanel from './CalendarPanel.vue';
 
 const props = defineProps<{
   mode: IndexMode;
   folderFilter: string;
   tagFilter: string;
   timeGroupFilter: string;
+  calendarDate: string;
+  calendarBasis: CalendarDateBasis;
   creating: boolean;
   total: number;
   phaseLabel: string;
@@ -119,7 +131,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (event: 'update:mode', value: IndexMode): void;
-  (event: 'update:filter', value: { folder?: string; tag?: string; timeGroup?: string }): void;
+  (event: 'update:filter', value: { folder?: string; tag?: string; timeGroup?: string; calendarDate?: string; calendarBasis?: CalendarDateBasis }): void;
   (event: 'create-note'): void;
   (event: 'export-folder', category: string): void;
 }>();
@@ -135,8 +147,13 @@ const modeProxy = computed({
 });
 
 const isAllScope = computed(
-  () => !props.folderFilter && !props.tagFilter && !props.timeGroupFilter,
+  () => !props.folderFilter && !props.tagFilter && !props.timeGroupFilter && !props.calendarDate,
 );
+
+const calendarDateProxy = computed({
+  get: () => props.calendarDate,
+  set: (value: string) => emit('update:filter', { calendarDate: value }),
+});
 
 const folders = computed(() => {
   const counts = new Map<string, number>();

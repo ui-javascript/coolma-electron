@@ -84,3 +84,20 @@ export function deriveTitle(markdown: string, fallback: string): string {
   const heading = markdown.match(/^#\s+(.+)$/m)?.[1]?.trim();
   return (heading || fallback).slice(0, 300);
 }
+
+/** 按本地时区把时间戳转 YYYY-MM-DD。 */
+export function dateKeyOf(timestamp: number | null | undefined): string {
+  if (!timestamp) {
+    return '';
+  }
+  const d = new Date(timestamp);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** 日历基准对应的日期键：modified 优先 updated_at。 */
+export function noteDateKey(note: Pick<NoteSummary, 'updatedAt' | 'createdAt'>, basis: 'created' | 'modified'): string {
+  return dateKeyOf(basis === 'created' ? note.createdAt : note.updatedAt || note.createdAt);
+}
