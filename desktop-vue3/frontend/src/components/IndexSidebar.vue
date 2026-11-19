@@ -33,7 +33,7 @@
       <span class="side-count">{{ total }}</span>
     </button>
 
-    <div class="index-panel">
+    <div class="index-panel" @contextmenu="onPanelContextMenu">
       <template v-if="mode === IndexModeEnum.Folder">
         <div class="index-toolbar">
           <el-button text size="small" :title="t('folder.create')" @click="createFolder">
@@ -231,6 +231,18 @@ function persistExpandedKeys(): void {
 function onFolderClick(data: CategoryTreeNode): void {
   const next = props.folderFilter === data.key ? '' : data.key;
   emit('update:filter', { folder: next, tag: '', timeGroup: '' });
+}
+
+function onPanelContextMenu(event: MouseEvent): void {
+  if (props.mode !== IndexModeEnum.Folder) {
+    return;
+  }
+  // 树节点自己的右键菜单已 stopPropagation 前的元素判断：点在节点上就交给 node-contextmenu。
+  if ((event.target as HTMLElement | null)?.closest('.el-tree-node__content')) {
+    return;
+  }
+  event.preventDefault();
+  emit('open-folder-menu', { category: '', event });
 }
 
 function onFolderContextMenu(event: Event, data: CategoryTreeNode): void {
