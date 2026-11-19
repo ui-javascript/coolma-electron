@@ -42,17 +42,18 @@
         @dragover.prevent
         @drop="onDrop(index)"
         @dragend="dragIndex = -1"
+        @click="openEdit(item)"
       >
-        <span class="card-dot" :style="{ background: item.color }" />
+        <span class="card-avatar" :style="{ background: item.color || '#909399' }">{{ initialOf(item.name) }}</span>
         <div class="card-body">
           <span class="card-name">{{ item.name }}</span>
           <span class="card-desc">{{ item.desc || '—' }}</span>
         </div>
         <div class="card-ops">
-          <el-button text size="small" @click="openEdit(item)">
+          <el-button text size="small" @click.stop="openEdit(item)">
             <el-icon><Edit /></el-icon>
           </el-button>
-          <el-button text size="small" type="danger" @click="askRemove(item)">
+          <el-button text size="small" type="danger" @click.stop="askRemove(item)">
             <el-icon><Delete /></el-icon>
           </el-button>
         </div>
@@ -104,6 +105,15 @@ const items = computed(() => (props.kind === 'rune' ? libraryStore.runes : libra
 /** 当前分类（默认 general / marker，与 vue2 面板一致）。 */
 const activeCategory = ref(resolveLibraryCategory(props.kind, ''));
 const importVisible = ref(false);
+
+/** 卡片首字：中文取首字、英文取首字母大写（对齐 vue2 runeCard 的图标兜底）。 */
+function initialOf(name: string): string {
+  const first = Array.from(String(name || '').trim())[0];
+  if (!first) {
+    return '符';
+  }
+  return /[A-Za-z]/.test(first) ? first.toUpperCase() : first;
+}
 
 function onImported(): void {
   void libraryStore.load();
@@ -313,15 +323,24 @@ async function onDrop(index: number): Promise<void> {
   cursor: grab;
 }
 
+.library-card { cursor: pointer; }
+
 .library-card:hover {
   border-color: var(--el-color-primary-light-5);
 }
 
-.card-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
+.card-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
   flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  user-select: none;
 }
 
 .card-body {
