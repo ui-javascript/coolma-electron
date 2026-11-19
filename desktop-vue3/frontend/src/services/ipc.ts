@@ -135,6 +135,13 @@ export interface SaveAttachmentInput {
   noteId?: number | null;
 }
 
+export function exportNotePng(
+  id: number,
+  dataUrl: string,
+): Promise<IpcResult<{ canceled: boolean; filePath: string }>> {
+  return invoke<{ canceled: boolean; filePath: string }>(IPC_CHANNELS.notes.exportPng, { id, dataUrl });
+}
+
 export function saveAttachmentImage(
   input: SaveAttachmentInput,
 ): Promise<IpcResult<{ url: string; filePath: string; name: string }>> {

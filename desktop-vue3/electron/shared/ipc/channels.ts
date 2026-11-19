@@ -24,6 +24,7 @@ export const IPC_CHANNELS = {
     remove: 'controller/notes/remove',
     exportMarkdown: 'controller/notes/exportMarkdown',
     exportMarkdownFolder: 'controller/notes/exportMarkdownFolder',
+    exportPng: 'controller/notes/exportPng',
   },
   categories: {
     list: 'controller/categories/list',

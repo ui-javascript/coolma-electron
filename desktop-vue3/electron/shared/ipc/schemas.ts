@@ -19,6 +19,11 @@ export const noteListSchema = z
   })
   .default({});
 
+export const notePngExportSchema = z.object({
+  id: z.number().int().positive(),
+  dataUrl: z.string().min(1).max(60_000_000),
+});
+
 export const noteIdSchema = z.object({
   id: z.number().int().positive(),
 });

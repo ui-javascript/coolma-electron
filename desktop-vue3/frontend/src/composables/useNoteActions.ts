@@ -2,7 +2,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, ref, type ComputedRef, type Ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { NoteSummary } from '@shared/types/domain';
-import { exportNoteMarkdown } from '@/services/ipc';
+import { exportNoteMarkdown, exportNotePng } from '@/services/ipc';
 import { useNotesStore } from '@/stores/notes';
 import type { NoteMenuCommand } from '@/types/noteMenu';
 import { folderName, noteTags } from '@/utils/note';
@@ -92,6 +92,43 @@ export function useNoteActions(options: UseNoteActionsOptions) {
       ElMessage.success(t('notes.exportSuccess', { path: result.data.filePath }));
     } catch {
       ElMessage.error(t('notes.exportFailed'));
+    }
+  }
+
+  /**
+   * 导出整篇长图（对齐 vue2 exportPng）：用 html2canvas 抓整个编辑器元素，
+   * 背景色跟随主题（暗色 #35373e / 亮色 #ffffff），再交给主进程落盘。
+   */
+  async function exportPng(note: NoteSummary): Promise<void> {
+    const host = document.querySelector('div#ag-editor-id');
+    if (!host) {
+      ElMessage.error(t('notes.exportPngUnavailable'));
+      return;
+    }
+    try {
+      await options.flushSave();
+      const { default: html2canvas } = await import('html2canvas');
+      const isDark = Boolean(document.querySelector('.libs-muya-theme-dark'));
+      const canvas = await html2canvas(host as HTMLElement, {
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: isDark ? '#35373e' : '#ffffff',
+        // 整篇长图：按元素完整高度出图，不按可视区域裁
+        height: (host as HTMLElement).scrollHeight,
+        windowHeight: (host as HTMLElement).scrollHeight,
+      });
+      const dataUrl = canvas.toDataURL('image/png');
+      const result = await exportNotePng(note.id, dataUrl);
+      if (result.ok === false) {
+        ElMessage.error(result.error.message || t('notes.exportFailed'));
+        return;
+      }
+      if (result.data.canceled) {
+        return;
+      }
+      ElMessage.success(t('notes.exportSuccess', { path: result.data.filePath }));
+    } catch {
+      ElMessage.error(t('notes.exportPngFailed'));
     }
   }
 
@@ -187,6 +224,9 @@ export function useNoteActions(options: UseNoteActionsOptions) {
         break;
       case 'export':
         await exportMarkdown(note);
+        break;
+      case 'exportPng':
+        await exportPng(note);
         break;
       case 'delete':
         await deleteNote(note);

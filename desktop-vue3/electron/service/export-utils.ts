@@ -15,3 +15,10 @@ export function sanitizeFileName(title: string, fallback = 'Untitled'): string {
 export function markdownFileName(title: string): string {
   return `${sanitizeFileName(title)}.md`;
 }
+
+/** 导出 PNG 时把 dataURL 的 base64 主体剥出来（主进程按二进制写盘）。 */
+export function stripDataUrlBase64(dataUrl: string): string {
+  const raw = String(dataUrl ?? '');
+  const comma = raw.indexOf(',');
+  return comma >= 0 ? raw.slice(comma + 1) : raw;
+}

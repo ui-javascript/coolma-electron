@@ -29,6 +29,10 @@
         <el-icon><Download /></el-icon>
         <span>{{ t('notes.exportMarkdown') }}</span>
       </button>
+      <button type="button" class="menu-item" @click="pick('exportPng')">
+        <el-icon><Picture /></el-icon>
+        <span>{{ t('notes.exportPng') }}</span>
+      </button>
       <button type="button" class="menu-item danger" @click="pick('delete')">
         <el-icon><Delete /></el-icon>
         <span>{{ t('action.delete') }}</span>
@@ -38,7 +42,7 @@
 </template>
 
 <script setup lang="ts">
-import { CopyDocument, Delete, Download, EditPen, FolderOpened, PriceTag } from '@element-plus/icons-vue';
+import { CopyDocument, Delete, Download, EditPen, FolderOpened, Picture, PriceTag } from '@element-plus/icons-vue';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { NoteMenuCommand } from '@/types/noteMenu';

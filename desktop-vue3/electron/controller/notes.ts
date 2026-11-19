@@ -3,12 +3,13 @@ import type { IpcResult } from '../shared/ipc/contract';
 import { fail, ok } from '../shared/ipc/result';
 import {
   noteCreateSchema,
+  notePngExportSchema,
   noteIdSchema,
   noteListSchema,
   noteUpdateSchema,
 } from '../shared/ipc/schemas';
 import { notesRepository } from '../service/db/notes-repository';
-import { markdownFileName, sanitizeFileName } from '../service/export-utils';
+import { markdownFileName, sanitizeFileName, stripDataUrlBase64 } from '../service/export-utils';
 import { failFromError } from './controller-utils';
 
 class NotesController {
@@ -82,6 +83,35 @@ class NotesController {
       return ok({ canceled: false, filePath: result.filePath });
     } catch (error) {
       return failFromError(error, 'NOTE_EXPORT_ERROR');
+    }
+  }
+
+  /**
+   * 导出整篇长图为 PNG（对齐 vue2 export-png：前端 html2canvas 出 dataURL，这里只负责落盘）。
+   */
+  async exportPng(args?: unknown): Promise<IpcResult<{ canceled: boolean; filePath: string }>> {
+    try {
+      const { id } = noteIdSchema.parse(args);
+      const note = notesRepository.get(id);
+      if (!note) {
+        return fail('NOTE_NOT_FOUND', `Note ${id} was not found`);
+      }
+      const { dataUrl } = notePngExportSchema.parse(args);
+      const { dialog, app } = await import('electron');
+      const fs = await import('node:fs/promises');
+      const path = await import('node:path');
+      const result = await dialog.showSaveDialog({
+        title: 'export',
+        defaultPath: path.join(app.getPath('pictures'), markdownFileName(note.title).replace(/\.md$/, '.png')),
+        filters: [{ name: 'Portable Network Graphics', extensions: ['png'] }],
+      });
+      if (result.canceled || !result.filePath) {
+        return ok({ canceled: true, filePath: '' });
+      }
+      await fs.writeFile(result.filePath, Buffer.from(stripDataUrlBase64(dataUrl), 'base64'));
+      return ok({ canceled: false, filePath: result.filePath });
+    } catch (error) {
+      return failFromError(error, 'NOTE_EXPORT_PNG_ERROR');
     }
   }
 
