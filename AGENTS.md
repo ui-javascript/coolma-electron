@@ -54,6 +54,7 @@ adjust
 | 工作内容 | 先读取的规则 |
 | --- | --- |
 | Git 提交、依赖与 workspace | [中文提交](.agents/rules/commit-message.mdc)、[包管理](.agents/rules/package-manager.mdc) |
+| 版本号 +1、升版、日期版本叠加 | [version-bump 技能](.agents/skills/version-bump/SKILL.md) |
 | 启动 desktop-vue3 桌面端 | [desktop-vue3 启动技能](.agents/skills/desktop-vue3-dev-start/SKILL.md) |
 | 文件操作、脚本编写 | [Shell 与文件操作安全](.agents/rules/safe-shell.mdc)、[脚本位置](.agents/rules/script-file-location.mdc) |
 | Vue 组件与界面 | [命名](.agents/rules/component-naming.mdc)、[Vue 版本](.agents/rules/plugin-vue-version.mdc)、[UI 库](.agents/rules/ui-library-mix.mdc)、[弹层组件](.agents/rules/vue-dialog-component.mdc)、[Mixin](.agents/rules/no-mixins.mdc) |
