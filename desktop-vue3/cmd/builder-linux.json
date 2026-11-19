@@ -15,7 +15,17 @@
   "linux": {
     "icon": "build/icons/icon.png",
     "artifactName": "${productName}-${version}-${arch}.${ext}",
-    "target": ["deb"],
+    "target": [
+      "deb"
+    ],
     "category": "Utility"
-  }
+  },
+  "publish": [
+    {
+      "provider": "github",
+      "owner": "ui-javascript",
+      "repo": "coolma-electron",
+      "releaseType": "draft"
+    }
+  ]
 }

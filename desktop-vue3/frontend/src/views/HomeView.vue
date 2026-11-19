@@ -150,6 +150,13 @@
       :pending="metaPending"
       @confirm="confirmTags"
     />
+    <TierRankingDialog
+      v-model="tierVisible"
+      :mode="tierMode"
+      :context-key="tierContextKey"
+      :note-content="tierContent"
+      @fill="onTierFill"
+    />
     <AiHelperDrawer v-model="aiDrawerVisible" :note-id="activeId" />
     <SearchDialog v-model="searchVisible" @select="selectNote" />
     <NoteOutlineDrawer v-model="outlineVisible" :markdown="activeContent" @jump="jumpToHeading" />
@@ -173,6 +180,7 @@ import MicroAppDrawer from '@/components/MicroAppDrawer.vue';
 import FullscreenOverlay from '@/components/FullscreenOverlay.vue';
 import SearchDialog from '@/components/SearchDialog.vue';
 import AiHelperDrawer from '@/components/AiHelperDrawer.vue';
+import TierRankingDialog from '@/components/TierRankingDialog.vue';
 import NoteOutlineDrawer from '@/components/NoteOutlineDrawer.vue';
 import {
   findDeleteEffectEntry,
@@ -193,7 +201,7 @@ import { buildNoteListMenu } from '@/menus/noteList';
 import { buildMuyaMenu } from '@/menus/muya';
 import { buildSideDrawerMenu } from '@/menus/sideDrawer';
 import type { ContextMenuItem } from '@/menus/types';
-import { exportCategoryMarkdown, listNotes } from '@/services/ipc';
+import { exportCategoryMarkdown, getNote, listNotes } from '@/services/ipc';
 import { useAppStore } from '@/stores/app';
 import { skinEffectBus } from '@/services/skinEffectBus';
 import { useNotesStore } from '@/stores/notes';
@@ -392,14 +400,42 @@ const {
 const noteMenuItems = computed<ContextMenuItem[]>(() =>
   buildNoteListMenu({
     isCurrentNote: (menuNote.value?.id ?? null) === activeId.value,
-    // 榜单分层还没复刻，配置层置灰（见 _todo/TODO-vue3-P0缺口-202611.md 第 13 项）
-    tierRankingReady: false,
+    tierRankingReady: true,
   }) as unknown as ContextMenuItem[],
 );
 
 function onNoteMenuCommand(command: string): void {
+  if (command === 'tierRanking') {
+    const note = menuNote.value;
+    if (!note) {
+      return;
+    }
+    tierMode.value = 'note';
+    tierContextKey.value = `note-${note.id}`;
+    tierContent.value = '';
+    void (async () => {
+      const result = await getNote(note.id);
+      tierContent.value = result.ok ? result.data.content ?? '' : '';
+      tierVisible.value = true;
+    })();
+    return;
+  }
   void runNoteMenuCommand(command as Parameters<typeof runNoteMenuCommand>[0]);
 }
+
+/** 榜单回填：追加到当前笔记末尾并落库（vue2 是插到光标处，v3 引擎暂无 insertText 原语）。 */
+async function onTierFill(markdown: string): Promise<void> {
+  const note = notesStore.activeNote;
+  if (!note) {
+    return;
+  }
+  await notesStore.save(note.id, { content: `${note.content ?? ''}${markdown}` });
+}
+
+const tierVisible = ref(false);
+const tierMode = ref<'note' | 'category'>('note');
+const tierContextKey = ref('');
+const tierContent = ref('');
 
 const folderMenuVisible = ref(false);
 const folderMenuX = ref(0);
@@ -412,7 +448,7 @@ const folderMenuItems = computed<ContextMenuItem[]>(() =>
     isRootCategory: folderMenuIsRoot.value,
     // 当前没有登录态概念（同步服务面板还没复刻），本地库全量可用 → 按已登录处理
     isLogin: true,
-    tierRankingReady: false,
+    tierRankingReady: true,
     blogReady: false,
   }) as unknown as ContextMenuItem[],
 );
@@ -486,7 +522,10 @@ async function onFolderMenuCommand(command: string): Promise<void> {
       await exportFolder(category);
       break;
     case 'tierRanking':
-      ElMessage.info(t('notes.tierRankingPending'));
+      tierMode.value = 'category';
+      tierContextKey.value = category;
+      tierContent.value = '';
+      tierVisible.value = true;
       break;
     case 'exportToBlog':
       ElMessage.info(t('notes.blogPending'));

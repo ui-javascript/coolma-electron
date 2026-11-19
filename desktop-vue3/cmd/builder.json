@@ -29,8 +29,18 @@
     "target": [
       {
         "target": "nsis",
-        "arch": ["x64"]
+        "arch": [
+          "x64"
+        ]
       }
     ]
-  }
+  },
+  "publish": [
+    {
+      "provider": "github",
+      "owner": "ui-javascript",
+      "repo": "coolma-electron",
+      "releaseType": "draft"
+    }
+  ]
 }
