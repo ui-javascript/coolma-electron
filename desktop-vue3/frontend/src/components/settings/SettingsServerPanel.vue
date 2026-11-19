@@ -39,9 +39,14 @@
             <el-option value="picgoServer" :label="t('settings.imageServicePicgo')" />
             <el-option value="none" :label="t('settings.imageServiceNone')" />
           </el-select>
+          <div class="image-actions">
+            <el-button size="small" plain @click="imageDialogVisible = true">{{ t('settings.imageConfigure') }}</el-button>
+          </div>
         </div>
       </el-tab-pane>
     </el-tabs>
+    <ImageUploadServiceDialog v-model="imageDialogVisible" />
+    <SyncOfflinePromptDialog v-model="offlineVisible" />
   </div>
 </template>
 
@@ -58,6 +63,8 @@ import { useI18n } from 'vue-i18n';
 import { Cloudy } from '@element-plus/icons-vue';
 import { useAppStore } from '@/stores/app';
 import { getPendingSync } from '@/services/ipc';
+import ImageUploadServiceDialog from '@/components/ImageUploadServiceDialog.vue';
+import SyncOfflinePromptDialog from '@/components/SyncOfflinePromptDialog.vue';
 
 const KEYS = {
   strategy: 'setting/server/cloudSyncStrategy',
@@ -72,6 +79,8 @@ const cloudSyncStrategy = ref('onlineFirst');
 const cloudSyncProvider = ref('wiznote');
 const imageUploadService = ref('none');
 const pending = ref(0);
+const imageDialogVisible = ref(false);
+const offlineVisible = ref(false);
 const loaded = ref(false);
 
 function bindPrefs(): void {

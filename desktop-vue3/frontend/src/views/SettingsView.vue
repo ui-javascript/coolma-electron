@@ -11,6 +11,8 @@
       </div>
     </header>
 
+    <NoteImportDialog v-model="noteImportVisible" />
+
     <el-tabs v-model="groupTab" class="settings-group-tabs">
       <el-tab-pane :label="t('settings.groupGeneral')" name="general" />
       <el-tab-pane :label="t('settings.groupEditor')" name="editor" />
@@ -153,6 +155,10 @@
         <el-button type="primary" plain :loading="dbBusy" @click="handleImport">
           <el-icon><Upload /></el-icon>
           {{ t('settings.dbImport') }}
+        </el-button>
+        <el-button plain @click="noteImportVisible = true">
+          <el-icon><DocumentAdd /></el-icon>
+          {{ t('notes.importNotes') }}
         </el-button>
         <el-button :loading="dbBusy" @click="handleBackup">
           <el-icon><Download /></el-icon>
@@ -394,6 +400,7 @@
 <script setup lang="ts">
 import {
   ArrowLeft,
+  DocumentAdd,
   Download,
   FolderOpened,
   Refresh,
@@ -426,6 +433,7 @@ import SettingsCdnDepsCard from '@/components/settings/SettingsCdnDepsCard.vue';
 import SettingsProfileCard from '@/components/settings/SettingsProfileCard.vue';
 import SettingsServerPanel from '@/components/settings/SettingsServerPanel.vue';
 import SettingsCloudFnPanel from '@/components/settings/SettingsCloudFnPanel.vue';
+import NoteImportDialog from '@/components/NoteImportDialog.vue';
 import type { AppLocale } from '@/i18n';
 import {
   backupDatabase,
@@ -451,6 +459,7 @@ function saveAiProvider(value: string): void {
   localStorage.setItem('coolma.aiProvider', value);
 }
 
+const noteImportVisible = ref(false);
 const groupTab = ref<'general' | 'editor' | 'database' | 'library' | 'ai' | 'apps' | 'server' | 'cloudFn' | 'about'>('general');
 const libraryTab = ref<'runes' | 'echoes'>('runes');
 
