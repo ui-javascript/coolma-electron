@@ -15,6 +15,10 @@ import { loadLanguage } from '../prism/index'
 import { CURSOR_ANCHOR_DNA, CURSOR_FOCUS_DNA } from '../config'
 
 // Just because turndown change `\n`(soft line break) to space, So we add `span.ag-soft-line-break` to workaround.
+const RUNE_PLACEHOLDER_DIV_REG = /^<div\b[^>]*\bdata-rune-node-id\s*=\s*"[^"]*"[^>]*>[\s\S]*<\/div>\s*$/i
+
+const isRunePlaceholderDiv = (text) => RUNE_PLACEHOLDER_DIV_REG.test(String(text || '').trim())
+
 const turnSoftBreakToSpan = html => {
   const parser = new DOMParser()
   const doc = parser.parseFromString(
@@ -279,6 +283,15 @@ const importRegister = ContentState => {
 
         case 'html': {
           const text = token.text.trim()
+          // 符文占位不走 html 块（那是"代码 + 预览"，不是可交互宿主），
+          // 改成带 functionType 的段落块，行内 html_tag 会把它渲染成宿主
+          if (isRunePlaceholderDiv(text)) {
+            block = this.createBlock('p', { functionType: 'rune' })
+            const contentBlock = this.createBlock('span', { text })
+            this.appendChild(block, contentBlock)
+            this.appendChild(parentList[0], block)
+            break
+          }
           // TODO: Treat html block which only contains one img as paragraph, we maybe add image block in the future.
           const isSingleImage = /^<img[^<>]+>$/.test(text)
           if (isSingleImage) {

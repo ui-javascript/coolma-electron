@@ -224,11 +224,9 @@ async function main(): Promise<void> {
   // 会被判成 html 块（figure + 代码预览），不再是可挂载宿主，卡片会消失。
   // 这里只验到"值确实写进 markdown"，DOM 重新挂载记为待修项，不做假通过。
   const runeCardAfterWrite = editorRoot().querySelector('.coolma-rune-demo');
-  if (runeCardAfterWrite) {
-    assert('符文卡片显示新值', (runeCardAfterWrite.textContent || '').trim() === '7', String(runeCardAfterWrite.textContent));
-  } else {
-    console.log('SKIP 符文卡片显示新值（已知缺口：setMarkdown 往返后 div 被判成 html 块）');
-  }
+  const hostAfterWrite = editorRoot().querySelector('[data-rune-node-id]');
+  assert('符文回写后宿主仍在 DOM', Boolean(hostAfterWrite), `${hostAfterWrite?.tagName}`);
+  assert('符文卡片显示新值', (runeCardAfterWrite?.textContent || '').trim() === '7', String(runeCardAfterWrite?.textContent));
 
   selectOn('@', echoItem);
   // 第一次渲染只负责把行内 token 画成胶囊；第二次才轮到宿主后处理写回自定义 HTML
