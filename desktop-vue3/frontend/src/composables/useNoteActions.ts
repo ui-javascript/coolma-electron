@@ -2,7 +2,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, ref, type ComputedRef, type Ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { NoteSummary } from '@shared/types/domain';
-import { exportNoteMarkdown, exportNotePng } from '@/services/ipc';
+import { exportNoteMarkdown, exportNotePng, getNote } from '@/services/ipc';
 import { useNotesStore } from '@/stores/notes';
 import type { NoteMenuCommand } from '@/types/noteMenu';
 import { folderName, noteTags } from '@/utils/note';
@@ -132,6 +132,34 @@ export function useNoteActions(options: UseNoteActionsOptions) {
     }
   }
 
+  /** 复刻 vue2 copyNote：复制一条笔记（同内容、同分类、同标签，标题补「副本」）。 */
+  async function duplicateNote(note: NoteSummary): Promise<void> {
+    const content = await readNoteContent(note.id);
+    const title = `${note.title || t('notes.untitled')} ${t('notes.copySuffix')}`;
+    const created = await notesStore.create({ title, content, category: note.category, tags: note.tags });
+    if (!created) {
+      ElMessage.error(notesStore.error || t('notes.createFailed'));
+      return;
+    }
+    const saved = await notesStore.save(created.id, {
+      title,
+      content,
+      category: note.category,
+      tags: note.tags,
+    });
+    if (!saved) {
+      ElMessage.error(notesStore.error || t('notes.saveFailed'));
+      return;
+    }
+    await notesStore.loadAll();
+    ElMessage.success(t('notes.duplicateSuccess'));
+  }
+
+  async function readNoteContent(id: number): Promise<string> {
+    const result = await getNote(id);
+    return result.ok === false ? '' : result.data.content;
+  }
+
   async function renameNote(note: NoteSummary): Promise<void> {
     let value = '';
     try {
@@ -219,11 +247,18 @@ export function useNoteActions(options: UseNoteActionsOptions) {
         tagTarget.value = note;
         tagVisible.value = true;
         break;
-      case 'copy':
+      case 'duplicate':
+        await duplicateNote(note);
+        break;
+      case 'copyMarkdown':
         await copyMarkdown(note);
         break;
-      case 'export':
+      case 'exportMarkdown':
         await exportMarkdown(note);
+        break;
+      case 'tierRanking':
+        // 榜单分层还没复刻（P0 清单第 13 项），这里不静默吞掉，给个明确提示
+        ElMessage.info(t('notes.tierRankingPending'));
         break;
       case 'exportPng':
         await exportPng(note);
@@ -347,6 +382,7 @@ export function useNoteActions(options: UseNoteActionsOptions) {
   const tagValue = computed(() => (tagTarget.value ? noteTags(tagTarget.value) : []));
 
   return {
+    menuNote,
     menuVisible,
     menuX,
     menuY,

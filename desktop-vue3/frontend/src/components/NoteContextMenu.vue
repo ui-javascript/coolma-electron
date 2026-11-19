@@ -21,11 +21,11 @@
         <span>{{ t('notes.tagsEdit') }}</span>
       </button>
       <div class="menu-separator" />
-      <button type="button" class="menu-item" @click="pick('copy')">
+      <button type="button" class="menu-item" @click="pick('copyMarkdown')">
         <el-icon><CopyDocument /></el-icon>
         <span>{{ t('notes.copyMarkdown') }}</span>
       </button>
-      <button type="button" class="menu-item" @click="pick('export')">
+      <button type="button" class="menu-item" @click="pick('exportMarkdown')">
         <el-icon><Download /></el-icon>
         <span>{{ t('notes.exportMarkdown') }}</span>
       </button>

@@ -28,15 +28,17 @@
           </el-button>
         </div>
       </div>
-      <MuyaEditor
-        ref="muyaRef"
-        v-show="!sourceMode"
-        v-model="contentProxy"
-        :theme="theme"
-        :plugins="plugins"
-        :options="editorOptions"
-        class="muya-editor"
-      />
+      <div class="editor-context-host" @contextmenu="onContextMenu">
+        <MuyaEditor
+          ref="muyaRef"
+          v-show="!sourceMode"
+          v-model="contentProxy"
+          :theme="theme"
+          :plugins="plugins"
+          :options="editorOptions"
+          class="muya-editor"
+        />
+      </div>
       <!-- 双编辑器：源码模式用 Monaco，同一份内容，只有激活的视图回写 -->
       <SourceEditor ref="monacoRef" v-if="sourceMode" v-model="contentProxy" :theme="theme" class="source-editor-host" />
     </template>
@@ -101,6 +103,7 @@ const emit = defineEmits<{
   (event: 'delete'): void;
   (event: 'mind-map'): void;
   (event: 'ppt-preview'): void;
+  (event: 'context-menu', payload: { x: number; y: number; selectionEmpty: boolean }): void;
 }>();
 
 const { t } = useI18n();
@@ -209,6 +212,59 @@ const editorOptions = {
 onMounted(() => {
   void libraryStore.load();
 });
+/** 右键：把坐标与「选区是否为空」交给父级——菜单项启用条件按 vue2 依赖这个。 */
+function onContextMenu(event: MouseEvent): void {
+  event.preventDefault();
+  const editor = muyaRef.value?.getEditor?.();
+  let selectionEmpty = true;
+  try {
+    const selection = editor?.getSelection?.();
+    if (selection?.anchor && selection?.focus) {
+      selectionEmpty =
+        selection.anchor.key === selection.focus.key && selection.anchor.offset === selection.focus.offset;
+    }
+  } catch {
+    selectionEmpty = true;
+  }
+  emit('context-menu', { x: event.clientX, y: event.clientY, selectionEmpty });
+}
+
+/** 右键菜单动作：直接转给引擎（copyAsMarkdown / copyAsHtml / pasteAsPlainText / insertParagraph）。 */
+function runEditorCommand(command: string): boolean {
+  const editor = muyaRef.value?.getEditor?.();
+  if (!editor) {
+    return false;
+  }
+  switch (command) {
+    case 'copyAsMarkdown':
+      editor.copyAsMarkdown?.();
+      return true;
+    case 'copyAsHtml':
+      editor.copyAsHtml?.();
+      return true;
+    case 'pasteAsPlainText':
+      editor.pasteAsPlainText?.();
+      return true;
+    case 'insertBefore':
+      editor.insertParagraph?.('before');
+      return true;
+    case 'insertAfter':
+      editor.insertParagraph?.('after');
+      return true;
+    case 'cut':
+      document.execCommand('cut');
+      return true;
+    case 'copy':
+      document.execCommand('copy');
+      return true;
+    case 'paste':
+      document.execCommand('paste');
+      return true;
+    default:
+      return false;
+  }
+}
+
 /**
  * 大纲跳转：按标题序号滚动到对应块。
  * 引擎没有 scrollToHeader API（vue2 是走 bus 让 contentState 自己滚），
@@ -225,5 +281,5 @@ function scrollToHeading(index: number): boolean {
   return true;
 }
 
-defineExpose({ scrollToHeading, toggleSourceMode });
+defineExpose({ scrollToHeading, toggleSourceMode, runEditorCommand });
 </script>

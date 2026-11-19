@@ -25,6 +25,13 @@ export default {
     week: 'This week',
     earlier: 'Earlier',
   },
+    tierRankingPending: 'Tier ranking is not ported yet (P0 #13)',
+    blogPending: 'Blog deploy is not ported yet (P0 #10)',
+    copyFolderPending: 'Folder-level Markdown copy is not ported yet',
+    copySuffix: 'copy',
+    duplicateSuccess: 'Note duplicated',
+    panguPending: 'Pangu formatting is not wired yet (vue2 does it in main)',
+    commandPending: 'This action is not wired yet',
   search: {
     placeholder: 'Search title, body or tag...',
   },

@@ -38,6 +38,7 @@
     <Splitpanes class="workspace">
       <Pane :size="18" :min-size="14" :max-size="25">
         <IndexSidebar
+          ref="sidebarRef"
           :mode="indexMode"
           :folder-filter="activeFolder"
           :tag-filter="activeTag"
@@ -52,6 +53,7 @@
           @create-note="createNote"
           @export-folder="exportFolder"
           @request-delete-folder="requestDeleteFolder"
+          @open-folder-menu="openFolderMenu"
         />
       </Pane>
 
@@ -91,6 +93,7 @@
           :status-error="appStore.error"
           :app-info="appStore.appInfo"
           @delete="deleteActiveNote"
+          @context-menu="openEditorMenu"
           @mind-map="mindMapVisible = true"
           @ppt-preview="pptPreviewVisible = true"
         />
@@ -103,12 +106,30 @@
       </Pane>
     </Splitpanes>
 
-    <NoteContextMenu
+    <ContextMenu
       :visible="menuVisible"
       :x="menuX"
       :y="menuY"
-      @command="handleMenuCommand"
+      :items="noteMenuItems"
+      @command="onNoteMenuCommand"
       @close="closeMenu"
+    />
+    <PackImportDialog v-model="packImportVisible" :kind="packImportKind" @imported="onPackImported" />
+    <ContextMenu
+      :visible="editorMenuVisible"
+      :x="editorMenuX"
+      :y="editorMenuY"
+      :items="editorMenuItems"
+      @command="onEditorMenuCommand"
+      @close="editorMenuVisible = false"
+    />
+    <ContextMenu
+      :visible="folderMenuVisible"
+      :x="folderMenuX"
+      :y="folderMenuY"
+      :items="folderMenuItems"
+      @command="onFolderMenuCommand"
+      @close="closeFolderMenu"
     />
 
     <MoveNoteDialog
@@ -158,10 +179,15 @@ import MindMapDialog from '@/components/MindMapDialog.vue';
 import PreviewPptDialog from '@/components/PreviewPptDialog.vue';
 import IndexSidebar from '@/components/IndexSidebar.vue';
 import MoveNoteDialog from '@/components/MoveNoteDialog.vue';
-import NoteContextMenu from '@/components/NoteContextMenu.vue';
+import ContextMenu from '@/components/ContextMenu.vue';
+import PackImportDialog from '@/components/PackImportDialog.vue';
 import NoteListPane from '@/components/NoteListPane.vue';
 import TagEditorDialog from '@/components/TagEditorDialog.vue';
 import { useNoteActions } from '@/composables/useNoteActions';
+import { buildNoteListMenu } from '@/menus/noteList';
+import { buildMuyaMenu } from '@/menus/muya';
+import { buildSideDrawerMenu } from '@/menus/sideDrawer';
+import type { ContextMenuItem } from '@/menus/types';
 import { exportCategoryMarkdown, listNotes } from '@/services/ipc';
 import { useAppStore } from '@/stores/app';
 import { skinEffectBus } from '@/services/skinEffectBus';
@@ -330,7 +356,8 @@ const {
   menuY,
   openMenu,
   closeMenu,
-  handleMenuCommand,
+  handleMenuCommand: runNoteMenuCommand,
+  menuNote,
   moveVisible,
   moveFromCategory,
   confirmMove,
@@ -355,6 +382,121 @@ const {
     loadedTitle = title;
   },
 });
+
+// ── 右键菜单（四套配置里已接的两套：noteList / sideDrawer）──
+const noteMenuItems = computed<ContextMenuItem[]>(() =>
+  buildNoteListMenu({
+    isCurrentNote: (menuNote.value?.id ?? null) === activeId.value,
+    // 榜单分层还没复刻，配置层置灰（见 _todo/TODO-vue3-P0缺口-202611.md 第 13 项）
+    tierRankingReady: false,
+  }) as unknown as ContextMenuItem[],
+);
+
+function onNoteMenuCommand(command: string): void {
+  void runNoteMenuCommand(command as Parameters<typeof runNoteMenuCommand>[0]);
+}
+
+const folderMenuVisible = ref(false);
+const folderMenuX = ref(0);
+const folderMenuY = ref(0);
+const folderMenuCategory = ref('');
+const folderMenuIsRoot = ref(false);
+const folderMenuItems = computed<ContextMenuItem[]>(() =>
+  buildSideDrawerMenu({
+    category: folderMenuCategory.value,
+    isRootCategory: folderMenuIsRoot.value,
+    // 当前没有登录态概念（同步服务面板还没复刻），本地库全量可用 → 按已登录处理
+    isLogin: true,
+    tierRankingReady: false,
+    blogReady: false,
+  }) as unknown as ContextMenuItem[],
+);
+
+const editorMenuVisible = ref(false);
+const editorMenuX = ref(0);
+const editorMenuY = ref(0);
+const editorSelectionEmpty = ref(true);
+const editorMenuItems = computed<ContextMenuItem[]>(() =>
+  buildMuyaMenu({
+    selectionEmpty: editorSelectionEmpty.value,
+    // 盘古格式化 vue2 走主进程，vue3 还没接 → 置灰（不装样子）
+    panguReady: false,
+    mindmapReady: true,
+  }) as unknown as ContextMenuItem[],
+);
+
+function openEditorMenu(payload: { x: number; y: number; selectionEmpty: boolean }): void {
+  editorMenuX.value = payload.x;
+  editorMenuY.value = payload.y;
+  editorSelectionEmpty.value = payload.selectionEmpty;
+  editorMenuVisible.value = true;
+}
+
+function onEditorMenuCommand(command: string): void {
+  if (command === 'mindmap') {
+    mindMapVisible.value = true;
+    return;
+  }
+  if (command === 'formatDocument') {
+    ElMessage.info(t('notes.panguPending'));
+    return;
+  }
+  const handled = editorPaneRef.value?.runEditorCommand?.(command) ?? false;
+  if (!handled) {
+    ElMessage.info(t('notes.commandPending'));
+  }
+}
+
+function openFolderMenu(payload: { category: string; event: MouseEvent }): void {
+  folderMenuCategory.value = payload.category;
+  folderMenuIsRoot.value = !payload.category;
+  folderMenuX.value = payload.event.clientX;
+  folderMenuY.value = payload.event.clientY;
+  folderMenuVisible.value = true;
+}
+
+function onPackImported(): void {
+  void notesStore.loadAll();
+  void libraryStore.load(true);
+}
+
+function closeFolderMenu(): void {
+  folderMenuVisible.value = false;
+}
+
+async function onFolderMenuCommand(command: string): Promise<void> {
+  const category = folderMenuCategory.value;
+  switch (command) {
+    case 'createCategory':
+      sidebarRef.value?.startCreateFolder();
+      break;
+    case 'createNote':
+      createNote();
+      break;
+    case 'importPack':
+      // 打包导入对话框已存在（PackImportDialog），入口在设置页；这里复用同一个可见标志
+      packImportVisible.value = true;
+      break;
+    case 'exportMarkdown':
+      await exportFolder(category);
+      break;
+    case 'tierRanking':
+      ElMessage.info(t('notes.tierRankingPending'));
+      break;
+    case 'exportToBlog':
+      ElMessage.info(t('notes.blogPending'));
+      break;
+    case 'copyMarkdown':
+      ElMessage.info(t('notes.copyFolderPending'));
+      break;
+    case 'delete':
+      requestDeleteFolder(category);
+      break;
+    default:
+      break;
+  }
+}
+
 
 watch(
   filteredNotes,
@@ -634,6 +776,9 @@ const microDrawerVisible = ref(false);
 const searchVisible = ref(false);
 const outlineVisible = ref(false);
 const editorPaneRef = ref<InstanceType<typeof EditorPane> | null>(null);
+const sidebarRef = ref<InstanceType<typeof IndexSidebar> | null>(null);
+const packImportVisible = ref(false);
+const packImportKind = ref<'runes' | 'echoes'>('runes');
 const deleteEffectEntry = ref<MicroApp | null>(null);
 const fullscreenOverlayRef = ref<InstanceType<typeof FullscreenOverlay> | null>(null);
 const skinEffectsRef = ref<any>(null);

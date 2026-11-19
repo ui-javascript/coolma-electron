@@ -428,6 +428,36 @@ async function main(): Promise<void> {
 
 
 
+
+  // ── 右键菜单四套配置 ──
+  {
+    const { buildNoteListMenu } = await import('@/menus/noteList');
+    const list = buildNoteListMenu({ isCurrentNote: true }) as Array<Record<string, unknown>>;
+    assert('菜单：笔记列表项顺序对齐 vue2', (list[0].id === 'rename') && (list[1].id === 'duplicate') && (list[9].id === 'delete'), JSON.stringify(list.map((i) => i.id ?? i.type)));
+    const exportItem = list.find((i) => i.id === 'export') as { children: Array<{ id: string }> };
+    assert('菜单：导出有 Markdown/PNG 两个子项', exportItem.children.map((c) => c.id).join(',') === 'exportMarkdown,exportPng', JSON.stringify(exportItem.children));
+    const notCurrent = buildNoteListMenu({ isCurrentNote: false }) as Array<Record<string, unknown>>;
+    assert('菜单：非当前笔记禁用导出', (notCurrent.find((i) => i.id === 'export') as { enabled?: boolean }).enabled === false);
+
+    const { buildSideDrawerMenu } = await import('@/menus/sideDrawer');
+    const root = buildSideDrawerMenu({ category: '/', isRootCategory: true, isLogin: true }) as Array<Record<string, unknown>>;
+    assert('菜单：根目录不出删除与导出', root.every((i) => i.id !== 'delete') && (root.find((i) => i.id === 'export') as { enabled?: boolean }).enabled === false, JSON.stringify(root.map((i) => i.id ?? i.type)));
+    const sub = buildSideDrawerMenu({ category: '/a', isRootCategory: false, isLogin: true, hideCreateNote: true }) as Array<Record<string, unknown>>;
+    assert('菜单：子目录可删可导出且能隐藏新建笔记', sub.some((i) => i.id === 'delete') && !sub.some((i) => i.id === 'createNote'), JSON.stringify(sub.map((i) => i.id ?? i.type)));
+    const offline = buildSideDrawerMenu({ category: '/a', isRootCategory: false, isLogin: false }) as Array<Record<string, unknown>>;
+    assert('菜单：未登录只有创建项', offline.every((i) => i.type === 'separator' || i.id === 'createCategory' || i.id === 'createNote' || i.id === 'delete'), JSON.stringify(offline.map((i) => i.id ?? i.type)));
+
+    const { buildMuyaMenu } = await import('@/menus/muya');
+    const empty = buildMuyaMenu({ selectionEmpty: true }) as Array<Record<string, unknown>>;
+    const ids = empty.map((i) => i.id).filter(Boolean);
+    assert('菜单：空选区编辑器菜单 4 项置灰', ['cut', 'copy', 'copyAsMarkdown', 'copyAsHtml'].every((id) => (empty.find((i) => i.id === id) as { enabled?: boolean }).enabled === false), JSON.stringify(ids));
+    const filled = buildMuyaMenu({ selectionEmpty: false, panguReady: false }) as Array<Record<string, unknown>>;
+    assert('菜单：有选区时剪切复制可用、盘古仍置灰', (filled.find((i) => i.id === 'cut') as { enabled?: boolean }).enabled === true && (filled.find((i) => i.id === 'formatDocument') as { enabled?: boolean }).enabled === false);
+
+    const { buildMarkMapMenu } = await import('@/menus/markMap');
+    assert('菜单：导图只留另存 HTML（与 vue2 注释掉 PNG/SVG 一致）', (buildMarkMapMenu() as Array<Record<string, unknown>>).map((i) => i.id).join(',') === 'saveAsHtml');
+  }
+
   // ── 大纲 / 搜索片段 ──
   {
     const { buildOutline, flattenOutline } = await import('@/utils/outline');

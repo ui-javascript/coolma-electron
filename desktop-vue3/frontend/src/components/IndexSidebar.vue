@@ -47,7 +47,7 @@
             class="index-row"
             :class="{ active: folderFilter === folder.category }"
             @click="selectFolder(folder.category)"
-            @contextmenu.prevent="emit('export-folder', folder.category)"
+            @contextmenu.prevent="emit('open-folder-menu', { category: folder.category, event: $event as MouseEvent })"
           >
             <el-icon><Folder /></el-icon>
             <span class="index-label">{{ folder.name }}</span>
@@ -145,6 +145,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (event: 'request-delete-folder', category: string): void;
+  (event: 'open-folder-menu', payload: { category: string; event: MouseEvent }): void;
   (event: 'update:mode', value: IndexMode): void;
   (event: 'update:filter', value: { folder?: string; tag?: string; timeGroup?: string; calendarDate?: string; calendarBasis?: CalendarDateBasis }): void;
   (event: 'create-note', payload?: { templateId?: string }): void;
@@ -153,6 +154,8 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 const notesStore = useNotesStore();
+
+defineExpose({ startCreateFolder: () => { void createFolder(); } });
 
 onMounted(() => {
   void notesStore.loadTemplates();

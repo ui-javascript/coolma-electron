@@ -25,6 +25,13 @@ export default {
     week: '本周',
     earlier: '更早',
   },
+    tierRankingPending: '榜单分层还没复刻（P0 清单第 13 项）',
+    blogPending: '博客部署还没复刻（P0 清单第 10 项）',
+    copyFolderPending: '整文件夹复制 Markdown 还没复刻',
+    copySuffix: '副本',
+    duplicateSuccess: '已复制笔记',
+    panguPending: '盘古格式化还没接（vue2 走主进程）',
+    commandPending: '这个动作还没接上',
   search: {
     placeholder: '搜索标题、正文或标签...',
   },
