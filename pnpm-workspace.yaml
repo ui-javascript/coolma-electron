@@ -9,7 +9,6 @@ packages:
   - echo-core
   - rune-core
   - demo-vue2-vite-muya
-  - tpl-vuepress1-voding-muya
   - tpl-vitepress1-teek-muya
 
 # Keep a flat node_modules layout for the pnpm workspace.

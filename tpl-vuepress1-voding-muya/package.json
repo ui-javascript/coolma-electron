@@ -20,9 +20,21 @@
     "vuepress-plugin-code-copy": "1.0.6",
     "vuepress-plugin-demo-block": "0.7.2",
     "vuepress-plugin-flowchart": "1.5.0",
-    "vuepress-theme-vdoing": "1.12.9"
+    "vuepress-theme-vdoing": "1.12.9",
+    "vue": "2.7.16",
+    "vue-template-compiler": "2.7.16"
   },
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "echo-core": "link:../../echo-core",
+    "libs-muya": "link:../../libs-muya",
+    "rune-core": "link:../../rune-core"
+  },
+  "pnpm": {
+    "overrides": {
+      "@vue/compiler-sfc": "2.7.16"
+    }
   }
 }

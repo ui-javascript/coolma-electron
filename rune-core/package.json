@@ -8,6 +8,13 @@
     ".": "./src/index.ts"
   },
   "files": [
+    "lib",
     "src"
-  ]
+  ],
+  "main": "lib/index.cjs",
+  "module": "lib/index.esm.js",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "esbuild src/index.ts --outfile=lib/index.esm.js --format=esm && esbuild src/index.ts --outfile=lib/index.cjs --format=cjs"
+  }
 }
