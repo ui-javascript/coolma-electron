@@ -45,7 +45,7 @@
       </template>
     </el-input>
 
-    <div v-loading="loading" class="note-list">
+    <div v-loading="loading" class="note-list" :class="{ dense: props.dense }">
       <div
         v-for="note in notes"
         :key="note.id"
@@ -99,6 +99,7 @@ import type { NoteSummary } from '@shared/types/domain';
 import { extraTagCount, formatNoteDate, primaryTag } from '@/utils/note';
 
 const props = defineProps<{
+  dense?: boolean;
   notes: NoteSummary[];
   activeId: number | null;
   selectedIds: number[];
@@ -182,3 +183,12 @@ function clearSelection(): void {
   commitSelection([]);
 }
 </script>
+
+/* 紧凑列表模式（vue2 noteListDenseMode） */
+.note-list.dense .note-item {
+  padding: 6px 12px;
+}
+
+.note-list.dense .note-item-head {
+  margin-bottom: 0;
+}

@@ -8,7 +8,7 @@ import {
   type AppTheme,
   type BootStatus,
 } from '@shared/enums/app';
-import { getAppInfo } from '@/services/ipc';
+import { allSettings, getAppInfo, setSetting } from '@/services/ipc';
 import { i18n } from '@/i18n';
 
 export type { AppLocale, AppTheme, BootStatus } from '@shared/enums/app';
@@ -32,6 +32,8 @@ export const useAppStore = defineStore('app', {
     appInfo: null as AppInfo | null,
     status: BootStatusEnum.Idle as BootStatus,
     error: '',
+    prefs: {} as Record<string, unknown>,
+    prefsLoaded: false,
   }),
 
   getters: {
@@ -44,6 +46,29 @@ export const useAppStore = defineStore('app', {
   },
 
   actions: {
+    /** 启动时拉一次 settings 表全量，编辑器偏好从这里读。 */
+    async loadPrefs(): Promise<void> {
+      try {
+        const result = await allSettings();
+        if (result.ok) {
+          this.prefs = result.data ?? {};
+          this.prefsLoaded = true;
+        }
+      } catch {
+        // 设置拉取失败不阻塞启动
+      }
+    },
+
+    /** 写偏好：本地立即生效 + settings.set 落库。 */
+    async setPref(key: string, value: unknown): Promise<void> {
+      this.prefs = { ...this.prefs, [key]: value };
+      try {
+        await setSetting(key, value);
+      } catch {
+        // 落库失败仅保留内存值
+      }
+    },
+
     async init(): Promise<void> {
       if (this.status === BootStatusEnum.Loading || this.status === BootStatusEnum.Ready) {
         return;

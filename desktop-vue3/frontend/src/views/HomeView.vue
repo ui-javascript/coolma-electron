@@ -46,6 +46,7 @@
 
       <Pane :size="27" :min-size="20" :max-size="40">
         <NoteListPane
+          :dense="denseMode"
           v-model:keyword="keyword"
           :notes="filteredNotes"
           :active-id="activeId"
@@ -123,7 +124,7 @@ import { Pane, Splitpanes } from 'splitpanes';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
-import { IndexModeEnum, type CalendarDateBasis, type IndexMode } from '@shared/enums/app';
+import { IndexModeEnum, NoteOrderTypeEnum, type CalendarDateBasis, type IndexMode } from '@shared/enums/app';
 import type { NoteSummary } from '@shared/types/domain';
 import EditorPane from '@/components/EditorPane.vue';
 import MindMapDialog from '@/components/MindMapDialog.vue';
@@ -194,6 +195,25 @@ const readCalendarBasis = (): CalendarDateBasis => {
 const calendarDate = ref('');
 const calendarBasis = ref<CalendarDateBasis>(readCalendarBasis());
 
+const noteOrder = ref<string>(NoteOrderTypeEnum.ModifiedTimeDesc);
+const denseMode = ref(false);
+
+/** 应用 @ 快捷面板列数（引擎读 --quick-insert-columns，4-8 限幅与 vue2 一致）。 */
+function applyQuickInsertColumns(value: unknown): void {
+  const n = Number(value);
+  const cols = Number.isFinite(n) ? Math.min(8, Math.max(4, n)) : 6;
+  document.documentElement.style.setProperty('--quick-insert-columns', String(cols));
+}
+
+function applyEditorPrefs(): void {
+  const prefs = appStore.prefs;
+  noteOrder.value = NoteOrderTypeEnum.has(prefs['editor.noteOrderType'])
+    ? (prefs['editor.noteOrderType'] as string)
+    : NoteOrderTypeEnum.ModifiedTimeDesc;
+  denseMode.value = prefs['editor.noteListDenseMode'] === true;
+  applyQuickInsertColumns(prefs['editor.quickInsertColumns']);
+}
+
 const filteredNotes = computed(() => {
   const query = keyword.value.trim().toLowerCase();
   const useServerSearch = Boolean(query && searchResults.value);
@@ -214,8 +234,29 @@ const filteredNotes = computed(() => {
       note.excerpt.toLowerCase().includes(query) ||
       noteTagList.some((tag) => tag.toLowerCase().includes(query));
     return tagMatch && folderMatch && timeMatch && calendarMatch && textMatch;
-  });
+  }).sort(compareByOrder(noteOrder.value));
 });
+
+/** 客户端排序（对齐 vue2 NoteOrderTypeEnum 语义），默认修改时间倒序。 */
+function compareByOrder(order: string) {
+  return (a: NoteSummary, b: NoteSummary): number => {
+    switch (order) {
+      case NoteOrderTypeEnum.TitleAsc:
+        return a.title.localeCompare(b.title, 'zh-Hans-CN');
+      case NoteOrderTypeEnum.TitleDesc:
+        return b.title.localeCompare(a.title, 'zh-Hans-CN');
+      case NoteOrderTypeEnum.ModifiedTimeAsc:
+        return (a.updatedAt || a.createdAt || 0) - (b.updatedAt || b.createdAt || 0);
+      case NoteOrderTypeEnum.CreatedTimeAsc:
+        return (a.createdAt || 0) - (b.createdAt || 0);
+      case NoteOrderTypeEnum.CreatedTimeDesc:
+        return (b.createdAt || 0) - (a.createdAt || 0);
+      case NoteOrderTypeEnum.ModifiedTimeDesc:
+      default:
+        return (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0);
+    }
+  };
+}
 
 const activeSummary = computed(
   () => notesStore.notes.find((note) => note.id === activeId.value) ?? null,
@@ -531,5 +572,9 @@ onBeforeUnmount(() => {
     searchTimer = undefined;
   }
   void flushSave();
+});
+onMounted(async () => {
+  await appStore.loadPrefs();
+  applyEditorPrefs();
 });
 </script>

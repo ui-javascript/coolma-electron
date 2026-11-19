@@ -11,7 +11,15 @@
       </div>
     </header>
 
-    <el-card class="settings-card" shadow="never">
+    <el-tabs v-model="groupTab" class="settings-group-tabs">
+      <el-tab-pane :label="t('settings.groupGeneral')" name="general" />
+      <el-tab-pane :label="t('settings.groupEditor')" name="editor" />
+      <el-tab-pane :label="t('settings.groupDatabase')" name="database" />
+      <el-tab-pane :label="t('settings.groupLibrary')" name="library" />
+      <el-tab-pane :label="t('settings.groupAbout')" name="about" />
+    </el-tabs>
+
+    <el-card v-show="groupTab === 'general'" class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
           <span>{{ t('settings.appearance') }}</span>
@@ -41,7 +49,16 @@
       </el-form>
     </el-card>
 
-    <el-card class="settings-card" shadow="never">
+    <el-card v-show="groupTab === 'editor'" class="settings-card" shadow="never">
+      <template #header>
+        <div class="card-heading">
+          <span>{{ t('settings.editorGroup') }}</span>
+        </div>
+      </template>
+      <EditorPrefsCard />
+    </el-card>
+
+    <el-card v-show="groupTab === 'database'" class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
           <span>{{ t('settings.data') }}</span>
@@ -134,7 +151,7 @@
       </div>
     </el-card>
 
-    <el-card class="settings-card" shadow="never">
+    <el-card v-show="groupTab === 'database'" class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
           <span>{{ t('settings.integrity') }}</span>
@@ -194,7 +211,7 @@
       </template>
     </el-card>
 
-    <el-card class="settings-card" shadow="never">
+    <el-card v-show="groupTab === 'library'" class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
           <span>{{ t('library.management') }}</span>
@@ -211,7 +228,7 @@
       </el-tabs>
     </el-card>
 
-    <el-card class="settings-card" shadow="never">
+    <el-card v-show="groupTab === 'about'" class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
           <span>{{ t('settings.about') }}</span>
@@ -265,6 +282,7 @@ import type {
   IntegrityReport,
   PendingSyncSummary,
 } from '@shared/types/domain';
+import EditorPrefsCard from '@/components/EditorPrefsCard.vue';
 import { useAppStore, type AppTheme } from '@/stores/app';
 import LibraryManagePanel from '@/components/LibraryManagePanel.vue';
 import type { AppLocale } from '@/i18n';
@@ -284,6 +302,7 @@ const { t } = useI18n();
 const router = useRouter();
 const appStore = useAppStore();
 
+const groupTab = ref<'general' | 'editor' | 'database' | 'library' | 'about'>('general');
 const libraryTab = ref<'runes' | 'echoes'>('runes');
 
 function onLibraryChanged(): void {
@@ -482,6 +501,9 @@ async function handleOpenFolder(): Promise<void> {
 
 onMounted(() => {
   void appStore.init();
+  if (!appStore.prefsLoaded) {
+    void appStore.loadPrefs();
+  }
   void loadBackups();
   void loadDbStatus();
 });

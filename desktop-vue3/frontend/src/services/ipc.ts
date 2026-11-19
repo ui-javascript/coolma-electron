@@ -239,3 +239,11 @@ export function openDatabaseFolder(): Promise<IpcResult<{ opened: boolean }>> {
   return invoke<{ opened: boolean }>(IPC_CHANNELS.database.openFolder);
 }
 
+/** settings 表全量键值。 */
+export function allSettings(): Promise<IpcResult<Record<string, unknown>>> {
+  return invoke<Record<string, unknown>>(IPC_CHANNELS.settings.all);
+}
+
+export function setSetting(key: string, value: unknown): Promise<IpcResult<boolean>> {
+  return invoke<boolean>(IPC_CHANNELS.settings.set, { key, value });
+}

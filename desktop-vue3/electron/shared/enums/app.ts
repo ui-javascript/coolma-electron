@@ -54,3 +54,15 @@ export const CalendarDateBasisEnum = Enum({
 });
 
 export type CalendarDateBasis = (typeof CalendarDateBasisEnum)['values'][number];
+
+/** 笔记列表排序（复刻 vue2 NoteOrderTypeEnum，label 即 i18n key）。 */
+export const NoteOrderTypeEnum = Enum({
+  TitleAsc: { value: 'orderByNoteTitleAsc', label: 'orderByNoteTitleAsc' },
+  TitleDesc: { value: 'orderByNoteTitleDesc', label: 'orderByNoteTitleDesc' },
+  ModifiedTimeAsc: { value: 'orderByModifiedTimeAsc', label: 'orderByModifiedTimeAsc' },
+  ModifiedTimeDesc: { value: 'orderByModifiedTimeDesc', label: 'orderByModifiedTimeDesc' },
+  CreatedTimeAsc: { value: 'orderByCreatedTimeAsc', label: 'orderByCreatedTimeAsc' },
+  CreatedTimeDesc: { value: 'orderByCreatedTimeDesc', label: 'orderByCreatedTimeDesc' },
+});
+
+export type NoteOrderType = (typeof NoteOrderTypeEnum)['values'][number];
