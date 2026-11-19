@@ -3,7 +3,6 @@ import classModule from 'snabbdom/modules/class';
 import attributesModule from 'snabbdom/modules/attributes';
 import styleModule from 'snabbdom/modules/style';
 import propsModule from 'snabbdom/modules/props';
-import datasetModule from 'snabbdom/modules/dataset';
 import eventListenersModule from 'snabbdom/modules/eventlisteners';
 import { h } from 'snabbdom/h';
 import * as toHTMLNs from 'snabbdom-to-html';
@@ -14,6 +13,46 @@ import * as toVNodeNs from 'snabbdom/tovnode';
  * Node/CJS 走包根（exports 对象）。这里统一成"命名空间 + 取成员"，
  * 两边都能拿到函数，不再依赖 default 导入。
  */
+/**
+ * 自己实现 dataset 模块：snabbdom 自带的版本把驼峰键直接拼成属性，
+ * `{ echoNodeId }` 会写成 `data-echonodeid`，而引擎侧一律按 `data-echo-node-id` 读，
+ * 结果就是"属性明明写了却永远查不到"。这里统一转 kebab-case。
+ */
+const toAttrName = (key) => ('data-' + key.replace(/[A-Z]/g, (m) => '-' + m.toLowerCase()));
+
+const removeDataset = (vnode) => {
+  const data = vnode?.data?.dataset;
+  const elm = vnode?.elm;
+  if (!data || !elm) return;
+  for (const key of Object.keys(data)) {
+    elm.removeAttribute(toAttrName(key));
+  }
+};
+
+const applyDataset = (vnode) => {
+  const data = vnode?.data?.dataset;
+  const elm = vnode?.elm;
+  if (!data || !elm) return;
+  for (const key of Object.keys(data)) {
+    const value = data[key];
+    const attr = toAttrName(key);
+    if (value === undefined || value === null) {
+      elm.removeAttribute(attr);
+    } else {
+      elm.setAttribute(attr, String(value));
+    }
+  }
+};
+
+const datasetModule = {
+  create: (emptyVnode, vnode) => applyDataset(vnode),
+  update: (oldVnode, vnode) => {
+    if (oldVnode?.data?.dataset) removeDataset(oldVnode);
+    applyDataset(vnode);
+  },
+  destroy: (vnode) => removeDataset(vnode)
+};
+
 const init = snabbdomNs.init ?? snabbdomNs.default?.init;
 const toHTML = typeof toHTMLNs === 'function' ? toHTMLNs : (toHTMLNs.toHTML ?? toHTMLNs.default ?? toHTMLNs);
 const toVNode =

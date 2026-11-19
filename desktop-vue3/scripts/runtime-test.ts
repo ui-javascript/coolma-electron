@@ -23,6 +23,21 @@ function setupDom(): void {
     Object.defineProperty(g, key, { value, writable: true, configurable: true, enumerable: false });
   };
 
+  // 把 jsdom 里的常用构造器整体搬过来，避免逐个 add 漏项
+  for (const key of [
+    'window', 'document', 'navigator', 'HTMLElement', 'Node', 'Element', 'DocumentFragment',
+    'Document', 'Text', 'Comment', 'SVGElement', 'HTMLCollection', 'NodeList',
+    'HTMLInputElement', 'HTMLTextAreaElement', 'HTMLImageElement', 'HTMLAnchorElement',
+    'HTMLDivElement', 'HTMLSpanElement', 'HTMLTableElement', 'HTMLCanvasElement',
+    'DOMParser', 'XMLSerializer', 'MutationObserver', 'Event', 'KeyboardEvent',
+    'MouseEvent', 'CustomEvent', 'UIEvent', 'FocusEvent', 'InputEvent', 'ClipboardEvent',
+    'Range', 'Selection', 'ShadowRoot', 'CSSStyleDeclaration', 'DOMRect',
+  ]) {
+    if ((w as Any)[key] !== undefined) {
+      define(key, (w as Any)[key]);
+    }
+  }
+
   define('window', w);
   define('document', w.document);
   define('navigator', w.navigator);
@@ -91,7 +106,8 @@ async function main(): Promise<void> {
       id: 'r1',
       name: 'counter',
       template:
-        '<template><div/></template><script>export default { props: { inheritFromPrevious: { default: true }, value: { default: 0 } } }</script>',
+        '<template><button class="coolma-rune-demo" type="button">{{ value || 0 }}</button></template>' +
+        '<script>export default { props: { inheritFromPrevious: { default: true }, value: { default: 0 } } }</script>',
     },
   ];
   const echoes = [{ id: 'e1', name: 'demo', anno_source: 'export default {}' }];
@@ -170,6 +186,43 @@ async function main(): Promise<void> {
   // 5) 继承：上一行文本被写进 data-rune-value
   const inheritText = selectOn('上一行的内容\n\n@dem', runeItem);
   assert('符文继承上文', /data-rune-value="上一行的内容"/.test(inheritText), inheritText.slice(0, 120));
+
+  // 6) B5：插件装上之后，占位要被真正渲染成卡片
+  const { createEchoPlugin } = (await import('plugins-muya-echo')) as Any;
+  const { createRunePlugin } = (await import('plugins-muya-rune')) as Any;
+
+  // anno_source 的 render 必须返回 HTML 字符串（返回对象时运行时只会拿到空 html）
+  const echoSource =
+    "export default { type: 'echo', render (props) { return '<span class=\"coolma-echo-demo\">' + (props.value || '空') + '</span>' } }";
+  const pluginList = [
+    createEchoPlugin({ cards: [{ id: 'e1', name: 'demo', anno_source: echoSource }] }),
+    createRunePlugin({ cards: [runes[0]] }),
+  ];
+  const disposers: Array<() => void> = [];
+  for (const plugin of pluginList) {
+    const dispose = plugin.install({ editor: muya, container });
+    if (typeof dispose === 'function') disposers.push(dispose);
+  }
+  assert('rune/echo 插件安装完成', disposers.length === pluginList.length, `disposers=${disposers.length}`);
+
+  // 引擎会用 getContainer() 换掉传入的容器，真正的根是 #ag-editor-id
+  const editorRoot = (): Element => document.querySelector('div#ag-editor-id') ?? container;
+
+  selectOn('@dem', runeItem);
+  // 真实链路里输入事件会走 partialRender；harness 直接改块，这里补一次整篇渲染，
+  // 让 renderRunes()（符文挂载 + 回响后处理）真正执行。
+  muya.contentState.stateRender.renderRunes();
+  const runeHost = editorRoot().querySelector('[data-rune-node-id]');
+  assert('符文占位落到 DOM', Boolean(runeHost));
+  assert('符文卡片已挂载（Vue 渲染）', Boolean(editorRoot().querySelector('.coolma-rune-demo')));
+
+  selectOn('@', echoItem);
+  // 第一次渲染只负责把行内 token 画成胶囊；第二次才轮到宿主后处理写回自定义 HTML
+  muya.contentState.stateRender.renderRunes();
+  muya.contentState.stateRender.renderRunes();
+  const echoCard = editorRoot().querySelector('.coolma-echo-demo');
+  assert('回响卡渲染（anno_source 执行）', Boolean(echoCard), container.innerHTML.slice(0, 120));
+  assert('回响卡拿到 value', echoCard?.textContent === '空', String(echoCard?.textContent));
 
   console.log(failed === 0 ? '\n全部通过' : `\n失败 ${failed} 项`);
   if (failed > 0) {

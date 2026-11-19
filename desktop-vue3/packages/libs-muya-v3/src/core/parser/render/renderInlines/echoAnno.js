@@ -97,7 +97,15 @@ export default function echoAnno (h, cursor, block, token, outerClass) {
         {
           spellcheck: 'false',
           title,
-          contenteditable: 'false'
+          contenteditable: 'false',
+          // dataset 模块把驼峰键拼成 data-echonodeid，引擎侧却按 data-echo-node-id 读取，
+          // 这里显式写一份 kebab-case 属性，保证 renderEchoPlaceholders 能找到宿主
+          'data-echo-name': echoName || '',
+          'data-echo-id': echoId || '',
+          'data-echo-definition-id': definitionId || '',
+          'data-echo-node-id': echoNodeId || '',
+          'data-echo-value': value || '',
+          'data-echo-inline': 'true'
         },
         echoPropsJson ? { 'data-echo-props-json': echoPropsJson } : {}
       ),
