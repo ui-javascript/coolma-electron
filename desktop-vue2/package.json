@@ -5,7 +5,7 @@
   "productName": "coolma",
   "author": "luo0412 <1095847440@qq.com>",
   "private": true,
-  "packageManager": "yarn@1.22.22",
+  "packageManager": "pnpm@12.18.0",
   "license": "MIT",
   "repository": {
     "type": "github",
@@ -32,7 +32,6 @@
     "verify:bus-dialog": "jest --colors=false tests/unit/common/busDialogRegistry.test.js tests/unit/common/busDialogLayerHost.test.js",
     "verify:smoke": "jest --colors=false tests/smoke",
     "theme:element": "node scripts/generate-element-theme.js",
-    "postinstall": "patch-package --patch-dir yarn-patches --error-on-fail",
     "plugin:muya:build": "cd .. && corepack pnpm --filter libs-muya build",
     "plugin:muya:status": "node -p \"require.resolve('libs-muya')\""
   },
@@ -132,7 +131,6 @@
     "moment": "^2.30.1",
     "monaco-editor": "0.38.0",
     "monaco-editor-webpack-plugin": "7.0.1",
-    "patch-package": "^8.0.0",
     "popper.js": "^1.16.1",
     "pubsub-js": "^1.9.4",
     "remark": "^13.0.0",
@@ -178,10 +176,7 @@
   ],
   "engines": {
     "node": ">= 22.12.0",
-    "yarn": "1.22.22"
-  },
-  "resolutions": {
-    "@types/minimatch": "5.1.2"
+    "pnpm": ">= 12.18.0"
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.0",

@@ -38,8 +38,8 @@ jobs:
         run: |
           corepack pnpm install --frozen-lockfile
           cd desktop-vue2
-          corepack yarn install --frozen-lockfile
-          corepack yarn run build-publish
+          corepack pnpm install --frozen-lockfile
+          corepack pnpm run build-publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   build-linux:
@@ -61,8 +61,8 @@ jobs:
         run: |
           corepack pnpm install --frozen-lockfile
           cd desktop-vue2
-          corepack yarn install --frozen-lockfile
-          corepack yarn run build-publish
+          corepack pnpm install --frozen-lockfile
+          corepack pnpm run build-publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   build-mac:
@@ -84,7 +84,7 @@ jobs:
         run: |
           corepack pnpm install --frozen-lockfile
           cd desktop-vue2
-          corepack yarn install --frozen-lockfile
-          corepack yarn run build-publish
+          corepack pnpm install --frozen-lockfile
+          corepack pnpm run build-publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -27,7 +27,7 @@ adjust
 
 ## 其他项目约定
 
-- 根 workspace 使用 **pnpm**，在仓库根目录安装；`desktop-vue2` 已移出 pnpm workspace，在其目录内用 **Yarn Classic** 安装和管理依赖。
+- 根 workspace 使用 **pnpm**，在仓库根目录安装；`desktop-vue2` 使用独立的 pnpm workspace，须再运行 `pnpm --dir desktop-vue2 install --frozen-lockfile`，以隔离 Quasar 1 的 Vue 2 依赖。
 - pnpm workspace 包：`desktop-vue3`、`libs-muya`、`demo-vue2-vite-muya`、`tpl-vuepress1-voding-muya`、`tpl-vitepress1-teek-muya`。
 - 临时试验代码统一放在 `./_temp/`。
 

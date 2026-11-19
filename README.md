@@ -10,12 +10,11 @@
 ```sh
 corepack enable
 pnpm install
-cd desktop-vue2
-corepack yarn install --frozen-lockfile
-corepack yarn dev
+pnpm --dir desktop-vue2 install --frozen-lockfile
+pnpm dev
 ```
 
-Vue 2 桌面应用位于 [`desktop-vue2/`](desktop-vue2/)，与 `desktop-vue3/` 同级。编辑器包位于 [`libs-muya/`](libs-muya/)。Vue 2 桌面应用由 Yarn Classic 独立管理，通过 `link:../libs-muya` 直接引用编辑器源码；根目录的其他 workspace 包仍由 pnpm 管理。安装完成后，也可在根目录运行 `pnpm dev` 启动桌面应用、运行 `pnpm verify` 执行测试，或运行 `pnpm --filter libs-muya build:dev` 单独构建编辑器。
+Vue 2 桌面应用位于 [`desktop-vue2/`](desktop-vue2/)，与 `desktop-vue3/` 同级。编辑器包位于 [`libs-muya/`](libs-muya/)。Vue 2 桌面应用使用独立的 pnpm 锁文件和依赖目录，避免 Quasar 1 解析到根目录的 Vue 3。它通过 `link:../libs-muya` 引用本地编辑器包。安装完成后，也可在根目录运行 `pnpm dev` 启动桌面应用、运行 `pnpm verify` 执行测试，或运行 `pnpm --filter libs-muya build:dev` 单独构建编辑器。
 
 Muya 的 Vue 2 + Vite 示例位于 [`demo-vue2-vite-muya/`](demo-vue2-vite-muya/)，在根目录运行 `pnpm --filter demo-vue2-vite-muya dev`。符文和回响模板分别位于 [`tpl-rune/`](tpl-rune/) 和 [`tpl-echo/`](tpl-echo/)。
 

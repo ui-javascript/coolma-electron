@@ -5,9 +5,9 @@ alwaysApply: true
 
 # Package Manager
 
-The root workspace uses **pnpm**. The desktop app in `desktop-vue2/` is excluded and uses **Yarn Classic**. Muya remains in the pnpm workspace.
+Both projects use **pnpm**. Keep `desktop-vue2/` in its own workspace so Quasar 1 resolves Vue 2. Muya remains in the root workspace.
 
 - Run installation from the repository root with `pnpm install`.
-- In `desktop-vue2/`, use `corepack yarn install --frozen-lockfile` and `corepack yarn add <pkg>` / `corepack yarn add -D <pkg>`. The app links to Muya with `link:../libs-muya`.
+- In `desktop-vue2/`, use `pnpm install --frozen-lockfile` and `pnpm add <pkg>` / `pnpm add -D <pkg>`. The app links to Muya with `link:../libs-muya`.
 - Use `pnpm --filter libs-muya add <pkg>` / `pnpm --filter libs-muya add -D <pkg>` for the Muya package.
-- Run workspace scripts with `pnpm --filter <package-name> <script>`. The root desktop scripts forward to Yarn.
+- Run workspace scripts with `pnpm --filter <package-name> <script>`. The root desktop scripts use `pnpm --dir desktop-vue2 run`.

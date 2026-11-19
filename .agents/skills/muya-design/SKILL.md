@@ -48,8 +48,8 @@ libs-muya/
 ```sh
 pnpm install
 cd desktop-vue2
-corepack yarn install --frozen-lockfile
-corepack yarn dev
+pnpm install --frozen-lockfile
+pnpm dev
 ```
 
 `desktop-vue2/package.json` 通过 `link:../libs-muya` 引用 `libs-muya`。Quasar 直接构建 `libs-muya/lib/` 的源码。如果要单独生成编辑器 UMD 产物，运行 `pnpm --filter libs-muya build`；开发构建用 `pnpm --filter libs-muya build:dev`。

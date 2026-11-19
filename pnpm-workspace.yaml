@@ -4,7 +4,7 @@ packages:
   - desktop-vue3
   - desktop-vue3/frontend
   - desktop-vue3/packages/*
-  # desktop-vue2 uses its own Yarn lockfile.
+  # desktop-vue2 has its own pnpm workspace to isolate Vue 2 from Vue 3.
   - libs-muya
   - echo-core
   - rune-core
