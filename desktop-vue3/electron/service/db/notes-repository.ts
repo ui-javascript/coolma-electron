@@ -237,6 +237,82 @@ export const notesRepository = {
     return row ? toRecord(row) : null;
   },
 
+  getByDocGuid(docGuid: string): NoteRecord | null {
+    const row = getDatabase().prepare('SELECT * FROM notes WHERE doc_guid = ?').get(docGuid) as
+      | NoteRow
+      | undefined;
+    return row ? toRecord(row) : null;
+  },
+
+  listDirty(limit = 200): NoteRecord[] {
+    const rows = getDatabase()
+      .prepare('SELECT * FROM notes WHERE dirty = 1 ORDER BY updated_at ASC LIMIT ?')
+      .all(Math.min(Math.max(limit, 1), 5000)) as NoteRow[];
+    return rows.map(toRecord);
+  },
+
+  /**
+   * 云同步拉取落库（轻量 upsert）：
+   * - 已有同 docGuid → 覆盖服务端字段，dirty 归 0；
+   * - 没有 → 插一条 dirty=0 的远端笔记，docGuid/kbGuid 原样保留。
+   * 不写 outbox（拉取不是本地变更）。
+   */
+  upsertRemote(input: {
+    docGuid: string;
+    kbGuid?: string | null;
+    title: string;
+    content: string;
+    category?: string;
+    tags?: string;
+    serverModified?: number | null;
+  }): NoteRecord {
+    const db = getDatabase();
+    const now = Date.now();
+    const category = normalizeCategory(input.category);
+    const tags = splitTags(input.tags).join(',');
+    const existing = this.getByDocGuid(input.docGuid);
+    if (existing) {
+      db.prepare(
+        `UPDATE notes SET title = ?, content = ?, category = ?, tags = ?, kb_guid = ?, server_modified = ?, updated_at = ?, dirty = 0
+         WHERE id = ?`,
+      ).run(input.title, input.content, category, tags, input.kbGuid ?? existing.kbGuid, input.serverModified ?? now, now, existing.id);
+      replaceNoteTags(existing.id, tags);
+      return this.get(existing.id) as NoteRecord;
+    }
+    const info = db
+      .prepare(
+        `INSERT INTO notes (
+           doc_guid, kb_guid, title, content, category, tags,
+           data_created, data_modified, local_modified, server_modified,
+           created_at, updated_at, dirty
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+      )
+      .run(
+        input.docGuid,
+        input.kbGuid ?? null,
+        input.title,
+        input.content,
+        category,
+        tags,
+        now,
+        now,
+        now,
+        input.serverModified ?? now,
+        now,
+        now,
+      );
+    const id = Number(info.lastInsertRowid);
+    replaceNoteTags(id, tags);
+    return this.get(id) as NoteRecord;
+  },
+
+  /** 云端新建成功后，把本地 `local_` 占位 docGuid 换成服务端 guid。 */
+  rebindDocGuid(id: number, docGuid: string, kbGuid: string | null): void {
+    getDatabase()
+      .prepare('UPDATE notes SET doc_guid = ?, kb_guid = ?, dirty = 0, updated_at = ?, local_modified = ? WHERE id = ?')
+      .run(docGuid, kbGuid, Date.now(), Date.now(), id);
+  },
+
   create(input: CreateNoteInput = {}): NoteRecord {
     const db = getDatabase();
     const now = Date.now();

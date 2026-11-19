@@ -34,6 +34,22 @@ export const blogDispatchSchema = z.object({
   inputs: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
 });
 
+export const syncLoginSchema = z.object({
+  userId: z.string().min(1),
+  password: z.string().min(1),
+  baseUrl: z.string().optional(),
+  rememberPassword: z.boolean().optional(),
+});
+
+export const syncPullSchema = z.object({
+  category: z.string().optional(),
+  limit: z.number().int().min(1).max(1000).optional(),
+});
+
+export const syncPushSchema = z.object({
+  limit: z.number().int().min(1).max(500).optional(),
+});
+
 export const emptyPayloadSchema = z.union([
   z.undefined(),
   z.null(),

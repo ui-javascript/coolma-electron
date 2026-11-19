@@ -44,6 +44,12 @@ const INVOKE_CHANNELS = new Set<string>([
   'controller/settings/remove',
   'controller/diagnostics/run',
   'controller/sync/pending',
+  'controller/sync/status',
+  'controller/sync/login',
+  'controller/sync/logout',
+  'controller/sync/categories',
+  'controller/sync/pull',
+  'controller/sync/push',
   'controller/library/runes',
   'controller/library/echoes',
   'controller/library/runeSave',
@@ -81,6 +87,7 @@ const INVOKE_CHANNELS = new Set<string>([
   'controller/database/restore',
   'controller/database/openFolder',
 ]);
+
 
 
 

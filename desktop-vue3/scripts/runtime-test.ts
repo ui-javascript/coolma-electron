@@ -610,6 +610,18 @@ async function main(): Promise<void> {
     await fs.rm(tmp, { recursive: true, force: true });
   }
 
+  wizSync: {
+    const wizMarkdown = await import('@altairwei/wiz-markdown');
+    const { IPC_CHANNELS, INVOKE_CHANNELS } = await import('@shared/ipc/channels');
+    const { syncLoginSchema } = await import('@shared/ipc/schemas');
+    const html = wizMarkdown.embed('# 标题\n\n正文 **粗**', { kbGuid: 'k', docGuid: 'd', wrapWithPreTag: false });
+    const markdown = wizMarkdown.extract(html, { convertImgTag: true, normalizeWhitespace: false });
+    assert('为知同步：markdown 能 embed 成为知 HTML', typeof html === 'string' && html.includes('<body>'), html.slice(0, 60));
+    assert('为知同步：embed→extract 往返保住标题与加粗', markdown.includes('# 标题') && markdown.includes('**粗**'), JSON.stringify(markdown));
+    assert('为知同步：login/status/pull/push 通道齐全且白名单放行', [IPC_CHANNELS.sync.login, IPC_CHANNELS.sync.status, IPC_CHANNELS.sync.pull, IPC_CHANNELS.sync.push].every((c) => INVOKE_CHANNELS.has(c)), String(INVOKE_CHANNELS.size));
+    assert('为知同步：login 空账号被 zod 拦下', !syncLoginSchema.safeParse({ userId: '', password: '' }).success, 'rejected');
+  }
+
     assertImport: {
       const enabled = await isDeleteEffectEnabled();
       assert('内置条目：默认未启用（走原生确认框）', enabled === false, String(enabled));

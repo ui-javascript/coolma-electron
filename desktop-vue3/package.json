@@ -30,6 +30,7 @@
     "test:db": "node -e \"require('esbuild').buildSync({entryPoints:['scripts/db-test.ts'],bundle:true,format:'cjs',platform:'node',outfile:'/tmp/coolma-db-test.js',logLevel:'error'})\" && node /tmp/coolma-db-test.js"
   },
   "dependencies": {
+    "@altairwei/wiz-markdown": "^1.0.13",
     "better-sqlite3": "^12.11.1",
     "ee-core": "4.1.5",
     "electron-updater": "^6.8.11",
