@@ -30,6 +30,7 @@ patchedDependencies:
   vue-template-compiler@2.7.16: desktop-vue2/patches/vue-template-compiler+2.7.16.patch
 
 allowBuilds:
+  vue-demi: true
   ant-design-vue: false
   better-sqlite3@12.11.1: true
   bufferutil: false

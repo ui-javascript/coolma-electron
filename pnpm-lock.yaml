@@ -316,6 +316,9 @@ importers:
       vue-router:
         specifier: ^4.6.4
         version: 4.6.5(vue@3.5.45(typescript@5.9.3))
+      wujie-vue3:
+        specifier: 1.0.29
+        version: 1.0.29(vue@3.5.45(typescript@5.9.3))
     devDependencies:
       '@vitejs/plugin-vue':
         specifier: ^5.2.4
@@ -8155,6 +8158,14 @@ packages:
         optional: true
       utf-8-validate:
         optional: true
+
+  wujie-vue3@1.0.29:
+    resolution: {integrity: sha512-OGt5Veyq/DtmFzHQCANmv8nZgu877u7ZjS5qjFpSrtKARKhLjID3x99D40a4pb3Kj5UmRatkV5Gn5hqOWpziZQ==}
+    peerDependencies:
+      vue: ^3.0.0
+
+  wujie@1.0.29:
+    resolution: {integrity: sha512-u7PmBT4l5ov7ciwmZNG8DLIRKrYrnXDa0LnAFgRQikJ/ZrVZYzzSNz6duzEJoj8/o46dnMy/g9Hh/PBYGbgFUw==}
 
   xml-char-classes@1.0.0:
     resolution: {integrity: sha512-dTaaRwm4ccF8UF15/PLT3pNNlZP04qko/FUcr0QBppYLk8+J7xA9gg2vI2X4Kr1PcJAVxwI9NdADex29FX2QVQ==}
@@ -17779,6 +17790,15 @@ snapshots:
     optionalDependencies:
       bufferutil: 4.2.0
       utf-8-validate: 5.0.10
+
+  wujie-vue3@1.0.29(vue@3.5.45(typescript@5.9.3)):
+    dependencies:
+      vue: 3.5.45(typescript@5.9.3)
+      wujie: 1.0.29
+
+  wujie@1.0.29:
+    dependencies:
+      '@babel/runtime': 7.29.14
 
   xml-char-classes@1.0.0: {}
 
