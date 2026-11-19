@@ -426,6 +426,47 @@ async function main(): Promise<void> {
     assert('微应用：合并内置不吞用户条目', merged.some((app) => app.id === 'only'), JSON.stringify(merged.map((a) => a.id)));
   }
 
+
+  // ── 全屏桥 / 通用桥 / 内置条目 ──
+  {
+    const { defaultResolveRequest, updateCursorPosCache, summonFullscreen, isFullscreenBridgeInstalled } = await import(
+      '@/services/fullscreenBridge'
+    );
+    updateCursorPosCache(0, 321, 123);
+    const pos = defaultResolveRequest({ kind: 'get-cursor-pos' }) as { x: number; y: number };
+    assert('全屏桥：光标位置读缓存', pos.x === 321 && pos.y === 123, JSON.stringify(pos));
+    const screen = defaultResolveRequest({ kind: 'get-screen-info' }) as { innerWidth?: number };
+    assert('全屏桥：屏幕信息有宽高', typeof screen.innerWidth === 'number', JSON.stringify(screen));
+    let threw: string | null = null;
+    try {
+      defaultResolveRequest({ kind: 'unknown-kind' });
+    } catch (error) {
+      threw = (error as { code?: string }).code ?? null;
+    }
+    assert('全屏桥：未知能力抛 UNKNOWN_KIND', threw === 'UNKNOWN_KIND', String(threw));
+    assert('全屏桥：无 bus 时不装且召唤返回 false', isFullscreenBridgeInstalled() === false && summonFullscreen({}) === false, 'no-bus');
+
+    const { DEFAULT_ALLOWED_CHANNELS, isGenericMicroAppIpcBridgeInstalled, installGenericMicroAppIpcBridge } = await import(
+      '@/services/genericMicroAppBridge'
+    );
+    assert('通用桥：白名单全部是 controller 通道', DEFAULT_ALLOWED_CHANNELS.every((c) => c.startsWith('controller/')), String(DEFAULT_ALLOWED_CHANNELS.length));
+    const uninstall = installGenericMicroAppIpcBridge();
+    assert('通用桥：无 bus 时 install 返回空句柄且不标记已装', isGenericMicroAppIpcBridgeInstalled() === false && typeof uninstall === 'function', 'no-bus');
+
+    const { DELETE_EFFECT_APP_ID, deleteEffectBuiltinApp, installDeleteEffectBuiltin, isDeleteEffectEnabled } = await import(
+      '@/components/builtins/deleteEffect'
+    );
+    const { getBuiltinApps } = await import('@/services/microApps');
+    assert('内置条目：删除特效 id 固定', DELETE_EFFECT_APP_ID === 'echo-monster-deleter' && deleteEffectBuiltinApp.id === DELETE_EFFECT_APP_ID, DELETE_EFFECT_APP_ID);
+    assert('内置条目：默认关闭且全屏', deleteEffectBuiltinApp.enabled === false && deleteEffectBuiltinApp.displayMode === 'fullscreen', String(deleteEffectBuiltinApp.displayMode));
+    installDeleteEffectBuiltin();
+    assert('内置条目：注册后能在注册表查到', getBuiltinApps().some((app) => app.id === DELETE_EFFECT_APP_ID), 'registered');
+    assertImport: {
+      const enabled = await isDeleteEffectEnabled();
+      assert('内置条目：默认未启用（走原生确认框）', enabled === false, String(enabled));
+    }
+  }
+
   console.log(failed === 0 ? '\n全部通过' : `\n失败 ${failed} 项`);
   if (failed > 0) {
     process.exitCode = 1;

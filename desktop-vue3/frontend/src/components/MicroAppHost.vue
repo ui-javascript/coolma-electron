@@ -10,6 +10,7 @@
         :alive="true"
         :sync="false"
         :attrs="wujieAttrs"
+        :props="appProps"
         class="micro-app-frame"
       />
 
@@ -35,6 +36,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import WujieVue from 'wujie-vue3';
+import { setWujieBus } from '@/services/wujieBus';
 import { preFetchLib } from 'hel-micro';
 import type { MicroApp } from '@/services/microApps';
 import { resolveActiveUrl } from '@/services/microApps';
@@ -51,6 +53,8 @@ import { installMicroAppParseBridge } from '@/services/microAppBridge';
 const props = defineProps<{
   app: MicroApp | null;
   reloadKey?: string;
+  /** 透传给 wujie 子应用的 props（全屏 overlay 用这个传 target/summon/mousePos） */
+  appProps?: Record<string, unknown>;
 }>();
 
 const { t } = useI18n();
@@ -67,6 +71,8 @@ const hostKey = computed(
 let uninstallBridge: (() => void) | null = null;
 
 onMounted(() => {
+  // 宿主是唯一 import wujie 的地方：mount 时把 bus 交给各 service 用
+  setWujieBus((WujieVue as unknown as { bus?: unknown }).bus);
   // wujie bus 上的 /parse 桥：子应用可通过 bus 调主进程能力
   uninstallBridge = installMicroAppParseBridge();
 });

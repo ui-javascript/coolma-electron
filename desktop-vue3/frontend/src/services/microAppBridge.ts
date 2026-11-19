@@ -7,7 +7,7 @@
  * vue3 目前主进程还没有 vue-sfc 解析通道（vue2 是 ParseVueSfc），
  * 这里先把桥的骨架和事件名固定下来，处理器留成可注入的（后续接解析通道只换 impl）。
  */
-import WujieVue from 'wujie-vue3';
+import { getWujieBus } from '@/services/wujieBus';
 
 export const PARSE_REQUEST_EVENT = 'microapp:parse:request';
 export const PARSE_RESPONSE_EVENT = 'microapp:parse:response';
@@ -32,7 +32,7 @@ export function installMicroAppParseBridge(): () => void {
   if (installed && uninstallRef) {
     return uninstallRef;
   }
-  const bus = (WujieVue as unknown as { bus?: { $on: Function; $off: Function; $emit: Function } }).bus;
+  const bus = getWujieBus() as { $on: Function; $off: Function; $emit: Function } | null;
   if (!bus) {
     return () => {};
   }

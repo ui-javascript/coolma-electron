@@ -144,6 +144,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
+  (event: 'request-delete-folder', category: string): void;
   (event: 'update:mode', value: IndexMode): void;
   (event: 'update:filter', value: { folder?: string; tag?: string; timeGroup?: string; calendarDate?: string; calendarBasis?: CalendarDateBasis }): void;
   (event: 'create-note', payload?: { templateId?: string }): void;

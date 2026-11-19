@@ -45,6 +45,7 @@
           @update:filter="handleFilterChange"
           @create-note="createNote"
           @export-folder="exportFolder"
+          @request-delete-folder="requestDeleteFolder"
         />
       </Pane>
 
@@ -118,13 +119,14 @@
       :pending="metaPending"
       @confirm="confirmTags"
     />
+    <FullscreenOverlay ref="fullscreenOverlayRef" :app-entry="deleteEffectEntry" />
     <MicroAppDrawer v-model="microDrawerVisible" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { Grid, Search, Setting } from '@element-plus/icons-vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { Pane, Splitpanes } from 'splitpanes';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -134,6 +136,13 @@ import type { NoteSummary } from '@shared/types/domain';
 import EditorPane from '@/components/EditorPane.vue';
 import SkinEffects from '@/components/SkinEffects.vue';
 import MicroAppDrawer from '@/components/MicroAppDrawer.vue';
+import FullscreenOverlay from '@/components/FullscreenOverlay.vue';
+import {
+  findDeleteEffectEntry,
+  installMicroAppsBuiltins,
+  isDeleteEffectEnabled,
+} from '@/components/builtins/deleteEffect';
+import type { MicroApp } from '@/services/microApps';
 import MindMapDialog from '@/components/MindMapDialog.vue';
 import PreviewPptDialog from '@/components/PreviewPptDialog.vue';
 import IndexSidebar from '@/components/IndexSidebar.vue';
@@ -476,6 +485,48 @@ function handleFilterChange(next: {
 /**
  * 文件夹右键 → 批量导出该文件夹全部笔记为 Markdown（vue2 的 export-markdown-files）。
  */
+/**
+ * 删除文件夹：启用「删除特效」微应用时走全屏 overlay（用户点中小怪兽才算删），
+ * 否则走原生确认框。复刻 vue2 NoteList.deleteCategoryHandler 的分支语义。
+ */
+async function requestDeleteFolder(category: string): Promise<void> {
+  const name = folderName(category, t('notes.rootFolder'));
+  let confirmed = false;
+
+  if (await isDeleteEffectEnabled()) {
+    const entry = await findDeleteEffectEntry();
+    deleteEffectEntry.value = entry;
+    const overlay = fullscreenOverlayRef.value;
+    if (entry && overlay) {
+      try {
+        const result = await overlay.summon({ target: { guid: category, name } });
+        confirmed = result.outcome === 'destroyed';
+      } catch {
+        confirmed = false;
+      }
+    }
+  } else {
+    try {
+      await ElMessageBox.confirm(
+        t('folder.deleteConfirm', { name }),
+        t('folder.delete'),
+        { type: 'warning', confirmButtonText: t('folder.delete'), cancelButtonText: t('action.cancel') },
+      );
+      confirmed = true;
+    } catch {
+      return;
+    }
+  }
+
+  if (!confirmed) {
+    return;
+  }
+  const deleted = await notesStore.deleteFolder(category);
+  if (!deleted) {
+    ElMessage.error(notesStore.error || t('folder.deleteFailed'));
+  }
+}
+
 async function exportFolder(category: string): Promise<void> {
   if (!category) {
     return;
@@ -562,10 +613,17 @@ function handleShortcut(event: KeyboardEvent): void {
 }
 
 const microDrawerVisible = ref(false);
+const deleteEffectEntry = ref<MicroApp | null>(null);
+const fullscreenOverlayRef = ref<InstanceType<typeof FullscreenOverlay> | null>(null);
 const skinEffectsRef = ref<any>(null);
 let detachSkinEffect: (() => void) | null = null;
 
 onMounted(async () => {
+  // 内置微应用条目只注册一次（幂等），再取「删除特效」当前配置给 overlay 用
+  installMicroAppsBuiltins();
+  void findDeleteEffectEntry().then((entry) => {
+    deleteEffectEntry.value = entry;
+  });
   detachSkinEffect = skinEffectBus.on((skin) => skinEffectsRef.value?.play?.(skin));
   window.addEventListener('keydown', handleShortcut);
   void appStore.init();
