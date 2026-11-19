@@ -191,9 +191,12 @@ async function main(): Promise<void> {
   const { createEchoPlugin } = (await import('plugins-muya-echo')) as Any;
   const { createRunePlugin } = (await import('plugins-muya-rune')) as Any;
 
-  // anno_source 的 render 必须返回 HTML 字符串（返回对象时运行时只会拿到空 html）
+  // anno_source 的 render 必须返回 HTML 字符串；afterRender 拿到的是 host 本身
   const echoSource =
-    "export default { type: 'echo', render (props) { return '<span class=\"coolma-echo-demo\">' + (props.value || '空') + '</span>' } }";
+    "export default { type: 'echo', render (props) { return '<span class=\"coolma-echo-demo\">' + (props.value || '空') + '</span>' }, " +
+    "afterRender (node, props) { node.setAttribute('data-echo-hooked', props.value || '空'); node.setAttribute('data-echo-id-hooked', props.echoId || ''); " +
+    "return () => { node.removeAttribute('data-echo-hooked'); node.removeAttribute('data-echo-id-hooked') } } }";
+
   const pluginList = [
     createEchoPlugin({ cards: [{ id: 'e1', name: 'demo', anno_source: echoSource }] }),
     createRunePlugin({ cards: [runes[0]] }),
@@ -235,6 +238,12 @@ async function main(): Promise<void> {
   const echoCard = editorRoot().querySelector('.coolma-echo-demo');
   assert('回响卡渲染（anno_source 执行）', Boolean(echoCard), container.innerHTML.slice(0, 120));
   assert('回响卡拿到 value', echoCard?.textContent === '空', String(echoCard?.textContent));
+
+  // afterRender 是 250ms 节流后执行的，这里等一拍再验
+  await new Promise((resolve) => setTimeout(resolve, 350));
+  const echoHost = editorRoot().querySelector('[data-echo-host="true"]');
+  assert('回响 afterRender 已执行', echoHost?.getAttribute('data-echo-hooked') === '空', echoHost?.getAttribute('data-echo-hooked'));
+  assert('afterRender 拿到 echoId', Boolean(echoHost?.getAttribute('data-echo-id-hooked')), echoHost?.getAttribute('data-echo-id-hooked'));
 
   const echoIdInMd = (muya.getMarkdown().match(/echoId:\s*'([^']+)'/) || [])[1] || '';
   const echoWritten = (muya as Any).updateEchoPlaceholderValue?.({ echoId: echoIdInMd, value: '42' });
