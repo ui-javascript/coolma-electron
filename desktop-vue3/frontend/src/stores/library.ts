@@ -1,6 +1,17 @@
 import { defineStore } from 'pinia';
 import type { EchoCard, RuneCard } from '@shared/types/domain';
-import { listEchoes, listRunes } from '@/services/ipc';
+import {
+  listEchoes,
+  listRunes,
+  removeEcho,
+  removeRune,
+  saveEcho,
+  saveEchoes,
+  saveRune,
+  saveRunes,
+  type EchoSavePayload,
+  type RuneSavePayload,
+} from '@/services/ipc';
 
 /**
  * 符文/回响缓存。
@@ -18,6 +29,69 @@ export const useLibraryStore = defineStore('library', {
   }),
 
   actions: {
+    /** 保存单个符文（upsert），成功后刷新缓存并返回卡片。 */
+    async saveRuneCard(payload: RuneSavePayload): Promise<RuneCard | null> {
+      const result = await saveRune(payload);
+      if (result.ok === false) {
+        this.error = result.error.message;
+        return null;
+      }
+      await this.load(true);
+      return result.data;
+    },
+
+    /** 批量保存符文（拖拽排序）。 */
+    async saveRuneOrder(payloads: RuneSavePayload[]): Promise<boolean> {
+      const result = await saveRunes(payloads);
+      if (result.ok === false) {
+        this.error = result.error.message;
+        return false;
+      }
+      await this.load(true);
+      return true;
+    },
+
+    async deleteRuneCard(id: string): Promise<boolean> {
+      const result = await removeRune(id);
+      if (result.ok === false) {
+        this.error = result.error.message;
+        return false;
+      }
+      await this.load(true);
+      return true;
+    },
+
+    async saveEchoCard(payload: EchoSavePayload): Promise<EchoCard | null> {
+      const result = await saveEcho(payload);
+      if (result.ok === false) {
+        this.error = result.error.message;
+        return null;
+      }
+      await this.load(true);
+      return result.data;
+    },
+
+    /** 批量保存回响（拖拽排序）。 */
+    async saveEchoOrder(payloads: EchoSavePayload[]): Promise<boolean> {
+      const result = await saveEchoes(payloads);
+      if (result.ok === false) {
+        this.error = result.error.message;
+        return false;
+      }
+      await this.load(true);
+      return true;
+    },
+
+    async deleteEchoCard(id: string): Promise<boolean> {
+      const result = await removeEcho(id);
+      if (result.ok === false) {
+        this.error = result.error.message;
+        return false;
+      }
+      await this.load(true);
+      return true;
+    },
+
     async load(force = false): Promise<boolean> {
       if (this.loading || (this.loaded && !force)) {
         return this.loaded;

@@ -94,3 +94,36 @@ export const databaseRestoreSchema = z
     path: z.string().min(1).max(4096).optional(),
   })
   .default({});
+
+export const runeSaveSchema = z.object({
+  id: z.string().trim().min(1).max(100),
+  name: z.string().trim().min(1).max(100),
+  desc: z.string().max(2000).optional(),
+  color: z.string().trim().max(32).optional(),
+  icon: z.string().trim().max(64).optional(),
+  template: z.string().max(200_000).optional(),
+  category: z.string().trim().max(64).optional(),
+  sortOrder: z.number().int().optional(),
+  inheritFromPrevious: z.union([z.number(), z.boolean()]).optional(),
+});
+
+export const echoSaveSchema = z.object({
+  id: z.string().trim().min(1).max(100),
+  name: z.string().trim().min(1).max(100),
+  desc: z.string().max(2000).optional(),
+  color: z.string().trim().max(32).optional(),
+  icon: z.string().trim().max(64).optional(),
+  annoSource: z.string().max(200_000).optional(),
+  renderType: z.string().trim().max(32).optional(),
+  category: z.string().trim().max(64).optional(),
+  sortOrder: z.number().int().optional(),
+});
+
+export const libraryRemoveSchema = z.object({
+  id: z.string().trim().min(1).max(100),
+});
+
+export const librarySaveManySchema = z.object({
+  items: z.array(z.record(z.string(), z.unknown())).max(2000).default([]),
+  skipDuplicates: z.boolean().optional(),
+});

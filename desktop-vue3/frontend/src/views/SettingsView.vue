@@ -197,6 +197,23 @@
     <el-card class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
+          <span>{{ t('library.management') }}</span>
+        </div>
+      </template>
+
+      <el-tabs v-model="libraryTab">
+        <el-tab-pane :label="t('library.runesTab')" name="runes">
+          <LibraryManagePanel v-if="libraryTab === 'runes'" kind="rune" @changed="onLibraryChanged" />
+        </el-tab-pane>
+        <el-tab-pane :label="t('library.echoesTab')" name="echoes">
+          <LibraryManagePanel v-if="libraryTab === 'echoes'" kind="echo" @changed="onLibraryChanged" />
+        </el-tab-pane>
+      </el-tabs>
+    </el-card>
+
+    <el-card class="settings-card" shadow="never">
+      <template #header>
+        <div class="card-heading">
           <span>{{ t('settings.about') }}</span>
           <span class="about-version">v{{ appInfo?.version ?? '0.1.0' }}</span>
         </div>
@@ -249,6 +266,7 @@ import type {
   PendingSyncSummary,
 } from '@shared/types/domain';
 import { useAppStore, type AppTheme } from '@/stores/app';
+import LibraryManagePanel from '@/components/LibraryManagePanel.vue';
 import type { AppLocale } from '@/i18n';
 import {
   backupDatabase,
@@ -265,6 +283,12 @@ import {
 const { t } = useI18n();
 const router = useRouter();
 const appStore = useAppStore();
+
+const libraryTab = ref<'runes' | 'echoes'>('runes');
+
+function onLibraryChanged(): void {
+  // 管理面板增删改后，@ 快捷面板的缓存由 store 内部刷新，这里无需额外动作
+}
 
 const appInfo = computed(() => appStore.appInfo);
 const themeOptions = AppThemeEnum.items;

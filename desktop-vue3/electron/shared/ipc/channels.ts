@@ -56,6 +56,12 @@ export const IPC_CHANNELS = {
   library: {
     runes: 'controller/library/runes',
     echoes: 'controller/library/echoes',
+    runeSave: 'controller/library/runeSave',
+    runeSaveMany: 'controller/library/runeSaveMany',
+    runeRemove: 'controller/library/runeRemove',
+    echoSave: 'controller/library/echoSave',
+    echoSaveMany: 'controller/library/echoSaveMany',
+    echoRemove: 'controller/library/echoRemove',
   },
   database: {
     status: 'controller/database/status',

@@ -205,6 +205,64 @@ assert('体检：能抓到 tags 与 note_tags 不一致', dirtyReport.issues.som
   fs.rmSync(dir, { recursive: true, force: true });
 }
 
+// ===== 符文/回响 CRUD（对齐 vue2 saveRune/saveEcho 语义）=====
+{
+  const runeA = runesRepository.save({ id: 'r-custom-1', name: '我的符文', desc: '说明', template: '<template><b>x</b></template>' });
+  assert('符文：保存返回完整卡片', runeA.id === 'r-custom-1' && runeA.template === '<template><b>x</b></template>', JSON.stringify(runeA));
+  assert('符文：默认色与图标', runeA.color === '#7E57C2' && runeA.icon === 'auto_awesome');
+  assert('符文：默认分类 general', runeA.category === 'general');
+
+  const runeUpd = runesRepository.save({ id: 'r-custom-1', name: '我的符文', desc: '改过了', sortOrder: 5 });
+  assert('符文：同名 id 自身放行（upsert）', runeUpd.desc === '改过了' && runeUpd.sortOrder === 5, JSON.stringify(runeUpd));
+
+  let runeDup = '';
+  try { runesRepository.save({ id: 'r-custom-2', name: '我的符文' }); } catch (e) { runeDup = String((e as Error).message); }
+  assert('符文：大小写不敏感重名拒绝', runeDup.includes('RUNE_DUPLICATE_NAME'), runeDup);
+  try { runesRepository.save({ id: 'r-custom-2', name: '  我的符文  ' }); runeDup = 'saved'; } catch (e) { runeDup = String((e as Error).message); }
+  assert('符文：trim 后仍算重名', runeDup.includes('RUNE_DUPLICATE_NAME'), runeDup);
+
+  let runeNoName = '';
+  try { runesRepository.save({ id: 'r-custom-3', name: '   ' }); } catch (e) { runeNoName = String((e as Error).message); }
+  assert('符文：空名拒绝', runeNoName.includes('RUNE_NAME_REQUIRED'), runeNoName);
+
+  const runeDefaultTpl = runesRepository.save({ id: 'r-custom-4', name: '默认模板' });
+  assert('符文：新建无模板给最小模板', runeDefaultTpl.template.includes('<template>'), runeDefaultTpl.template);
+
+  // 批量 + 集合内重名
+  const batch1 = runesRepository.saveMany(
+    [
+      { id: 'r-b1', name: '批1' },
+      { id: 'r-b2', name: '批1' },
+    ],
+    { skipDuplicates: true },
+  );
+  assert('符文：集合内重名 skipDuplicates 跳过', batch1.saved === 1 && batch1.skipped === 1, JSON.stringify(batch1));
+  let batchThrow = '';
+  try {
+    runesRepository.saveMany([
+      { id: 'r-b3', name: '批2' },
+      { id: 'r-b4', name: '批2' },
+    ], { skipDuplicates: false });
+  } catch (e) { batchThrow = String((e as Error).message); }
+  assert('符文：排序场景重名抛错且不落半批', batchThrow.includes('RUNE_DUPLICATE_NAME') && !runesRepository.list().some((r) => r.id === 'r-b3'), batchThrow);
+
+  assert('符文：删除生效', runesRepository.remove('r-custom-1') === true && runesRepository.list().every((r) => r.id !== 'r-custom-1'));
+
+  // 回响
+  const echoA = echoesRepository.save({ id: 'e-custom-1', name: '我的回响', annoSource: 'export default {}' });
+  assert('回响：保存返回完整卡片', echoA.id === 'e-custom-1' && echoA.category === 'marker', JSON.stringify(echoA));
+  assert('回响：默认色与渲染类型', echoA.color === '#26A69A' && echoA.renderType === 'anno');
+  let echoDup = '';
+  try { echoesRepository.save({ id: 'e-custom-2', name: '我的回响' }); } catch (e) { echoDup = String((e as Error).message); }
+  assert('回响：重名拒绝', echoDup.includes('ECHO_DUPLICATE_NAME'), echoDup);
+  const echoDefault = echoesRepository.save({ id: 'e-custom-3', name: '默认回响' });
+  assert('回响：新建无源码给最小实现', echoDefault.annoSource.includes('export default'), echoDefault.annoSource);
+  assert('回响：删除生效', echoesRepository.remove('e-custom-1') === true);
+
+  // @ 面板数据源不受影响：内置卡片仍在
+  assert('面板：内置卡片仍在列表', runesRepository.list().length > 0 && echoesRepository.list().length > 0);
+}
+
 console.log(failed === 0 ? '\n仓储层测试全部通过' : `\n仓储层测试失败 ${failed} 项`);
 if (failed > 0) {
   process.exitCode = 1;

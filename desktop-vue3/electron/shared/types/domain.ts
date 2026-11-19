@@ -142,6 +142,15 @@ export interface EchoCard {
   icon: string;
   annoSource: string;
   renderType: string;
+  category: string;
+  sortOrder: number;
+}
+
+/** 符文/回响批量导入的结果统计。 */
+export interface LibraryImportResult {
+  imported: number;
+  skipped: number;
+  renamed: number;
 }
 
 /** 备份文件条目（设置页列表用）。 */

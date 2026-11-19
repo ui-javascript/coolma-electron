@@ -43,6 +43,57 @@ export const listRunes = (): Promise<IpcResult<RuneCard[]>> => invoke(IPC_CHANNE
 /** 回响卡片列表（@ 快捷面板的「回响」分组）。 */
 export const listEchoes = (): Promise<IpcResult<EchoCard[]>> => invoke(IPC_CHANNELS.library.echoes);
 
+export interface RuneSavePayload {
+  id: string;
+  name: string;
+  desc?: string;
+  color?: string;
+  icon?: string;
+  template?: string;
+  category?: string;
+  sortOrder?: number;
+  inheritFromPrevious?: number | boolean;
+}
+
+export interface EchoSavePayload {
+  id: string;
+  name: string;
+  desc?: string;
+  color?: string;
+  icon?: string;
+  annoSource?: string;
+  renderType?: string;
+  category?: string;
+  sortOrder?: number;
+}
+
+/** 保存单个符文（upsert；同名返回 RUNE_DUPLICATE_NAME）。 */
+export const saveRune = (payload: RuneSavePayload): Promise<IpcResult<RuneCard>> =>
+  invoke(IPC_CHANNELS.library.runeSave, payload);
+
+/** 批量保存符文：拖拽排序（skipDuplicates=false）或导入合并（true）。 */
+export const saveRunes = (
+  items: RuneSavePayload[],
+  skipDuplicates = false,
+): Promise<IpcResult<{ saved: number; skipped: number }>> =>
+  invoke(IPC_CHANNELS.library.runeSaveMany, { items, skipDuplicates });
+
+export const removeRune = (id: string): Promise<IpcResult<{ deleted: boolean }>> =>
+  invoke(IPC_CHANNELS.library.runeRemove, { id });
+
+/** 保存单个回响（upsert；同名返回 ECHO_DUPLICATE_NAME）。 */
+export const saveEcho = (payload: EchoSavePayload): Promise<IpcResult<EchoCard>> =>
+  invoke(IPC_CHANNELS.library.echoSave, payload);
+
+export const saveEchoes = (
+  items: EchoSavePayload[],
+  skipDuplicates = false,
+): Promise<IpcResult<{ saved: number; skipped: number }>> =>
+  invoke(IPC_CHANNELS.library.echoSaveMany, { items, skipDuplicates });
+
+export const removeEcho = (id: string): Promise<IpcResult<{ deleted: boolean }>> =>
+  invoke(IPC_CHANNELS.library.echoRemove, { id });
+
 export const getPendingSync = (): Promise<
   IpcResult<{ summary: PendingSyncSummary; items: SyncLogEntry[] }>
 > => invoke(IPC_CHANNELS.sync.pending);
