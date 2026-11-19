@@ -41,29 +41,42 @@
             <span>{{ t('folder.create') }}</span>
           </el-button>
         </div>
-        <div v-for="folder in folders" :key="folder.category" class="index-row-wrap">
-          <button
-            type="button"
-            class="index-row"
-            :class="{ active: folderFilter === folder.category }"
-            @click="selectFolder(folder.category)"
-            @contextmenu.prevent="emit('open-folder-menu', { category: folder.category, event: $event as MouseEvent })"
-          >
-            <el-icon><Folder /></el-icon>
-            <span class="index-label">{{ folder.name }}</span>
-            <span class="side-count">{{ folder.count }}</span>
-          </button>
-          <button
-            v-if="folder.category !== '/'"
-            type="button"
-            class="index-delete"
-            :title="t('folder.delete')"
-            @click.stop="removeFolder(folder.category)"
-          >
-            <el-icon><Delete /></el-icon>
-          </button>
-        </div>
-        <p v-if="folders.length === 0" class="index-empty">{{ t('index.empty') }}</p>
+        <el-tree
+          ref="folderTreeRef"
+          class="folder-tree"
+          :data="folderTree"
+          node-key="key"
+          :props="{ children: 'children', label: 'label' }"
+          :current-node-key="folderFilter || undefined"
+          :default-expanded-keys="expandedKeys"
+          :expand-on-click-node="false"
+          highlight-current
+          @node-click="onFolderClick"
+          @node-contextmenu="onFolderContextMenu"
+          @node-expand="onFolderExpand"
+          @node-collapse="onFolderCollapse"
+        >
+          <template #default="{ node, data }">
+            <span class="folder-node" :class="{ active: folderFilter === data.key }">
+              <el-icon class="folder-node-icon">
+                <FolderOpened v-if="node.expanded || folderFilter === data.key" />
+                <Folder v-else />
+              </el-icon>
+              <span class="folder-node-label">{{ data.label }}</span>
+              <span class="side-count">{{ data.count }}</span>
+              <button
+                v-if="data.key !== '/'"
+                type="button"
+                class="index-delete folder-node-delete"
+                :title="t('folder.delete')"
+                @click.stop="removeFolder(data.key)"
+              >
+                <el-icon><Delete /></el-icon>
+              </button>
+            </span>
+          </template>
+        </el-tree>
+        <p v-if="folderTree.length === 0" class="index-empty">{{ t('index.empty') }}</p>
       </template>
 
       <template v-else-if="mode === IndexModeEnum.Tag">
@@ -73,19 +86,7 @@
             <span>{{ t('tag.create') }}</span>
           </el-button>
         </div>
-        <div class="tag-cloud">
-          <el-tag
-            v-for="item in tags"
-            :key="item.name"
-            :effect="tagFilter === item.name ? 'dark' : 'plain'"
-            round
-            class="tag-chip"
-            @click="selectTag(item.name)"
-            @contextmenu.prevent="removeTag(item.name, item.id)"
-          >
-            {{ item.name }} · {{ item.count }}
-          </el-tag>
-        </div>
+        <div ref="tagChartRef" class="tag-treemap" />
         <p v-if="tags.length === 0" class="index-empty">{{ t('index.empty') }}</p>
       </template>
 
@@ -122,14 +123,23 @@
 </template>
 
 <script setup lang="ts">
-import { Clock, Delete, Document, Folder, FolderAdd, Plus } from '@element-plus/icons-vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
-import { computed, onMounted } from 'vue';
+import { Clock, Delete, Document, Folder, FolderAdd, FolderOpened, Plus } from '@element-plus/icons-vue';
+import { ElMessage, ElMessageBox, ElTree } from 'element-plus';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { init, use } from 'echarts/core';
+import { TreemapChart } from 'echarts/charts';
+import { TooltipComponent } from 'echarts/components';
+import { CanvasRenderer } from 'echarts/renderers';
 import { IndexModeEnum, type CalendarDateBasis, type IndexMode } from '@shared/enums/app';
 import { useNotesStore } from '@/stores/notes';
+import { buildCategoryTree, buildTagTreemapData, type CategoryTreeNode } from '@/utils/categoryTree';
 import { folderName, noteTags, noteTimeGroup } from '@/utils/note';
 import CalendarPanel from './CalendarPanel.vue';
+
+use([TreemapChart, TooltipComponent, CanvasRenderer]);
+
+const EXPANDED_KEYS_STORAGE = 'coolma.categoryExpandedKeys';
 
 const props = defineProps<{
   mode: IndexMode;
@@ -157,9 +167,7 @@ const notesStore = useNotesStore();
 
 defineExpose({ startCreateFolder: () => { void createFolder(); } });
 
-onMounted(() => {
-  void notesStore.loadTemplates();
-});
+
 
 /** 新建笔记：command 空串=空模板，否则为模板 id（对齐 vue2 buildTemplateOptions）。 */
 function createWithTemplate(command: string): void {
@@ -182,7 +190,7 @@ const calendarDateProxy = computed({
   set: (value: string) => emit('update:filter', { calendarDate: value }),
 });
 
-const folders = computed(() => {
+const folderTree = computed<CategoryTreeNode[]>(() => {
   const counts = new Map<string, number>();
   for (const note of notesStore.notes) {
     const category = note.category || '/';
@@ -194,12 +202,68 @@ const folders = computed(() => {
     }
   }
 
-  return Array.from(counts, ([category, count]) => ({
-    category,
-    name: folderName(category, t('notes.rootFolder')),
-    count,
-  })).sort((left, right) => right.count - left.count || left.name.localeCompare(right.name));
+  return buildCategoryTree(
+    Array.from(counts, ([category, count]) => ({ category, count })),
+    (_path, segment) => segment,
+  );
 });
+
+const folderTreeRef = ref<InstanceType<typeof ElTree> | null>(null);
+const expandedKeys = ref<string[]>(readExpandedKeys());
+const tagChartRef = ref<HTMLElement | null>(null);
+let tagChart: ReturnType<typeof init> | null = null;
+let tagResizeObserver: ResizeObserver | null = null;
+
+function readExpandedKeys(): string[] {
+  try {
+    const raw = localStorage.getItem(EXPANDED_KEYS_STORAGE);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistExpandedKeys(): void {
+  localStorage.setItem(EXPANDED_KEYS_STORAGE, JSON.stringify(expandedKeys.value));
+}
+
+function onFolderClick(data: CategoryTreeNode): void {
+  const next = props.folderFilter === data.key ? '' : data.key;
+  emit('update:filter', { folder: next, tag: '', timeGroup: '' });
+}
+
+function onFolderContextMenu(event: Event, data: CategoryTreeNode): void {
+  event.preventDefault();
+  emit('open-folder-menu', { category: data.key, event: event as MouseEvent });
+}
+
+function onFolderExpand(data: CategoryTreeNode): void {
+  if (!expandedKeys.value.includes(data.key)) {
+    expandedKeys.value = [...expandedKeys.value, data.key];
+    persistExpandedKeys();
+  }
+}
+
+function onFolderCollapse(data: CategoryTreeNode): void {
+  expandedKeys.value = expandedKeys.value.filter((key) => key !== data.key);
+  persistExpandedKeys();
+}
+
+/** vue2 挂载时会把所有根节点展开，并默认展开 /My Notes/。 */
+function ensureRootsExpanded(): void {
+  const roots = folderTree.value.map((node) => node.key);
+  const merged = new Set([...expandedKeys.value, ...roots]);
+  if (merged.size !== expandedKeys.value.length) {
+    expandedKeys.value = Array.from(merged);
+    persistExpandedKeys();
+  }
+  void nextTick(() => {
+    if (props.folderFilter) {
+      folderTreeRef.value?.setCurrentKey(props.folderFilter);
+    }
+  });
+}
 
 const tags = computed(() => {
   const counts = new Map<string, number>();
@@ -241,19 +305,118 @@ function clearFilters(): void {
   emit('update:filter', { folder: '', tag: '', timeGroup: '' });
 }
 
-function selectFolder(category: string): void {
-  const next = props.folderFilter === category ? '' : category;
-  emit('update:filter', { folder: next, tag: '', timeGroup: '' });
-}
-
 function selectTag(name: string): void {
-  const next = props.tagFilter === name ? '' : name;
-  emit('update:filter', { tag: next, folder: '', timeGroup: '' });
+  emit('update:filter', { tag: name, folder: '', timeGroup: '' });
 }
 
 function selectTimeGroup(key: string): void {
   const next = props.timeGroupFilter === key ? '' : key;
   emit('update:filter', { timeGroup: next, folder: '', tag: '' });
+}
+
+function palette(): string[] {
+  const dark = document.documentElement.classList.contains('dark');
+  return dark
+    ? ['#4a9eff', '#50c9a8', '#f5a623', '#e74c3c', '#9b59b6', '#1abc9c', '#3498db']
+    : ['#1890ff', '#52c41a', '#faad14', '#f5222d', '#722ed1', '#13c2c2', '#1890ff'];
+}
+
+function themeColor(): string {
+  const value = getComputedStyle(document.documentElement).getPropertyValue('--el-color-primary').trim();
+  return value || '#409eff';
+}
+
+function buildTreemapOption(): Record<string, unknown> {
+  const dark = document.documentElement.classList.contains('dark');
+  const selected = props.tagFilter;
+  return {
+    backgroundColor: 'transparent',
+    tooltip: {
+      formatter: (params: { data?: { name?: string; noteCount?: number } }) =>
+        `${params.data?.name ?? ''}（${params.data?.noteCount ?? 0}）`,
+    },
+    series: [
+      {
+        type: 'treemap',
+        width: '100%',
+        height: '100%',
+        left: 0,
+        right: 0,
+        top: 0,
+        bottom: 0,
+        sort: 'desc',
+        roam: false,
+        nodeClick: false,
+        breadcrumb: { show: false },
+        upperLabel: { show: false },
+        label: {
+          show: true,
+          formatter: (params: { data: { name: string; noteCount: number } }) =>
+            `{name|${params.data.name}}\n{count|(${params.data.noteCount})}`,
+          rich: {
+            name: { color: '#fff', fontSize: 12, lineHeight: 16, overflow: 'truncate' },
+            count: { color: 'rgba(255,255,255,0.75)', fontSize: 11, lineHeight: 14 },
+          },
+          align: 'center',
+          verticalAlign: 'middle',
+          minSize: 8,
+        },
+        itemStyle: { borderColor: dark ? '#2d2d2d' : '#fff', borderWidth: 2, gapWidth: 2 },
+        emphasis: {
+          upperLabel: { show: false },
+          itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0, 0, 0, 0.3)' },
+        },
+        levels: [
+          {
+            itemStyle: { borderColor: dark ? '#2d2d2d' : '#fff', borderWidth: 2, gapWidth: 2 },
+            color: palette(),
+          },
+        ],
+        data: buildTagTreemapData(tags.value).map((item) => ({
+          ...item,
+          itemStyle: {
+            borderColor: item.tagGuid === selected ? themeColor() : dark ? '#2d2d2d' : '#fff',
+            borderWidth: item.tagGuid === selected ? 3 : 2,
+            gapWidth: 2,
+          },
+        })),
+      },
+    ],
+  };
+}
+
+function renderTagTreemap(): void {
+  if (props.mode !== IndexModeEnum.Tag || !tagChartRef.value) {
+    return;
+  }
+  if (!tagChart) {
+    tagChart = init(tagChartRef.value, undefined, { renderer: 'canvas' });
+    tagChart.on('click', (params) => {
+      const data = params.data as { tagGuid?: string } | undefined;
+      if (data?.tagGuid) {
+        selectTag(data.tagGuid);
+      }
+    });
+    tagChart.on('contextmenu', (params) => {
+      (params.event as unknown as MouseEvent | undefined)?.preventDefault();
+      const name = (params.data as { tagGuid?: string } | undefined)?.tagGuid;
+      if (!name) {
+        return;
+      }
+      const id = tags.value.find((item) => item.name === name)?.id ?? null;
+      void removeTag(name, id);
+    });
+    tagResizeObserver = new ResizeObserver(() => tagChart?.resize());
+    tagResizeObserver.observe(tagChartRef.value);
+  }
+  tagChart.setOption(buildTreemapOption(), true);
+}
+
+function disposeTagTreemap(): void {
+  tagResizeObserver?.disconnect();
+  tagResizeObserver = null;
+  tagChart?.dispose();
+  tagChart = null;
 }
 
 async function createFolder(): Promise<void> {
@@ -359,4 +522,52 @@ async function removeTag(name: string, id: number | null): Promise<void> {
   }
   ElMessage.success(t('tag.deleteSuccess'));
 }
+onMounted(() => {
+  void notesStore.loadTemplates();
+  ensureRootsExpanded();
+  if (props.mode === IndexModeEnum.Tag) {
+    void nextTick(renderTagTreemap);
+  }
+});
+
+watch(
+  () => props.mode,
+  (mode) => {
+    if (mode === IndexModeEnum.Tag) {
+      void nextTick(renderTagTreemap);
+    } else {
+      disposeTagTreemap();
+    }
+  },
+);
+
+watch(
+  () => props.tagFilter,
+  () => {
+    if (props.mode === IndexModeEnum.Tag) {
+      void nextTick(renderTagTreemap);
+    }
+  },
+);
+
+watch(
+  tags,
+  () => {
+    if (props.mode === IndexModeEnum.Tag) {
+      void nextTick(renderTagTreemap);
+    }
+  },
+  { deep: true },
+);
+
+watch(folderTree, () => ensureRootsExpanded(), { deep: true });
+
+watch(
+  () => props.folderFilter,
+  (value) => {
+    void nextTick(() => folderTreeRef.value?.setCurrentKey(value || undefined));
+  },
+);
+
+onBeforeUnmount(disposeTagTreemap);
 </script>

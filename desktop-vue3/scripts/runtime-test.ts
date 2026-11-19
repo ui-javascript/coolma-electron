@@ -610,6 +610,29 @@ async function main(): Promise<void> {
     await fs.rm(tmp, { recursive: true, force: true });
   }
 
+  indexViews: {
+    const { buildCategoryTree, buildTagTreemapData } = await import('@/utils/categoryTree');
+    const tree = buildCategoryTree([
+      { category: '/Work/Deep/', count: 1 },
+      { category: '/Work/', count: 2 },
+      { category: '/Life/', count: 3 },
+      { category: '/Work/Deep/More/', count: 1 },
+    ]);
+    const work = tree.find((node) => node.key === '/Work/');
+    assert('常规视图：分类树根节点按 label 排序且缺父级自动补', tree.length === 2 && Boolean(work), JSON.stringify(tree.map((n) => n.key)));
+    assert('常规视图：分类树 key 形如 /Work/Deep/ 且层级正确', work?.children.some((child) => child.key === '/Work/Deep/') === true && work?.children[0]?.children.some((child) => child.key === '/Work/Deep/More/') === true, JSON.stringify(work));
+    assert('常规视图：分类树保留直接笔记数', work?.count === 2 && tree.find((n) => n.key === '/Life/')?.count === 3, JSON.stringify(tree));
+    const treemap = buildTagTreemapData([
+      { name: 'A', count: 9 },
+      { name: 'B', count: 7 },
+      { name: 'C', count: 5 },
+      { name: 'D', count: 3 },
+      { name: 'E', count: 1 },
+    ]);
+    assert('常规视图：标签 treemap 前 20% 块更大、其余同值', treemap[0]?.value > treemap[2]?.value && treemap[4]?.value === 100, JSON.stringify(treemap));
+    assert('常规视图：标签 treemap 按笔记数降序', treemap.map((item) => item.name).join(',') === 'A,B,C,D,E', treemap.map((item) => item.name).join(','));
+  }
+
   wizSync: {
     const wizMarkdown = await import('@altairwei/wiz-markdown');
     const { IPC_CHANNELS, INVOKE_CHANNELS } = await import('@shared/ipc/channels');
