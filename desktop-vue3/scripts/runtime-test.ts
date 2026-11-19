@@ -33,6 +33,9 @@ function setupDom(): void {
   define('DOMParser', w.DOMParser);
   define('XMLSerializer', w.XMLSerializer);
   define('getSelection', () => w.getSelection());
+  define('getComputedStyle', (el: unknown, pseudo?: string) => (w as Any).getComputedStyle(el, pseudo));
+  define('innerWidth', (w as Any).innerWidth);
+  define('innerHeight', (w as Any).innerHeight);
   define('MutationObserver', w.MutationObserver);
   define('Event', w.Event);
   define('KeyboardEvent', w.KeyboardEvent);
@@ -73,7 +76,10 @@ function assert(name: string, cond: boolean, detail = ''): void {
 
 async function main(): Promise<void> {
   setupDom();
-  const { default: Muya } = (await import('../packages/libs-muya-v3/src/core/index.js')) as Any;
+  const core = (await import('../packages/libs-muya-v3/src/core/index.js')) as Any;
+  const Muya = core.default;
+  // 与 MuyaEditor 一致：先注册整套 UI 插件，否则 quickInsert 不会实例化
+  core.installDefaultUiPlugins();
   const { createQuickInsertProvider } = (await import('../frontend/src/editor/quickInsert')) as Any;
   const { quickInsertTypes } = (await import('../frontend/src/editor/insertHandlers')) as Any;
 
@@ -115,33 +121,55 @@ async function main(): Promise<void> {
   assert('未注册类型无处理器', qi.getTypeHandler('codeblock') === null);
   assert('空类型无处理器', qi.getTypeHandler(undefined) === null);
 
-  // 3) 真链路：选中 → 写入段落
-  function selectInFreshBlock(item: Any): string {
-    const block = muya.contentState.addBlock({ text: '@dem', type: 'paragraph' });
+  // 3) 真链路：选中 → 写入段落（用 markdown 造一个真实块，再交给面板）
+  /** 造块 + 设置光标（cursorOffset 是引擎判定行内 @ 的唯一依据，真实链路里由 inputCtrl 派发）。 */
+  function selectOn(markdown: string, item: Any): string {
+    muya.setMarkdown(markdown);
+    // 块是嵌套的：顶层 p + 文本 span，面板拿到的 block 是文本块（span）
+    const flat: Any[] = [];
+    for (const top of muya.contentState.getBlocks()) {
+      if (Array.isArray(top.children) && top.children.length && top.type !== 'p') {
+        flat.push(...top.children.map((c: Any) => muya.contentState.getBlock(c.key) ?? c));
+      } else if (Array.isArray(top.children) && top.children.length) {
+        flat.push(...top.children.map((c: Any) => muya.contentState.getBlock(c.key) ?? c));
+      } else {
+        flat.push(top);
+      }
+    }
+    const block = flat.find((b: Any) => String(b.text ?? '').includes('@')) ?? flat[flat.length - 1];
     qi.block = muya.contentState.getBlock(block.key);
+    const blocks = flat;
+    const at = String(block.text ?? '').indexOf('@');
+    qi.cursorOffset = at >= 0 ? at + 1 : String(block.text ?? '').length;
     qi.selectItem(item);
-    return String(muya.contentState.getBlock(block.key)?.text ?? '');
+    // 以序列化 markdown 为准：符文插入后内容在容器块里，读单个 span.text 会漏
+    return String(muya.getMarkdown() ?? '');
   }
 
   const runeItem = renderObj.items[sections[1]][0];
-  const runeText = selectInFreshBlock(runeItem);
-  assert('符文：落成 data-rune 占位', /data-rune-name="counter"/.test(runeText), runeText.slice(0, 80));
-  assert('符文：四属性齐', ['data-rune-id', 'data-rune-node-id', 'data-rune-value'].every((a) => runeText.includes(a)));
+  const runeText = selectOn('@dem', runeItem);
+  assert('符文：落成 data-rune 占位', /data-rune-name="counter"/.test(runeText), runeText.slice(0, 90));
+  assert(
+    '符文：四属性齐',
+    ['data-rune-id', 'data-rune-node-id', 'data-rune-value'].every((a) => runeText.includes(a)),
+    runeText.slice(0, 90),
+  );
 
   const echoItem = renderObj.items[sections[2]][0];
-  const echoText = selectInFreshBlock(echoItem);
-  assert('回响：落成 @名{echoId,value}()', /^@demo\{echoId: '[0-9a-f-]{36}', value: ''\}\(\)$/.test(echoText), echoText);
+  const echoText = selectOn('@dem', echoItem);
+  assert('回响：落成 @名{echoId,value}()', /@demo\{echoId: '[0-9a-f-]{36}', value: ''\}\(\)/.test(echoText), echoText);
 
   const noteItem = renderObj.items[sections[0]][0];
-  const noteText = selectInFreshBlock(noteItem);
-  assert('笔记：落成 [[标题]]', noteText === '[[周报模板]]', noteText);
+  const noteText = selectOn('@', noteItem);
+  assert('笔记：落成 [[标题]]', noteText.trim() === '[[周报模板]]', JSON.stringify(noteText));
 
   // 4) 行内 @：保留前缀
-  const inlineBlock = muya.contentState.addBlock({ text: '前文 @', type: 'paragraph' });
-  qi.block = muya.contentState.getBlock(inlineBlock.key);
-  qi.selectItem(noteItem);
-  const inlineText = String(muya.contentState.getBlock(inlineBlock.key)?.text ?? '');
-  assert('行内触发保留前缀', inlineText === '前文 [[周报模板]]', inlineText);
+  const inlineText = selectOn('前文 @', noteItem);
+  assert('行内触发保留前缀', inlineText.trim() === '前文 [[周报模板]]', JSON.stringify(inlineText));
+
+  // 5) 继承：上一行文本被写进 data-rune-value
+  const inheritText = selectOn('上一行的内容\n\n@dem', runeItem);
+  assert('符文继承上文', /data-rune-value="上一行的内容"/.test(inheritText), inheritText.slice(0, 120));
 
   console.log(failed === 0 ? '\n全部通过' : `\n失败 ${failed} 项`);
   if (failed > 0) {

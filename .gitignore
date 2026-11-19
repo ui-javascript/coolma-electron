@@ -69,3 +69,6 @@ _temp/*
 
 terminals/*.txt
 terminals/*.log
+
+# 最小运行验证的临时产物
+desktop-vue3/scripts/.rt-dist/

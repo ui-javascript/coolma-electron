@@ -534,6 +534,39 @@ function getContainer (originContainer, options) {
 export default Muya
 
 // UI 组件（供 Muya.use(...) 使用）
+/**
+ * 一次性注册整套 UI 插件（顺序与 vue2 一致）。
+ *
+ * vue2 在 `components/muya/Muya.vue` 的 created() 里逐个 Muya.use(...)；
+ * vue3 之前漏了这一步，导致 quickInsert（@ 面板）等 UI 组件根本没被实例化。
+ * 这里收敛成幂等注册器，桌面端 / vuepress / vitepress 谁用谁调一次。
+ */
+export function installDefaultUiPlugins (linkToolsOptions = {}) {
+  const registered = new Set(Muya.plugins.map(item => item.plugin))
+  const add = (plugin, options) => {
+    if (registered.has(plugin)) return
+    registered.add(plugin)
+    Muya.use(plugin, options)
+  }
+
+  add(TablePicker)
+  add(QuickInsert)
+  add(CodePicker)
+  add(EmojiPicker)
+  add(ImagePathPicker)
+  add(ImageToolbar)
+  add(ImageSelector)
+  add(FormatPicker)
+  add(FrontMenu)
+  add(LinkTools, Object.keys(linkToolsOptions).length
+    ? linkToolsOptions
+    : { jumpClick: (linkInfo) => window.open(linkInfo.href) })
+  add(Transformer)
+  add(TableBarTools)
+
+  return Muya.plugins.length
+}
+
 export {
   TablePicker,
   QuickInsert,

@@ -4,7 +4,7 @@
 
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import Muya from './core/index.js';
+import Muya, { installDefaultUiPlugins } from './core/index.js';
 import type { MuyaOptions } from './core/index.js';
 import type { MuyaPlugin } from './plugin';
 
@@ -74,6 +74,9 @@ onMounted(() => {
   const mount = document.createElement('div');
   mount.className = 'libs-muya-mount';
   host.value.appendChild(mount);
+
+  // 必做：先注册整套 UI 插件（@ 面板、代码块选择器等都挂在这里），否则编辑器只有内容没有交互层。
+  installDefaultUiPlugins();
 
   editor = new Muya(mount, {
     ...props.options,

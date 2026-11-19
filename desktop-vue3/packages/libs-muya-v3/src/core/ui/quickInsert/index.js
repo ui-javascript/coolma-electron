@@ -92,8 +92,7 @@ class QuickInsert extends BaseScrollFloat {
     const provided = provider({
       muya: this.muya,
       block: this.block,
-      sectionName: this.runeSectionName,
-      createRuneItem: createRuneQuickInsertItem
+      sectionName: this.runeSectionName
     })
 
     if (provided && typeof provided === 'object') {
