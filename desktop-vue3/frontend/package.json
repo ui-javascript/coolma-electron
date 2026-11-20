@@ -17,6 +17,7 @@
     "enum-plus": "^3.4.0",
     "hel-micro": "4.15.3",
     "html2canvas": "^1.4.1",
+    "jquery": "^3.7.1",
     "libs-muya-v3": "workspace:*",
     "markmap-lib": "^0.11.6",
     "markmap-view": "^0.2.6",
@@ -34,6 +35,7 @@
     "wujie-vue3": "2.1.0"
   },
   "devDependencies": {
+    "@types/jquery": "~3.5.34",
     "@vitejs/plugin-vue": "^5.2.4",
     "typescript": "^5.9.3",
     "vite": "^5.4.21",

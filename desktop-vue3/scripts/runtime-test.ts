@@ -7,6 +7,7 @@
  * 验证的是引擎真实代码：selectItem → getTypeHandler → 应用侧处理器 → 引擎原语 → 段落写回。
  */
 import { JSDOM } from 'jsdom';
+import jQueryFactory from 'jquery';
 import { buildSlidesHtml, escapeSlideHtml } from '../frontend/src/utils/slides';
 import { stripDataUrlBase64 } from '../electron/service/export-utils';
 import { muyaCursorToPosition, positionToMuyaCursor } from '../frontend/src/utils/cursor';
@@ -44,6 +45,13 @@ function setupDom(): void {
   const define = (key: string, value: unknown): void => {
     Object.defineProperty(g, key, { value, writable: true, configurable: true, enumerable: false });
   };
+
+  // jQuery 必须在 window 就位后再初始化；UMD 在 Node 里默认导出的是工厂函数。
+  const jq = (jQueryFactory as unknown as (host: Window) => typeof jQueryFactory)(w as unknown as Window);
+  (w as Any).jQuery = jq;
+  (w as Any).$ = jq;
+  (g as Any).jQuery = jq;
+  (g as Any).$ = jq;
 
   // 把 jsdom 里的常用构造器整体搬过来，避免逐个 add 漏项
   for (const key of [
@@ -679,6 +687,55 @@ async function main(): Promise<void> {
     assertImport: {
       const enabled = await isDeleteEffectEnabled();
       assert('内置条目：默认未启用（走原生确认框）', enabled === false, String(enabled));
+    }
+  }
+
+  // ==== 内置回响：17 张全部编译 / render / jQuery handler 真跑 ====
+  {
+    const { BUILTIN_ECHO_CARDS } = await import('../electron/service/db/builtin-echo-cards');
+    const { safeEvalAnnoSource, HANDLER_PRELUDE } = await import('../packages/plugins-muya-echo/src/core/echoAnnoSource.js') as Any;
+    const compiled = BUILTIN_ECHO_CARDS.map((card) => {
+      const definition = safeEvalAnnoSource(card.annoSource, HANDLER_PRELUDE)();
+      return { card, definition };
+    });
+    assert(
+      '内置回响：17 张全部编译出 render',
+      compiled.length === 17 && compiled.every(({ definition }) => typeof definition.render === 'function'),
+      String(compiled.length),
+    );
+    const renders = compiled.map(({ card, definition }) => {
+      try {
+        return String(definition.render({ ...(definition.props || {}), value: 'x' }));
+      } catch (error) {
+        return `ERR:${card.id}:${(error as Error).message}`;
+      }
+    });
+    assert(
+      '内置回响：render 全部返回非空 HTML',
+      renders.every((text) => text.startsWith('<span') && text.includes('ag-echo-placeholder-marker')),
+      renders.find((text) => !text.startsWith('<span')) || '',
+    );
+    assert('jQuery：已挂到 window 且可调用', Boolean((window as Any).jQuery?.fn?.jquery), String((window as Any).jQuery?.fn?.jquery || ''));
+
+    const nice = compiled.find(({ card }) => card.id === '__builtin_nice__');
+    if (!nice) throw new Error('nice 内置卡缺失');
+    const p = document.createElement('p');
+    const em = document.createElement('em');
+    em.textContent = '你好';
+    const marker = document.createElement('span');
+    marker.className = 'ag-echo-placeholder-marker ag-echo-anno-name';
+    marker.textContent = '@nice';
+    p.append(em, marker);
+    document.body.append(p);
+    try {
+      nice.definition.afterRender?.(marker, { ...(nice.definition.props || {}), value: 'x' });
+      assert(
+        '内置回响：nice 的 jQuery handler 真把前一个节点包成 mark',
+        Boolean(p.querySelector('mark.ag-rune-nice-highlight')?.textContent === '你好'),
+        p.innerHTML,
+      );
+    } finally {
+      p.remove();
     }
   }
 

@@ -38,7 +38,7 @@ setDatabase(handle.database);
 const schemaVersion = runMigrations(handle.database);
 
 // ===== 迁移 =====
-assert('迁移：version 走到 4', schemaVersion === 4, String(schemaVersion));
+assert('迁移：version 走到 5', schemaVersion === 5, String(schemaVersion));
 const tables = handle.database
   .prepare("SELECT name FROM sqlite_master WHERE type='table'")
   .all()
@@ -52,9 +52,11 @@ assert('播种：内置符文 >0', runes.length > 0, String(runes.length));
 assert('播种：内置回响 >0', echoes.length > 0, String(echoes.length));
 assert('播种：符文带 id 与名称', Boolean(runes[0]?.id && runes[0]?.name), JSON.stringify(runes[0]));
 assert('符文/回响：内置示例不可删除',
-  !runesRepository.remove('builtin-rune-counter') && !echoesRepository.remove('builtin-echo-demo')
+  !runesRepository.remove('builtin-rune-counter') && !echoesRepository.remove('__builtin_nice__')
     && runesRepository.list().some((item) => item.id === 'builtin-rune-counter')
-    && echoesRepository.list().some((item) => item.id === 'builtin-echo-demo'));
+    && echoesRepository.list().some((item) => item.id === '__builtin_nice__'));
+assert('播种：vue2 内置回响 17 张', echoes.filter((item) => item.id.startsWith('__builtin_')).length === 17, String(echoes.length));
+assert('播种：v3 demo 占位卡已清掉', !echoes.some((item) => item.id === 'builtin-echo-demo'), JSON.stringify(echoes.map((item) => item.id)));
 
 // ===== 笔记创建与唯一标题 =====
 const first = notesRepository.create({ title: '测试笔记', content: 'hello', category: '/工作' });
@@ -346,9 +348,9 @@ assert('体检：能抓到 tags 与 note_tags 不一致', dirtyReport.issues.som
   echoesRepository.save({ id: '__builtin_x', name: '内置回响', annoSource: 'b' });
   const protectedGroup = previewImport('echoes', [
     { name: '内置回响', anno_source: 'b' },
-    { name: 'demo', anno_source: 'b' },
+    { name: 'nice', anno_source: 'b' },
   ], 'marker');
-  assert('Pack：旧版内置卡和 Vue 3 示例都归入内置保护',
+  assert('Pack：__builtin_ 前缀卡与真实内置卡都归入内置保护',
     protectedGroup.builtinBlocked.length === 2 && !echoesRepository.remove('__builtin_x'));
   const blocked = commitImport('echoes', {
     createNames: [], replaceNames: ['内置回响'], targetCategory: 'marker',

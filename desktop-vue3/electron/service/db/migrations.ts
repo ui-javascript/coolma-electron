@@ -1,4 +1,5 @@
 import type { SqlDatabase } from './connection';
+import { BUILTIN_ECHO_CARDS } from './builtin-echo-cards';
 
 type DB = SqlDatabase;
 
@@ -337,7 +338,36 @@ const migration4: Migration = {
   },
 };
 
-export const MIGRATIONS: readonly Migration[] = [migration1, migration2, migration3, migration4];
+/** 迁移 5：把 vue2 的 17 张内置回响原样种进 echoes 表；已有同 id 行不覆盖。 */
+const migration5: Migration = {
+  version: 5,
+  name: 'seed-builtin-echo-cards',
+  up(db) {
+    const now = Date.now();
+    const insert = db.prepare(
+      `INSERT OR IGNORE INTO echoes (id, name, "desc", color, icon, anno_source, render_type, category, sort_order, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'anno', ?, ?, ?, ?)`,
+    );
+    for (const card of BUILTIN_ECHO_CARDS) {
+      insert.run(
+        card.id,
+        card.name,
+        card.desc,
+        card.color,
+        card.icon,
+        card.annoSource,
+        card.category,
+        card.sortOrder,
+        now,
+        now,
+      );
+    }
+    // 迁移 3 的 demo 是 v3 占位卡，vue2 没有这张；清掉避免内置分类多出一张假卡。
+    db.prepare(`DELETE FROM echoes WHERE id = 'builtin-echo-demo'`).run();
+  },
+};
+
+export const MIGRATIONS: readonly Migration[] = [migration1, migration2, migration3, migration4, migration5];
 
 export function runMigrations(db: DB): number {
   db.exec(`
