@@ -985,6 +985,15 @@ async function main(): Promise<void> {
         && extractDeltaText({}) === '',
       JSON.stringify(extractDeltaText({ content: [{ text: '好' }] })),
     );
+
+    const { aiChatCancelSchema, aiChatStreamSchema } = await import('@shared/ipc/schemas');
+    assert('AI 流：取消请求校验 requestId', aiChatCancelSchema.safeParse({ requestId: 'ai-1' }).success, 'ok');
+    assert('AI 流：取消请求拒绝空 requestId', !aiChatCancelSchema.safeParse({ requestId: '' }).success, 'rejected');
+    assert(
+      'AI 流：流式请求必须带 requestId',
+      !aiChatStreamSchema.safeParse({ messages: [{ role: 'user', content: 'x' }] }).success,
+      'rejected',
+    );
   }
 
   console.log(failed === 0 ? '\n全部通过' : `\n失败 ${failed} 项`);

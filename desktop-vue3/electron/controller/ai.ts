@@ -7,6 +7,7 @@ import {
   type AiModelRawRow,
 } from '../service/db/ai-repository';
 import {
+  aiChatCancelSchema,
   aiChatSchema,
   aiChatStreamSchema,
   aiModelSaveSchema,
@@ -137,7 +138,20 @@ interface AiChatOutput {
   truncated: boolean;
   model: string;
   usage: unknown;
+  stopped?: boolean;
 }
+
+interface ActiveAiStream {
+  controller: AbortController;
+  content: string;
+  finishReason: string | null;
+  model: string;
+  usage: unknown;
+  stopped: boolean;
+}
+
+/** 正在跑的流式请求；key 为渲染层生成的 requestId，取消时按它找 AbortController。 */
+const AI_STREAMS = new Map<string, ActiveAiStream>();
 
 /** 解析默认可用模型：默认优先，其次任意启用中的模型（与 vue2 getDefaultConfig 口径一致）。 */
 function resolveChatConfig(modelId?: number): AiModelRawRow | null {
@@ -329,8 +343,11 @@ class AiController {
    * invoke 本身仍等整段结束并返回最终结果，避免渲染层再维护一套收尾协议。
    */
   async chatStream(args?: unknown): Promise<IpcResult<AiChatOutput>> {
+    let stream: ActiveAiStream | null = null;
+    let streamRequestId = '';
     try {
       const input = aiChatStreamSchema.parse(args ?? {});
+      streamRequestId = input.requestId;
       const config = resolveChatConfig(input.modelId);
       if (!config) {
         return { ok: false, error: { code: 'AI_TAG_NO_DEFAULT_CONFIG', message: '没有可用的 AI 模型配置' } };
@@ -349,6 +366,20 @@ class AiController {
       const headers = parseJsonField(config.headersJson);
       const extraConfig = parseJsonField(config.extraConfigJson);
       const url = `${String(config.baseUrl || '').replace(/\/$/, '')}/chat/completions`;
+      const previous = AI_STREAMS.get(input.requestId);
+      if (previous) {
+        previous.stopped = true;
+        previous.controller.abort();
+      }
+      stream = {
+        controller: new AbortController(),
+        content: '',
+        finishReason: null,
+        model: String(config.model || 'unknown'),
+        usage: null,
+        stopped: false,
+      };
+      AI_STREAMS.set(input.requestId, stream);
       const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -356,6 +387,7 @@ class AiController {
           Authorization: `Bearer ${decryptKey(config.apiKeyEncrypted, config.apiKeyEncryptedVersion)}`,
           ...headers,
         },
+        signal: stream.controller.signal,
         body: JSON.stringify({
           model: config.model,
           messages: input.messages,
@@ -376,10 +408,6 @@ class AiController {
 
       const decoder = new TextDecoder();
       let buffer = '';
-      let content = '';
-      let finishReason: string | null = null;
-      let model = String(config.model || 'unknown');
-      let usage: unknown = null;
       let sawDone = false;
 
       const consume = (data: string): boolean => {
@@ -400,12 +428,12 @@ class AiController {
         const choice = payload.choices?.[0];
         const delta = extractDeltaText(choice?.delta);
         if (delta) {
-          content += delta;
+          stream!.content += delta;
           broadcastAiChunk(input.requestId, delta);
         }
-        finishReason = choice?.finish_reason ?? finishReason;
-        model = String(payload.model || model);
-        usage = payload.usage ?? usage;
+        stream!.finishReason = choice?.finish_reason ?? stream!.finishReason;
+        stream!.model = String(payload.model || stream!.model);
+        stream!.usage = payload.usage ?? stream!.usage;
         return !sawDone;
       };
 
@@ -435,7 +463,7 @@ class AiController {
       }
 
       // 有些兼容服务忽略 stream:true，直接回整段 JSON；补一次兜底解析。
-      if (!content && !sawDone) {
+      if (!stream.content && !sawDone) {
         try {
           const payload = JSON.parse(buffer.trim()) as {
             choices?: Array<{ message?: unknown; finish_reason?: string }>;
@@ -443,24 +471,56 @@ class AiController {
             usage?: unknown;
           };
           const choice = payload.choices?.[0];
-          content = extractMessageText(choice?.message);
-          finishReason = choice?.finish_reason ?? finishReason;
-          model = String(payload.model || model);
-          usage = payload.usage ?? usage;
+          stream.content = extractMessageText(choice?.message);
+          stream.finishReason = choice?.finish_reason ?? stream.finishReason;
+          stream.model = String(payload.model || stream.model);
+          stream.usage = payload.usage ?? stream.usage;
         } catch {
           // 不是 JSON 就按空回复处理，错误留给上层展示。
         }
       }
 
+      // abort 有时会让 reader 正常收尾，不抛 AbortError；这里也要把 stopped 带回去。
       return ok({
-        content,
-        finishReason,
-        truncated: finishReason === 'length',
-        model,
-        usage,
+        content: stream.content,
+        finishReason: stream.stopped ? (stream.finishReason ?? 'stopped') : stream.finishReason,
+        truncated: !stream.stopped && stream.finishReason === 'length',
+        model: stream.model,
+        usage: stream.usage,
+        stopped: stream.stopped || undefined,
       });
     } catch (error) {
+      if (stream?.stopped) {
+        return ok({
+          content: stream.content,
+          finishReason: stream.finishReason ?? 'stopped',
+          truncated: false,
+          model: stream.model,
+          usage: stream.usage,
+          stopped: true,
+        });
+      }
       return failFromError(error, 'AI_CHAT_STREAM_ERROR');
+    } finally {
+      if (stream && AI_STREAMS.get(streamRequestId) === stream) {
+        AI_STREAMS.delete(streamRequestId);
+      }
+    }
+  }
+
+  /** 停止流式生成：只 abort 当前 requestId 对应的 fetch，返回是否真找到在跑的流。 */
+  async chatCancel(args?: unknown): Promise<IpcResult<{ cancelled: boolean }>> {
+    try {
+      const input = aiChatCancelSchema.parse(args ?? {});
+      const stream = AI_STREAMS.get(input.requestId);
+      if (!stream) {
+        return ok({ cancelled: false });
+      }
+      stream.stopped = true;
+      stream.controller.abort();
+      return ok({ cancelled: true });
+    } catch (error) {
+      return failFromError(error, 'AI_CHAT_CANCEL_ERROR');
     }
   }
 

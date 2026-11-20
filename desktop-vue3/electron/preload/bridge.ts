@@ -78,6 +78,7 @@ const INVOKE_CHANNELS = new Set<string>([
   'controller/ai/removeSkill',
   'controller/ai/chat',
   'controller/ai/chatStream',
+  'controller/ai/chatCancel',
   'controller/packs/preview',
   'controller/packs/commit',
   'controller/packs/fetchRemote',

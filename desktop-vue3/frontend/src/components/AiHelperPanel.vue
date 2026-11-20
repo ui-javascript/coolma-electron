@@ -19,8 +19,11 @@
           <span v-if="message.status === 'pending' && !message.content" class="ai-thinking">{{ t('aiHelper.thinking') }}</span>
           <pre v-else class="ai-text">{{ message.content }}</pre>
         </div>
+        <div v-if="message.role === 'assistant' && message.status === 'stopped'" class="ai-message-status">
+          {{ t('aiHelper.stoppedStatus') }}
+        </div>
         <div
-          v-if="message.role === 'assistant' && message.status !== 'pending' && message.content && hasNote"
+          v-if="message.role === 'assistant' && !message.status && message.content && hasNote"
           class="ai-message-actions"
         >
           <el-button
@@ -48,6 +51,9 @@
       />
       <div class="ai-composer-actions">
         <el-button text size="small" :disabled="busy" @click="clear">{{ t('aiHelper.clear') }}</el-button>
+        <el-button v-if="busy" type="warning" plain size="small" @click="stopGenerating">
+          {{ t('aiHelper.stopGenerating') }}
+        </el-button>
         <el-button type="primary" size="small" :loading="busy" :disabled="!draft.trim() || busy" @click="send">
           {{ t('aiHelper.send') }}
         </el-button>
@@ -62,21 +68,21 @@
  *
  * 缩水报备：
  *  - vue2 用 element-plus-x 的欢迎卡与 SSE 流式逐字回显；v3 已补 `chatStream`，
- *    事件负责逐字追加，invoke 结束再以完整结果兜底。停止生成还没做。
+ *    事件负责逐字追加，invoke 结束再以完整结果兜底；停止生成已接主进程 abort。
  *  - vue2 有「选择模型 / 技能调用」等动作；「应用到当前笔记」已补，见 P5 11.58。
  */
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import { useI18n } from 'vue-i18n';
 import { emitAiInsert } from '@/editor/aiInsert';
-import { aiChatStream, onAiChatStream } from '@/services/ipc';
+import { aiChatCancel, aiChatStream, onAiChatStream } from '@/services/ipc';
 import { useNotesStore } from '@/stores/notes';
 
 interface ChatMessage {
   id: number;
   role: 'user' | 'assistant';
   content: string;
-  status?: 'pending';
+  status?: 'pending' | 'stopped';
 }
 
 const props = defineProps<{ noteId?: number | null }>();
@@ -159,10 +165,16 @@ async function send(): Promise<void> {
   messages.value.push({ id: seq, role: 'assistant', content: '', status: 'pending' });
   // push 后取数组里的响应式代理，不能改外面那个原始对象，否则流式增量不触发渲染。
   activeAssistant = messages.value[messages.value.length - 1];
-  activeRequestId = `ai-${Date.now()}-${seq}-${Math.random().toString(36).slice(2, 8)}`;
+  const requestId = `ai-${Date.now()}-${seq}-${Math.random().toString(36).slice(2, 8)}`;
+  const assistant = activeAssistant;
+  activeRequestId = requestId;
 
   try {
-    const result = await aiChatStream({ requestId: activeRequestId, messages: contextMessages() });
+    const result = await aiChatStream({ requestId, messages: contextMessages() });
+    // 停止后 activeRequestId 会立刻清空；旧请求的结果不能再往新消息上写。
+    if (requestId !== activeRequestId) {
+      return;
+    }
     busy.value = false;
     if (result.ok === false) {
       error.value = result.error.message;
@@ -170,16 +182,38 @@ async function send(): Promise<void> {
       messages.value.pop();
       return;
     }
-    if (activeAssistant) {
-      activeAssistant.content = result.data.content || activeAssistant.content;
-      activeAssistant.status = undefined;
-    }
+    assistant.content = result.data.content || assistant.content;
+    assistant.status = result.data.stopped ? 'stopped' : undefined;
     scrollToBottom();
   } finally {
-    activeRequestId = '';
-    activeAssistant = null;
-    busy.value = false;
+    if (requestId === activeRequestId) {
+      activeRequestId = '';
+      activeAssistant = null;
+      busy.value = false;
+    }
   }
+}
+
+/** 对齐 vue2 stopStreaming：立刻把气泡标成已停止，再通知主进程 abort。 */
+function stopGenerating(): void {
+  const requestId = activeRequestId;
+  if (!requestId || !activeAssistant) {
+    return;
+  }
+  if (!activeAssistant.content) {
+    activeAssistant.content = t('aiHelper.stoppedEmpty');
+  }
+  activeAssistant.status = 'stopped';
+  activeRequestId = '';
+  activeAssistant = null;
+  busy.value = false;
+  scrollToBottom();
+  ElMessage.warning(t('aiHelper.stoppedNotify'));
+  void aiChatCancel({ requestId }).then((result) => {
+    if (result.ok === false) {
+      ElMessage.warning(t('aiHelper.stopFailed'));
+    }
+  });
 }
 
 /** 对齐 vue2 applyToCurrentNote：把整段回复追加到当前编辑器末尾，不覆盖原文。 */
@@ -217,6 +251,9 @@ function clear(): void {
 }
 
 onBeforeUnmount(() => {
+  if (activeRequestId) {
+    void aiChatCancel({ requestId: activeRequestId });
+  }
   stopStream();
   activeRequestId = '';
   activeAssistant = null;
@@ -294,6 +331,12 @@ onBeforeUnmount(() => {
 }
 
 .ai-thinking {
+  color: var(--el-text-color-secondary);
+}
+
+.ai-message-status {
+  margin-top: 4px;
+  font-size: 12px;
   color: var(--el-text-color-secondary);
 }
 

@@ -103,6 +103,7 @@ export const IPC_CHANNELS = {
     removeSkill: 'controller/ai/removeSkill',
     chat: 'controller/ai/chat',
     chatStream: 'controller/ai/chatStream',
+    chatCancel: 'controller/ai/chatCancel',
   },
   packs: {
     preview: 'controller/packs/preview',
@@ -191,6 +192,8 @@ export const INVOKE_CHANNELS = new Set<string>([
   IPC_CHANNELS.ai.saveSkill,
   IPC_CHANNELS.ai.removeSkill,
   IPC_CHANNELS.ai.chat,
+  IPC_CHANNELS.ai.chatStream,
+  IPC_CHANNELS.ai.chatCancel,
   IPC_CHANNELS.packs.preview,
   IPC_CHANNELS.packs.commit,
   IPC_CHANNELS.packs.fetchRemote,

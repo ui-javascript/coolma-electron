@@ -195,8 +195,14 @@ export const tagRemoveManySchema = z.object({
   ids: z.array(z.number().int().positive()).min(1).max(500),
 });
 
+const aiRequestIdSchema = z.string().trim().min(1).max(80);
+
+export const aiChatCancelSchema = z.object({
+  requestId: aiRequestIdSchema,
+});
+
 export const aiChatStreamSchema = z.object({
-  requestId: z.string().trim().min(1).max(80),
+  requestId: aiRequestIdSchema,
   modelId: z.number().int().positive().optional(),
   messages: z
     .array(

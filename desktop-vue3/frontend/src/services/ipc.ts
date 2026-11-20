@@ -466,6 +466,7 @@ export interface AiChatOutput {
   truncated: boolean;
   model: string;
   usage: unknown;
+  stopped?: boolean;
 }
 
 export function aiChat(input: {
@@ -499,4 +500,8 @@ export function aiChatStream(input: {
   maxTokens?: number;
 }): Promise<IpcResult<AiChatOutput>> {
   return invoke<AiChatOutput>(IPC_CHANNELS.ai.chatStream, input);
+}
+
+export function aiChatCancel(input: { requestId: string }): Promise<IpcResult<{ cancelled: boolean }>> {
+  return invoke<{ cancelled: boolean }>(IPC_CHANNELS.ai.chatCancel, input);
 }
