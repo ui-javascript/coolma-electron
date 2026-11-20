@@ -6,10 +6,9 @@
   "main": "./public/electron/main.js",
   "author": "luo0412",
   "license": "Apache-2.0",
-  "packageManager": "pnpm@10.28.2",
   "engines": {
     "node": ">=22",
-    "pnpm": ">=10"
+    "pnpm": ">=12.18.0"
   },
   "scripts": {
     "dev": "ee-bin dev",
@@ -38,6 +37,7 @@
     "electron-updater": "^6.8.11",
     "enum-plus": "^3.4.0",
     "ssh2": "^1.17.0",
+    "turndown": "^7.2.5",
     "zod": "^3.25.76"
   },
   "devDependencies": {

@@ -33,12 +33,25 @@
     "vue": "2.7.x"
   },
   "dependencies": {
+    "dompurify": "^3.3.3",
     "element-resize-detector": "^1.2.1",
+    "execall": "^2.0.0",
     "file-icons-js": "1.0.3",
+    "flowchart.js": "^1.13.0",
+    "github-markdown-css": "^3.0.1",
+    "html-tags": "^3.1.0",
+    "joplin-turndown-plugin-gfm": "^1.0.12",
+    "katex": "^0.11.1",
+    "mermaid": "^8.13.8",
     "popper.js": "^1.16.1",
     "prismjs": "^1.29.0",
     "snabbdom": "^0.7.4",
-    "uuid": "^9.0.1"
+    "snabbdom-to-html": "^5.1.1",
+    "turndown": "^6.0.0",
+    "unsplash-js": "^6.0.0",
+    "uuid": "^9.0.1",
+    "vega-embed": "^6.4.0",
+    "webfontloader": "^1.6.28"
   },
   "devDependencies": {
     "@babel/core": "7.29.7",

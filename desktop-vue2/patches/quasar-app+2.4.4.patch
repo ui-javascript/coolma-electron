@@ -4,7 +4,7 @@ diff --git a/lib/helpers/node-packager.js b/lib/helpers/node-packager.js
 @@ -16,4 +16,9 @@
  function getPackager () {
 +  // Quasar 1 stages a separate production app without the source lockfile.
-+  if (fs.existsSync(appPaths.resolve.app('pnpm-lock.yaml'))) {
++  if (fs.existsSync(appPaths.resolve.app('../pnpm-workspace.yaml'))) {
 +    return 'npm'
 +  }
 +

@@ -5,6 +5,8 @@ const path = require('path')
 //  - src/components/echo/echoCore → 桌面端 barrel，这里只复用其纯 JS 的 echoPropsParser
 //  - mermaid / vega-embed → webpack4 解析不了其 ESM 产物，demo 不画图，stub 掉
 const bootI18nAlias = {
+  // The editor runs in the browser; do not bundle turndown's Node/jsdom branch for SSR.
+  'turndown$': require.resolve('turndown/lib/turndown.browser.es.js', { paths: [path.dirname(require.resolve('libs-muya/package.json'))] }),
   'boot/i18n': path.resolve(__dirname, './shims/boot-i18n.js'),
   'src/components/echo/echoCore': path.resolve(__dirname, './shims/echo-core-shim.js'),
   // 注意：webpack4 alias 是按对象键序做前缀匹配，长键必须排在短键前面

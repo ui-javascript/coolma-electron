@@ -5,9 +5,9 @@ alwaysApply: true
 
 # Package Manager
 
-Both projects use **pnpm**. Keep `desktop-vue2/` in its own workspace so Quasar 1 resolves Vue 2. Muya remains in the root workspace.
+All repository packages belong to the root pnpm workspace and share its lockfile.
 
-- Run installation from the repository root with `pnpm install`.
-- In `desktop-vue2/`, use `pnpm install --frozen-lockfile` and `pnpm add <pkg>` / `pnpm add -D <pkg>`. The app links to Muya with `link:../libs-muya`.
-- Use `pnpm --filter libs-muya add <pkg>` / `pnpm --filter libs-muya add -D <pkg>` for the Muya package.
-- Run workspace scripts with `pnpm --filter <package-name> <script>`. The root desktop scripts use `pnpm --dir desktop-vue2 run`.
+- Run `pnpm install` at the repository root. CI uses `pnpm install --frozen-lockfile`.
+- Use `pnpm --filter <package-name> add <pkg>` (or `add -D <pkg>`) to declare a dependency in a child package.
+- Use `workspace:*` for local packages. Keep pnpm settings and patches in the root `pnpm-workspace.yaml`.
+- Run package scripts with `pnpm --filter <package-name> run <script>`.

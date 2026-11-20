@@ -11,6 +11,6 @@
     "libs-muya-v3": "workspace:*"
   },
   "dependencies": {
-    "echo-core": "link:../../../echo-core"
+    "echo-core": "workspace:*"
   }
 }

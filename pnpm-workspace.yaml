@@ -1,35 +1,35 @@
 packages:
-  # 单一 workspace：desktop-vue3 只是子包，它的 frontend 与 packages/* 在根显式登记，
-  # 否则根 install 会把整个目录当成单个项目重排，削掉 frontend/node_modules（实测 -824）。
-  - desktop-vue3
+  # 一级子包自动纳入，深层应用和工具包在此补充。
+  - '*'
   - desktop-vue3/frontend
-  - desktop-vue3/packages/*
-  # desktop-vue2 has its own pnpm workspace to isolate Vue 2 from Vue 3.
-  - libs-muya
-  - echo-core
-  - rune-core
-  - demo-vue2-vite-muya
-  - tpl-vitepress1-teek-muya
+  - 'desktop-vue3/packages/*'
+  - _plugins/box-im-wujie
+  - _plugins/doubao-input
 
-# Keep a flat node_modules layout for the pnpm workspace.
-nodeLinker: hoisted
+# Keep dependencies for Vue 2 and Vue 3 in their respective resolution contexts.
+nodeLinker: isolated
 
-# 原 desktop-vue3/pnpm-workspace.yaml 的设置，迁移到唯一的根配置。
-onlyBuiltDependencies:
-  - electron
-  - esbuild
-
-ignoredBuiltDependencies:
-  - better-sqlite3
+packageExtensions:
+  'quasar@1':
+    peerDependencies:
+      vue: ^2.0.0
+  'quasar@2':
+    peerDependencies:
+      vue: ^3.0.0
+  'vue-template-compiler@2.7.16':
+    dependencies:
+      vue: 2.7.16
 
 overrides:
   '@types/minimatch': 5.1.2
 
 patchedDependencies:
+  '@quasar/app@2.4.4': desktop-vue2/patches/quasar-app+2.4.4.patch
   vue@2.7.16: desktop-vue2/patches/vue+2.7.16.patch
   vue-template-compiler@2.7.16: desktop-vue2/patches/vue-template-compiler+2.7.16.patch
 
 allowBuilds:
+  '@parcel/watcher@2.6.0': true
   vue-demi: true
   ant-design-vue: false
   better-sqlite3@12.11.1: true
@@ -38,13 +38,16 @@ allowBuilds:
   cpu-features: false
   electron-winstaller: true
   electron@39.8.10: true
+  electron@45.2.1: true
   esbuild@0.14.7: true
   esbuild@0.21.5: true
+  esbuild@0.28.2: true
   highlight.js@9.18.5: false
   lzma-native: false
   ssh2: false
   utf-8-validate: false
   vuepress@1.9.10: false
+  yorkie: false
 
 minimumReleaseAgeExclude:
   - vue-layerx@1.2.5

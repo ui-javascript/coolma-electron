@@ -27,8 +27,7 @@ adjust
 
 ## 其他项目约定
 
-- 根 workspace 使用 **pnpm**，在仓库根目录安装；`desktop-vue2` 使用独立的 pnpm workspace，须再运行 `pnpm --dir desktop-vue2 install --frozen-lockfile`，以隔离 Quasar 1 的 Vue 2 依赖。
-- pnpm workspace 包：`desktop-vue3`、`libs-muya`、`demo-vue2-vite-muya`、`tpl-vuepress1-voding-muya`、`tpl-vitepress1-teek-muya`。
+- 所有子包统一纳入根目录的 [pnpm workspace](pnpm-workspace.yaml)，共用根锁文件。在根目录执行一次 `pnpm install`，通过 `pnpm --filter <包名> run <脚本>` 运行子包脚本。
 - 临时试验代码统一放在 `./_temp/`。
 
 **Windows 清理 `node_modules` 前，必须先读 [链接安全规则](.agents/rules/safe-shell.mdc#8-windows-清理-node_modules)。** pnpm 建立的 junction 可能直接指向 workspace 源码。曾有 `Move-Item` 移动根 `node_modules` 时沿 junction 误删源码的事故。禁止用 `Move-Item` 搬走依赖树；清理遇到链接只能移除链接本身。

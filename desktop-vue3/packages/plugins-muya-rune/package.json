@@ -13,6 +13,6 @@
   },
   "dependencies": {
     "@vue/compiler-dom": "^3.5.45",
-    "rune-core": "link:../../../rune-core"
+    "rune-core": "workspace:*"
   }
 }

@@ -6,6 +6,7 @@
 // Configuration for your app
 // https://quasar.dev/quasar-cli/quasar-conf-js
 /* eslint-env node */
+const path = require('path')
 
 module.exports = function (/* ctx */) {
   return {
@@ -88,6 +89,12 @@ module.exports = function (/* ctx */) {
 
       // https://quasar.dev/quasar-cli/handling-webpack
       extendWebpack (cfg) {
+        // pnpm resolves each package through its real dependency directory.
+        cfg.resolve.symlinks = true
+        const cliModules = path.resolve(path.dirname(require.resolve('@quasar/app/package.json')), '../..')
+        cfg.resolve.modules.push(cliModules)
+        cfg.resolveLoader.modules.unshift(cliModules)
+
         // ESLint is run separately via `pnpm lint`.
         // eslint-loader v4 is incompatible with eslint v8 (removed getFormatter API),
         // so it has been removed from the webpack build pipeline.
@@ -153,7 +160,7 @@ module.exports = function (/* ctx */) {
             'wordHighlighter',
             'wordOperations',
             'wordPartOperations',
-            'wordPartSearch',
+            'wordPartSearch'
             // ─── 已移除的功能（节省体积）─
             // 'inPlaceReplace'        - 内联替换（不常用）
             // 'unusualFileTabbing'    - 特殊文件缩进（不常用）
@@ -348,8 +355,8 @@ module.exports = function (/* ctx */) {
           './package.json',
 
           // ─── ① 应用层：空目录 / 安装期无用文件 ───
-          '!box-im/**/*',                    // wujie 子应用已下线，UnPackaged/box-im 为空目录
-          '!**/.npmrc',                      // 安装期不需要 registry 配置
+          '!box-im/**/*', // wujie 子应用已下线，UnPackaged/box-im 为空目录
+          '!**/.npmrc', // 安装期不需要 registry 配置
           '!**/.yarnrc',
           '!**/yarn.lock',
           '!**/package-lock.json',
@@ -366,14 +373,14 @@ module.exports = function (/* ctx */) {
           //    证据：UnPackaged/js/vendor.js 内含 quasar / openai / moment / moment-timezone /
           //          cron-parser 的真实代码；UnPackaged/electron-main.js 内含 openai / lodash。
           //    这些包在 node_modules 里的副本只是 pnpm install --prod 顺手装进去的，运行时用不到。
-          '!node_modules/quasar/**/*',           // 渲染进程 bundle 已含（-8.8MB）
-          '!node_modules/openai/**/*',           // portkey-ai 的依赖，已打进 bundle（-3.7MB）
-          '!node_modules/portkey-ai/**/*',       // 同上（-0.6MB）
-          '!node_modules/moment/**/*',           // ant-design-vue / cron-parser 用，已打进 bundle（-2.9MB）
-          '!node_modules/moment-timezone/**/*',  // 同上（-1.8MB）
-          '!node_modules/lodash/**/*',           // 主进程 + 渲染进程均已打进 bundle（-1.3MB）
-          '!node_modules/node-schedule/**/*',    // 渲染进程 ScheduleHandler 用，已打进 bundle
-          '!node_modules/cron-parser/**/*',      // node-schedule 的依赖，已打进 bundle
+          '!node_modules/quasar/**/*', // 渲染进程 bundle 已含（-8.8MB）
+          '!node_modules/openai/**/*', // portkey-ai 的依赖，已打进 bundle（-3.7MB）
+          '!node_modules/portkey-ai/**/*', // 同上（-0.6MB）
+          '!node_modules/moment/**/*', // ant-design-vue / cron-parser 用，已打进 bundle（-2.9MB）
+          '!node_modules/moment-timezone/**/*', // 同上（-1.8MB）
+          '!node_modules/lodash/**/*', // 主进程 + 渲染进程均已打进 bundle（-1.3MB）
+          '!node_modules/node-schedule/**/*', // 渲染进程 ScheduleHandler 用，已打进 bundle
+          '!node_modules/cron-parser/**/*', // node-schedule 的依赖，已打进 bundle
 
           // ─── ④ node_modules：可选原生加速器（optionalDependencies，缺失也不影响功能）（-1MB）───
           //    ssh2: try { require('cpu-features') } catch {}
@@ -428,7 +435,7 @@ module.exports = function (/* ctx */) {
           '!node_modules/**/*.test.js',
           '!node_modules/**/*.spec.ts',
           '!node_modules/**/*.test.ts',
-          '!node_modules/**/*.min.js',           // 已压缩产物，运行时不用（已核对：无生产依赖以其为入口）
+          '!node_modules/**/*.min.js', // 已压缩产物，运行时不用（已核对：无生产依赖以其为入口）
           '!node_modules/**/*.min.css',
           '!node_modules/**/package-lock.json',
           '!node_modules/**/pnpm-lock.yaml',
@@ -470,7 +477,7 @@ module.exports = function (/* ctx */) {
           artifactName: 'Coolma-${version}-${arch}-win.${ext}',
           perMachine: false,
           oneClick: false,
-          allowToChangeInstallationDirectory: true,
+          allowToChangeInstallationDirectory: true
           // 使用 zip 压缩格式减小安装包体积
           // useZip: true
         },
@@ -491,6 +498,12 @@ module.exports = function (/* ctx */) {
       nodeIntegration: true,
 
       extendWebpack (cfg) {
+        // pnpm resolves each package through its real dependency directory.
+        cfg.resolve.symlinks = true
+        const cliModules = path.resolve(path.dirname(require.resolve('@quasar/app/package.json')), '../..')
+        cfg.resolve.modules.push(cliModules)
+        cfg.resolveLoader.modules.unshift(cliModules)
+
         // do something with Electron main process Webpack cfg
         // chainWebpack also available besides this extendWebpack
         cfg.externals = {

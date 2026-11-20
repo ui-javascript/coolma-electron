@@ -28,13 +28,8 @@
     "node": ">=18"
   },
   "dependencies": {
-    "echo-core": "link:../../echo-core",
-    "libs-muya": "link:../../libs-muya",
-    "rune-core": "link:../../rune-core"
-  },
-  "pnpm": {
-    "overrides": {
-      "@vue/compiler-sfc": "2.7.16"
-    }
+    "echo-core": "workspace:*",
+    "libs-muya": "workspace:*",
+    "rune-core": "workspace:*"
   }
 }

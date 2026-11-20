@@ -22,15 +22,15 @@ electron-egg demo_v4_ts (v4.2.0)
 
 ## 快速开始
 
-> 在 `desktop-vue3` 目录执行以下命令。这里的 pnpm workspace 覆盖 `frontend` 与 `packages/*`，仓库根目录的安装不会安装这些子包。
+> 在仓库根目录执行以下命令。根 workspace 同时安装 `desktop-vue3`、`frontend` 与 `packages/*`。
 
 ```powershell
 pnpm install
 
 # 本机没有 VS Build Tools，使用 Electron ABI 预编译包
-pnpm rebuild:sqlite
+pnpm --filter desktop-vue3 run rebuild:sqlite
 
-pnpm dev
+pnpm --filter desktop-vue3 run dev
 ```
 
 > Vue3 开发服务使用 `127.0.0.1:8081`，Vue2 保留 `8080`。
