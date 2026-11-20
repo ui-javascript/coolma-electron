@@ -32,8 +32,7 @@ function readInheritFromTemplate(template) {
   let end = -1;
   for (let i = start; i < body.length; i += 1) {
     const ch = body[i];
-    if (ch === "{")
-      depth += 1;
+    if (ch === "{") depth += 1;
     else if (ch === "}") {
       depth -= 1;
       if (depth === 0) {

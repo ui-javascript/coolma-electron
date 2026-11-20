@@ -1,8 +1,8 @@
 /**
  * 最小运行验证（无 Electron）：jsdom + 真引擎，走一遍面板选中链路。
  *
- *   node -e "esbuild.buildSync(...)" 见 docs/P5.md 的命令；
- *   运行前设 NODE_PATH=/tmp/jsd/node_modules（jsdom 装在那里，避免污染工程依赖）。
+ *   运行：pnpm --dir desktop-vue3 test:runtime（配置会把 jsdom 外的依赖打进 bundle，
+ *   避开 isolated node_modules 下 SSR external 解析不到的问题）。
  *
  * 验证的是引擎真实代码：selectItem → getTypeHandler → 应用侧处理器 → 引擎原语 → 段落写回。
  */
