@@ -173,6 +173,23 @@ export async function login(input: {
   return getPublicConfig();
 }
 
+/**
+ * 启动自动登录：只使用上次记住的密码，密码不在渲染层暴露。
+ * 没有邮箱/密码时返回 null，由渲染层决定走本地离线。
+ */
+export async function autoLogin(): Promise<ReturnType<typeof getPublicConfig> | null> {
+  const config = readConfig();
+  if (!config.email || !config.password) {
+    return null;
+  }
+  return login({
+    userId: config.email,
+    password: config.password,
+    baseUrl: config.baseUrl,
+    rememberPassword: true,
+  });
+}
+
 export async function logout(): Promise<ReturnType<typeof getPublicConfig>> {
   const config = readConfig();
   if (config.token) {

@@ -28,24 +28,12 @@
         </div>
 
         <div v-else-if="!status.loggedIn" class="sync-login">
+          <el-icon class="sync-icon"><Cloudy /></el-icon>
           <div class="sync-title">{{ t('settings.cloudSyncNotLoggedIn') }}</div>
           <div class="field-hint">{{ t('settings.cloudSyncNotLoggedInHint') }}</div>
-          <el-form label-width="86px" class="sync-form">
-            <el-form-item label="账号">
-              <el-input v-model="loginForm.userId" spellcheck="false" autocomplete="username" />
-            </el-form-item>
-            <el-form-item label="密码">
-              <el-input v-model="loginForm.password" type="password" show-password autocomplete="current-password" />
-            </el-form-item>
-            <el-form-item :label="t('settings.syncServerUrl')">
-              <el-input v-model="loginForm.baseUrl" placeholder="https://as.wiz.cn" spellcheck="false" />
-            </el-form-item>
-            <el-form-item label="">
-              <el-checkbox v-model="loginForm.rememberPassword">{{ t('settings.syncRememberPassword') }}</el-checkbox>
-            </el-form-item>
-          </el-form>
-          <el-alert v-if="syncError" type="error" :closable="false" :title="syncError" class="sync-error" />
-          <el-button type="primary" :loading="busy" @click="doLogin">{{ t('settings.syncLogin') }}</el-button>
+          <el-button type="primary" class="sync-login-btn" @click="openLoginDialog">
+            {{ t('settings.syncLogin') }}
+          </el-button>
         </div>
 
         <div v-else class="sync-logged">
@@ -87,7 +75,6 @@
       </el-tab-pane>
     </el-tabs>
     <ImageUploadServiceDialog v-model="imageDialogVisible" />
-    <SyncOfflinePromptDialog v-model="offlineVisible" @synced="loadPending" />
   </div>
 </template>
 
@@ -97,16 +84,17 @@
  *
  * 登录、拉取、推送、目录接口都已接真实为知；本地待同步条数来自 `controller/sync/pending`。
  */
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { ElMessageBox } from 'element-plus';
 import { Cloudy } from '@element-plus/icons-vue';
 import { useAppStore } from '@/stores/app';
 import { useNotesStore } from '@/stores/notes';
 import { getPendingSync } from '@/services/ipc';
-import { getSyncCategories, getSyncStatus, syncLogin, syncLogout, syncPull, syncPush } from '@/services/sync';
+import { getSyncCategories, getSyncStatus, syncLogout, syncPull, syncPush } from '@/services/sync';
+import { loginDialogState, notifyLogout, openLoginDialog } from '@/services/loginDialog';
 import type { SyncCategory, SyncStatus } from '@/services/sync';
 import ImageUploadServiceDialog from '@/components/ImageUploadServiceDialog.vue';
-import SyncOfflinePromptDialog from '@/components/SyncOfflinePromptDialog.vue';
 
 const KEYS = {
   strategy: 'setting/server/cloudSyncStrategy',
@@ -123,9 +111,7 @@ const cloudSyncProvider = ref('wiznote');
 const imageUploadService = ref('none');
 const pending = ref(0);
 const imageDialogVisible = ref(false);
-const offlineVisible = ref(false);
 const status = ref<SyncStatus>({ baseUrl: '', kbGuid: '', kbServer: '', email: '', displayName: '', userGuid: '', loggedIn: false });
-const loginForm = reactive({ userId: '', password: '', baseUrl: 'https://as.wiz.cn', rememberPassword: false });
 const busy = ref(false);
 const syncError = ref('');
 const syncMessage = ref('');
@@ -165,39 +151,29 @@ async function refreshStatus(): Promise<void> {
   }
 }
 
-async function doLogin(): Promise<void> {
-  if (!loginForm.userId || !loginForm.password) {
-    syncError.value = t('settings.syncNeedCredentials');
-    return;
-  }
-  busy.value = true;
-  syncError.value = '';
-  syncMessage.value = '';
-  try {
-    const result = await syncLogin({ ...loginForm });
-    if (!result.ok) {
-      syncError.value = result.error.message;
-      return;
-    }
-    status.value = result.data;
-    syncMessage.value = t('settings.syncLoginDone');
-    // 照 vue2 登录后动作：拉云端目录、刷新本地笔记列表，再看待推队列。
+watch(
+  () => loginDialogState.successTick,
+  async () => {
+    await refreshStatus();
     const categoryResult = await getSyncCategories();
     if (categoryResult.ok) {
       categories.value = categoryResult.data;
     }
-    await notesStore.loadAll?.();
     await loadPending();
-    // 对齐 vue2：登录成功后本地若还有待推队列，立刻弹「立即同步」。
-    if (pending.value > 0) {
-      offlineVisible.value = true;
-    }
-  } finally {
-    busy.value = false;
-  }
-}
+    syncMessage.value = t('settings.syncLoginDone');
+  },
+);
 
 async function doLogout(): Promise<void> {
+  try {
+    await ElMessageBox.confirm(t('login.logoutHint'), t('login.logout'), {
+      type: 'warning',
+      confirmButtonText: t('login.logout'),
+      cancelButtonText: t('action.cancel'),
+    });
+  } catch {
+    return;
+  }
   busy.value = true;
   syncError.value = '';
   syncMessage.value = '';
@@ -209,7 +185,7 @@ async function doLogout(): Promise<void> {
       // 照 vue2 登出：笔记仍在本地，只是解除账号归属；列表与待同步数要重读。
       await notesStore.loadAll?.();
       await loadPending();
-      offlineVisible.value = false;
+      notifyLogout();
     }
   } finally {
     busy.value = false;
@@ -291,7 +267,8 @@ onMounted(async () => {
 .sync-icon { font-size: 32px; color: var(--el-text-color-secondary); }
 .sync-title { font-size: 14px; font-weight: 600; margin: 8px 0 4px; }
 .sync-login, .sync-logged { padding: 10px 0 4px; }
-.sync-form { max-width: 420px; margin: 10px auto 6px; }
+.sync-login { text-align: center; }
+.sync-login-btn { margin-top: 12px; }
 .sync-account { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .sync-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
 .sync-error { margin-top: 10px; white-space: pre-wrap; }

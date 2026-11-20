@@ -2,7 +2,8 @@
  * 侧栏文件夹右键菜单（复刻 vue2 contextMenu/sideDrawer）。
  *
  * 启用条件按 vue2 index.js：
- *  - 登录态才有「创建文件夹 / 导入 / 导出 / 榜单 / 导出到博客 / 复制 Markdown」
+ *  - 「创建文件夹 / 创建笔记」始终显示，离线也能建
+ *  - 登录态才追加「导入 / 导出 / 榜单 / 导出到博客 / 复制 Markdown」
  *  - 根目录禁用导出与删除
  *  - hideCreateCategory / hideCreateNote 可分别隐藏
  */

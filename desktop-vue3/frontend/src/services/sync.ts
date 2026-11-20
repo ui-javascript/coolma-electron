@@ -44,6 +44,9 @@ export const syncLogin = (input: {
   rememberPassword?: boolean;
 }): Promise<IpcResult<SyncStatus>> => invoke<SyncStatus>(IPC_CHANNELS.sync.login, input);
 
+export const syncAutoLogin = (): Promise<IpcResult<SyncStatus | null>> =>
+  invoke<SyncStatus | null>(IPC_CHANNELS.sync.autoLogin);
+
 export const syncLogout = (): Promise<IpcResult<SyncStatus>> => invoke<SyncStatus>(IPC_CHANNELS.sync.logout);
 
 export const getSyncCategories = (): Promise<IpcResult<SyncCategory[]>> =>

@@ -35,6 +35,21 @@
         <el-button circle plain :title="t('microApps.open')" @click="microDrawerVisible = true">
           <el-icon><Grid /></el-icon>
         </el-button>
+        <el-dropdown trigger="click" @command="onAccountCommand">
+          <el-button circle plain :title="syncLoggedIn ? t('login.logout') : t('login.title')">
+            <el-icon><UserFilled /></el-icon>
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item v-if="!syncLoggedIn" command="login">
+                {{ t('login.title') }}
+              </el-dropdown-item>
+              <el-dropdown-item v-else command="logout">
+                {{ t('login.logout') }}
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
         <el-button circle plain :title="t('action.settings')" @click="openSettings">
           <el-icon><Setting /></el-icon>
         </el-button>
@@ -173,7 +188,7 @@
 </template>
 
 <script setup lang="ts">
-import { ChatDotRound, Document, Grid, Operation, Search, Setting } from '@element-plus/icons-vue';
+import { ChatDotRound, Document, Grid, Operation, Search, Setting, UserFilled } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Pane, Splitpanes } from 'splitpanes';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
@@ -210,7 +225,8 @@ import { buildMuyaMenu } from '@/menus/muya';
 import { buildSideDrawerMenu } from '@/menus/sideDrawer';
 import type { ContextMenuItem } from '@/menus/types';
 import { exportCategoryMarkdown, getNote, listNotes } from '@/services/ipc';
-import { getSyncStatus } from '@/services/sync';
+import { getSyncStatus, syncLogout } from '@/services/sync';
+import { loginDialogState, notifyLogout, openLoginDialog } from '@/services/loginDialog';
 import { useAppStore } from '@/stores/app';
 import { skinEffectBus } from '@/services/skinEffectBus';
 import { useNotesStore } from '@/stores/notes';
@@ -596,15 +612,51 @@ function onEditorMenuCommand(command: string): void {
   }
 }
 
-async function openFolderMenu(payload: { category: string; event: MouseEvent }): Promise<void> {
-  // vue2 侧栏菜单按 isLogin 决定是否显示导入/导出/榜单/博客/复制 Markdown；
-  // 设置页登录或登出后这里不缓存旧状态，每次打开菜单重新读。
+async function refreshSyncLoginState(): Promise<void> {
   try {
     const status = await getSyncStatus();
     syncLoggedIn.value = status.ok && status.data.loggedIn;
   } catch {
     syncLoggedIn.value = false;
   }
+}
+
+function onAccountCommand(command: string): void {
+  if (command === 'login') {
+    openLoginDialog();
+    return;
+  }
+  if (command === 'logout') {
+    void confirmLogout();
+  }
+}
+
+async function confirmLogout(): Promise<void> {
+  try {
+    await ElMessageBox.confirm(t('login.logoutHint'), t('login.logout'), {
+      type: 'warning',
+      confirmButtonText: t('login.logout'),
+      cancelButtonText: t('action.cancel'),
+    });
+  } catch {
+    return;
+  }
+  const result = await syncLogout();
+  if (!result.ok) {
+    ElMessage.error(result.error.message);
+    return;
+  }
+  syncLoggedIn.value = false;
+  await notesStore.loadAll();
+  // 对齐 vue2 Header watch isLogin：登出后立即弹登录框，用户可跳过继续离线用。
+  notifyLogout();
+  ElMessage.success(t('login.logoutDone'));
+}
+
+async function openFolderMenu(payload: { category: string; event: MouseEvent }): Promise<void> {
+  // vue2 侧栏菜单按 isLogin 决定是否显示导入/导出/榜单/博客/复制 Markdown；
+  // 登录弹窗/设置页登录或登出后这里不缓存旧状态，每次打开菜单重新读。
+  await refreshSyncLoginState();
   folderMenuCategory.value = payload.category;
   folderMenuIsRoot.value = !payload.category;
   folderMenuX.value = payload.event.clientX;
@@ -1045,5 +1097,20 @@ onBeforeUnmount(() => {
 onMounted(async () => {
   await appStore.loadPrefs();
   applyEditorPrefs();
+  void refreshSyncLoginState();
 });
+
+watch(
+  () => loginDialogState.successTick,
+  () => {
+    void refreshSyncLoginState();
+  },
+);
+
+watch(
+  () => loginDialogState.logoutTick,
+  () => {
+    syncLoggedIn.value = false;
+  },
+);
 </script>

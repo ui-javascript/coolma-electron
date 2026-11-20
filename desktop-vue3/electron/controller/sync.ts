@@ -4,6 +4,7 @@ import { fail, ok } from '../shared/ipc/result';
 import { failFromError } from './controller-utils';
 import { syncLogRepository, type PendingSyncSummary, type SyncLogEntry } from '../service/db/sync-log-repository';
 import {
+  autoLogin,
   fetchCategories,
   getPublicConfig,
   login,
@@ -44,6 +45,15 @@ class SyncController {
         return fail(`WIZ_${code}`, String((error as Error).message));
       }
       return failFromError(error, 'SYNC_LOGIN_ERROR');
+    }
+  }
+
+  /** 启动自动登录；没有记住密码时返回 null，由渲染层决定走本地离线。 */
+  async autoLogin(): Promise<IpcResult<ReturnType<typeof getPublicConfig> | null>> {
+    try {
+      return ok(await autoLogin());
+    } catch (error) {
+      return failFromError(error, 'SYNC_AUTO_LOGIN_ERROR');
     }
   }
 

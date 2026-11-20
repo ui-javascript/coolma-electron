@@ -53,6 +53,7 @@ import { formatDocumentByPangu } from '../frontend/src/utils/pangu';
 import { BUILT_IN_CDN_DEPS, getResourceType, isJQueryCoreDep, mergeCdnDeps } from '../frontend/src/utils/cdn-rules';
 import { fitWindowBounds, parseWindowState } from '../electron/service/os/window-state-rules';
 import { cloudTagsToNames, localNamesToCloudTags, splitCloudTagString } from '../electron/service/sync/tag-rules';
+import { DEFAULT_LOGIN_BASE, isValidServerUrl, normalizeServerUrl, resolveSignupUrl } from '../frontend/src/utils/loginRules';
 
 type Any = Record<string, any>;
 
@@ -697,7 +698,7 @@ async function main(): Promise<void> {
     const markdown = wizMarkdown.extract(html, { convertImgTag: true, normalizeWhitespace: false });
     assert('为知同步：markdown 能 embed 成为知 HTML', typeof html === 'string' && html.includes('<body>'), html.slice(0, 60));
     assert('为知同步：embed→extract 往返保住标题与加粗', markdown.includes('# 标题') && markdown.includes('**粗**'), JSON.stringify(markdown));
-    assert('为知同步：login/status/pull/push 通道齐全且白名单放行', [IPC_CHANNELS.sync.login, IPC_CHANNELS.sync.status, IPC_CHANNELS.sync.pull, IPC_CHANNELS.sync.push].every((c) => INVOKE_CHANNELS.has(c)), String(INVOKE_CHANNELS.size));
+    assert('为知同步：autoLogin/login/status/pull/push 通道齐全且白名单放行', [IPC_CHANNELS.sync.autoLogin, IPC_CHANNELS.sync.login, IPC_CHANNELS.sync.status, IPC_CHANNELS.sync.pull, IPC_CHANNELS.sync.push].every((c) => INVOKE_CHANNELS.has(c)), String(INVOKE_CHANNELS.size));
     assert('为知同步：login 空账号被 zod 拦下', !syncLoginSchema.safeParse({ userId: '', password: '' }).success, 'rejected');
     const { isLiteCategory, replaceIndexFilesWithCoolma, replaceCoolmaWithIndexFiles } = await import('../electron/service/sync/wiznote-resources');
     assert('为知同步：只有 Lite 分类算 lite/markdown（vue2 去斜杠判定）', isLiteCategory('/Lite/') && isLiteCategory('Lite') && !isLiteCategory('/My Notes/Lite2/'), 'Lite rule');
@@ -1061,6 +1062,22 @@ async function main(): Promise<void> {
       { x: 2000, y: 100, width: 1280, height: 820, maximized: false },
       [primaryArea, { x: 1920, y: 0, width: 1920, height: 1080 }],
       defaults,
+    );
+    assert(
+      '登录：自建地址去尾斜杠、空值回默认、只认 http(s)',
+      normalizeServerUrl(' https://wiz.example.com/// ') === 'https://wiz.example.com'
+        && normalizeServerUrl('   ') === DEFAULT_LOGIN_BASE
+        && isValidServerUrl('https://wiz.example.com')
+        && isValidServerUrl('http://10.0.0.2:8080')
+        && !isValidServerUrl('wiz.example.com'),
+      '登录地址规则',
+    );
+    assert(
+      '登录：注册地址仅自建启用且地址非空时用自建，否则回 wiz.cn',
+      resolveSignupUrl('', true) === 'https://wiz.cn/signup'
+        && resolveSignupUrl('https://wiz.example.com/', true) === 'https://wiz.example.com/signup'
+        && resolveSignupUrl('https://wiz.example.com', false) === 'https://wiz.cn/signup',
+      '注册地址规则',
     );
     assert(
       '窗口状态：离屏回主屏居中、小于最小值抬到最小值、副屏位置保留',

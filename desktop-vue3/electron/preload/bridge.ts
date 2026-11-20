@@ -48,6 +48,7 @@ const INVOKE_CHANNELS = new Set<string>([
   'controller/sync/pending',
   'controller/sync/status',
   'controller/sync/login',
+  'controller/sync/autoLogin',
   'controller/sync/logout',
   'controller/sync/categories',
   'controller/sync/pull',
