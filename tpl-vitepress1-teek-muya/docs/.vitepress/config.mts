@@ -59,7 +59,7 @@ const vue3Runtime = createRequire(fileURLToPath(import.meta.resolve('vitepress')
 const vue3ServerRenderer = createRequire(fileURLToPath(import.meta.resolve('vitepress')))
   .resolve('vue/server-renderer')
 
-export default withMermaid(defineConfig({
+const config = withMermaid(defineConfig({
   ...teek,
   title: 'Muya 文档模板',
   description: '基于 VitePress 和 Teek 的 Markdown 站点',
@@ -68,14 +68,6 @@ export default withMermaid(defineConfig({
   ignoreDeadLinks: false,
   vite: {
     ...teek.vite,
-    optimizeDeps: {
-      ...teek.vite?.optimizeDeps,
-      include: [
-        ...(teek.vite?.optimizeDeps?.include || []),
-        'fastdom',
-        'fastdom/extensions/fastdom-promised.js'
-      ]
-    },
     resolve: {
       ...teek.vite?.resolve,
       alias: [
@@ -115,3 +107,16 @@ export default withMermaid(defineConfig({
     }
   }
 }))
+
+export default defineConfig({
+  ...config,
+  vite: {
+    ...config.vite,
+    optimizeDeps: {
+      ...config.vite?.optimizeDeps,
+      // pnpm isolates Mermaid's transitive dependencies. Pre-bundle from the
+      // Mermaid entry so Vite resolves its CommonJS dependencies from there.
+      include: [...(teek.vite?.optimizeDeps?.include || []), 'mermaid']
+    }
+  }
+})
