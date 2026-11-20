@@ -579,6 +579,23 @@ assert('体检：能抓到 tags 与 note_tags 不一致', dirtyReport.issues.som
     .every((n) => n.tags === '改名后'), JSON.stringify(notesRepository.list({ limit: 1000 }).items.filter((n) => noteIds.includes(n.id)).map((n) => n.tags)));
 }
 
+{
+  const snapshot = notesRepository.create({ title: '并发备份', content: '发送中的正文', kbGuid: 'kb-push-test' });
+  notesRepository.bindRemoteGuid(snapshot, 'new-remote-guid', 'kb-push-test');
+  assert('备份：远端已创建、正文未保存时仍待同步', notesRepository.get(snapshot.id)?.dirty === 1);
+
+  const edited = notesRepository.update(snapshot.id, { content: '备份期间保存的新正文' })!;
+  notesRepository.acknowledgePush(snapshot, 'new-remote-guid', 'kb-push-test');
+  const afterFirstPush = notesRepository.get(snapshot.id);
+  const pendingForNote = () => syncLogRepository.listPending().some((entry) => entry.noteId === snapshot.id);
+  assert('备份：旧版本保存成功后仍保留新正文、远端 GUID 和待同步记录',
+    afterFirstPush?.content === edited.content && afterFirstPush.docGuid === 'new-remote-guid'
+      && afterFirstPush.dirty === 1 && pendingForNote());
+
+  notesRepository.acknowledgePush(edited, 'new-remote-guid', 'kb-push-test');
+  assert('备份：新版保存成功后清除待同步记录', notesRepository.get(snapshot.id)?.dirty === 0 && !pendingForNote());
+}
+
 console.log(failed === 0 ? '\n仓储层测试全部通过' : `\n仓储层测试失败 ${failed} 项`);
 if (failed > 0) {
   process.exitCode = 1;

@@ -1060,7 +1060,7 @@ export async function push(input: { limit?: number } = {}): Promise<PushResult> 
           throw new Error('createNote returned no guid');
         }
         createdHere = true;
-        notesRepository.rebindDocGuid(note.id, remoteGuid, config.kbGuid);
+        notesRepository.bindRemoteGuid(note, remoteGuid, config.kbGuid);
         cloudCache.get(category || '/')?.push({
           docGuid: remoteGuid,
           title: note.title,
@@ -1082,17 +1082,13 @@ export async function push(input: { limit?: number } = {}): Promise<PushResult> 
       }
       await saveRemoteNote(config, remoteGuid, payload);
 
-      notesRepository.rebindDocGuid(note.id, remoteGuid, config.kbGuid);
-      syncLogRepository.markNoteSynced(note.id);
+      notesRepository.acknowledgePush(note, remoteGuid, config.kbGuid);
       if (createdHere) {
         created += 1;
       } else {
         pushed += 1;
       }
     } catch (error) {
-      if (createdHere) {
-        notesRepository.markDirty(note.id);
-      }
       failed += 1;
       errors.push(`${note.title}: ${(error as Error).message}`);
     }

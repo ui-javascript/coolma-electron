@@ -378,22 +378,28 @@ export const notesRepository = {
     return this.get(id) as NoteRecord;
   },
 
-  /**
-   * 云端保存成功后，把本地 docGuid 换成服务端 guid 并清 dirty。
-   * vue2 同步完成会同时写 `server_modified = Date.now()`，这里保持一致。
-   */
-  rebindDocGuid(id: number, docGuid: string, kbGuid: string | null): void {
-    const now = Date.now();
+  /** 远端创建后先记下 GUID，后续保存失败也能重试同一篇。 */
+  bindRemoteGuid(note: NoteRecord, docGuid: string, kbGuid: string): void {
     getDatabase()
-      .prepare(
-        'UPDATE notes SET doc_guid = ?, kb_guid = ?, server_modified = ?, dirty = 0, updated_at = ?, local_modified = ? WHERE id = ?',
-      )
-      .run(docGuid, kbGuid, now, now, now, id);
+      .prepare('UPDATE notes SET doc_guid = ?, kb_guid = ? WHERE id = ? AND kb_guid IS ? AND doc_guid IS ?')
+      .run(docGuid, kbGuid, note.id, note.kbGuid, note.docGuid);
   },
 
-  /** 推送中途失败时把 dirty 打回去，避免「已绑定远端 guid 但内容没存上」被当成已同步。 */
-  markDirty(id: number): void {
-    getDatabase().prepare('UPDATE notes SET dirty = 1, updated_at = ? WHERE id = ?').run(Date.now(), id);
+  /** 只确认本次上传的版本；网络请求期间写入的更新留在队列里。 */
+  acknowledgePush(note: NoteRecord, docGuid: string, kbGuid: string): void {
+    const db = getDatabase();
+    const acknowledge = db.transaction(() => {
+      this.bindRemoteGuid(note, docGuid, kbGuid);
+      const current = this.get(note.id);
+      if (!current || current.docGuid !== docGuid || current.kbGuid !== kbGuid ||
+          current.localModified !== note.localModified || current.content !== note.content ||
+          current.title !== note.title || current.category !== note.category || current.tags !== note.tags) {
+        return;
+      }
+      db.prepare('UPDATE notes SET server_modified = ?, dirty = 0 WHERE id = ?').run(Date.now(), note.id);
+      syncLogRepository.markNoteSynced(note.id);
+    });
+    acknowledge();
   },
 
   create(input: CreateNoteInput = {}): NoteRecord {
