@@ -61,16 +61,15 @@
  * AI 助手对话面板（复刻 vue2 AiHelperBusDialog / AiHelperDrawer 的对话主体）。
  *
  * 缩水报备：
- *  - vue2 用 element-plus-x 的欢迎卡与流式渲染（SSE 逐字回显）；vue3 主进程
- *    `controller/ai/chat` 目前是非流式（一次性回 finishReason + content），
- *    所以这里一次性追加整段回复，不做逐字动画。
- *  - vue2 有「选择模型 / 技能调用 / 插入到笔记」等动作，本批只做「围绕当前笔记问答」。
+ *  - vue2 用 element-plus-x 的欢迎卡与 SSE 流式逐字回显；v3 已补 `chatStream`，
+ *    事件负责逐字追加，invoke 结束再以完整结果兜底。停止生成还没做。
+ *  - vue2 有「选择模型 / 技能调用」等动作；「应用到当前笔记」已补，见 P5 11.58。
  */
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import { useI18n } from 'vue-i18n';
 import { emitAiInsert } from '@/editor/aiInsert';
-import { aiChat } from '@/services/ipc';
+import { aiChatStream, onAiChatStream } from '@/services/ipc';
 import { useNotesStore } from '@/stores/notes';
 
 interface ChatMessage {
@@ -91,6 +90,27 @@ const error = ref('');
 const applyingMessageId = ref<number | null>(null);
 const scrollRef = ref<HTMLElement | null>(null);
 let seq = 0;
+let activeRequestId = '';
+let activeAssistant: ChatMessage | null = null;
+
+function scrollToBottom(smooth = false): void {
+  void nextTick(() => {
+    const host = scrollRef.value;
+    if (!host) {
+      return;
+    }
+    host.scrollTo({ top: host.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+  });
+}
+
+// 主进程流式增量：只认当前请求，直接改响应式消息对象，不重建列表。
+const stopStream = onAiChatStream((event) => {
+  if (!activeRequestId || event.requestId !== activeRequestId || !activeAssistant) {
+    return;
+  }
+  activeAssistant.content += event.delta;
+  scrollToBottom();
+});
 
 const activeNote = computed(() => notesStore.activeNote);
 const hasNote = computed(() => Boolean(activeNote.value && props.noteId !== null));
@@ -98,11 +118,7 @@ const noteTitle = computed(() => activeNote.value?.title || t('aiHelper.untitled
 
 watch(
   () => messages.value.length,
-  () => {
-    void nextTick(() => {
-      scrollRef.value?.scrollTo({ top: scrollRef.value.scrollHeight, behavior: 'smooth' });
-    });
-  },
+  () => scrollToBottom(true),
 );
 
 function contextMessages(): Array<{ role: 'system' | 'user' | 'assistant'; content: string }> {
@@ -140,19 +156,30 @@ async function send(): Promise<void> {
   busy.value = true;
 
   seq += 1;
-  const assistantMessage: ChatMessage = { id: seq, role: 'assistant', content: '', status: 'pending' };
-  messages.value.push(assistantMessage);
+  messages.value.push({ id: seq, role: 'assistant', content: '', status: 'pending' });
+  // push 后取数组里的响应式代理，不能改外面那个原始对象，否则流式增量不触发渲染。
+  activeAssistant = messages.value[messages.value.length - 1];
+  activeRequestId = `ai-${Date.now()}-${seq}-${Math.random().toString(36).slice(2, 8)}`;
 
-  const result = await aiChat({ messages: contextMessages() });
-  busy.value = false;
-  if (result.ok === false) {
-    error.value = result.error.message;
-    messages.value.pop();
-    messages.value.pop();
-    return;
+  try {
+    const result = await aiChatStream({ requestId: activeRequestId, messages: contextMessages() });
+    busy.value = false;
+    if (result.ok === false) {
+      error.value = result.error.message;
+      messages.value.pop();
+      messages.value.pop();
+      return;
+    }
+    if (activeAssistant) {
+      activeAssistant.content = result.data.content || activeAssistant.content;
+      activeAssistant.status = undefined;
+    }
+    scrollToBottom();
+  } finally {
+    activeRequestId = '';
+    activeAssistant = null;
+    busy.value = false;
   }
-  assistantMessage.content = result.data.content;
-  assistantMessage.status = undefined;
 }
 
 /** 对齐 vue2 applyToCurrentNote：把整段回复追加到当前编辑器末尾，不覆盖原文。 */
@@ -190,6 +217,9 @@ function clear(): void {
 }
 
 onBeforeUnmount(() => {
+  stopStream();
+  activeRequestId = '';
+  activeAssistant = null;
   messages.value = [];
 });
 </script>

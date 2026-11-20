@@ -77,6 +77,7 @@ const INVOKE_CHANNELS = new Set<string>([
   'controller/ai/saveSkill',
   'controller/ai/removeSkill',
   'controller/ai/chat',
+  'controller/ai/chatStream',
   'controller/packs/preview',
   'controller/packs/commit',
   'controller/packs/fetchRemote',
@@ -99,7 +100,7 @@ const INVOKE_CHANNELS = new Set<string>([
 
 
 
-const EVENT_CHANNELS = new Set<string>(['blog-deploy-progress']);
+const EVENT_CHANNELS = new Set<string>(['blog-deploy-progress', 'ai-chat-stream']);
 
 const api: CoolmaApi = {
   async invoke<T = unknown>(channel: string, payload?: unknown): Promise<IpcResult<T>> {

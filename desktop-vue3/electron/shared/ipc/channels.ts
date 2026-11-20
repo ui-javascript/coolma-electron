@@ -102,6 +102,7 @@ export const IPC_CHANNELS = {
     saveSkill: 'controller/ai/saveSkill',
     removeSkill: 'controller/ai/removeSkill',
     chat: 'controller/ai/chat',
+    chatStream: 'controller/ai/chatStream',
   },
   packs: {
     preview: 'controller/packs/preview',
@@ -204,4 +205,9 @@ export const INVOKE_CHANNELS = new Set<string>([
  * Main -> renderer push events. Add channels here and in the preload bridge
  * before exposing them to the renderer.
  */
-export const EVENT_CHANNELS = new Set<string>(['blog-deploy-progress']);
+export const IPC_EVENTS = {
+  blogProgress: 'blog-deploy-progress',
+  aiChatStream: 'ai-chat-stream',
+} as const;
+
+export const EVENT_CHANNELS = new Set<string>([IPC_EVENTS.blogProgress, IPC_EVENTS.aiChatStream]);

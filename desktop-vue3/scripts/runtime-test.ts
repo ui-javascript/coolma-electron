@@ -47,6 +47,8 @@ import {
 } from '../electron/service/sync/push-rules';
 import { cloudDedupeKey, toWizCategoryDeletePath } from '../electron/service/sync/pull-rules';
 import { emitAiInsert, onAiInsert } from '../frontend/src/editor/aiInsert';
+import { buildFolderMarkdown } from '../frontend/src/utils/folderMarkdown';
+import { drainSseDataLines, extractDeltaText } from '../electron/service/ai/sse';
 import { cloudTagsToNames, localNamesToCloudTags, splitCloudTagString } from '../electron/service/sync/tag-rules';
 
 type Any = Record<string, any>;
@@ -958,6 +960,31 @@ async function main(): Promise<void> {
     assert('AI 插入：有编辑器时接住文本', emitAiInsert('hello') === true && received === 'hello', received);
     stop();
     assert('AI 插入：退订后不再接住', emitAiInsert('again') === false && received === 'hello', received);
+
+    const folderMd = buildFolderMarkdown([
+      { title: '第一篇.md', content: 'A' },
+      { title: '第二篇', content: '' },
+    ]);
+    assert(
+      '目录 Markdown：标题去 .md、篇间分隔、空正文保留',
+      folderMd === '## 第一篇\n\nA\n\n---\n\n## 第二篇\n\n',
+      JSON.stringify(folderMd),
+    );
+    assert('目录 Markdown：空列表返回空串', buildFolderMarkdown([]) === '', 'empty');
+
+    const sse = drainSseDataLines('data: {"n":1}\r\n\ndata: [DONE]\npartial');
+    assert(
+      'AI 流：data 行抽出、CRLF 兼容、残包留给下一轮',
+      sse.lines.length === 2 && sse.lines[0] === '{"n":1}' && sse.lines[1] === '[DONE]' && sse.rest === 'partial',
+      JSON.stringify(sse),
+    );
+    assert(
+      'AI 流：delta 兼容字符串与分段数组',
+      extractDeltaText({ content: '你' }) === '你'
+        && extractDeltaText({ content: [{ text: '好' }, { text: '的' }] }) === '好的'
+        && extractDeltaText({}) === '',
+      JSON.stringify(extractDeltaText({ content: [{ text: '好' }] })),
+    );
   }
 
   console.log(failed === 0 ? '\n全部通过' : `\n失败 ${failed} 项`);

@@ -215,6 +215,7 @@ import { useNotesStore } from '@/stores/notes';
 import { useLibraryStore } from '@/stores/library';
 import { createMuyaPlugins } from '@/muyaPlugins';
 import { deriveTitle, folderName, noteDateKey, noteTags, noteTimeGroup } from '@/utils/note';
+import { buildFolderMarkdown, type FolderMarkdownNote } from '@/utils/folderMarkdown';
 import { nextPaneLayout, normalizePaneLayout, paneSizes, paneSizesFromList, paneVisibility, PANE_LAYOUT_STORAGE, PANE_SIZES_STORAGE, type PaneLayoutMode } from '@/utils/paneLayout';
 import type { SplitpanesResizedPayload } from 'splitpanes';
 
@@ -631,7 +632,7 @@ async function onFolderMenuCommand(command: string): Promise<void> {
       blogVisible.value = true;
       break;
     case 'copyMarkdown':
-      ElMessage.info(t('notes.copyFolderPending'));
+      await copyFolderMarkdown(category);
       break;
     case 'delete':
       requestDeleteFolder(category);
@@ -842,6 +843,43 @@ async function exportFolder(category: string): Promise<void> {
   }
   if (!result.data.canceled) {
     ElMessage.success(t('notes.exportFolderSuccess', { count: result.data.written, dir: result.data.directory }));
+  }
+}
+
+/**
+ * 复制整个文件夹的 Markdown 到剪贴板（对齐 vue2 `copyMarkdownHandler`）：
+ * 每篇拼成 `## 标题\n\n正文`，篇间用 `\n\n---\n\n` 分隔，不写文件。
+ */
+async function copyFolderMarkdown(category: string): Promise<void> {
+  if (!category) {
+    return;
+  }
+  const listed = await listNotes({ category, limit: 5000, offset: 0 });
+  if (listed.ok === false) {
+    ElMessage.error(listed.error.message);
+    return;
+  }
+  if (!listed.data.items.length) {
+    ElMessage.warning(t('notes.copyFolderEmpty'));
+    return;
+  }
+  const sections: FolderMarkdownNote[] = [];
+  for (const summary of listed.data.items) {
+    const full = await getNote(summary.id);
+    if (full.ok === false) {
+      continue;
+    }
+    sections.push({ title: summary.title, content: full.data.content || '' });
+  }
+  if (!sections.length) {
+    ElMessage.warning(t('notes.copyFolderEmpty'));
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(buildFolderMarkdown(sections));
+    ElMessage.success(t('notes.copyFolderDone', { count: sections.length }));
+  } catch {
+    ElMessage.error(t('notes.copyFolderFailed'));
   }
 }
 

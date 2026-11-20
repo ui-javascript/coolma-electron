@@ -195,6 +195,22 @@ export const tagRemoveManySchema = z.object({
   ids: z.array(z.number().int().positive()).min(1).max(500),
 });
 
+export const aiChatStreamSchema = z.object({
+  requestId: z.string().trim().min(1).max(80),
+  modelId: z.number().int().positive().optional(),
+  messages: z
+    .array(
+      z.object({
+        role: z.enum(['system', 'user', 'assistant']),
+        content: z.string().max(20000),
+      }),
+    )
+    .min(1)
+    .max(12),
+  temperature: z.number().min(0).max(2).optional(),
+  maxTokens: z.number().int().min(1).max(8192).optional(),
+});
+
 export const aiChatSchema = z.object({
   modelId: z.number().int().positive().optional(),
   messages: z

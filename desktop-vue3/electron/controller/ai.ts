@@ -1,4 +1,4 @@
-import { safeStorage } from 'electron';
+import { BrowserWindow, safeStorage } from 'electron';
 import type { IpcResult } from '../shared/ipc/contract';
 import { ok } from '../shared/ipc/result';
 import {
@@ -8,10 +8,13 @@ import {
 } from '../service/db/ai-repository';
 import {
   aiChatSchema,
+  aiChatStreamSchema,
   aiModelSaveSchema,
   aiSkillSaveSchema,
   aiIdSchema,
 } from '../shared/ipc/schemas';
+import { IPC_EVENTS } from '../shared/ipc/channels';
+import { drainSseDataLines, extractDeltaText } from '../service/ai/sse';
 import { failFromError } from './controller-utils';
 
 const PROVIDER_OPENAI_COMPATIBLE = 'openai-compatible';
@@ -118,6 +121,14 @@ function extractMessageText(message: unknown): string {
       .join('');
   }
   return '';
+}
+
+function broadcastAiChunk(requestId: string, delta: string): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) {
+      win.webContents.send(IPC_EVENTS.aiChatStream, { requestId, delta });
+    }
+  }
 }
 
 interface AiChatOutput {
@@ -310,6 +321,146 @@ class AiController {
       });
     } catch (error) {
       return failFromError(error, 'AI_CHAT_ERROR');
+    }
+  }
+
+  /**
+   * 流式 chat（对齐 vue2 SSE 逐字回显）：边读边把 delta 发到渲染层，
+   * invoke 本身仍等整段结束并返回最终结果，避免渲染层再维护一套收尾协议。
+   */
+  async chatStream(args?: unknown): Promise<IpcResult<AiChatOutput>> {
+    try {
+      const input = aiChatStreamSchema.parse(args ?? {});
+      const config = resolveChatConfig(input.modelId);
+      if (!config) {
+        return { ok: false, error: { code: 'AI_TAG_NO_DEFAULT_CONFIG', message: '没有可用的 AI 模型配置' } };
+      }
+      const missing = assertConfigUsable(config);
+      if (missing.length > 0) {
+        return {
+          ok: false,
+          error: { code: 'AI_TAG_CONFIG_INCOMPLETE', message: `缺少字段: ${missing.join(', ')}` },
+        };
+      }
+      if (config.providerType !== PROVIDER_OPENAI_COMPATIBLE) {
+        return { ok: false, error: { code: 'AI_MODEL_UNSUPPORTED_PROVIDER', message: '暂只支持 openai-compatible' } };
+      }
+
+      const headers = parseJsonField(config.headersJson);
+      const extraConfig = parseJsonField(config.extraConfigJson);
+      const url = `${String(config.baseUrl || '').replace(/\/$/, '')}/chat/completions`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${decryptKey(config.apiKeyEncrypted, config.apiKeyEncryptedVersion)}`,
+          ...headers,
+        },
+        body: JSON.stringify({
+          model: config.model,
+          messages: input.messages,
+          temperature: input.temperature ?? 0.2,
+          max_tokens: input.maxTokens ?? 1024,
+          ...extraConfig,
+          stream: true,
+        }),
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        return { ok: false, error: { code: 'AI_CHAT_HTTP_ERROR', message: errorText || `HTTP ${response.status}` } };
+      }
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('AI response has no readable stream');
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let content = '';
+      let finishReason: string | null = null;
+      let model = String(config.model || 'unknown');
+      let usage: unknown = null;
+      let sawDone = false;
+
+      const consume = (data: string): boolean => {
+        if (data === '[DONE]') {
+          sawDone = true;
+          return false;
+        }
+        let payload: {
+          choices?: Array<{ delta?: unknown; finish_reason?: string }>;
+          model?: string;
+          usage?: unknown;
+        };
+        try {
+          payload = JSON.parse(data) as typeof payload;
+        } catch {
+          return true;
+        }
+        const choice = payload.choices?.[0];
+        const delta = extractDeltaText(choice?.delta);
+        if (delta) {
+          content += delta;
+          broadcastAiChunk(input.requestId, delta);
+        }
+        finishReason = choice?.finish_reason ?? finishReason;
+        model = String(payload.model || model);
+        usage = payload.usage ?? usage;
+        return !sawDone;
+      };
+
+      while (!sawDone) {
+        const chunk = await reader.read();
+        if (chunk.done) {
+          break;
+        }
+        buffer += decoder.decode(chunk.value, { stream: true });
+        const drained = drainSseDataLines(buffer);
+        buffer = drained.rest;
+        for (const data of drained.lines) {
+          if (!consume(data)) {
+            break;
+          }
+        }
+      }
+
+      // 最后一行可能没有换行；补一个再冲一次，防止丢尾包。
+      if (!sawDone && buffer.trim()) {
+        const drained = drainSseDataLines(`${buffer}\n`);
+        for (const data of drained.lines) {
+          if (!consume(data)) {
+            break;
+          }
+        }
+      }
+
+      // 有些兼容服务忽略 stream:true，直接回整段 JSON；补一次兜底解析。
+      if (!content && !sawDone) {
+        try {
+          const payload = JSON.parse(buffer.trim()) as {
+            choices?: Array<{ message?: unknown; finish_reason?: string }>;
+            model?: string;
+            usage?: unknown;
+          };
+          const choice = payload.choices?.[0];
+          content = extractMessageText(choice?.message);
+          finishReason = choice?.finish_reason ?? finishReason;
+          model = String(payload.model || model);
+          usage = payload.usage ?? usage;
+        } catch {
+          // 不是 JSON 就按空回复处理，错误留给上层展示。
+        }
+      }
+
+      return ok({
+        content,
+        finishReason,
+        truncated: finishReason === 'length',
+        model,
+        usage,
+      });
+    } catch (error) {
+      return failFromError(error, 'AI_CHAT_STREAM_ERROR');
     }
   }
 

@@ -1,4 +1,4 @@
-import { IPC_CHANNELS } from '@shared/ipc/channels';
+import { IPC_CHANNELS, IPC_EVENTS } from '@shared/ipc/channels';
 import type { AppInfo, IpcResult } from '@shared/ipc/contract';
 import type { BackupEntry, CategoryRecord, DatabaseStatus, EchoCard, ImportResult, IntegrityReport, NoteListResult, NoteRecord, PendingSyncSummary, RestoreResult, RuneCard, SyncLogEntry, TagRecord } from '@shared/types/domain';
 
@@ -475,4 +475,28 @@ export function aiChat(input: {
   maxTokens?: number;
 }): Promise<IpcResult<AiChatOutput>> {
   return invoke<AiChatOutput>(IPC_CHANNELS.ai.chat, input);
+}
+
+export interface AiChatStreamEvent {
+  requestId: string;
+  delta: string;
+}
+
+/** 订阅流式增量；invoke 结束时仍会返回完整结果，事件只负责逐字渲染。 */
+export function onAiChatStream(listener: (event: AiChatStreamEvent) => void): () => void {
+  const api = window.coolma;
+  if (!api) {
+    return () => undefined;
+  }
+  return api.on(IPC_EVENTS.aiChatStream, (payload) => listener(payload as AiChatStreamEvent));
+}
+
+export function aiChatStream(input: {
+  requestId: string;
+  modelId?: number;
+  messages: AiChatMessage[];
+  temperature?: number;
+  maxTokens?: number;
+}): Promise<IpcResult<AiChatOutput>> {
+  return invoke<AiChatOutput>(IPC_CHANNELS.ai.chatStream, input);
 }
