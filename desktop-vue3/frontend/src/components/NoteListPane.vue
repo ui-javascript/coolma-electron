@@ -14,10 +14,16 @@
           <p>{{ t('notes.count', { count: notes.length }) }} · {{ filterLabel }}</p>
         </div>
       </div>
-      <el-button type="primary" size="small" :loading="creating" @click="emit('create-note')">
-        <el-icon><Plus /></el-icon>
-        {{ t('action.newNote') }}
-      </el-button>
+      <div class="notes-toolbar-actions">
+        <el-button size="small" plain :loading="refreshing" :title="t('notes.refresh')" @click="emit('refresh')">
+          <el-icon><Refresh /></el-icon>
+          {{ t('notes.refresh') }}
+        </el-button>
+        <el-button type="primary" size="small" :loading="creating" @click="emit('create-note')">
+          <el-icon><Plus /></el-icon>
+          {{ t('action.newNote') }}
+        </el-button>
+      </div>
     </div>
 
     <div v-if="selectedIds.length > 0" class="batch-bar">
@@ -45,7 +51,23 @@
       </template>
     </el-input>
 
-    <div v-loading="loading" class="note-list" :class="{ dense: props.dense }">
+    <div
+      v-loading="loading"
+      class="note-list"
+      :class="{ dense: props.dense }"
+      @touchstart="onPullStart"
+      @touchmove="onPullMove"
+      @touchend="onPullEnd"
+      @touchcancel="resetPull"
+    >
+      <div
+        v-if="pullDistance > 0"
+        class="pull-hint"
+        :class="{ ready: pullDistance >= PULL_THRESHOLD }"
+        :style="{ height: `${pullDistance}px` }"
+      >
+        <span>{{ pullDistance >= PULL_THRESHOLD ? t('notes.releaseRefresh') : t('notes.pullRefresh') }}</span>
+      </div>
       <div
         v-for="note in notes"
         :key="note.id"
@@ -92,7 +114,7 @@
 </template>
 
 <script setup lang="ts">
-import { Delete, Download, FolderOpened, MoreFilled, Plus, Search } from '@element-plus/icons-vue';
+import { Delete, Download, FolderOpened, MoreFilled, Plus, Refresh, Search } from '@element-plus/icons-vue';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { NoteSummary } from '@shared/types/domain';
@@ -104,6 +126,7 @@ const props = defineProps<{
   activeId: number | null;
   selectedIds: number[];
   loading: boolean;
+  refreshing?: boolean;
   creating: boolean;
   keyword: string;
   filterLabel: string;
@@ -118,6 +141,7 @@ const emit = defineEmits<{
   (event: 'select', id: number): void;
   (event: 'open-menu', note: NoteSummary, native: MouseEvent): void;
   (event: 'create-note'): void;
+  (event: 'refresh'): void;
   (event: 'batch-move'): void;
   (event: 'batch-delete'): void;
 }>();
@@ -182,7 +206,80 @@ function clearSelection(): void {
   anchorId.value = null;
   commitSelection([]);
 }
+
+const PULL_THRESHOLD = 56;
+const pullStartY = ref<number | null>(null);
+const pullDistance = ref(0);
+
+function onPullStart(event: TouchEvent): void {
+  const element = event.currentTarget as HTMLElement | null;
+  if (!element || element.scrollTop > 0 || props.refreshing) {
+    pullStartY.value = null;
+    return;
+  }
+  pullStartY.value = event.touches[0]?.clientY ?? null;
+}
+
+function onPullMove(event: TouchEvent): void {
+  if (pullStartY.value === null) {
+    return;
+  }
+  const delta = (event.touches[0]?.clientY ?? 0) - pullStartY.value;
+  if (delta <= 0) {
+    pullDistance.value = 0;
+    return;
+  }
+  // 0.5 阻尼，拖到 112px 左右到阈值上限 90px
+  pullDistance.value = Math.min(90, delta * 0.5);
+}
+
+function onPullEnd(): void {
+  if (pullDistance.value >= PULL_THRESHOLD && !props.refreshing) {
+    emit('refresh');
+  }
+  resetPull();
+}
+
+function resetPull(): void {
+  pullStartY.value = null;
+  pullDistance.value = 0;
+}
 </script>
+
+<style scoped>
+/* 紧凑列表模式（vue2 noteListDenseMode） */
+.note-list.dense .note-item {
+  padding: 6px 12px;
+}
+
+.note-list.dense .note-item-head {
+  margin-bottom: 0;
+}
+
+.notes-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.note-list {
+  position: relative;
+}
+
+.pull-hint {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  overflow: hidden;
+  color: var(--coolma-muted);
+  font-size: 11px;
+  transition: height 0.08s linear;
+}
+
+.pull-hint.ready {
+  color: var(--coolma-primary);
+}
+</style>
 
 /* 紧凑列表模式（vue2 noteListDenseMode） */
 .note-list.dense .note-item {

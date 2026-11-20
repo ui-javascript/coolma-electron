@@ -25,6 +25,7 @@ import {
   saveTemplate as saveTemplateIpc,
   removeTemplate as removeTemplateIpc,
 } from '@/services/ipc';
+import { getSyncStatus, syncPull } from '@/services/sync';
 
 function toSummary(note: NoteRecord): NoteSummary {
   return {
@@ -83,6 +84,29 @@ export const useNotesStore = defineStore('notes', {
 
       this.loading = false;
       return notesResult.ok;
+    },
+
+    /**
+     * 手动刷新（对齐 vue2 refreshNoteListHandler）：
+     * - 当前选中文件夹且为知已登录 → 先拉该分类，再重载 SQLite；
+     * - 其它筛选（标签/日历/全部）只重载本地库，不猜云端分类。
+     */
+    async refresh(category?: string): Promise<boolean> {
+      let syncError = '';
+      if (category) {
+        const status = await getSyncStatus();
+        if (status.ok && status.data.loggedIn) {
+          const result = await syncPull({ category, limit: 200 });
+          if (!result.ok) {
+            syncError = result.error.message;
+          }
+        }
+      }
+      const ok = await this.loadAll();
+      if (syncError) {
+        this.error = syncError;
+      }
+      return ok;
     },
 
     /** 笔记模板列表（设置页卡片 + 新建笔记下拉共用）。 */

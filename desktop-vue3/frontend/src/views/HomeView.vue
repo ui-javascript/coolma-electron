@@ -71,6 +71,7 @@
           :active-id="activeId"
           :selected-ids="selectedIds"
           :loading="notesStore.loading"
+          :refreshing="refreshing"
           :creating="creating"
           :filter-label="currentFilterLabel"
           :total="notesStore.total"
@@ -79,6 +80,7 @@
           @select="selectNote"
           @open-menu="openMenu"
           @create-note="createNote"
+          @refresh="refreshNotes"
           @batch-move="openBatchMove"
           @batch-export="exportSelected"
           @batch-delete="deleteSelected"
@@ -237,6 +239,7 @@ const activeFolder = ref('');
 const activeTimeGroup = ref('');
 const activeContent = ref('');
 const creating = ref(false);
+const refreshing = ref(false);
 const lastSavedAt = ref(0);
 const mindMapVisible = ref(false);
 const pptPreviewVisible = ref(false);
@@ -855,6 +858,25 @@ async function exportSelected(): Promise<void> {
     return;
   }
   await exportFolder(folder);
+}
+
+async function refreshNotes(): Promise<void> {
+  if (refreshing.value) {
+    return;
+  }
+  refreshing.value = true;
+  try {
+    // 只刷新「当前文件夹」；标签/日历/全部范围没有对应的为知分类，硬拉 '/' 会拉错。
+    const category = indexMode.value === IndexModeEnum.Folder && activeFolder.value
+      ? activeFolder.value
+      : undefined;
+    const ok = await notesStore.refresh(category);
+    if (!ok || notesStore.error) {
+      ElMessage.error(notesStore.error || t('notes.loadFailed'));
+    }
+  } finally {
+    refreshing.value = false;
+  }
 }
 
 async function createNote(payload?: { templateId?: string }): Promise<void> {
