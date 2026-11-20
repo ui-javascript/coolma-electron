@@ -51,6 +51,7 @@ import { buildFolderMarkdown } from '../frontend/src/utils/folderMarkdown';
 import { drainSseDataLines, extractDeltaText } from '../electron/service/ai/sse';
 import { formatDocumentByPangu } from '../frontend/src/utils/pangu';
 import { BUILT_IN_CDN_DEPS, getResourceType, isJQueryCoreDep, mergeCdnDeps } from '../frontend/src/utils/cdn-rules';
+import { fitWindowBounds, parseWindowState } from '../electron/service/os/window-state-rules';
 import { cloudTagsToNames, localNamesToCloudTags, splitCloudTagString } from '../electron/service/sync/tag-rules';
 
 type Any = Record<string, any>;
@@ -1038,6 +1039,35 @@ async function main(): Promise<void> {
         && isJQueryCoreDep({ name: 'jQuery', url: 'https://x/jquery.min.js' }) === true
         && isJQueryCoreDep({ name: 'jQuery Migrate', url: 'https://x/jquery-migrate.min.js' }) === false,
       `${getResourceType('a.woff2')}`,
+    );
+
+    const primaryArea = { x: 0, y: 0, width: 1920, height: 1080 };
+    const defaults = { width: 1280, height: 820, minWidth: 960, minHeight: 600 };
+    const parsedState = parseWindowState({ x: 100.4, y: 80.6, width: 1200.2, height: 800.9, maximized: true });
+    assert(
+      '窗口状态：合法数据取整并保留最大化',
+      parsedState?.x === 100 && parsedState?.y === 81 && parsedState?.width === 1200 && parsedState?.height === 801 && parsedState?.maximized === true,
+      JSON.stringify(parsedState),
+    );
+    assert(
+      '窗口状态：非法宽高直接丢弃',
+      parseWindowState({ x: 0, y: 0, width: 0, height: 800, maximized: false }) === null
+        && parseWindowState({ x: '0', y: 0, width: 800, height: 600 }) === null,
+      'invalid accepted',
+    );
+    const offscreen = fitWindowBounds({ x: 99999, y: 99999, width: 1200, height: 800, maximized: false }, [primaryArea], defaults);
+    const tiny = fitWindowBounds({ x: -100, y: -50, width: 500, height: 300, maximized: false }, [primaryArea], defaults);
+    const secondary = fitWindowBounds(
+      { x: 2000, y: 100, width: 1280, height: 820, maximized: false },
+      [primaryArea, { x: 1920, y: 0, width: 1920, height: 1080 }],
+      defaults,
+    );
+    assert(
+      '窗口状态：离屏回主屏居中、小于最小值抬到最小值、副屏位置保留',
+      offscreen.x === 320 && offscreen.y === 130 && offscreen.width === 1280 && offscreen.height === 820
+        && tiny.x === 0 && tiny.y === 0 && tiny.width === 960 && tiny.height === 600
+        && secondary.x === 2000 && secondary.y === 100,
+      JSON.stringify({ offscreen, tiny, secondary }),
     );
   }
 

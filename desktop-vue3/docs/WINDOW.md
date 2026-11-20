@@ -75,9 +75,15 @@ controller/window/close
 - `.topbar` computed `-webkit-app-region: drag`，搜索/控件为 `no-drag`；
 - 设置页同样有控件与拖拽区。
 
-## 6. 已知限制
+## 6. 窗口状态持久化
+
+- 状态文件：`app.getPath('userData')/window-state.json`，字段 `x/y/width/height/maximized`；
+- `windowReady` 恢复上次位置/尺寸/最大化；完全离屏时回主屏居中，副屏位置保留；
+- `resize/move/maximize/unmaximize` 500ms 防抖落盘，`close` 立即落盘；
+- 最大化时保存 `getNormalBounds()`，不会把全屏尺寸写成普通尺寸。
+
+## 7. 已知限制
 
 - 自绘最大化按钮不提供 Windows 11 Snap Layouts 悬浮菜单；
-- 未做窗口位置/尺寸持久化；
 - 未加托盘、关闭到托盘；
 - macOS 上自定义按钮替代原生 traffic lights，未做平台差异化位置。

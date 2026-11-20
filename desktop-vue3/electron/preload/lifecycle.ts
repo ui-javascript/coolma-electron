@@ -2,6 +2,11 @@ import { app as electronApp, Menu, screen } from 'electron';
 import { getConfig } from 'ee-core/config';
 import { getMainWindow } from 'ee-core/electron';
 import { logger } from 'ee-core/log';
+import {
+  fitWindowBounds,
+  readWindowState,
+  saveWindowState,
+} from '../service/os/window-state';
 
 class Lifecycle {
   async ready(): Promise<void> {
@@ -44,12 +49,46 @@ class Lifecycle {
     }
 
     win.setMenuBarVisibility(false);
-    const workArea = screen.getPrimaryDisplay().workArea;
-    const width = Math.min(1280, Math.max(960, workArea.width - 120));
-    const height = Math.min(820, Math.max(600, workArea.height - 100));
-    const x = Math.round(workArea.x + (workArea.width - width) / 2);
-    const y = Math.round(workArea.y + (workArea.height - height) / 2);
-    win.setBounds({ x, y, width, height });
+    // 对齐 vue2 electron-window-state：恢复上次位置/尺寸/最大化，离屏则回主屏居中。
+    const primary = screen.getPrimaryDisplay().workArea;
+    const workAreas = [primary, ...screen.getAllDisplays().map((display) => display.workArea)];
+    const defaults = {
+      width: Math.min(1280, Math.max(960, primary.width - 120)),
+      height: Math.min(820, Math.max(600, primary.height - 100)),
+      minWidth: 960,
+      minHeight: 600,
+    };
+    const bounds = fitWindowBounds(readWindowState(), workAreas, defaults);
+    win.setBounds({ x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height });
+    if (bounds.maximized) {
+      win.maximize();
+    }
+
+    let saveTimer: ReturnType<typeof setTimeout> | null = null;
+    const capture = (): void => {
+      if (win.isDestroyed() || win.isMinimized()) {
+        return;
+      }
+      const normal = win.isMaximized() ? win.getNormalBounds() : win.getBounds();
+      saveWindowState({ ...normal, maximized: win.isMaximized() });
+    };
+    const schedule = (): void => {
+      if (saveTimer) {
+        clearTimeout(saveTimer);
+      }
+      saveTimer = setTimeout(capture, 500);
+    };
+    win.on('resize', schedule);
+    win.on('move', schedule);
+    win.on('maximize', schedule);
+    win.on('unmaximize', schedule);
+    win.on('close', () => {
+      if (saveTimer) {
+        clearTimeout(saveTimer);
+        saveTimer = null;
+      }
+      capture();
+    });
 
     const { windowsOption } = getConfig();
     if (windowsOption?.show === false) {
