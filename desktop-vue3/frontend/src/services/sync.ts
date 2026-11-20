@@ -31,6 +31,7 @@ export interface PushResult {
   pushed: number;
   created: number;
   failed: number;
+  deleted?: number;
   errors: string[];
 }
 

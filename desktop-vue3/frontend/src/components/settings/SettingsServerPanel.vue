@@ -87,7 +87,7 @@
       </el-tab-pane>
     </el-tabs>
     <ImageUploadServiceDialog v-model="imageDialogVisible" />
-    <SyncOfflinePromptDialog v-model="offlineVisible" />
+    <SyncOfflinePromptDialog v-model="offlineVisible" @synced="loadPending" />
   </div>
 </template>
 
@@ -95,9 +95,7 @@
 /**
  * 云服务设置（复刻 vue2 SettingsServerPanel）：同步策略 / 同步方式 / 图片上传服务。
  *
- * 如实报备：vue3 主进程还没有云同步引擎（只有 `controller/sync/pending` 本地队列快照），
- * 所以这里不画「已登录、上次同步、推送/拉取」的假界面；只保留策略选择 + 未登录说明 +
- * 本地待同步条数（pending 是真实数据）。
+ * 登录、拉取、推送、目录接口都已接真实为知；本地待同步条数来自 `controller/sync/pending`。
  */
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -184,6 +182,10 @@ async function doLogin(): Promise<void> {
     status.value = result.data;
     syncMessage.value = t('settings.syncLoginDone');
     await loadPending();
+    // 对齐 vue2：登录成功后本地若还有待推队列，立刻弹「立即同步」。
+    if (pending.value > 0) {
+      offlineVisible.value = true;
+    }
   } finally {
     busy.value = false;
   }
