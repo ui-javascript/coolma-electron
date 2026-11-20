@@ -243,6 +243,66 @@ async function readTagMaps(config: WizConfig): Promise<TagMaps> {
   return maps;
 }
 
+function requireTagConfig(): WizConfig {
+  const config = readConfig();
+  if (!config.token || !config.kbGuid || !config.kbServer) {
+    throw Object.assign(new Error('not logged in'), { code: 'NO_LOGIN' });
+  }
+  return config;
+}
+
+/** 标签面板新建：云端已有同名就复用，没有就按 vue2 createTag 建一个。 */
+export async function syncCreateRemoteTag(name: string): Promise<void> {
+  const config = requireTagConfig();
+  const maps = await readTagMaps(config);
+  if (maps.nameToGuid.has(name.toLowerCase())) {
+    return;
+  }
+  const created = await createCloudTag(config, name);
+  if (!created.tagGuid) {
+    throw new Error('Failed to create remote tag');
+  }
+}
+
+/** 标签面板改名：云端有旧名就改名；离线标签尚未上云时直接建新名。 */
+export async function syncRenameRemoteTag(fromName: string, toName: string): Promise<void> {
+  const config = requireTagConfig();
+  const maps = await readTagMaps(config);
+  const guid = maps.nameToGuid.get(fromName.toLowerCase());
+  if (!guid) {
+    if (!maps.nameToGuid.has(toName.toLowerCase())) {
+      await createCloudTag(config, toName);
+    }
+    return;
+  }
+  await request(
+    'PUT',
+    `${config.kbServer}/ks/tag/rename/${config.kbGuid}`,
+    { tagGuid: guid, name: toName },
+    config,
+    30000,
+    false,
+  );
+}
+
+/** 标签面板删除：按名称找到云端 GUID 再删；离线标签没上云时无需请求。 */
+export async function syncDeleteRemoteTag(name: string): Promise<void> {
+  const config = requireTagConfig();
+  const maps = await readTagMaps(config);
+  const guid = maps.nameToGuid.get(name.toLowerCase());
+  if (!guid) {
+    return;
+  }
+  await request(
+    'DELETE',
+    `${config.kbServer}/ks/tag/delete/${config.kbGuid}/${guid}`,
+    undefined,
+    config,
+    30000,
+    false,
+  );
+}
+
 export interface WizCategory {
   category: string;
   parent: string;
