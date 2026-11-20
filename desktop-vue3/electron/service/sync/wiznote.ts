@@ -158,8 +158,17 @@ export async function login(input: {
   });
   // 照 vue2 登录/重登录：把 kb_guid 为空的离线笔记与目录归属到当前账号，等下次推送。
   if (saved.kbGuid) {
-    notesRepository.migrateOffline(saved.kbGuid);
-    categoriesRepository.migrateOffline(saved.kbGuid);
+    // 照 vue2：两段迁移各自 try/catch，失败只 warn，绝不阻断登录。
+    try {
+      notesRepository.migrateOffline(saved.kbGuid);
+    } catch (error) {
+      console.warn('[sync] 离线笔记迁移失败', (error as Error).message);
+    }
+    try {
+      categoriesRepository.migrateOffline(saved.kbGuid);
+    } catch (error) {
+      console.warn('[sync] 离线目录迁移失败', (error as Error).message);
+    }
   }
   return getPublicConfig();
 }
