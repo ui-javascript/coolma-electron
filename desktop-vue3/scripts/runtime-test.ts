@@ -46,6 +46,7 @@ import {
   toWizCategoryInput,
 } from '../electron/service/sync/push-rules';
 import { cloudDedupeKey, toWizCategoryDeletePath } from '../electron/service/sync/pull-rules';
+import { cloudTagsToNames, localNamesToCloudTags, splitCloudTagString } from '../electron/service/sync/tag-rules';
 
 type Any = Record<string, any>;
 
@@ -922,6 +923,29 @@ async function main(): Promise<void> {
       toWizCategoryDeletePath('/工作/子目录') === '/工作/子目录/'
         && toWizCategoryDeletePath('/') === '/',
       toWizCategoryDeletePath('/工作/子目录'),
+    );
+
+    const guidToName = new Map([
+      ['guid-gongzuo', '工作'],
+      ['guid-shenghuo', '生活'],
+    ]);
+    assert(
+      '标签规则：云端 GUID 串翻成本地名称、未知 token 原样保留',
+      cloudTagsToNames('guid-gongzuo*guid-shenghuo*guid-unknown', guidToName) === '工作,生活,guid-unknown',
+      cloudTagsToNames('guid-gongzuo*guid-shenghuo*guid-unknown', guidToName),
+    );
+    assert(
+      '标签规则：云端空 tags 得到空名称串',
+      cloudTagsToNames('', guidToName) === '' && splitCloudTagString(undefined).length === 0,
+      JSON.stringify(splitCloudTagString('*工作**生活*')),
+    );
+    const nameToGuid = new Map([['工作', 'G1']]);
+    const knownGuid = new Set(['g2']);
+    const mapped = localNamesToCloudTags('工作,g2,新标签,工作', nameToGuid, knownGuid);
+    assert(
+      '标签规则：本地名称翻 GUID、旧 GUID 保留、缺的记 missing',
+      mapped.tags === 'G1*g2' && mapped.missing.length === 1 && mapped.missing[0] === '新标签',
+      JSON.stringify(mapped),
     );
   }
 

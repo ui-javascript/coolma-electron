@@ -16,6 +16,7 @@ import {
   toWizCategoryInput,
 } from './push-rules';
 import { toWizCategoryDeletePath } from './pull-rules';
+import { cloudTagsToNames, localNamesToCloudTags } from './tag-rules';
 
 /**
  * 为知笔记（WizNote）同步客户端。
@@ -170,6 +171,76 @@ export function logout(): ReturnType<typeof getPublicConfig> {
   }
   saveConfig({ token: '', kbGuid: '', kbServer: '' });
   return getPublicConfig();
+}
+
+export interface WizTag {
+  name: string;
+  tagGuid: string;
+}
+
+interface TagMaps {
+  nameToGuid: Map<string, string>;
+  guidToName: Map<string, string>;
+  knownGuid: Set<string>;
+}
+
+function emptyTagMaps(): TagMaps {
+  return { nameToGuid: new Map(), guidToName: new Map(), knownGuid: new Set() };
+}
+
+/** 云端标签列表；照 vue2 `KnowledgeBaseApi.getAllTags` → GET {kbServer}/ks/tag/all/{kbGuid}。 */
+async function fetchCloudTags(config: WizConfig): Promise<WizTag[]> {
+  const payload = await request<Record<string, unknown>>(
+    'GET',
+    `${config.kbServer}/ks/tag/all/${config.kbGuid}`,
+    undefined,
+    config,
+    30000,
+    false,
+  );
+  const raw = payload.result ?? payload;
+  const list = Array.isArray(raw)
+    ? raw
+    : Array.isArray((raw as { tags?: unknown })?.tags)
+      ? ((raw as { tags: unknown[] }).tags)
+      : [];
+  return list
+    .map((item) => {
+      const row = item as Record<string, unknown>;
+      return {
+        name: String(row?.name ?? '').trim(),
+        tagGuid: String(row?.tagGuid ?? row?.guid ?? '').trim(),
+      };
+    })
+    .filter((tag) => tag.name && tag.tagGuid);
+}
+
+/** 在线创建标签；照 vue2 `KnowledgeBaseApi.createTag` → POST /ks/tag/create/{kbGuid}。 */
+async function createCloudTag(config: WizConfig, name: string): Promise<WizTag> {
+  const payload = await request<Record<string, unknown>>(
+    'POST',
+    `${config.kbServer}/ks/tag/create/${config.kbGuid}`,
+    { name, parentTagGuid: '' },
+    config,
+    30000,
+    false,
+  );
+  const raw = (payload.result ?? payload) as Record<string, unknown>;
+  return {
+    name: String(raw?.name ?? name),
+    tagGuid: String(raw?.tagGuid ?? raw?.guid ?? ''),
+  };
+}
+
+async function readTagMaps(config: WizConfig): Promise<TagMaps> {
+  const maps = emptyTagMaps();
+  for (const tag of await fetchCloudTags(config)) {
+    const guid = tag.tagGuid.toLowerCase();
+    maps.nameToGuid.set(tag.name.toLowerCase(), tag.tagGuid);
+    maps.guidToName.set(guid, tag.name);
+    maps.knownGuid.add(guid);
+  }
+  return maps;
 }
 
 export interface WizCategory {
@@ -593,6 +664,13 @@ export async function pull(input: { category?: string; limit?: number } = {}): P
   let backfilled = 0;
   let failed = 0;
   const errors: string[] = [];
+  let tagMaps = emptyTagMaps();
+  try {
+    // 云端 tags 是 GUID，本地按名称展示；拉取前统一取一次标签表做映射。
+    tagMaps = await readTagMaps(config);
+  } catch (error) {
+    console.warn('[sync] 标签表拉取失败，tags 按原值落库', (error as Error).message);
+  }
 
   for (const summary of list) {
     const docGuid = summary.docGuid;
@@ -620,7 +698,7 @@ export async function pull(input: { category?: string; limit?: number } = {}): P
           title: String(note.info?.title ?? summary.title).replace(/\.md$/i, ''),
           content,
           category: String(note.info?.category ?? summary.category),
-          tags: String(note.info?.tags ?? ''),
+          tags: cloudTagsToNames(String(note.info?.tags ?? ''), tagMaps.guidToName),
           serverModified: Number(note.info?.dataModified ?? summary.dataModified) || null,
         });
         backfilled += 1;
@@ -654,7 +732,7 @@ export async function pull(input: { category?: string; limit?: number } = {}): P
         title: String(note.info?.title ?? summary.title).replace(/\.md$/i, ''),
         content,
         category: String(note.info?.category ?? summary.category),
-        tags: String(note.info?.tags ?? ''),
+        tags: cloudTagsToNames(String(note.info?.tags ?? ''), tagMaps.guidToName),
         serverModified: Number(note.info?.dataModified ?? summary.dataModified) || null,
       });
       imported += 1;
@@ -789,6 +867,16 @@ export async function push(input: { limit?: number } = {}): Promise<PushResult> 
 
   const notes = notesRepository.listDirty(input.limit || 50, config.kbGuid);
   const cloudCache = new Map<string, WizNoteSummary[]>();
+  let tagMaps = emptyTagMaps();
+  let tagsReady = false;
+  try {
+    // 本地标签是名称、云端是 GUID：推送前取一次标签表，缺的标签按 vue2 现场创建。
+    tagMaps = await readTagMaps(config);
+    tagsReady = true;
+  } catch (error) {
+    console.warn('[sync] 标签表拉取失败，本次不写 tags', (error as Error).message);
+  }
+  const tagCreateFailed = new Set<string>();
 
   for (const note of notes) {
     const docGuid = note.docGuid ?? '';
@@ -797,13 +885,38 @@ export async function push(input: { limit?: number } = {}): Promise<PushResult> 
     const category = note.category || '/My Notes/';
     const { html, names } = toWizHtml(note.content ?? '', isLite, config, docGuid, isRemote ? docGuid : '');
     const resources = names.map((name) => ({ name }));
+    let cloudTags: string | undefined;
+    if (tagsReady) {
+      let mapped = localNamesToCloudTags(note.tags, tagMaps.nameToGuid, tagMaps.knownGuid);
+      for (const name of mapped.missing) {
+        if (tagCreateFailed.has(name.toLowerCase())) {
+          continue;
+        }
+        try {
+          const created = await createCloudTag(config, name);
+          if (!created.tagGuid) {
+            tagCreateFailed.add(name.toLowerCase());
+            continue;
+          }
+          const guid = created.tagGuid.toLowerCase();
+          tagMaps.nameToGuid.set(created.name.toLowerCase(), created.tagGuid);
+          tagMaps.guidToName.set(guid, created.name);
+          tagMaps.knownGuid.add(guid);
+        } catch (error) {
+          tagCreateFailed.add(name.toLowerCase());
+          console.warn('[sync] 标签创建失败', name, (error as Error).message);
+        }
+      }
+      mapped = localNamesToCloudTags(note.tags, tagMaps.nameToGuid, tagMaps.knownGuid);
+      cloudTags = mapped.tags;
+    }
     const payload = {
       html,
       title: note.title,
       kbGuid: config.kbGuid,
       resources,
       type: isLite ? 'lite/markdown' : 'document',
-      tags: note.tags || '',
+      ...(cloudTags === undefined ? {} : { tags: cloudTags }),
       category,
     };
 
