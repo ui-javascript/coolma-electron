@@ -101,6 +101,7 @@
           :status-error="appStore.error"
           :app-info="appStore.appInfo"
           @delete="deleteActiveNote"
+          @save="flushSave"
           @context-menu="openEditorMenu"
           @mind-map="mindMapVisible = true"
           @ppt-preview="pptPreviewVisible = true"
@@ -558,18 +559,21 @@ const editorMenuVisible = ref(false);
 const editorMenuX = ref(0);
 const editorMenuY = ref(0);
 const editorSelectionEmpty = ref(true);
+const editorMenuLocked = ref(false);
 const editorMenuItems = computed<ContextMenuItem[]>(() =>
   buildMuyaMenu({
     selectionEmpty: editorSelectionEmpty.value,
+    locked: editorMenuLocked.value,
     panguReady: true,
     mindmapReady: true,
   }) as unknown as ContextMenuItem[],
 );
 
-function openEditorMenu(payload: { x: number; y: number; selectionEmpty: boolean }): void {
+function openEditorMenu(payload: { x: number; y: number; selectionEmpty: boolean; locked: boolean }): void {
   editorMenuX.value = payload.x;
   editorMenuY.value = payload.y;
   editorSelectionEmpty.value = payload.selectionEmpty;
+  editorMenuLocked.value = payload.locked;
   editorMenuVisible.value = true;
 }
 
@@ -961,7 +965,7 @@ function openSettings(): void {
 
 /**
  * 本地快捷键：与 vue2 的键盘习惯对齐。
- * Ctrl/Cmd+N 新建、Ctrl/Cmd+F 聚焦搜索、Ctrl/Cmd+S 立即保存。
+ * Ctrl/Cmd+N 新建、Ctrl/Cmd+F 聚焦搜索、Ctrl/Cmd+S 立即保存、Ctrl/Cmd+Shift+L 锁定。
  */
 function handleShortcut(event: KeyboardEvent): void {
   if (!(event.ctrlKey || event.metaKey) || event.altKey) {
@@ -969,6 +973,13 @@ function handleShortcut(event: KeyboardEvent): void {
   }
 
   const key = event.key.toLowerCase();
+  if (event.shiftKey && key === 'l' && activeSummary.value) {
+    event.preventDefault();
+    if (!event.repeat) {
+      editorPaneRef.value?.toggleLock();
+    }
+    return;
+  }
   if (key === 'n') {
     event.preventDefault();
     void createNote();

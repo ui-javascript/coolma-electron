@@ -14,7 +14,7 @@ import type { AppTheme } from '@shared/enums/app';
  * - 只有"当前激活"的那个视图会把内容写回 v-model，避免双写；
  * - monaco 按需加载（动态 import），不进首屏包。
  */
-const props = defineProps<{ modelValue: string; theme: AppTheme }>();
+const props = defineProps<{ modelValue: string; theme: AppTheme; readonly?: boolean }>();
 const emit = defineEmits<{ (event: 'update:modelValue', value: string): void }>();
 
 const host = ref<HTMLElement | null>(null);
@@ -29,11 +29,14 @@ onMounted(async () => {
   // 0.38 的 ESM 入口；worker 用 vite 的 ?worker 方式挂到 MonacoEnvironment
   monacoApi = await import('monaco-editor/esm/vs/editor/editor.api');
   const EditorWorker = (await import('monaco-editor/esm/vs/editor/editor.worker?worker')).default;
+  if (!host.value) {
+    return;
+  }
   (self as any).MonacoEnvironment = {
     getWorker: () => new EditorWorker(),
   };
 
-  editor = monacoApi.editor.create(host.value as HTMLElement, {
+  editor = monacoApi.editor.create(host.value, {
     value: props.modelValue,
     language: 'markdown',
     theme: themeName(props.theme),
@@ -43,6 +46,8 @@ onMounted(async () => {
     fontSize: 14,
     lineNumbers: 'on',
     scrollBeyondLastLine: false,
+    domReadOnly: true,
+    readOnly: props.readonly ?? false,
   });
 
   editor.onDidChangeModelContent(() => {
@@ -52,6 +57,13 @@ onMounted(async () => {
     emit('update:modelValue', editor.getValue());
   });
 });
+
+watch(
+  () => props.readonly,
+  (readonly) => {
+    editor?.updateOptions({ readOnly: readonly ?? false });
+  },
+);
 
 watch(
   () => props.modelValue,
@@ -117,7 +129,7 @@ function setCursor(position: { lineNumber?: number; column?: number } | null | u
  * 末行非空时先补一个换行，避免 AI 段粘在最后一行；光标落到新增段尾。
  */
 function appendText(text: string): boolean {
-  if (!editor || !text) {
+  if (!editor || !text || props.readonly) {
     return false;
   }
   const model = editor.getModel();

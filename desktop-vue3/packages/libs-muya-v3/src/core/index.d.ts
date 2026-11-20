@@ -1,6 +1,14 @@
+export interface MuyaWordCount {
+  word: number;
+  paragraph: number;
+  character: number;
+  all: number;
+  line: number;
+}
+
 export interface MuyaChangePayload {
   markdown: string;
-  wordCount?: number;
+  wordCount?: MuyaWordCount;
   cursor?: unknown;
   history?: unknown;
   toc?: unknown;
@@ -24,13 +32,19 @@ export function installDefaultUiPlugins(linkToolsOptions?: Record<string, unknow
 
 export default class Muya {
   constructor(container: string | HTMLElement, options?: MuyaOptions);
+  readonly container: HTMLElement;
   on(event: string, listener: (payload: any) => void): void;
   off(event: string, listener: (payload: any) => void): void;
   getMarkdown(): string;
   setMarkdown(markdown: string, cursor?: unknown, isRenderCursor?: boolean): void;
   getCursor(): { anchor?: { line: number; ch: number }; focus?: { line: number; ch: number } } | null;
   setCursor(cursor: unknown): void;
-  getWordCount(markdown?: string): number;
+  getWordCount(markdown: string): MuyaWordCount;
+  hideAllFloatTools(): void;
+  copyAsMarkdown(): void;
+  copyAsHtml(): void;
+  pasteAsPlainText(): void;
+  insertParagraph(location: 'before' | 'after', text?: string, outMost?: boolean): void;
   focus(): void;
   blur(isRemoveAllRange?: boolean, unSelect?: boolean): void;
   destroy(): void;

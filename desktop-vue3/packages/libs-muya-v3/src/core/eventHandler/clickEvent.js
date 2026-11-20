@@ -226,6 +226,7 @@ class ClickEvent {
       // handler to-do checkbox click
       if (target.tagName === 'INPUT' && target.classList.contains(CLASS_OR_ID.AG_TASK_LIST_ITEM_CHECKBOX)) {
         contentState.listItemCheckBoxClick(target)
+        this.muya.dispatchChange()
       }
 
       eventCenter.dispatch('muya-click', event)

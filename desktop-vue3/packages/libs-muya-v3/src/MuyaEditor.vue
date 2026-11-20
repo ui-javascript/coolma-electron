@@ -1,11 +1,21 @@
 <template>
-  <div ref="host" class="libs-muya-host" :class="`libs-muya-theme-${theme}`" />
+  <div
+    ref="host"
+    class="libs-muya-host"
+    :class="`libs-muya-theme-${theme}`"
+    @beforeinput.capture="guardEdit"
+    @paste.capture="guardEdit"
+    @cut.capture="guardEdit"
+    @drop.capture="guardEdit"
+    @keydown.capture="guardEdit"
+    @click.capture="guardEdit"
+  />
 </template>
 
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import Muya, { installDefaultUiPlugins } from './core/index.js';
-import type { MuyaOptions } from './core/index.js';
+import type { MuyaChangePayload, MuyaOptions } from './core/index.js';
 import type { MuyaPlugin } from './plugin';
 
 const props = withDefaults(
@@ -27,7 +37,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   'update:modelValue': [value: string];
-  change: [payload: { markdown: string; wordCount?: number }];
+  change: [payload: MuyaChangePayload];
   selectionChange: [payload: unknown];
   ready: [editor: Muya];
 }>();
@@ -40,6 +50,26 @@ const pluginDisposers: Array<() => void> = [];
 function applyReadonly(): void {
   const editable = host.value?.querySelector('[contenteditable]');
   editable?.setAttribute('contenteditable', props.readonly ? 'false' : 'true');
+  if (props.readonly) {
+    editor?.hideAllFloatTools();
+  }
+}
+
+function guardEdit(event: Event): void {
+  if (!props.readonly) {
+    return;
+  }
+  if (event instanceof KeyboardEvent && !['Backspace', 'Delete', 'Enter', 'Tab'].includes(event.key)) {
+    return;
+  }
+  if (event.type === 'click' && !(event.target instanceof Element &&
+    event.target.closest('.ag-task-list-item-checkbox, .ag-tool-table, .ag-image-icon-delete, .ag-image-icon-close, .ag-container-icon'))) {
+    return;
+  }
+  event.stopPropagation();
+  if (!(event instanceof KeyboardEvent && event.key === 'Tab')) {
+    event.preventDefault();
+  }
 }
 
 function disposePlugins(): void {
@@ -85,7 +115,7 @@ onMounted(() => {
   });
   const instance = editor;
 
-  instance.on('change', (payload: { markdown: string; wordCount?: number }) => {
+  instance.on('change', (payload: MuyaChangePayload) => {
     if (!applyingExternalValue) {
       emit('update:modelValue', payload.markdown);
     }

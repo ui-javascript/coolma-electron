@@ -11,23 +11,25 @@ export interface MuyaMenuInput {
   selectionEmpty: boolean;
   mindmapReady?: boolean;
   panguReady?: boolean;
+  locked?: boolean;
 }
 
 export function buildMuyaMenu(input: MuyaMenuInput) {
   const hasSelection = !input.selectionEmpty;
+  const canEdit = !input.locked;
   return [
-    { id: 'insertBefore', label: '在前面插入段落' },
-    { id: 'insertAfter', label: '在后面插入段落' },
+    { id: 'insertBefore', label: '在前面插入段落', enabled: canEdit },
+    { id: 'insertAfter', label: '在后面插入段落', enabled: canEdit },
     { type: 'separator' as const, label: '' },
-    { id: 'cut', label: '剪切', enabled: hasSelection },
+    { id: 'cut', label: '剪切', enabled: canEdit && hasSelection },
     { id: 'copy', label: '复制', enabled: hasSelection },
-    { id: 'paste', label: '粘贴' },
+    { id: 'paste', label: '粘贴', enabled: canEdit },
     { type: 'separator' as const, label: '' },
     { id: 'copyAsMarkdown', label: '复制为 Markdown', enabled: hasSelection },
     { id: 'copyAsHtml', label: '复制为 HTML', enabled: hasSelection },
     { type: 'separator' as const, label: '' },
-    { id: 'pasteAsPlainText', label: '粘贴为纯文本' },
-    { id: 'formatDocument', label: '盘古格式化', enabled: input.panguReady === true },
+    { id: 'pasteAsPlainText', label: '粘贴为纯文本', enabled: canEdit },
+    { id: 'formatDocument', label: '盘古格式化', enabled: canEdit && input.panguReady === true },
     { type: 'separator' as const, label: '' },
     { id: 'mindmap', label: '生成思维导图', enabled: input.mindmapReady !== false },
   ];

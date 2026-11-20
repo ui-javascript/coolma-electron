@@ -8,6 +8,26 @@
             <el-icon><Switch /></el-icon>
             <span>{{ sourceMode ? t('editor.toWysiwyg') : t('editor.toSource') }}</span>
           </el-button>
+          <el-button
+            text
+            size="small"
+            :title="t(locked ? 'editor.unlock' : 'editor.lock')"
+            :aria-label="t('editor.lock')"
+            :aria-pressed="locked"
+            @click="toggleLock"
+          >
+            <el-icon><component :is="locked ? Lock : Unlock" /></el-icon>
+          </el-button>
+          <el-popover trigger="click" placement="bottom">
+            <template #reference>
+              <el-button text size="small" :title="t('editor.statistics')" :aria-label="t('editor.statistics')">
+                <el-icon><DataAnalysis /></el-icon>
+              </el-button>
+            </template>
+            <div>{{ t('editor.words', { count: wordCount.word }) }}</div>
+            <div>{{ t('editor.characters', { count: wordCount.character }) }}</div>
+            <div>{{ t('editor.paragraphs', { count: wordCount.paragraph }) }}</div>
+          </el-popover>
           <el-button text size="small" :title="t('editor.mindMap')" @click="emit('mind-map')">
             <el-icon><Share /></el-icon>
             <span>{{ t('editor.mindMap') }}</span>
@@ -23,16 +43,36 @@
             {{ noteTags(summary).join(' · ') || t('notes.untagged') }} · {{ formatNoteDate(summary, t) }}
           </span>
           <span v-if="saveHint" class="save-hint" :class="{ saving }">{{ saveHint }}</span>
+          <el-button
+            v-if="noteLink"
+            text
+            size="small"
+            :title="t('editor.copyNoteLink')"
+            :aria-label="t('editor.copyNoteLink')"
+            @click="copyNoteLink"
+          >
+            <el-icon><Link /></el-icon>
+          </el-button>
+          <el-button
+            text
+            size="small"
+            :title="t('editor.saveNow')"
+            :aria-label="t('editor.saveNow')"
+            :disabled="saving"
+            @click="emit('save')"
+          >
+            <el-icon><Finished /></el-icon>
+          </el-button>
           <el-button text type="danger" size="small" :title="t('action.delete')" @click="emit('delete')">
             <el-icon><Delete /></el-icon>
           </el-button>
         </div>
       </div>
-      <div class="editor-context-host" @contextmenu="onContextMenu">
+      <div v-show="!sourceMode" class="editor-context-host" @contextmenu.capture="onContextMenu">
         <MuyaEditor
           ref="muyaRef"
-          v-show="!sourceMode"
           v-model="contentProxy"
+          :readonly="locked"
           :theme="theme"
           :plugins="plugins"
           :options="editorOptions"
@@ -40,7 +80,7 @@
         />
       </div>
       <!-- 双编辑器：源码模式用 Monaco，同一份内容，只有激活的视图回写 -->
-      <SourceEditor ref="monacoRef" v-if="sourceMode" v-model="contentProxy" :theme="theme" class="source-editor-host" />
+      <SourceEditor ref="monacoRef" v-if="sourceMode" v-model="contentProxy" :readonly="locked" :theme="theme" class="source-editor-host" />
     </template>
 
     <el-empty v-else :description="t('editor.emptyHint')">
@@ -64,9 +104,9 @@
 </template>
 
 <script setup lang="ts">
-import { Delete, Monitor, Share, Switch } from '@element-plus/icons-vue';
+import { DataAnalysis, Delete, Finished, Link, Lock, Monitor, Share, Switch, Unlock } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import {
   muyaCursorToPosition,
   positionToMuyaCursor,
@@ -83,6 +123,7 @@ import { quickInsertTypes } from '@/editor/insertHandlers';
 import { useLibraryStore } from '@/stores/library';
 import { saveAttachmentImage, uploadImageAttachment } from '@/services/ipc';
 import type { ImageUploadService } from '@/services/ipc';
+import { getSyncStatus } from '@/services/sync';
 import { useAppStore } from '@/stores/app';
 import { useNotesStore } from '@/stores/notes';
 import SourceEditor from '@/components/SourceEditor.vue';
@@ -106,16 +147,75 @@ const props = defineProps<{
 const emit = defineEmits<{
   (event: 'update:content', value: string): void;
   (event: 'delete'): void;
+  (event: 'save'): void;
   (event: 'mind-map'): void;
   (event: 'ppt-preview'): void;
-  (event: 'context-menu', payload: { x: number; y: number; selectionEmpty: boolean }): void;
+  (event: 'context-menu', payload: { x: number; y: number; selectionEmpty: boolean; locked: boolean }): void;
 }>();
 
 const { t } = useI18n();
+const locked = ref(false);
+const noteLink = ref('');
+
+watch(
+  [() => props.summary?.docGuid, () => props.summary?.kbGuid],
+  async ([docGuid, kbGuid], _previous, onCleanup) => {
+    noteLink.value = '';
+    if (!docGuid || docGuid.startsWith('local_') || !kbGuid) {
+      return;
+    }
+
+    let stale = false;
+    onCleanup(() => { stale = true; });
+    try {
+      const status = await getSyncStatus();
+      if (stale || !status.ok || !status.data.loggedIn || status.data.kbGuid !== kbGuid) {
+        return;
+      }
+
+      const url = new URL(status.data.kbServer);
+      if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
+        return;
+      }
+      const basePath = url.pathname.replace(/\/ks\/note\/view(?:\/.*)?$/, '').replace(/\/+$/, '');
+      url.pathname = `${basePath}/ks/note/view/${encodeURIComponent(kbGuid)}/${encodeURIComponent(docGuid)}/`;
+      url.search = '';
+      url.hash = '';
+      noteLink.value = url.href;
+    } catch {
+      // 状态不可读或知识库地址无效时，不显示复制入口。
+    }
+  },
+  { immediate: true },
+);
+
+async function copyNoteLink(): Promise<void> {
+  if (!noteLink.value) {
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(noteLink.value);
+    ElMessage.success(t('notes.copySuccess'));
+  } catch {
+    ElMessage.error(t('notes.copyFailed'));
+  }
+}
+
+function toggleLock(): void {
+  if (!props.summary) {
+    return;
+  }
+  locked.value = !locked.value;
+  ElMessage.info(t(locked.value ? 'editor.locked' : 'editor.unlocked'));
+}
 
 const contentProxy = computed({
   get: () => props.content,
-  set: (value: string) => emit('update:content', value),
+  set: (value: string) => {
+    if (!locked.value) {
+      emit('update:content', value);
+    }
+  },
 });
 
 const sourceMode = ref(false);
@@ -142,9 +242,13 @@ function toggleSourceMode(): void {
   });
 }
 
-const muyaRef = ref<any>(null);
-const monacoRef = ref<any>(null);
+const muyaRef = ref<InstanceType<typeof MuyaEditor> | null>(null);
+const monacoRef = ref<InstanceType<typeof SourceEditor> | null>(null);
 const pendingCursor = ref<MonacoPosition | null>(null);
+const wordCount = computed(() => {
+  const markdown = props.content.replace(/\r\n/g, '\n');
+  return muyaRef.value?.getEditor()?.getWordCount(markdown) ?? { word: 0, character: 0, paragraph: 0 };
+});
 
 /**
  * AI 回复追加到末尾（对齐 vue2 Muya/Monaco 的 INSERT_AI_TEXT 处理器）。
@@ -152,7 +256,7 @@ const pendingCursor = ref<MonacoPosition | null>(null);
  */
 function appendAiText(text: string): boolean {
   const clean = String(text ?? '').trim();
-  if (!clean || !props.summary) {
+  if (!clean || !props.summary || locked.value) {
     return false;
   }
   if (sourceMode.value) {
@@ -174,6 +278,11 @@ onBeforeUnmount(stopAiInsert);
 
 /** 盘古格式化当前文档；源码模式直接回抛 update，Muya 走 setMarkdown。 */
 async function formatDocument(): Promise<boolean> {
+  if (locked.value || !props.summary) {
+    return false;
+  }
+  const noteId = props.summary.id;
+  const source = sourceMode.value;
   const before = sourceMode.value
     ? String(props.content ?? '')
     : String(muyaRef.value?.getMarkdown?.() ?? props.content ?? '');
@@ -182,6 +291,10 @@ async function formatDocument(): Promise<boolean> {
   }
   try {
     const after = await formatDocumentByPangu(before);
+    if (locked.value || props.summary?.id !== noteId || sourceMode.value !== source ||
+        (source ? props.content : muyaRef.value?.getMarkdown() ?? props.content) !== before) {
+      return false;
+    }
     if (after === before) {
       return true;
     }
@@ -292,22 +405,18 @@ onMounted(() => {
 /** 右键：把坐标与「选区是否为空」交给父级——菜单项启用条件按 vue2 依赖这个。 */
 function onContextMenu(event: MouseEvent): void {
   event.preventDefault();
-  const editor = muyaRef.value?.getEditor?.();
-  let selectionEmpty = true;
-  try {
-    const selection = editor?.getSelection?.();
-    if (selection?.anchor && selection?.focus) {
-      selectionEmpty =
-        selection.anchor.key === selection.focus.key && selection.anchor.offset === selection.focus.offset;
-    }
-  } catch {
-    selectionEmpty = true;
-  }
-  emit('context-menu', { x: event.clientX, y: event.clientY, selectionEmpty });
+  const selection = window.getSelection();
+  const host = event.currentTarget as HTMLElement;
+  const selectionEmpty = !selection || selection.isCollapsed ||
+    !host.contains(selection.anchorNode) || !host.contains(selection.focusNode);
+  emit('context-menu', { x: event.clientX, y: event.clientY, selectionEmpty, locked: locked.value });
 }
 
 /** 右键菜单动作：直接转给引擎（copyAsMarkdown / copyAsHtml / pasteAsPlainText / insertParagraph）。 */
 function runEditorCommand(command: string): boolean {
+  if (locked.value && !['copy', 'copyAsHtml', 'copyAsMarkdown'].includes(command)) {
+    return false;
+  }
   const editor = muyaRef.value?.getEditor?.();
   if (!editor) {
     return false;
@@ -358,5 +467,5 @@ function scrollToHeading(index: number): boolean {
   return true;
 }
 
-defineExpose({ scrollToHeading, toggleSourceMode, runEditorCommand, formatDocument });
+defineExpose({ scrollToHeading, toggleSourceMode, toggleLock, runEditorCommand, formatDocument });
 </script>
