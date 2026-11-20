@@ -19,13 +19,13 @@
 // snabbdom h() 在 Node 里能跑（无 DOM module 的最小 init）
 const { h } = require('snabbdom')
 
-const echoAnnoMod = require('libs-muya/lib/parser/render/renderInlines/echoAnno.js')
+const echoAnnoMod = require('libs-muya-vue2/lib/parser/render/renderInlines/echoAnno.js')
 const echoAnno = echoAnnoMod.default || echoAnnoMod
 
-const CLASS_OR_ID = require('libs-muya/lib/config/index.js').CLASS_OR_ID
+const CLASS_OR_ID = require('libs-muya-vue2/lib/config/index.js').CLASS_OR_ID
 
 // 模拟 render context —— echoAnno 用 this.getClassName(outerClass, block, token, cursor)
-// 真实 production 走 libs-muya/lib/parser/render/index.js 的 getClassName()：
+// 真实 production 走 libs-muya-vue2/lib/parser/render/index.js 的 getClassName()：
 //   return outerClass || (this.checkConflicted(block, token, cursor) ? AG_GRAY : AG_HIDE)
 // 这里 fixture 直接根据 cursor 给出 className，省掉 checkConflicted 链路。
 const makeContext = (cursorInToken) => ({

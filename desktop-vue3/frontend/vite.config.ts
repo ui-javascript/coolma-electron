@@ -36,19 +36,19 @@ export default defineConfig(({ mode }) => {
       alias: {
         '@': path.resolve(__dirname, 'src'),
         '@shared': path.resolve(__dirname, '../electron/shared'),
-        'echo-core': path.resolve(__dirname, '../../echo-core/src'),
-        'rune-core': path.resolve(__dirname, '../../rune-core/src'),
+        'libs-echo-core': path.resolve(__dirname, '../../libs-echo-core/src'),
+        'libs-rune-core': path.resolve(__dirname, '../../libs-rune-core/src'),
       },
     },
     optimizeDeps: {
-      exclude: ['libs-muya-v3'],
+      exclude: ['libs-muya-vue3'],
     },
     server: {
       host: devHost,
       port: devPort,
       strictPort: true,
       fs: {
-        allow: [path.resolve(__dirname, '..')],
+        allow: [path.resolve(__dirname, '../..')],
       },
     },
     build: {

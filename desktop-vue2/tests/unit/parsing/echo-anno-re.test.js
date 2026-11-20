@@ -2,8 +2,8 @@
 // tests/unit/parsing/echo-anno-re.test.js
 // 锁定 Muya parser 的 inlineRules.echo_anno 工厂契约（v2026-07-31 起）：
 //
-//   - createEchoAnnoRule({ requireParens }) 是 libs-muya/lib/parser/rules.js 的导出。
-//   - 它也是 libs-muya/lib 通过 re-export 暴露给主项目（Muya.vue）使用的入口。
+//   - createEchoAnnoRule({ requireParens }) 是 libs-muya-vue2/lib/parser/rules.js 的导出。
+//   - 它也是 libs-muya-vue2/lib 通过 re-export 暴露给主项目（Muya.vue）使用的入口。
 //   - 锁定：
 //       * requireParens=true（默认） → () 必填，捕获组 [name, propsRaw, promptRaw]
 //       * requireParens=false         → () 可选，捕获组顺序必须保持同构
@@ -21,8 +21,8 @@
 //       Jest 走 babel-jest（preset-env targets.node current）会转成 CJS，
 //       所以这里直接 require()/同步拿 exports 即可，避免 dynamic import 跨平台麻烦。
 // ============================================================================
-const muyaRules = require('libs-muya/lib/parser/rules.js')
-const muyaParser = require('libs-muya/lib/parser/index.js')
+const muyaRules = require('libs-muya-vue2/lib/parser/rules.js')
+const muyaParser = require('libs-muya-vue2/lib/parser/index.js')
 
 const createEchoAnnoRule = muyaRules.createEchoAnnoRule
 const inlineRules = muyaParser.inlineRules

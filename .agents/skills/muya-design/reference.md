@@ -462,7 +462,7 @@ console.log('Cursor:', cursor)
 ### 查看 Token 解析结果
 
 ```javascript
-import { tokenizer } from 'libs-muya/lib/parser'
+import { tokenizer } from 'libs-muya-vue2/lib/parser'
 const tokens = tokenizer('# Hello **world**', {
   highlights: [],
   hasBeginRules: true,

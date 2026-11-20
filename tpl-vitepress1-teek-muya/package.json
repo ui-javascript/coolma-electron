@@ -9,8 +9,8 @@
     "preview": "vitepress preview docs"
   },
   "devDependencies": {
-    "echo-core": "workspace:*",
-    "libs-muya-v3": "workspace:*",
+    "libs-echo-core": "workspace:*",
+    "libs-muya-vue3": "workspace:*",
     "katex": "0.19.1",
     "markdown-it-deflist": "4.0.0",
     "markdown-it-footnote": "4.0.0",
@@ -23,6 +23,6 @@
     "vitepress-plugin-mermaid": "2.0.17",
     "vitepress-plugin-tabs": "0.9.1",
     "vitepress-theme-teek": "1.6.3",
-    "rune-core": "workspace:*"
+    "libs-rune-core": "workspace:*"
   }
 }

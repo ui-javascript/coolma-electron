@@ -126,9 +126,9 @@ function renderEcho (echo) {
 
 ## 5. �?`coolma-muya-sdk-guidelines.mdc` 的边�?
 
-> **本规则管业务逻辑（echo / rune / 云函数），新规则 `coolma-muya-sdk-guidelines.mdc` �?SDK 边界（`libs-muya/lib/`）。两者作用域不重叠�?*
+> **本规则管业务逻辑（echo / rune / 云函数），新规则 `coolma-muya-sdk-guidelines.mdc` �?SDK 边界（`libs-muya-vue2/lib/`）。两者作用域不重叠�?*
 
-涉及 `libs-muya/lib/` 的改动：
+涉及 `libs-muya-vue2/lib/` 的改动：
 
 - **业务�?*：仍按本规则（echo / rune / 云函数）的「不背历史包�?+ 读路径防御」原则；
 - **SDK �?*：必�?*额外**�?`.agents/rules/coolma-muya-sdk-guidelines.mdc` �?8 问自检�?

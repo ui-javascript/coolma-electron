@@ -1,15 +1,15 @@
 ---
-description: libs-muya 是 v0.x 阶段的「准 SDK」— 编辑 libs-muya/lib/ 前必须先按 8 问自检，禁止把 Memocast 业务泄漏到 lib/ 内部。
+description: libs-muya-vue2 是 v0.x 阶段的「准 SDK」— 编辑 libs-muya-vue2/lib/ 前必须先按 8 问自检，禁止把 Memocast 业务泄漏到 lib/ 内部。
 alwaysApply: true
 ---
 
-# libs-muya SDK 化纪律（`libs-muya` 是独立 SDK 之前的过渡规则）
+# libs-muya-vue2 SDK 化纪律（`libs-muya-vue2` 是独立 SDK 之前的过渡规则）
 
-> **libs-muya 终态是作为独立 npm SDK 发出去**（`libs-muya` 主包 + `coolma-muya-echo` / `coolma-muya-rune` plugin 包）。
+> **libs-muya-vue2 终态是作为独立 npm SDK 发出去**（`libs-muya-vue2` 主包 + `coolma-muya-echo` / `coolma-muya-rune` plugin 包）。
 >
 > 当前 0.1.x 阶段**已经把核心 API 锁定为「准 SDK」**：不允许再向 lib/ 内部新增业务耦合，已经存在的耦合要按「主项目就近实现」的方针逐步迁出。
 >
-> **任何**对 `libs-muya/lib/` 的改动都必须先读完本文件 + 通过 8 问自检。
+> **任何**对 `libs-muya-vue2/lib/` 的改动都必须先读完本文件 + 通过 8 问自检。
 
 ---
 
@@ -17,28 +17,28 @@ alwaysApply: true
 
 | 路径 | 是否在范围内 | 说明 |
 |---|---|---|
-| `libs-muya/lib/**` | ✅ 必须遵守 | 编辑前必须跑 8 问自检 |
-| `libs-muya/lib/parser/**` | ✅ 必须遵守 | parser 是最容易泄漏业务的地方 |
-| `libs-muya/lib/ui/**` | ✅ 必须遵守 | UI 组件不能假设 Quasar / vue-i18n / 任何宿主框架 |
-| `libs-muya/themes/**` | ⚠️ 谨慎 | 视觉与 SDK 中性无关，但 CSS 里不能写宿主框架 selector（如 `.q-btn`） |
-| `libs-muya/scripts/**` | ✅ 必须遵守 | 构建脚本是 SDK 公共契约 |
-| `libs-muya/package.json` | ✅ 必须遵守 | keywords / description / peerDependencies 是 SDK 公共契约 |
-| `libs-muya/README.md` | ✅ 必须遵守 | 用户看到的对外文档 |
+| `libs-muya-vue2/lib/**` | ✅ 必须遵守 | 编辑前必须跑 8 问自检 |
+| `libs-muya-vue2/lib/parser/**` | ✅ 必须遵守 | parser 是最容易泄漏业务的地方 |
+| `libs-muya-vue2/lib/ui/**` | ✅ 必须遵守 | UI 组件不能假设 Quasar / vue-i18n / 任何宿主框架 |
+| `libs-muya-vue2/themes/**` | ⚠️ 谨慎 | 视觉与 SDK 中性无关，但 CSS 里不能写宿主框架 selector（如 `.q-btn`） |
+| `libs-muya-vue2/scripts/**` | ✅ 必须遵守 | 构建脚本是 SDK 公共契约 |
+| `libs-muya-vue2/package.json` | ✅ 必须遵守 | keywords / description / peerDependencies 是 SDK 公共契约 |
+| `libs-muya-vue2/README.md` | ✅ 必须遵守 | 用户看到的对外文档 |
 | `demo-vue2-vite-muya/**` | ⚠️ 谨慎 | demo 是 SDK 的验收用例，lib/ 改动后必须保证 demo 能跑（必要时补 stub） |
-| `libs-muya/tests/**` | ⚠️ 谨慎 | lib 自带测试可以保留，但**优先复用 Memocast 主仓库的 Jest 测试套**（避免双维护） |
+| `libs-muya-vue2/tests/**` | ⚠️ 谨慎 | lib 自带测试可以保留，但**优先复用 Memocast 主仓库的 Jest 测试套**（避免双维护） |
 
 ---
 
 ## 2. 核心原则（一句话）
 
-> **libs-muya 是通用 markdown 编辑器 SDK；echo / rune / 笔记业务 100% 留在主项目。**
+> **libs-muya-vue2 是通用 markdown 编辑器 SDK；echo / rune / 笔记业务 100% 留在主项目。**
 > **lib/ 内部出现 Memocast 业务路径（`src/...`、`boot/i18n`、vuex store）就是污染。**
 
 ---
 
 ## 3. 改 lib/ 之前的 8 问自检
 
-**每次**对 `libs-muya/lib/` 下任意文件做改动前，按顺序回答：
+**每次**对 `libs-muya-vue2/lib/` 下任意文件做改动前，按顺序回答：
 
 1. **SDK 在 Memocast 外能跑吗？**
    - 「否」= 立刻停下来，找出隐性宿主依赖。
@@ -49,7 +49,7 @@ alwaysApply: true
 4. **demo-web 还能跑吗？**
    - demo-web 已经有 `boot/i18n.js` / `src/components/echo/echoCore.js` 的 stub。如果 lib 新增 import，demo-web 也得相应补 stub 或删 import。
 5. **强耦合 Vue 了吗？**
-   - libs-muya 内部已经用 Vue 2 兼容写法（`Vue.extend`、`render(h)`、`vnode`），短期内不强制改。但**新代码能不耦合 Vue 就不耦合**，预留未来切到 Vue-agnostic 渲染管线的可能性。
+   - libs-muya-vue2 内部已经用 Vue 2 兼容写法（`Vue.extend`、`render(h)`、`vnode`），短期内不强制改。但**新代码能不耦合 Vue 就不耦合**，预留未来切到 Vue-agnostic 渲染管线的可能性。
 6. **新 API 是不是只在「echo / rune」场景下才有意义？**
    - 业务 API 应该走 `Muya.use(SomeBusinessPlugin)` 的模式，不要裸露在主类方法表上。
 7. **README / package.json keywords 还能对外宣称「通用 markdown 编辑器」吗？**
@@ -131,7 +131,7 @@ localStorage.setItem('muya-...', ...)
 
 ## 5. 「业务实现」落在主项目（不要 push 回 lib）
 
-下面 5 类代码**必须**留在主项目侧，**禁止**下沉到 libs-muya：
+下面 5 类代码**必须**留在主项目侧，**禁止**下沉到 libs-muya-vue2：
 
 | 类别 | 落位 |
 |---|---|
@@ -152,19 +152,19 @@ localStorage.setItem('muya-...', ...)
 **6 个文件一行 import 污染**：
 
 ```
-libs-muya/lib/ui/imageToolbar/config.js:8
-libs-muya/lib/ui/formatPicker/config.js:12
-libs-muya/lib/ui/tableTools/config.js:1
-libs-muya/lib/ui/quickInsert/config.js:24
-libs-muya/lib/ui/frontMenu/config.js:7
-libs-muya/lib/ui/imageSelector/index.js:7
+libs-muya-vue2/lib/ui/imageToolbar/config.js:8
+libs-muya-vue2/lib/ui/formatPicker/config.js:12
+libs-muya-vue2/lib/ui/tableTools/config.js:1
+libs-muya-vue2/lib/ui/quickInsert/config.js:24
+libs-muya-vue2/lib/ui/frontMenu/config.js:7
+libs-muya-vue2/lib/ui/imageSelector/index.js:7
 ```
 
 全部是 `import { i18n } from 'boot/i18n'`。解耦方案：
 
 ```javascript
 // 1. lib/ 内部把 i18n 改成 setter + 默认 fallback
-// libs-muya/lib/i18n-bridge.js
+// libs-muya-vue2/lib/i18n-bridge.js
 let _t = (key) => key // 默认 fallback：直接返回 key
 export const setI18n = (t) => { _t = typeof t === 'function' ? t : _t }
 export const t = (...args) => _t(...args)
@@ -185,7 +185,7 @@ Muya.useI18n(this.$t)
 ### 6.2 P0（必做）：删 parser/index.js 的 `src/components/echo/echoCore` import
 
 ```
-libs-muya/lib/parser/index.js:5
+libs-muya-vue2/lib/parser/index.js:5
   import { parseEchoProps } from 'src/components/echo/echoCore'
 ```
 
@@ -222,7 +222,7 @@ Muya.use(QuickInsertProvider, {
 ### 6.4 P2（未来）：把 echo runtime 拆出独立包
 
 ```
-libs-muya              # 通用 markdown 编辑器（SDK 真身）
+libs-muya-vue2              # 通用 markdown 编辑器（SDK 真身）
 coolma-muya-echo-plugin  # echo 占位符 + 运行时的 Muya plugin
 ```
 
@@ -230,7 +230,7 @@ coolma-muya-echo-plugin  # echo 占位符 + 运行时的 Muya plugin
 
 ### 6.5 已暴露的「本不该有」的 SDK API（要列黑名单）
 
-`libs-muya/lib/index.js` 里这几个 export 是给主项目 mutate parser 的「后门」：
+`libs-muya-vue2/lib/index.js` 里这几个 export 是给主项目 mutate parser 的「后门」：
 
 ```javascript
 export {
@@ -252,8 +252,8 @@ export {
 
 ### 7.1 ✅ 可以做（不引入新耦合）
 
-- 修 `libs-muya/lib/` 里的 render bug、snabbdom bug、tokenizer 边界问题
-- 跑 `pnpm --filter libs-muya build:dev` / `pnpm --filter libs-muya build` 修 lib 内部构建脚本
+- 修 `libs-muya-vue2/lib/` 里的 render bug、snabbdom bug、tokenizer 边界问题
+- 跑 `pnpm --filter libs-muya-vue2 build:dev` / `pnpm --filter libs-muya-vue2 build` 修 lib 内部构建脚本
 - 改通用 markdown 解析规则（与 echo / rune 完全无关的部分）
 - 删 lib/ 里的死代码（按 rune-echo-cloudfn-experimental.mdc 的「不背历史包袱」原则）
 
@@ -276,27 +276,27 @@ export {
 
 | 规则 | 关系 |
 |---|---|
-| `plugin-vue-version.mdc` | 上游：先识别 `libs-muya/package.json` 的 Vue 版本（Vue 2.7.x），再按本规则做 SDK 化自检 |
+| `plugin-vue-version.mdc` | 上游：先识别 `libs-muya-vue2/package.json` 的 Vue 版本（Vue 2.7.x），再按本规则做 SDK 化自检 |
 | `rune-echo-cloudfn-experimental.mdc` | 平行：本规则管「lib/ 边界」，rune-echo-cloudfn 管「echo / rune / 云函数业务逻辑」（两者作用域不重叠） |
-| `component-naming.mdc` | 平行：libs-muya lib/ 内部文件的命名规范仍按 component-naming.mdc（小驼峰 + 语义后缀） |
-| `rune-echo-test-moat.mdc` | 平行：lib/ 的运行时契约测试由 Memocast 的 Jest 套覆盖（`tests/unit/echo` / `tests/unit/rune`），不要在 libs-muya 里维护双份测试 |
-| `package-manager.mdc` | 上游：依赖安装使用 pnpm workspace（`libs-muya` 通过 `pnpm --filter libs-muya` 管理） |
+| `component-naming.mdc` | 平行：libs-muya-vue2 lib/ 内部文件的命名规范仍按 component-naming.mdc（小驼峰 + 语义后缀） |
+| `rune-echo-test-moat.mdc` | 平行：lib/ 的运行时契约测试由 Memocast 的 Jest 套覆盖（`tests/unit/echo` / `tests/unit/rune`），不要在 libs-muya-vue2 里维护双份测试 |
+| `package-manager.mdc` | 上游：依赖安装使用 pnpm workspace（`libs-muya-vue2` 通过 `pnpm --filter libs-muya-vue2` 管理） |
 | `safe-shell.mdc` | 上游：涉及目录移动 / 删除时先备份 |
 
 ---
 
 ## 9. 改动流程 SOP
 
-每次改 libs-muya lib/ 时：
+每次改 libs-muya-vue2 lib/ 时：
 
 ```
 1. Read 该文件 + 本规则（确认当前属于 §6 哪一类耦合点）
 2. 跑 §3 的 8 问自检，任意一个「否」→ 停下来问用户
 3. 写代码（按 §4 红线 + §5「业务留在主项目」原则）
-4. 跑 pnpm --filter libs-muya build:dev / pnpm --filter libs-muya watch 看 lib 内部构建是否过
+4. 跑 pnpm --filter libs-muya-vue2 build:dev / pnpm --filter libs-muya-vue2 watch 看 lib 内部构建是否过
 5. 跑 `pnpm --filter demo-vue2-vite-muya dev` 看 demo 还能跑
 6. 跑主项目 pnpm verify 确认没破坏 echo / rune 测试
-7. 在 commit message 里注明「libs-muya lib 改动，按 sdk-guidelines 自检 8 问」
+7. 在 commit message 里注明「libs-muya-vue2 lib 改动，按 sdk-guidelines 自检 8 问」
 ```
 
 ---

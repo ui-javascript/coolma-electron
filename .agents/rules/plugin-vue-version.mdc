@@ -7,7 +7,7 @@ alwaysApply: true
 
 ## 1. 版本分布（实测）
 
-- **`libs-muya/`**：Vue 2.7.x，属于 pnpm workspace。
+- **`libs-muya-vue2/`**：Vue 2.7.x，属于 pnpm workspace。
 - **主项目**（`desktop-vue2/src/`、`desktop-vue2/src-electron/`、`desktop-vue2/package.json`）：**Vue 2.7.16**（Quasar v1 + Element-UI / ant-design-vue 1.x）。
 - **`_plugins/`** 下每个子目录是独立构建的应用子包；纳入版本控制的应用统一由根 pnpm workspace 安装，各自声明 Vue 版本。已确认至少存在两个：
   - `_plugins/box-im-wujie/` → **Vue 2.7.16**（`main.js` + `vue.config.js`）

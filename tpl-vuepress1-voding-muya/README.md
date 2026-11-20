@@ -14,4 +14,4 @@ pnpm --filter tpl-vuepress1-voding-muya build
 
 与 Teek 模板共用 `docs/guide/markdown.md` 和 `docs/guide/muya-fixture.md` 作为同源渲染对照；后者专门覆盖嵌套、转义和源码围栏。
 
-后续接入 Muya 时，在本包声明 `libs-muya: workspace:*`，用 VuePress 1 的 `extendMarkdown` 钩子注册本地 markdown-it 插件。由插件识别需要 Muya 处理的语法，再调用适合构建环境的 AST 解析和渲染入口；普通 Markdown 继续走 VuePress 和 Vdoing 的现有流程。本模板目前没有接入 Muya。
+后续接入 Muya 时，在本包声明 `libs-muya-vue2: workspace:*`，用 VuePress 1 的 `extendMarkdown` 钩子注册本地 markdown-it 插件。由插件识别需要 Muya 处理的语法，再调用适合构建环境的 AST 解析和渲染入口；普通 Markdown 继续走 VuePress 和 Vdoing 的现有流程。本模板目前没有接入 Muya。

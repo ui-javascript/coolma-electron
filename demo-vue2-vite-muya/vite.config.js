@@ -27,8 +27,8 @@ export default defineConfig({
       // Memocast path stubs for standalone use
       { find: 'boot/i18n', replacement: path.resolve(__dirname, './src/boot/i18n.js') },
       { find: 'src/components/echo/echoCore', replacement: path.resolve(__dirname, './src/components/echo/echoCore.js') },
-      // libs-muya lib (精确匹配，防止 /lib -> /lib/lib)
-      { find: /^libs-muya\/lib$/, replacement: path.resolve(__dirname, '../libs-muya/lib') },
+      // libs-muya-vue2 lib (精确匹配，防止 /lib -> /lib/lib)
+      { find: /^libs-muya-vue2\/lib$/, replacement: path.resolve(__dirname, '../libs-muya-vue2/lib') },
       // lib 内部 CSS：demo 不调用 exportHtml()，导出 HTML 时不会用到这些样式表。
       // 走真 CSS 在 vite 下没有 default export（仅副作用注入），而 lib 代码
       // `import xxx from 'xxx.css'` 期望拿到 CSS 字符串嵌入 HTML。所以 demo
@@ -38,14 +38,14 @@ export default defineConfig({
       // 所以必须用 importee 字符串本身作为 find。
       { find: '../assets/styles/exportStyle.css', replacement: path.resolve(__dirname, './stubs/coolma-muya/lib/assets/styles/exportStyle.css.js') },
       { find: '../assets/styles/headerFooterStyle.css', replacement: path.resolve(__dirname, './stubs/coolma-muya/lib/assets/styles/headerFooterStyle.css.js') },
-      { find: /^libs-muya\/themes\/default\.css$/, replacement: path.resolve(__dirname, '../libs-muya/themes/default.css') },
+      { find: /^libs-muya-vue2\/themes\/default\.css$/, replacement: path.resolve(__dirname, '../libs-muya-vue2/themes/default.css') },
       // exportHtml.js 需要 CSS 字符串，Vite 用 ?inline 提供默认导出。
       { find: /^prismjs\/themes\/prism\.css$/, replacement: `${resolve('prismjs/themes/prism.css')}?inline` },
       { find: /^katex\/dist\/katex\.css$/, replacement: `${resolve('katex/dist/katex.css')}?inline` },
       // === stub：单文件 + 带子路径 ===
-      // 注：file-icons-js 和 prismjs 已是 libs-muya 的直接依赖
+      // 注：file-icons-js 和 prismjs 已是 libs-muya-vue2 的直接依赖
       // (file-icons-js@1.0.3 + prismjs@1.30.0，lib 自身依赖)。
-      // demo 从本地 libs-muya 读取源码和依赖。
+      // demo 从本地 libs-muya-vue2 读取源码和依赖。
       { find: /^unsplash-js(\/.*)?$/, replacement: `${stubDir}/unsplash-js$1` },
       { find: /^github-markdown-css(\/.*)?$/, replacement: `${stubDir}/github-markdown-css$1` },
       { find: /^turndown(\/.*)?$/, replacement: `${stubDir}/turndown$1` },
@@ -59,7 +59,7 @@ export default defineConfig({
       { find: /^\.\/snap\.svg-min(\.js)?$/, replacement: `${stubDir}/snap-svg.js` }
     ]
   },
-  // 确保 esbuild 等预构建工具正确处理 libs-muya
+  // 确保 esbuild 等预构建工具正确处理 libs-muya-vue2
   optimizeDeps: {
     // demo 模式：禁依赖发现。Muya lib 内部有大量 UMD 风格的 deps（snap.svg-min.js、
     // katex.css、eve、flowchart.js、mermaid、vega-embed 等），esbuild prebundle 在

@@ -1,4 +1,4 @@
-import { defineMuyaPlugin, type MuyaPlugin } from "libs-muya-v3";
+import { defineMuyaPlugin, type MuyaPlugin } from "libs-muya-vue3";
 // @ts-ignore Legacy runtime modules are JavaScript by design.
 import EchoRegistry from "./core/echoRegistry.js";
 // @ts-ignore Legacy runtime modules are JavaScript by design.

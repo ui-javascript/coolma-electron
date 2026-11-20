@@ -1,4 +1,4 @@
-import { defineMuyaPlugin, type MuyaPlugin } from 'libs-muya-v3';
+import { defineMuyaPlugin, type MuyaPlugin } from 'libs-muya-vue3';
 import { createRuneRendererCtor } from './runeRenderer';
 
 export interface RuneCard {

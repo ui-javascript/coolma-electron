@@ -27,7 +27,7 @@
 ## 2. 命名约定与写法
 
 - **字符串包名**用精确字符串（与 `package.json` 的 `name` 完全一致）：`'htmlparser2'`、`'parse5'`、`'consola'`、`'enum-plus'`。
-- **有命名空间或子路径的包用 RegExp**：``/^@quasar.*/``、``/^@vue.*/``、``/^vue-layerx.*/``、``/^libs-muya.*/``。
+- **有命名空间或子路径的包用 RegExp**：``/^@quasar.*/``、``/^@vue.*/``、``/^vue-layerx.*/``、``/^libs-muya-vue2.*/``。
   - 用 ``/^pkg.*/`` 还是 ``/pkg.*/`` 取决于原列表风格，本项目当前列表用 **不带 `^`** 的形式（`/vega.*/`、`/monaco.*/`、`/@quasar.*/`、`/vue-layerx.*/`），新条目**保持一致**。
 - **正则锚点**：`pkg.*` 等价于以 `pkg` 开头的包目录，能匹配 `pkg`、`pkg/foo`、`pkg-bar`，但**不会**误匹配 `other-pkg`。
 - **新增条目按字母顺序插入**到现有数组末尾，不要打乱顺序（便于 git diff + review）。
@@ -49,7 +49,7 @@
 |---|---|---|
 | `/vega.*/` | 正则 | vega / vega-* 子包使用 ESM |
 | `/@quasar.*/` | 正则 | Quasar 组件按需打包需要 Babel 转译 |
-| `/libs-muya.*/` | 正则 | `libs-muya` 产物为 ESM |
+| `/libs-muya-vue2.*/` | 正则 | `libs-muya-vue2` 产物为 ESM |
 | `'quill'` | 字符串 | Quill 富文本含 ESM 入口 |
 | `'htmlparser2'` | 字符串 | 解析器源码含较新语法 |
 | `'parse5'` | 字符串 | HTML5 parser 含 ESM |

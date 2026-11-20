@@ -1,5 +1,5 @@
-import { buildEchoItems } from 'echo-core';
-import { buildRuneItems } from 'rune-core';
+import { buildEchoItems } from 'libs-echo-core';
+import { buildRuneItems } from 'libs-rune-core';
 import type { EchoCard, NoteSummary, RuneCard } from '@shared/types/domain';
 
 type Translate = (key: string) => string;
@@ -62,7 +62,7 @@ export interface QuickInsertSource {
  * 构造 Muya 的 `quickInsertProvider`。
  *
  * 分组顺序是「笔记 → 符文 → 回响」；符文/回响的 item 形状由各自包的 pure 层产出
- * （`plugins-muya-rune/pure`、`plugins-muya-echo/pure`），应用这边不再重复实现，
+ * （`libs-rune-core`、`libs-echo-core`），应用这边不再重复实现，
  * 这样 vuepress/vitepress 换成自己的卡片来源时能直接复用同一份构造逻辑。
  */
 export function createQuickInsertProvider(getSource: () => QuickInsertSource, t: Translate) {

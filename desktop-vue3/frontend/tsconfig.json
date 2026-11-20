@@ -18,17 +18,17 @@
     "paths": {
       "@/*": ["src/*"],
       "@shared/*": ["../electron/shared/*"],
-      "echo-core": ["../../echo-core/src/index.ts"],
-      "rune-core": ["../../rune-core/src/index.ts"]
+      "libs-echo-core": ["../../libs-echo-core/src/index.ts"],
+      "libs-rune-core": ["../../libs-rune-core/src/index.ts"]
     },
     "types": ["vite/client"]
   },
   "include": [
-    "../packages/libs-muya-v3/src/**/*.ts",
-    "../packages/plugins-muya-echo/src/**/*.ts",
-    "../packages/plugins-muya-rune/src/**/*.ts",
-    "../../echo-core/src/**/*.ts",
-    "../../rune-core/src/**/*.ts",
+    "../../libs-muya-vue3/src/**/*.ts",
+    "../../libs-muya-echo-vue3/src/**/*.ts",
+    "../../libs-muya-rune-vue3/src/**/*.ts",
+    "../../libs-echo-core/src/**/*.ts",
+    "../../libs-rune-core/src/**/*.ts",
     "src/**/*.ts",
     "src/**/*.d.ts",
     "src/**/*.vue",

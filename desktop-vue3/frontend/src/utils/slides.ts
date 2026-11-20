@@ -8,7 +8,7 @@ const SLIDE_SEPARATOR_RE = /^---\s*$/m;
 const VERTICAL_SEPARATOR_RE = /^--\s*$/m;
 const HEADING_RE = /^(#{1,2})\s+(.+)$/;
 
-/** 与引擎 libs-muya 的 escapeHtml 保持一致，避免两个来源的转义结果不同。 */
+/** 与引擎 libs-muya-vue3 的 escapeHtml 保持一致，避免两个来源的转义结果不同。 */
 export function escapeSlideHtml(html: string): string {
   return String(html ?? '')
     .replace(/</g, '&lt;')

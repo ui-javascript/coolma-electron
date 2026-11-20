@@ -32,7 +32,7 @@ export function extendQuickInsertProvider(
 }
 
 /**
- * Helper for the future `plugins-muya-echo` and `plugins-muya-rune` packages.
+ * Helper for the future `libs-muya-echo-vue3` and `libs-muya-rune-vue3` packages.
  * A plugin owns its DOM/CSS and returns an optional cleanup function.
  */
 export function defineMuyaPlugin(plugin: MuyaPlugin): MuyaPlugin {

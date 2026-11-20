@@ -11,7 +11,7 @@
     />
     <p class="muya-live-tip">
       输入 <code>@</code> 唤起快捷面板：符文/回响分组的数据来自
-      <code>rune-core</code> / <code>echo-core</code> 的 pure 层，
+      <code>libs-rune-core</code> / <code>libs-echo-core</code> 的 pure 层，
       插入语义同源——与 desktop 端共用同一份实现。
     </p>
   </div>
@@ -22,14 +22,14 @@ import { onMounted, shallowRef, ref, type Component } from 'vue';
 // 引擎（及其依赖 dompurify 等）在模块顶层读 window，SSR 会炸。
 // 文档站的原则：SSR 阶段绝不 import 引擎——onMounted 后才动态加载。
 // 桌面端没有 SSR，可以直接静态 import；这个差异是文档站的，不是引擎的锅。
-import { buildEchoItems, createEchoInsertHandler } from 'echo-core';
-import { buildRuneItems, createRuneInsertHandler } from 'rune-core';
+import { buildEchoItems, createEchoInsertHandler } from 'libs-echo-core';
+import { buildRuneItems, createRuneInsertHandler } from 'libs-rune-core';
 
 const editorComp = shallowRef<Component | null>(null);
 
 onMounted(async () => {
-  const { MuyaEditor } = await import('libs-muya-v3');
-  await import('libs-muya-v3/style.css');
+  const { MuyaEditor } = await import('libs-muya-vue3');
+  await import('libs-muya-vue3/style.css');
   editorComp.value = MuyaEditor as Component;
 });
 
@@ -52,7 +52,7 @@ const markdown = ref(
   [
     '# Muya 引擎实机演示',
     '',
-    '这是一块真正跑起来的 Muya 编辑器（libs-muya-v3）。',
+    '这是一块真正跑起来的 Muya 编辑器（libs-muya-vue3）。',
     '',
     '- 输入 `@` 唤起快捷面板，试试「符文」「回响」分组',
     '- 插入的符文是 SFC 卡片，回响带可编辑的值',

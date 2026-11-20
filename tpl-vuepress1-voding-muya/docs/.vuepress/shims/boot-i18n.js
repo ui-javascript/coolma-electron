@@ -1,5 +1,5 @@
 /**
- * libs-muya 的 `boot/i18n` 别名 shim（引擎契约：消费方提供 i18n 单例）。
+ * libs-muya-vue2 的 `boot/i18n` 别名 shim（引擎契约：消费方提供 i18n 单例）。
  *
  * 引擎只用 `i18n.t(key)`（全库 96 处，无 locale/插值依赖），
  * 这里给一份中文词典 + key 兜底，避免文档站 demo 里按钮全是原始 key。

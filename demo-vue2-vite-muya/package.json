@@ -1,7 +1,7 @@
 {
   "name": "demo-vue2-vite-muya",
   "version": "0.1.0",
-  "description": "Standalone web demo of the libs-muya editor",
+  "description": "Standalone web demo of the libs-muya-vue2 editor",
   "private": true,
   "scripts": {
     "dev": "vite",
@@ -12,7 +12,7 @@
     "dompurify": "^3.3.3",
     "eve": "^0.5.4",
     "katex": "^0.16.11",
-    "libs-muya": "workspace:*",
+    "libs-muya-vue2": "workspace:*",
     "prismjs": "^1.29.0",
     "vue": "^2.7.16",
     "vue-i18n": "^8.28.2"

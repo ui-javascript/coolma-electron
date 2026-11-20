@@ -28,8 +28,8 @@
     "node": ">=18"
   },
   "dependencies": {
-    "echo-core": "workspace:*",
-    "libs-muya": "workspace:*",
-    "rune-core": "workspace:*"
+    "libs-echo-core": "workspace:*",
+    "libs-muya-vue2": "workspace:*",
+    "libs-rune-core": "workspace:*"
   }
 }

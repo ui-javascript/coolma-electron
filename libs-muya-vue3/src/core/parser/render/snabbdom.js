@@ -59,7 +59,7 @@ const toVNode =
   toVNodeNs.toVNode ?? (typeof toVNodeNs.default === 'function' ? toVNodeNs.default : toVNodeNs.default?.toVNode);
 
 if (typeof init !== 'function' || typeof toHTML !== 'function' || typeof toVNode !== 'function') {
-  throw new TypeError('[libs-muya-v3] snabbdom 依赖解析失败（init/toHTML/toVNode），检查打包器 CJS 互操作');
+  throw new TypeError('[libs-muya-vue3] snabbdom 依赖解析失败（init/toHTML/toVNode），检查打包器 CJS 互操作');
 }
 
 export const patch = init([

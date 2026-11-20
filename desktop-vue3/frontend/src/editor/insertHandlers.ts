@@ -1,12 +1,12 @@
-import { createEchoInsertHandler } from 'echo-core';
-import { createRuneInsertHandler } from 'rune-core';
+import { createEchoInsertHandler } from 'libs-echo-core';
+import { createRuneInsertHandler } from 'libs-rune-core';
 
 /**
  * @ 快捷面板的类型处理器（应用侧实现）。
  *
  * 引擎只提供 `options.quickInsertTypes` 这个注册表 + 几个插入原语；
  * 这里放的是 desktop-vue3 自己的领域语义，vue2 可以按需实现一套完全不同的。
- * 符文、回响的插入语义已经放在 `rune-core` / `echo-core`，桌面端与
+ * 符文、回响的插入语义已经放在 `libs-rune-core` / `libs-echo-core`，桌面端与
  * vuepress/vitepress 复用同一份，不再依赖引擎内置实现。
  */
 export interface QuickInsertHandlerContext {

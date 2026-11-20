@@ -1,5 +1,5 @@
 {
-  "name": "libs-muya",
+  "name": "libs-muya-vue2",
   "version": "0.1.2",
   "description": "Muya Markdown editor",
   "main": "lib/index.js",

@@ -9,5 +9,6 @@ All repository packages belong to the root pnpm workspace and share its lockfile
 
 - Run `pnpm install` at the repository root. CI uses `pnpm install --frozen-lockfile`.
 - Use `pnpm --filter <package-name> add <pkg>` (or `add -D <pkg>`) to declare a dependency in a child package.
+- Put reusable libraries in flat `libs-*` directories at the repository root. Match each directory to its `package.json` name. Use `-vue2` / `-vue3` for libraries tied to that Vue major version.
 - Use `workspace:*` for local packages. Keep pnpm settings and patches in the root `pnpm-workspace.yaml`.
 - Run package scripts with `pnpm --filter <package-name> run <script>`.

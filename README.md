@@ -13,11 +13,24 @@ pnpm install
 pnpm dev
 ```
 
-所有子包共用根目录的 `pnpm-workspace.yaml` 和 `pnpm-lock.yaml`，安装一次即可。`desktop-vue2`、`desktop-vue3`、Muya 工具包、模板和插件均由根 workspace 管理；Vue 2 和 Vue 3 各自解析所需的 Vue 版本。运行 `pnpm dev` 启动 Vue 2 桌面应用，运行 `pnpm verify` 执行测试，或运行 `pnpm --filter libs-muya build:dev` 构建编辑器。
+所有子包共用根目录的 `pnpm-workspace.yaml` 和 `pnpm-lock.yaml`，安装一次即可。`desktop-vue2`、`desktop-vue3`、Muya 工具包、模板和插件均由根 workspace 管理；Vue 2 和 Vue 3 各自解析所需的 Vue 版本。运行 `pnpm dev` 启动 Vue 2 桌面应用，运行 `pnpm verify` 执行测试，或运行 `pnpm --filter libs-muya-vue2 build:dev` 构建编辑器。
 
 执行 `pnpm verify:workspace` 可检查子包登记、共享锁文件、本地链接和 Vue 版本解析，防止新增子包遗漏。
 
 Muya 的 Vue 2 + Vite 示例位于 [`demo-vue2-vite-muya/`](demo-vue2-vite-muya/)，在根目录运行 `pnpm --filter demo-vue2-vite-muya dev`。符文和回响模板分别位于 [`tpl-rune/`](tpl-rune/) 和 [`tpl-echo/`](tpl-echo/)。
+
+## 公共库
+
+公共库平铺在仓库根目录，目录名和包名一致，其他 workspace 包通过 `workspace:*` 引用。
+
+| 包 | 用途 |
+| --- | --- |
+| [`libs-muya-vue2`](libs-muya-vue2/) | Vue 2 版 Muya 编辑器 |
+| [`libs-muya-vue3`](libs-muya-vue3/) | Muya 编辑器核心与 Vue 3 包装层 |
+| [`libs-muya-echo-vue3`](libs-muya-echo-vue3/) | Vue 3 版 Muya 的 Echo 插件 |
+| [`libs-muya-rune-vue3`](libs-muya-rune-vue3/) | Vue 3 版 Muya 的 Rune 插件 |
+| [`libs-echo-core`](libs-echo-core/) | Echo 数据及插入逻辑，不依赖 Vue |
+| [`libs-rune-core`](libs-rune-core/) | Rune 数据及插入逻辑，不依赖 Vue |
 
 # 新功能
 

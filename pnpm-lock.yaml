@@ -346,9 +346,9 @@ importers:
       katex:
         specifier: ^0.16.11
         version: 0.16.47
-      libs-muya:
+      libs-muya-vue2:
         specifier: workspace:*
-        version: link:../libs-muya
+        version: link:../libs-muya-vue2
       prismjs:
         specifier: ^1.29.0
         version: 1.30.0
@@ -630,9 +630,9 @@ importers:
       less:
         specifier: ^4.8.1
         version: 4.9.1(supports-color@6.1.0)
-      libs-muya:
+      libs-muya-vue2:
         specifier: workspace:*
-        version: link:../libs-muya
+        version: link:../libs-muya-vue2
       lottie-web-vue:
         specifier: ^1.2.1
         version: 1.2.1
@@ -836,9 +836,9 @@ importers:
       echarts:
         specifier: ^6.1.0
         version: 6.1.0
-      echo-core:
+      libs-echo-core:
         specifier: workspace:*
-        version: link:../../echo-core
+        version: link:../../libs-echo-core
       element-plus:
         specifier: 2.14.8
         version: 2.14.8(vue@3.5.45(typescript@5.9.3))
@@ -854,9 +854,9 @@ importers:
       jquery:
         specifier: ^3.7.1
         version: 3.7.1
-      libs-muya-v3:
+      libs-muya-vue3:
         specifier: workspace:*
-        version: link:../packages/libs-muya-v3
+        version: link:../../libs-muya-vue3
       markmap-lib:
         specifier: ^0.11.6
         version: 0.11.6
@@ -869,12 +869,12 @@ importers:
       pinia:
         specifier: ^2.3.1
         version: 2.3.1(typescript@5.9.3)(vue@3.5.45(typescript@5.9.3))
-      plugins-muya-echo:
+      libs-muya-echo-vue3:
         specifier: workspace:*
-        version: link:../packages/plugins-muya-echo
-      plugins-muya-rune:
+        version: link:../../libs-muya-echo-vue3
+      libs-muya-rune-vue3:
         specifier: workspace:*
-        version: link:../packages/plugins-muya-rune
+        version: link:../../libs-muya-rune-vue3
       quasar:
         specifier: 2.35.5
         version: 2.35.5(vue@3.5.45(typescript@5.9.3))
@@ -887,9 +887,9 @@ importers:
       reveal.js:
         specifier: 4.6.1
         version: 4.6.1
-      rune-core:
+      libs-rune-core:
         specifier: workspace:*
-        version: link:../../rune-core
+        version: link:../../libs-rune-core
       splitpanes:
         specifier: ^4.1.2
         version: 4.1.2(vue@3.5.45(typescript@5.9.3))
@@ -928,102 +928,33 @@ importers:
         specifier: ^2.2.12
         version: 2.2.12(typescript@5.9.3)
 
-  desktop-vue3/packages/libs-muya-v3:
-    dependencies:
-      dompurify:
-        specifier: ^3.3.3
-        version: 3.4.18
-      element-resize-detector:
-        specifier: ^1.2.1
-        version: 1.2.4
-      execall:
-        specifier: ^2.0.0
-        version: 2.0.0
-      file-icons-js:
-        specifier: 1.0.3
-        version: 1.0.3
-      flowchart.js:
-        specifier: ^1.18.0
-        version: 1.18.1
-      github-markdown-css:
-        specifier: ^5.9.0
-        version: 5.9.0
-      html-tags:
-        specifier: ^3.3.1
-        version: 3.3.1
-      joplin-turndown-plugin-gfm:
-        specifier: ^1.0.12
-        version: 1.0.12
-      katex:
-        specifier: ^0.16.11
-        version: 0.16.47
-      mermaid:
-        specifier: ^10.6.1
-        version: 10.9.8(supports-color@8.1.1)
-      popper.js:
-        specifier: ^1.16.1
-        version: 1.16.1
-      prismjs:
-        specifier: ^1.29.0
-        version: 1.30.0
-      snabbdom:
-        specifier: 0.7.4
-        version: 0.7.4
-      snabbdom-to-html:
-        specifier: ^5.1.1
-        version: 5.1.1
-      turndown:
-        specifier: ^7.2.5
-        version: 7.2.5
-      unsplash-js:
-        specifier: ^6.0.0
-        version: 6.3.0
-      uuid:
-        specifier: ^9.0.1
-        version: 9.0.1
-      vega:
-        specifier: ^5.10.0
-        version: 5.33.1(encoding@0.1.14)
-      vega-embed:
-        specifier: ^6.21.0
-        version: 6.29.0(vega-lite@4.17.0(vega@5.33.1(encoding@0.1.14)))(vega@5.33.1(encoding@0.1.14))
-      vega-lite:
-        specifier: ^4.7.0
-        version: 4.17.0(vega@5.33.1(encoding@0.1.14))
-      vue:
-        specifier: ^3.5.0
-        version: 3.5.45(typescript@5.9.3)
-      webfontloader:
-        specifier: ^1.6.28
-        version: 1.6.28
+  libs-echo-core: {}
 
-  desktop-vue3/packages/plugins-muya-echo:
+  libs-muya-echo-vue3:
     dependencies:
-      echo-core:
+      libs-echo-core:
         specifier: workspace:*
-        version: link:../../../echo-core
-      libs-muya-v3:
+        version: link:../libs-echo-core
+      libs-muya-vue3:
         specifier: workspace:*
-        version: link:../libs-muya-v3
+        version: link:../libs-muya-vue3
 
-  desktop-vue3/packages/plugins-muya-rune:
+  libs-muya-rune-vue3:
     dependencies:
       '@vue/compiler-dom':
         specifier: ^3.5.45
         version: 3.5.45
-      libs-muya-v3:
+      libs-muya-vue3:
         specifier: workspace:*
-        version: link:../libs-muya-v3
-      rune-core:
+        version: link:../libs-muya-vue3
+      libs-rune-core:
         specifier: workspace:*
-        version: link:../../../rune-core
+        version: link:../libs-rune-core
       vue:
         specifier: ^3.5.0
         version: 3.5.45(typescript@5.9.3)
 
-  echo-core: {}
-
-  libs-muya:
+  libs-muya-vue2:
     dependencies:
       dompurify:
         specifier: ^3.3.3
@@ -1144,19 +1075,88 @@ importers:
         specifier: ^5.0.0
         version: 5.1.4(webpack-bundle-analyzer@4.10.2(bufferutil@4.2.0)(utf-8-validate@5.0.10))(webpack-dev-server@3.11.3)(webpack@5.112.2)
 
-  rune-core: {}
+  libs-muya-vue3:
+    dependencies:
+      dompurify:
+        specifier: ^3.3.3
+        version: 3.4.18
+      element-resize-detector:
+        specifier: ^1.2.1
+        version: 1.2.4
+      execall:
+        specifier: ^2.0.0
+        version: 2.0.0
+      file-icons-js:
+        specifier: 1.0.3
+        version: 1.0.3
+      flowchart.js:
+        specifier: ^1.18.0
+        version: 1.18.1
+      github-markdown-css:
+        specifier: ^5.9.0
+        version: 5.9.0
+      html-tags:
+        specifier: ^3.3.1
+        version: 3.3.1
+      joplin-turndown-plugin-gfm:
+        specifier: ^1.0.12
+        version: 1.0.12
+      katex:
+        specifier: ^0.16.11
+        version: 0.16.47
+      mermaid:
+        specifier: ^10.6.1
+        version: 10.9.8(supports-color@8.1.1)
+      popper.js:
+        specifier: ^1.16.1
+        version: 1.16.1
+      prismjs:
+        specifier: ^1.29.0
+        version: 1.30.0
+      snabbdom:
+        specifier: 0.7.4
+        version: 0.7.4
+      snabbdom-to-html:
+        specifier: ^5.1.1
+        version: 5.1.1
+      turndown:
+        specifier: ^7.2.5
+        version: 7.2.5
+      unsplash-js:
+        specifier: ^6.0.0
+        version: 6.3.0
+      uuid:
+        specifier: ^9.0.1
+        version: 9.0.1
+      vega:
+        specifier: ^5.10.0
+        version: 5.33.1(encoding@0.1.14)
+      vega-embed:
+        specifier: ^6.21.0
+        version: 6.29.0(vega-lite@4.17.0(vega@5.33.1(encoding@0.1.14)))(vega@5.33.1(encoding@0.1.14))
+      vega-lite:
+        specifier: ^4.7.0
+        version: 4.17.0(vega@5.33.1(encoding@0.1.14))
+      vue:
+        specifier: ^3.5.0
+        version: 3.5.45(typescript@5.9.3)
+      webfontloader:
+        specifier: ^1.6.28
+        version: 1.6.28
+
+  libs-rune-core: {}
 
   tpl-vitepress1-teek-muya:
     devDependencies:
-      echo-core:
+      libs-echo-core:
         specifier: workspace:*
-        version: link:../echo-core
+        version: link:../libs-echo-core
       katex:
         specifier: 0.19.1
         version: 0.19.1
-      libs-muya-v3:
+      libs-muya-vue3:
         specifier: workspace:*
-        version: link:../desktop-vue3/packages/libs-muya-v3
+        version: link:../libs-muya-vue3
       markdown-it-deflist:
         specifier: 4.0.0
         version: 4.0.0
@@ -1178,9 +1178,9 @@ importers:
       mermaid:
         specifier: 11.17.2
         version: 11.17.2
-      rune-core:
+      libs-rune-core:
         specifier: workspace:*
-        version: link:../rune-core
+        version: link:../libs-rune-core
       vitepress:
         specifier: 1.6.4
         version: 1.6.4(@algolia/client-search@5.64.0)(@types/node@26.6.6)(async-validator@4.2.5)(axios@1.20.0(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1))(less@4.9.1(supports-color@8.1.1))(nprogress@0.2.0)(postcss@8.5.33)(sass@1.32.12)(search-insights@2.17.3)(sortablejs@1.10.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2)(typescript@5.9.3)
@@ -1196,15 +1196,15 @@ importers:
 
   tpl-vuepress1-voding-muya:
     dependencies:
-      echo-core:
+      libs-echo-core:
         specifier: workspace:*
-        version: link:../echo-core
-      libs-muya:
+        version: link:../libs-echo-core
+      libs-muya-vue2:
         specifier: workspace:*
-        version: link:../libs-muya
-      rune-core:
+        version: link:../libs-muya-vue2
+      libs-rune-core:
         specifier: workspace:*
-        version: link:../rune-core
+        version: link:../libs-rune-core
     devDependencies:
       '@vuepress/plugin-medium-zoom':
         specifier: 1.9.10

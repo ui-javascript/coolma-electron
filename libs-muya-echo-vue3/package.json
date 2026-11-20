@@ -1,0 +1,16 @@
+{
+  "name": "libs-muya-echo-vue3",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Echo (@chant) plugin for libs-muya-vue3",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "peerDependencies": {
+    "libs-muya-vue3": "workspace:*"
+  },
+  "dependencies": {
+    "libs-echo-core": "workspace:*"
+  }
+}

@@ -77,7 +77,7 @@ function disposePlugins(): void {
     try {
       dispose();
     } catch (error) {
-      console.warn('[libs-muya] plugin dispose failed:', error);
+      console.warn('[libs-muya-vue3] plugin dispose failed:', error);
     }
   }
 }
@@ -173,7 +173,7 @@ onBeforeUnmount(() => {
   try {
     editor?.destroy();
   } catch (error) {
-    console.warn('[libs-muya] editor destroy failed:', error);
+    console.warn('[libs-muya-vue3] editor destroy failed:', error);
   } finally {
     editor = null;
     host.value?.replaceChildren();

@@ -1,4 +1,4 @@
-# libs-muya
+# libs-muya-vue2
 
 Memocast 编辑器核心 —— Muya Markdown 编辑器，内置 **rune（符文）** 和 **echo（回响）** 扩展。
 
@@ -28,9 +28,9 @@ Memocast 编辑器核心 —— Muya Markdown 编辑器，内置 **rune（符文
   <script src="https://cdn.jsdelivr.net/npm/vue@2.7.16/dist/vue.min.js"></script>
 
   <!-- muya full bundle -->
-  <script src="https://your-cdn/libs-muya/index.min.js"></script>
+  <script src="https://your-cdn/libs-muya-vue2/index.min.js"></script>
 
-  <link rel="stylesheet" href="https://your-cdn/libs-muya/themes/default.css" />
+  <link rel="stylesheet" href="https://your-cdn/libs-muya-vue2/themes/default.css" />
 </head>
 <body>
   <div id="editor" style="height: 100vh;"></div>
@@ -75,8 +75,8 @@ Memocast 编辑器核心 —— Muya Markdown 编辑器，内置 **rune（符文
   <script src="https://cdn.jsdelivr.net/npm/flowchart.js@1.18.0/release/flowchart.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/vega-embed@6.21.0/build/vega-embed.min.js"></script>
 
-  <script src="https://your-cdn/libs-muya/index.core.min.js"></script>
-  <link rel="stylesheet" href="https://your-cdn/libs-muya/themes/default.css" />
+  <script src="https://your-cdn/libs-muya-vue2/index.core.min.js"></script>
+  <link rel="stylesheet" href="https://your-cdn/libs-muya-vue2/themes/default.css" />
 </head>
 <body>
   <div id="editor" style="height: 100vh;"></div>
@@ -93,11 +93,11 @@ Memocast 编辑器核心 —— Muya Markdown 编辑器，内置 **rune（符文
 
 ```js
 // 完整版
-import Muya from 'libs-muya'
-import 'libs-muya/themes/default.css'
+import Muya from 'libs-muya-vue2'
+import 'libs-muya-vue2/themes/default.css'
 
 // 或 core 版（需要 declare module 或配 alias）
-import Muya from 'libs-muya/dist/index.core.min.js'
+import Muya from 'libs-muya-vue2/dist/index.core.min.js'
 
 const muya = new Muya('#editor', options)
 ```
@@ -108,27 +108,27 @@ const muya = new Muya('#editor', options)
 
 ### 2.1 安装依赖
 
-在仓库根目录执行 `pnpm install`，pnpm 会自动链接 `libs-muya`。
+在仓库根目录执行 `pnpm install`，pnpm 会自动链接 `libs-muya-vue2`。
 
 Vue 2 + Vite demo 位于 [`demo-vue2-vite-muya/`](../demo-vue2-vite-muya/)。安装依赖后，在仓库根目录运行 `pnpm --filter demo-vue2-vite-muya dev`。
 
 ### 2.2 监听构建
 
 ```bash
-pnpm --filter libs-muya dev
+pnpm --filter libs-muya-vue2 dev
 # 监听文件变更，webpack 自动重建 dist/
 ```
 
-dev 模式下输出未压缩，开发调试更快；生产发布前跑 `pnpm --filter libs-muya build:all`。
+dev 模式下输出未压缩，开发调试更快；生产发布前跑 `pnpm --filter libs-muya-vue2 build:all`。
 
 ### 2.3 构建命令
 
 | 命令 | 产物 |
 |---|---|
-| `pnpm --filter libs-muya build` | 只构建 `dist/index.min.js`（full 版） |
-| `pnpm --filter libs-muya build:core` | 只构建 `dist/index.core.min.js`（core 版） |
-| `pnpm --filter libs-muya build:all` | 两个都构建（不互相覆盖） |
-| `pnpm --filter libs-muya build:dev` / `pnpm --filter libs-muya dev` | development 模式（带 watch） |
+| `pnpm --filter libs-muya-vue2 build` | 只构建 `dist/index.min.js`（full 版） |
+| `pnpm --filter libs-muya-vue2 build:core` | 只构建 `dist/index.core.min.js`（core 版） |
+| `pnpm --filter libs-muya-vue2 build:all` | 两个都构建（不互相覆盖） |
+| `pnpm --filter libs-muya-vue2 build:dev` / `pnpm --filter libs-muya-vue2 dev` | development 模式（带 watch） |
 
 > 旧版 `scripts/verify-*.js` 已删除（v2026-07-29），单元测试在主项目 `tests/unit/` 下，跑 `pnpm verify` / `pnpm verify:rune` / `pnpm verify:echo` 校验 rune / echo 契约。
 
@@ -158,7 +158,7 @@ const muya = new Muya(containerOrSelector, options)
 ### 3.2 静态注册插件
 
 ```js
-import { TablePicker, QuickInsert, CodePicker, EmojiPicker } from 'libs-muya'
+import { TablePicker, QuickInsert, CodePicker, EmojiPicker } from 'libs-muya-vue2'
 
 Muya.use(TablePicker)
 Muya.use(QuickInsert, { /* options */ })

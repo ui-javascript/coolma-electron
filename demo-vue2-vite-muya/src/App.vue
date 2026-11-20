@@ -37,8 +37,8 @@ import {
   LinkTools,
   TableBarTools,
   Transformer
-} from 'libs-muya/lib'
-import 'libs-muya/themes/default.css'
+} from 'libs-muya-vue2/lib'
+import 'libs-muya-vue2/themes/default.css'
 
 const PLUGINS = [
   'TablePicker',

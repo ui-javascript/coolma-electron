@@ -4,16 +4,16 @@
     <p v-if="loadError" class="muya-live-error">引擎加载失败：{{ loadError }}</p>
     <p class="muya-live-tip">
       输入 <code>@</code> 唤起快捷面板：符文/回响分组的数据来自
-      <code>rune-core</code> / <code>echo-core</code> 的 pure 层（CJS lib），
+      <code>libs-rune-core</code> / <code>libs-echo-core</code> 的 pure 层（CJS lib），
       与 desktop-vue2 / vitepress 模板共用同一份构造逻辑。
     </p>
   </div>
 </template>
 
 <script>
-import 'libs-muya/themes/default.css'
-import { buildEchoItems } from 'echo-core'
-import { buildRuneItems } from 'rune-core'
+import 'libs-muya-vue2/themes/default.css'
+import { buildEchoItems } from 'libs-echo-core'
+import { buildRuneItems } from 'libs-rune-core'
 
 /**
  * 模板内的演示卡片。桌面端这两份列表来自 SQLite，
@@ -41,10 +41,10 @@ export default {
       markdown: [
         '# Muya 引擎实机演示（VuePress）',
         '',
-        '这是一块真正跑起来的 Muya 编辑器（libs-muya，Vue2 引擎 CJS lib）。',
+        '这是一块真正跑起来的 Muya 编辑器（libs-muya-vue2，Vue2 引擎 CJS lib）。',
         '',
         '- 输入 `@` 唤起快捷面板，试试「符文」「回响」分组',
-        '- 数据构造走 echo-core / rune-core，插入语义在引擎内置层（vue2 引擎现状）',
+        '- 数据构造走 libs-echo-core / libs-rune-core，插入语义在引擎内置层（vue2 引擎现状）',
         ''
       ].join('\n')
     }
@@ -59,7 +59,7 @@ export default {
     async initEditor () {
       try {
         // 编辑器依赖浏览器环境，等组件挂载后再加载。
-        const { default: Muya, QuickInsert, Transformer } = await import('libs-muya/lib')
+        const { default: Muya, QuickInsert, Transformer } = await import('libs-muya-vue2/lib')
         if (!this.$refs.editor) return
         if (!pluginsRegistered) {
           Muya.use(QuickInsert)

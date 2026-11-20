@@ -16,13 +16,13 @@ electron-egg demo_v4_ts (v4.2.0)
   + Element Plus（UI 组件库）+ splitpanes（三栏拖拽）
   + enum-plus（业务枚举 / 字典）
   + better-sqlite3（schema v1 / WAL）
-  + libs-muya（独立 Muya core + Vue 3 wrapper）
-  + plugins-muya-echo / plugins-muya-rune（插件边界）
+  + libs-muya-vue3（独立 Muya core + Vue 3 wrapper）
+  + libs-muya-echo-vue3 / libs-muya-rune-vue3（插件边界）
 ```
 
 ## 快速开始
 
-> 在仓库根目录执行以下命令。根 workspace 同时安装 `desktop-vue3`、`frontend` 与 `packages/*`。
+> 在仓库根目录执行以下命令。根 workspace 同时安装 `desktop-vue3`、`desktop-vue3/frontend` 与根目录的 `libs-*`。
 
 ```powershell
 pnpm install
@@ -51,11 +51,12 @@ pnpm build-w
 electron/         主进程：配置、controller、preload、安全服务、SQLite
 electron/shared/  IPC channel、类型、enum-plus 共享字典
 frontend/         Vue3 + Element Plus 渲染层
-packages/         libs-muya + plugins-muya-echo/rune 独立包
 tests/            旧库 fixture 与测试说明
 rule/skill/       迁移方案与长期规则
 docs/             阶段说明与源码基线
 ```
+
+共享库放在[仓库根目录](../README.md#公共库)，前端通过 `workspace:*` 引用。
 
 ## 下一步
 

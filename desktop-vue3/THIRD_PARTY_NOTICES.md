@@ -15,7 +15,7 @@ licenses in `node_modules`.
 | [Pinia](https://github.com/vuejs/pinia) | MIT | Renderer state |
 | [Vue Router](https://github.com/vuejs/router) | MIT | Renderer routing |
 | [vue-i18n](https://github.com/intlify/vue-i18n) | MIT | Internationalization |
-| [Muya / MarkText](https://github.com/marktext/muya) | MIT | Markdown editor core (`libs-muya`) |
+| [Muya / MarkText](https://github.com/marktext/muya) | MIT | Markdown editor core (`libs-muya-vue3`) |
 | [splitpanes](https://github.com/antoniandre/splitpanes) | MIT | Three-pane resizable layout |
 | [KaTeX](https://github.com/KaTeX/KaTeX) | MIT | Math rendering |
 | [Mermaid](https://github.com/mermaid-js/mermaid) | MIT | Diagram rendering |

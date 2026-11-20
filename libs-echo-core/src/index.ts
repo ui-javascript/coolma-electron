@@ -1,5 +1,5 @@
 /**
- * Echo 的纯逻辑层：不 import libs-muya、不 import vue。
+ * Echo 的纯逻辑层：不依赖 Muya 或 Vue。
  *
  * vue3 桌面、vue2 桌面、vuepress、vitepress 都能直接吃这里的函数；
  * 差异只在「谁来把 items 塞进编辑器、谁来渲染 anno_source」。

@@ -109,7 +109,7 @@ P7 打包、性能、安全、验收
 | 日志 | electron-log | 主进程文件日志 + 渲染层转发 |
 | 更新 | electron-updater | 沿用 Coolma 的 GitHub release 思路 |
 | 测试 | Vitest + @vue/test-utils 2 + Playwright | 单测、组件、Electron E2E |
-| 包管理 | pnpm 10 workspace | 统一管理 frontend、libs-muya、plugins-muya-*；`workspace:*` 链接本地包 |
+| 包管理 | pnpm workspace | 统一管理 `desktop-vue3/frontend` 与根目录的 `libs-*`；`workspace:*` 链接本地包 |
 
 ### 2.1 为什么最终选 Element Plus，而不是 Quasar 2
 
@@ -737,14 +737,14 @@ Coolma 的核心导航不是单一“全部笔记”，而是三种索引模式�
 ### 10.6 Muya 包拆分（Vue 3）
 
 ```text
-packages/libs-muya/          核心 Muya + Vue 3 wrapper（独立包）
-packages/plugins-muya-echo/  Echo 插件边界
-packages/plugins-muya-rune/  Rune 插件边界
+libs-muya-vue3/       核心 Muya + Vue 3 wrapper（独立包）
+libs-muya-echo-vue3/  Echo 插件边界
+libs-muya-rune-vue3/  Rune 插件边界
 ```
 
 约定：
 
-1. `libs-muya` 不依赖 Vue 2；核心是 vanilla JS + snabbdom，Vue 3 只在包装层；
+1. `libs-muya-vue3` 不依赖 Vue 2；核心是 vanilla JS + snabbdom，Vue 3 只在包装层；
 2. 核心里的 `boot/i18n`、`src/components/echo/echoCore`、`require('snabbdom')` 等
    已替换为包内 shim / ESM，详见 `docs/MUYA.md`；
 3. Echo / Rune 不直接改 core，通过 `MuyaPlugin.install({ editor, container })` 扩展；
@@ -861,9 +861,9 @@ P1 代码入口：
 
 ### P4 Muya 编辑器（首版完成，持续增强）
 
-- [x] `packages/libs-muya` 独立包（core + Vue 3 wrapper）
+- [x] `libs-muya-vue3` 独立包（core + Vue 3 wrapper）
 - [x] 内容区接入 `<MuyaEditor v-model>`
-- [x] 建立 `plugins-muya-echo` / `plugins-muya-rune` 包边界
+- [x] 建立 `libs-muya-echo-vue3` / `libs-muya-rune-vue3` 包边界
 - [x] Markdown 渲染与编辑（标题 / 列表 / 引用 / 代码）
 - [x] 自动保存接 `notes:update`（700ms 防抖 + 切走 flush）
 - [ ] 光标恢复、图片粘贴/拖拽/缓存

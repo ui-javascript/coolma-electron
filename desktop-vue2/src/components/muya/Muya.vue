@@ -27,17 +27,17 @@ import {
   Transformer,
   // v2026-07-31 起：Memocast Settings → 编辑器 → 「语法解析」开关让 Muya parser
   // 的 inlineRules.echo_anno 可以按 echoRequireParens=true/false 实时切换。
-  // 唯一入口 setEchoAnnoRule：直接 mutate libs-muya/lib/parser/rules.js
-  // 导出的 inlineRules.echo_anno 引用（libs-muya 是 workspace 包，详见插件契约
+  // 唯一入口 setEchoAnnoRule：直接 mutate libs-muya-vue2/lib/parser/rules.js
+  // 导出的 inlineRules.echo_anno 引用（libs-muya-vue2 是 workspace 包，详见插件契约
   // plugin-vue-version.mdc + rune-echo-cloudfn-experimental.mdc 的「改本地源码实时生效」）。
   setEchoAnnoRule
-} from 'libs-muya/lib'
-import 'libs-muya/themes/default.css'
+} from 'libs-muya-vue2/lib'
+import 'libs-muya-vue2/themes/default.css'
 import appBus from '../common/bus.js'
 import _ from 'lodash'
 import { v4 as uuidv4 } from 'uuid'
 import { EVENTS as appEvents } from 'src/utils/const/eventsConst'
-import 'libs-muya/themes/default.css'
+import 'libs-muya-vue2/themes/default.css'
 import debugLogger from 'src/utils/debugLogger'
 import { attachThemeColor } from 'src/utils/theme'
 import { showContextMenu as showEditorContextMenu } from 'src/components/contextMenu/muya'
@@ -875,8 +875,8 @@ export default {
 
       // v2026-07-31：启动时从 SQLite 真源拉取「语法解析」开关到 vuex。
       // 注意：Muya 不再读 options.echoAnnoRule，规则切换由 setEchoAnnoRule 这一
-      // 个口子 mutate inlineRules.echo_anno 实现（libs-muya 是 workspace 包，
-      // 直接改 parser 源码，详见 libs-muya/lib/parser/index.js 的
+      // 个口子 mutate inlineRules.echo_anno 实现（libs-muya-vue2 是 workspace 包，
+      // 直接改 parser 源码，详见 libs-muya-vue2/lib/parser/index.js 的
       // setEchoAnnoRule 注释）。
       // 流程：
       //   1) 同步分支：上方的 setEchoAnnoRule({ requireParens: this.echoRequireParens })
@@ -900,9 +900,9 @@ export default {
 
       // === v2026-07-31 新增：「语法解析 / echoRequireParens」开关同步到 Muya parser ===
       // 唯一入口：setEchoAnnoRule({ requireParens })，直接 mutate
-      // libs-muya/lib/parser/rules.js 导出的 inlineRules.echo_anno 引用。
+      // libs-muya-vue2/lib/parser/rules.js 导出的 inlineRules.echo_anno 引用。
       // 与 plugin-vue-version.mdc + rune-echo-cloudfn-experimental.mdc 的
-      // 「libs-muya 是 workspace 包，直接改源码让规则实时生效」口径一致。
+      // 「libs-muya-vue2 是 workspace 包，直接改源码让规则实时生效」口径一致。
       //
       // 数据流：
       //   SQLite 真源('setting/parsing/echoRequireParens')

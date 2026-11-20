@@ -1,5 +1,5 @@
 /**
- * Rune 的纯逻辑层：不 import libs-muya、不 import vue。
+ * Rune 的纯逻辑层：不依赖 Muya 或 Vue。
  *
  * SFC 模板的解析（`props.inheritFromPrevious.default`）在引擎里原本写死，
  * 这里把它抽成纯函数，vue2/vue3/vuepress/vitepress 共用同一套判断。

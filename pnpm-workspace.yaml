@@ -2,7 +2,6 @@ packages:
   # 一级子包自动纳入，深层应用和工具包在此补充。
   - '*'
   - desktop-vue3/frontend
-  - 'desktop-vue3/packages/*'
   - _plugins/box-im-wujie
   - _plugins/doubao-input
 

@@ -2,10 +2,10 @@
  * 插入语义断言（不依赖 Electron / 浏览器）：
  *   node -e "require('esbuild').buildSync({...})" 后 node 跑本文件编译产物
  *
- * 覆盖 rune-core / echo-core 的插入处理器，验证「引擎只留原语、语义在包里」这条边界。
+ * 覆盖 libs-rune-core / libs-echo-core 的插入处理器，验证「引擎只留原语、语义在包里」这条边界。
  */
-import { createEchoInsertHandler, buildEchoPlaceholderMarkup } from '../../echo-core/src/index';
-import { createRuneInsertHandler, readInheritFromTemplate } from '../../rune-core/src/index';
+import { createEchoInsertHandler, buildEchoPlaceholderMarkup } from '../../libs-echo-core/src/index';
+import { createRuneInsertHandler, readInheritFromTemplate } from '../../libs-rune-core/src/index';
 import { markdownFileName, sanitizeFileName } from '../electron/service/export-utils';
 import { coolmaUrl, hashImageName, parseCoolmaUrl, resolveDocSegment } from '../electron/service/attachments';
 import { stripDataUrlBase64 } from '../electron/service/export-utils';

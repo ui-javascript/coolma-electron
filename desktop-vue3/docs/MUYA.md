@@ -5,31 +5,31 @@
 ## 1. 包结构
 
 ```text
-packages/
-├─ libs-muya/                 Muya 核心 + Vue 3 包装层（独立包）
+仓库根目录/
+├─ libs-muya-vue3/                 Muya 核心 + Vue 3 包装层（独立包）
 │  ├─ src/core/               从 coolma-muya lib 拆出的编辑器核心
 │  ├─ src/MuyaEditor.vue      Vue 3 <script setup> 包装
 │  ├─ src/plugin.ts           MuyaPlugin / defineMuyaPlugin
 │  ├─ src/index.ts            对外导出
 │  └─ src/themes/             default.css + fonts + prismjs
-├─ plugins-muya-echo/         Echo 注册表、anno_source 运行时与 payload 编解码
-└─ plugins-muya-rune/         Vue 3 SFC 编译器与旧 Muya 挂载协议适配器
+├─ libs-muya-echo-vue3/         Echo 注册表、anno_source 运行时与 payload 编解码
+└─ libs-muya-rune-vue3/         Vue 3 SFC 编译器与旧 Muya 挂载协议适配器
 ```
 
 `frontend` 通过 workspace 协议使用：
 
 ```json
-"libs-muya": "workspace:*"
+"libs-muya-vue3": "workspace:*"
 ```
 
-根目录使用 pnpm workspace（`frontend` + `packages/*`），`pnpm install` 会一次性链接
-`libs-muya`、Echo/Rune 插件包与前端依赖。
+根目录使用 pnpm workspace（`desktop-vue3/frontend` 与根目录的 `libs-*`），`pnpm install` 会一次性链接
+`libs-muya-vue3`、Echo/Rune 插件包与前端依赖。
 
 Vite 仍需允许读取上级目录，并跳过对 TS 源码包做依赖预构建：
 
 ```ts
-optimizeDeps: { exclude: ['libs-muya'] },
-server: { fs: { allow: [path.resolve(__dirname, '..')] } }
+optimizeDeps: { exclude: ['libs-muya-vue3'] },
+server: { fs: { allow: [path.resolve(__dirname, '../..')] } }
 ```
 
 ## 2. Vue 3 包装层
@@ -82,12 +82,12 @@ export interface MuyaPlugin {
 }
 ```
 
-`plugins-muya-echo` 与 `plugins-muya-rune` 通过 `MuyaPlugin.install` 注入运行时：
+`libs-muya-echo-vue3` 与 `libs-muya-rune-vue3` 通过 `MuyaPlugin.install` 注入运行时：
 
 - Echo：`EchoRegistry` + `EchoRuntime` 负责 `anno_source` 编译、HTML 输出、后渲染钩子与 payload 编解码；
 - Rune：使用 `@vue/compiler-dom` 编译 `<template>`，并以 `createApp` 适配 Muya 仍使用的 `$mount/$destroy/propsData` 接口。
 
-插件不得直接改 `libs-muya` 源码，只能通过 `install` 和核心公开方法扩展。
+插件不得直接改 `libs-muya-vue3` 源码，只能通过 `install` 和核心公开方法扩展。
 
 编辑区输入 `@` 会唤起 Muya 的快捷插入浮层：保留原有 Markdown 区块命令，并按 Rune、Echo 分区追加已注册卡片；继续输入名称/描述可筛选，方向键移动、Enter 插入、Esc 关闭。快捷项由插件注册到 `quickInsertProvider`，Rune 插入生成带实例 id 的占位符，Echo 插入生成对应的 `@name{}()` 注解。
 

@@ -116,7 +116,7 @@ import { useI18n } from 'vue-i18n';
 import type { AppInfo } from '@shared/ipc/contract';
 import type { AppTheme } from '@shared/enums/app';
 import type { NoteSummary } from '@shared/types/domain';
-import { MuyaEditor } from 'libs-muya-v3';
+import { MuyaEditor } from 'libs-muya-vue3';
 import { formatNoteDate, noteTags } from '@/utils/note';
 import { createQuickInsertProvider } from '@/editor/quickInsert';
 import { quickInsertTypes } from '@/editor/insertHandlers';

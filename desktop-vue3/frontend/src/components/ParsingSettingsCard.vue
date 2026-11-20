@@ -63,7 +63,7 @@ async function saveEcho(value: boolean | string | number | undefined): Promise<v
 /** 引擎侧：运行时改写 inlineRules.echo_anno，不用重建 Muya。 */
 async function applyEchoRule(requireParens: boolean): Promise<void> {
   try {
-    const { setEchoAnnoRule } = await import('libs-muya-v3');
+    const { setEchoAnnoRule } = await import('libs-muya-vue3');
     setEchoAnnoRule({ requireParens });
   } catch {
     // 引擎未加载（如 SSR/测试环境）时静默跳过

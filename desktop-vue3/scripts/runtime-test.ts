@@ -144,7 +144,7 @@ function assert(name: string, cond: boolean, detail = ''): void {
 
 async function main(): Promise<void> {
   setupDom();
-  const core = (await import('../packages/libs-muya-v3/src/core/index.js')) as Any;
+  const core = (await import('../../libs-muya-vue3/src/core/index.js')) as Any;
   const Muya = core.default;
   // 与 MuyaEditor 一致：先注册整套 UI 插件，否则 quickInsert 不会实例化
   core.installDefaultUiPlugins();
@@ -181,8 +181,8 @@ async function main(): Promise<void> {
   const sections = Object.keys(renderObj.items);
   assert('面板三组：笔记/符文/回响', sections.length === 3, sections.join(','));
   assert('笔记分组有内容', renderObj.items[sections[0]]?.length === 1);
-  assert('符文分组走 rune-core', renderObj.items[sections[1]]?.[0]?.meta?.type === 'rune');
-  assert('回响分组走 echo-core', renderObj.items[sections[2]]?.[0]?.meta?.type === 'echo');
+  assert('符文分组走 libs-rune-core', renderObj.items[sections[1]]?.[0]?.meta?.type === 'rune');
+  assert('回响分组走 libs-echo-core', renderObj.items[sections[2]]?.[0]?.meta?.type === 'echo');
 
   // 2) 注册表分派：引擎不再内置 rune/echo
   assert('rune 走应用侧处理器', qi.getTypeHandler('rune') === quickInsertTypes.rune);
@@ -241,8 +241,8 @@ async function main(): Promise<void> {
   assert('符文继承上文', /data-rune-value="上一行的内容"/.test(inheritText), inheritText.slice(0, 120));
 
   // 6) B5：插件装上之后，占位要被真正渲染成卡片
-  const { createEchoPlugin } = (await import('plugins-muya-echo')) as Any;
-  const { createRunePlugin } = (await import('plugins-muya-rune')) as Any;
+  const { createEchoPlugin } = (await import('../../libs-muya-echo-vue3/src/index')) as Any;
+  const { createRunePlugin } = (await import('../../libs-muya-rune-vue3/src/index')) as Any;
 
   // anno_source 的 render 必须返回 HTML 字符串；afterRender 拿到的是 host 本身
   const echoSource =
@@ -722,7 +722,7 @@ async function main(): Promise<void> {
       id: card.id,
       annoSource: card.payload.annoSource,
     }));
-    const { safeEvalAnnoSource, HANDLER_PRELUDE } = await import('../packages/plugins-muya-echo/src/core/echoAnnoSource.js') as Any;
+    const { safeEvalAnnoSource, HANDLER_PRELUDE } = await import('../../libs-muya-echo-vue3/src/core/echoAnnoSource.js') as Any;
     const compiled = BUILTIN_ECHO_CARDS.map((card) => {
       const definition = safeEvalAnnoSource(card.annoSource, HANDLER_PRELUDE)();
       return { card, definition };
