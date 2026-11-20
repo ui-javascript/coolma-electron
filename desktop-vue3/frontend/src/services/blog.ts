@@ -21,7 +21,7 @@ export const exportBlog = (input: BlogExportInput): Promise<IpcResult<BlogExport
   invoke<BlogExportOutput>(IPC_CHANNELS.blog.export, input);
 
 export interface BlogBuildProgress {
-  stage: 'build' | 'done' | 'error' | 'cancelled';
+  stage: 'build' | 'sftp' | 'done' | 'error' | 'cancelled';
   message: string;
   percent: number;
   stream?: 'stdout' | 'stderr';
@@ -53,6 +53,34 @@ export interface BlogGithubConfig {
 
 export const dispatchBlogGithub = (input: BlogGithubConfig): Promise<IpcResult<{ dispatched: boolean }>> =>
   invoke<{ dispatched: boolean }>(IPC_CHANNELS.blog.dispatchGitHub, input);
+
+export interface BlogSftpConfig {
+  enabled?: boolean;
+  host: string;
+  port?: number;
+  username: string;
+  authType?: 'password' | 'key';
+  password?: string;
+  privateKeyPath?: string;
+  passphrase?: string;
+  remotePath: string;
+  backupEnabled?: boolean;
+}
+
+export const testBlogSftp = (config: BlogSftpConfig): Promise<IpcResult<{ success: true }>> =>
+  invoke<{ success: true }>(IPC_CHANNELS.blog.sftpTest, { config });
+
+export const uploadBlogSftp = (input: {
+  localDir: string;
+  config: BlogSftpConfig;
+}): Promise<IpcResult<{ uploaded: number; total: number; backupPath?: string }>> =>
+  invoke<{ uploaded: number; total: number; backupPath?: string }>(IPC_CHANNELS.blog.sftpUpload, input);
+
+export const cancelBlogSftp = (): Promise<IpcResult<{ cancelled: boolean }>> =>
+  invoke<{ cancelled: boolean }>(IPC_CHANNELS.blog.sftpCancel, {});
+
+export const pickFile = (): Promise<IpcResult<string | null>> =>
+  invoke<string | null>(IPC_CHANNELS.app.pickFile);
 
 export const pickDirectory = (): Promise<IpcResult<string | null>> =>
   invoke<string | null>(IPC_CHANNELS.app.pickDirectory);

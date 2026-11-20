@@ -15,7 +15,7 @@ import { BrowserWindow } from 'electron';
  * 构建脚本来自博客目录的 package.json —— 这就是执行用户指定目录里的代码，只在用户点「构建」时触发。
  */
 export type BlogProgress = {
-  stage: 'build' | 'done' | 'error' | 'cancelled';
+  stage: 'build' | 'sftp' | 'done' | 'error' | 'cancelled';
   message: string;
   percent: number;
   stream?: 'stdout' | 'stderr';

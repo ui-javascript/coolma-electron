@@ -39,6 +39,56 @@
       <span class="field-hint">{{ t('blog.buildHint') }}</span>
     </div>
 
+    <el-collapse class="blog-sftp">
+      <el-collapse-item name="sftp">
+        <template #title>
+          <span class="blog-github-title">{{ t('blog.sftpTitle') }}</span>
+        </template>
+        <div class="field-hint blog-github-hint">{{ t('blog.sftpHint') }}</div>
+        <el-form label-width="96px" class="github-form">
+          <el-form-item label="enable">
+            <el-checkbox v-model="sftp.enabled">{{ t('blog.sftpEnabled') }}</el-checkbox>
+          </el-form-item>
+        </el-form>
+        <el-form v-if="sftp.enabled" label-width="96px" class="github-form">
+          <el-form-item label="host"><el-input v-model="sftp.host" spellcheck="false" placeholder="example.com" /></el-form-item>
+          <el-form-item label="port"><el-input-number v-model="sftp.port" :min="1" :max="65535" controls-position="right" /></el-form-item>
+          <el-form-item label="username"><el-input v-model="sftp.username" spellcheck="false" /></el-form-item>
+          <el-form-item label="auth">
+            <el-radio-group v-model="sftp.authType">
+              <el-radio value="password">{{ t('blog.sftpAuthPassword') }}</el-radio>
+              <el-radio value="key">{{ t('blog.sftpAuthKey') }}</el-radio>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item v-if="sftp.authType === 'password'" label="password">
+            <el-input v-model="sftp.password" type="password" show-password spellcheck="false" />
+          </el-form-item>
+          <template v-else>
+            <el-form-item label="key">
+              <div class="blog-dir-row">
+                <el-input v-model="sftp.privateKeyPath" spellcheck="false" placeholder="~/.ssh/id_rsa" />
+                <el-button @click="chooseKeyFile">{{ t('blog.sftpChooseKey') }}</el-button>
+              </div>
+            </el-form-item>
+            <el-form-item label="passphrase">
+              <el-input v-model="sftp.passphrase" type="password" show-password spellcheck="false" />
+            </el-form-item>
+          </template>
+          <el-form-item label="remotePath">
+            <el-input v-model="sftp.remotePath" spellcheck="false" placeholder="/var/www/blog" />
+          </el-form-item>
+          <el-form-item label="backup">
+            <el-checkbox v-model="sftp.backupEnabled">{{ t('blog.sftpBackup') }}</el-checkbox>
+          </el-form-item>
+        </el-form>
+        <div v-if="sftp.enabled" class="blog-build-bar">
+          <el-button :loading="testing" @click="runSftpTest">{{ t('blog.sftpTest') }}</el-button>
+          <el-button v-if="uploading" type="danger" plain @click="stopSftp">{{ t('blog.sftpCancel') }}</el-button>
+          <span class="field-hint">{{ t('blog.sftpAutoUploadHint') }}</span>
+        </div>
+      </el-collapse-item>
+    </el-collapse>
+
     <el-collapse class="blog-github">
       <el-collapse-item name="github">
         <template #title>
@@ -99,8 +149,19 @@ import { computed, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import { useAppStore } from '@/stores/app';
-import { buildBlog, cancelBlogBuild, dispatchBlogGithub, exportBlog, onBlogProgress, pickDirectory } from '@/services/blog';
-import type { BlogBuildProgress, BlogExportOutput } from '@/services/blog';
+import {
+  buildBlog,
+  cancelBlogBuild,
+  cancelBlogSftp,
+  dispatchBlogGithub,
+  exportBlog,
+  onBlogProgress,
+  pickDirectory,
+  pickFile,
+  testBlogSftp,
+  uploadBlogSftp,
+} from '@/services/blog';
+import type { BlogBuildProgress, BlogExportOutput, BlogSftpConfig } from '@/services/blog';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -127,8 +188,23 @@ const progress = ref<BlogBuildProgress[]>([]);
 const distDir = ref('');
 let offProgress: (() => void) | null = null;
 const GITHUB_KEY = 'setting/blog/github';
+const SFTP_KEY = 'setting/blog/sftp';
 const github = reactive({ owner: 'ui-javascript', repo: 'coolma-electron', workflowId: 'blog-build.yml', branch: 'main', token: '' });
 const dispatching = ref(false);
+const testing = ref(false);
+const uploading = ref(false);
+const sftp = reactive<Required<BlogSftpConfig>>({
+  enabled: false,
+  host: '',
+  port: 22,
+  username: '',
+  authType: 'password',
+  password: '',
+  privateKeyPath: '',
+  passphrase: '',
+  remotePath: '',
+  backupEnabled: true,
+});
 const lastResult = ref<BlogExportOutput | null>(null);
 
 const visible = computed({
@@ -176,10 +252,104 @@ async function loadConfig(): Promise<void> {
   if (savedGithub) {
     Object.assign(github, savedGithub);
   }
+  const savedSftp = appStore.prefs[SFTP_KEY] as Partial<typeof sftp> | undefined;
+  if (savedSftp) {
+    Object.assign(sftp, savedSftp);
+  }
 }
 
 async function saveConfig(): Promise<void> {
   await appStore.setPref(STORAGE_KEY, { ...form });
+}
+
+async function saveSftpConfig(): Promise<void> {
+  await appStore.setPref(SFTP_KEY, { ...sftp });
+}
+
+function sftpPayload(): BlogSftpConfig {
+  return {
+    enabled: sftp.enabled,
+    host: sftp.host.trim(),
+    port: Number(sftp.port) || 22,
+    username: sftp.username.trim(),
+    authType: sftp.authType,
+    password: sftp.authType === 'password' ? sftp.password : undefined,
+    privateKeyPath: sftp.authType === 'key' ? sftp.privateKeyPath.trim() : undefined,
+    passphrase: sftp.authType === 'key' ? sftp.passphrase : undefined,
+    remotePath: sftp.remotePath.trim(),
+    backupEnabled: sftp.backupEnabled,
+  };
+}
+
+function sftpReady(): boolean {
+  if (!sftp.enabled || !sftp.host.trim() || !sftp.username.trim() || !sftp.remotePath.trim()) {
+    return false;
+  }
+  return sftp.authType === 'password' ? Boolean(sftp.password) : Boolean(sftp.privateKeyPath.trim());
+}
+
+async function chooseKeyFile(): Promise<void> {
+  const result = await pickFile();
+  if (result.ok && result.data) {
+    sftp.privateKeyPath = result.data;
+    await saveSftpConfig();
+  } else if (!result.ok) {
+    ElMessage.error(result.error.message);
+  }
+}
+
+async function runSftpTest(): Promise<void> {
+  if (!sftpReady()) {
+    ElMessage.warning(t('blog.sftpNeedFields'));
+    return;
+  }
+  testing.value = true;
+  try {
+    await saveSftpConfig();
+    const result = await testBlogSftp(sftpPayload());
+    if (!result.ok) {
+      ElMessage.error(t('blog.sftpTestFailed', { message: result.error.message }));
+      return;
+    }
+    ElMessage.success(t('blog.sftpTestOk'));
+  } finally {
+    testing.value = false;
+  }
+}
+
+async function runSftpUpload(): Promise<void> {
+  if (!sftpReady()) {
+    ElMessage.warning(t('blog.sftpNeedFields'));
+    return;
+  }
+  if (!distDir.value) {
+    ElMessage.warning(t('blog.sftpNeedDist'));
+    return;
+  }
+  uploading.value = true;
+  try {
+    await saveSftpConfig();
+    const result = await uploadBlogSftp({ localDir: distDir.value, config: sftpPayload() });
+    if (!result.ok) {
+      ElMessage.error(t('blog.sftpFailed', { message: result.error.message }));
+      return;
+    }
+    if (result.data.backupPath) {
+      ElMessage.success(t('blog.sftpDoneBackup', { uploaded: result.data.uploaded, total: result.data.total, path: result.data.backupPath }));
+    } else {
+      ElMessage.success(t('blog.sftpDone', { uploaded: result.data.uploaded, total: result.data.total }));
+    }
+  } finally {
+    uploading.value = false;
+  }
+}
+
+async function stopSftp(): Promise<void> {
+  const result = await cancelBlogSftp();
+  if (!result.ok) {
+    ElMessage.error(result.error.message);
+  }
+  uploading.value = false;
 }
 
 async function chooseDir(): Promise<void> {
@@ -205,6 +375,12 @@ async function runBuild(): Promise<void> {
     if (!result.ok) {
       ElMessage.error(t('blog.buildFailed', { message: result.error.message }));
       return;
+    }
+    if (result.data.distDir) {
+      distDir.value = result.data.distDir;
+    }
+    if (sftp.enabled) {
+      await runSftpUpload();
     }
     ElMessage.success(t('blog.buildDone'));
   } finally {
@@ -273,6 +449,7 @@ async function runExport(): Promise<void> {
 .field-hint { font-size: 12px; color: var(--el-text-color-secondary); line-height: 1.5; width: 100%; }
 .blog-build-bar { display: flex; align-items: center; gap: 8px; margin: 4px 0 10px; flex-wrap: wrap; }
 .blog-pm { width: 110px; }
+.blog-sftp,
 .blog-github { margin: 4px 0 10px; }
 .blog-github-title { font-size: 13px; font-weight: 600; }
 .blog-github-hint { margin-bottom: 8px; }

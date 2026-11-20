@@ -1,13 +1,14 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { IpcResult } from '../shared/ipc/contract';
-import { blogBuildSchema, blogDispatchSchema, blogExportSchema } from '../shared/ipc/schemas';
+import { blogBuildSchema, blogDispatchSchema, blogExportSchema, blogSftpTestSchema, blogSftpUploadSchema } from '../shared/ipc/schemas';
 import { fail, ok } from '../shared/ipc/result';
 import { notesRepository } from '../service/db/notes-repository';
 import { exportCIWorkflows, ensureReadme, generateSidebarJson, writeBlogPosts } from '../service/blog/deploy';
 import type { BlogNote } from '../service/blog/deploy';
-import { cancelBlogBuild, runBlogBuild } from '../service/blog/build';
+import { cancelBlogBuild, runBlogBuild, sendBlogProgress } from '../service/blog/build';
 import { dispatchWorkflow } from '../service/blog/github';
+import { backupRemoteDir, cancelSftpUpload, testConnection, uploadDirectory } from '../service/blog/sftp';
 import { failFromError } from './controller-utils';
 
 export interface BlogExportResult {
@@ -95,6 +96,63 @@ class BlogController {
       return ok({ dispatched: true });
     } catch (error) {
       return failFromError(error, 'BLOG_DISPATCH_ERROR');
+    }
+  }
+
+  /** 测试 SFTP 连接 + 目标目录写权限（对应 vue2 sftp-service testConnection）。 */
+  async sftpTest(args?: unknown): Promise<IpcResult<{ success: true }>> {
+    try {
+      const input = blogSftpTestSchema.parse(args);
+      const result = await testConnection(input.config);
+      return ok(result);
+    } catch (error) {
+      return fail('BLOG_SFTP_TEST_ERROR', String((error as Error)?.message || error));
+    }
+  }
+
+  /** 备份远程目录并上传构建产物；进度复用 `blog-deploy-progress`。 */
+  async sftpUpload(args?: unknown): Promise<IpcResult<{ uploaded: number; total: number; backupPath?: string }>> {
+    try {
+      const input = blogSftpUploadSchema.parse(args);
+      let backupPath: string | undefined;
+
+      if (input.config.backupEnabled !== false) {
+        sendBlogProgress({ stage: 'sftp', message: 'backup remote directory', percent: 96 });
+        try {
+          const backup = await backupRemoteDir(input.config);
+          backupPath = backup.backupPath;
+        } catch (error) {
+          sendBlogProgress({
+            stage: 'sftp',
+            message: `backup skipped: ${(error as Error).message}`,
+            percent: 96,
+            stream: 'stderr',
+          });
+        }
+      }
+
+      sendBlogProgress({ stage: 'sftp', message: 'upload started', percent: 96 });
+      const result = await uploadDirectory(input.config, path.resolve(input.localDir), (filename, uploaded, total) => {
+        const percent = total > 0 ? 96 + Math.floor((uploaded / total) * 4) : 100;
+        sendBlogProgress({
+          stage: 'sftp',
+          message: `${filename} (${uploaded}/${total})`,
+          percent,
+        });
+      });
+      sendBlogProgress({ stage: 'sftp', message: 'upload done', percent: 100 });
+      return ok({ ...result, backupPath });
+    } catch (error) {
+      return fail('BLOG_SFTP_UPLOAD_ERROR', String((error as Error)?.message || error));
+    }
+  }
+
+  async sftpCancel(args?: unknown): Promise<IpcResult<{ cancelled: boolean }>> {
+    try {
+      blogBuildSchema.partial().parse(args ?? {});
+      return ok({ cancelled: cancelSftpUpload() });
+    } catch (error) {
+      return failFromError(error, 'BLOG_SFTP_CANCEL_ERROR');
     }
   }
 

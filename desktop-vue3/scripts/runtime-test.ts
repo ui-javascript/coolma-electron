@@ -6,6 +6,9 @@
  *
  * 验证的是引擎真实代码：selectItem → getTypeHandler → 应用侧处理器 → 引擎原语 → 段落写回。
  */
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { JSDOM } from 'jsdom';
 import jQueryFactory from 'jquery';
 import { buildSlidesHtml, escapeSlideHtml } from '../frontend/src/utils/slides';
@@ -30,6 +33,7 @@ import {
   parseTagNames,
 } from '../frontend/src/utils/autotag';
 import { coolmaUrl, hashImageName, parseCoolmaUrl } from '../electron/service/attachments';
+import { collectTree, normalizeRemotePath } from '../electron/service/blog/sftp-fs';
 
 type Any = Record<string, any>;
 
@@ -770,6 +774,40 @@ async function main(): Promise<void> {
       DEFAULT_RUNE_TEMPLATE.includes('inheritFromPrevious') && DEFAULT_RUNE_TEMPLATE.includes('RuneInheritDemo'),
       DEFAULT_RUNE_TEMPLATE.slice(0, 80),
     );
+  }
+
+  // ==== 博客 SFTP：纯路径 / 目录收集 ====
+  {
+    assert(
+      'SFTP：远程目录规整去掉重复分隔符和末尾斜杠',
+      normalizeRemotePath('/var/www//blog/') === '/var/www/blog' && normalizeRemotePath('/') === '/',
+      normalizeRemotePath('/var/www//blog/'),
+    );
+    let threw = false;
+    try {
+      normalizeRemotePath('   ');
+    } catch {
+      threw = true;
+    }
+    assert('SFTP：远程目录为空直接报错', threw, '');
+
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'coolma-sftp-'));
+    try {
+      await fs.mkdir(path.join(root, 'assets', 'img'), { recursive: true });
+      await fs.writeFile(path.join(root, 'index.html'), '<html></html>');
+      await fs.writeFile(path.join(root, 'assets', 'app.js'), 'console.log(1)');
+      await fs.writeFile(path.join(root, 'assets', 'img', 'logo.png'), 'png');
+      await fs.symlink(path.join(root, 'index.html'), path.join(root, 'index-link.html'));
+      const tree = await collectTree(root);
+      assert(
+        'SFTP：递归收集目录与文件并输出 posix 相对路径',
+        [...tree.dirs].sort().join(',') === 'assets,assets/img'
+          && [...tree.files].sort().join(',') === 'assets/app.js,assets/img/logo.png,index-link.html,index.html',
+        JSON.stringify(tree),
+      );
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
   }
 
   console.log(failed === 0 ? '\n全部通过' : `\n失败 ${failed} 项`);

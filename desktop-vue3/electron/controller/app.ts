@@ -114,6 +114,19 @@ class AppController {
     }
   }
 
+  /** 选择单个文件（SFTP 私钥路径等）。 */
+  async pickFile(args?: unknown): Promise<IpcResult<string | null>> {
+    try {
+      emptyPayloadSchema.parse(args);
+      const result = await dialog.showOpenDialog({
+        properties: ['openFile'],
+      });
+      return ok(result.canceled ? null : result.filePaths[0] ?? null);
+    } catch (error) {
+      return fail('PICK_FILE_ERROR', String((error as Error)?.message || error));
+    }
+  }
+
   /** 用系统浏览器打开外链（复刻 vue2 `$q.electron.shell.openExternal`）。 */
   async openExternal(args?: unknown): Promise<IpcResult<true>> {
     try {

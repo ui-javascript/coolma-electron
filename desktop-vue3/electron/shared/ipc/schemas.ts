@@ -34,6 +34,28 @@ export const blogDispatchSchema = z.object({
   inputs: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
 });
 
+export const sftpConfigSchema = z.object({
+  enabled: z.boolean().optional(),
+  host: z.string().min(1),
+  port: z.number().int().min(1).max(65535).optional(),
+  username: z.string().min(1),
+  authType: z.enum(['password', 'key']).optional(),
+  password: z.string().optional(),
+  privateKeyPath: z.string().optional(),
+  passphrase: z.string().optional(),
+  remotePath: z.string().min(1),
+  backupEnabled: z.boolean().optional(),
+});
+
+export const blogSftpTestSchema = z.object({
+  config: sftpConfigSchema,
+});
+
+export const blogSftpUploadSchema = z.object({
+  localDir: z.string().min(1),
+  config: sftpConfigSchema,
+});
+
 export const syncLoginSchema = z.object({
   userId: z.string().min(1),
   password: z.string().min(1),
