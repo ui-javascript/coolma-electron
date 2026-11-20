@@ -11,9 +11,7 @@ tags:
 
 这一页是**真正跑起来的 Muya 编辑器**（Vue2 引擎 `libs-muya`，预编译 ESM lib）。
 
-<ClientOnly>
-  <MuyaLive />
-</ClientOnly>
+<MuyaLive />
 
 ## 复用关系
 

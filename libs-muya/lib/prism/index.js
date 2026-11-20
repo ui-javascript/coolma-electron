@@ -10,10 +10,13 @@ import initLoadLanguage, { loadedCache, transfromAliasToOrigin } from './loadLan
 import languages from './languages'
 
 const prism = Prism
-window.Prism = Prism
-/* eslint-disable */
-import('prismjs/plugins/keep-markup/prism-keep-markup')
-/* eslint-enable */
+// 只有浏览器才挂全局；SSR / Node 引包时不碰 window，也不加载依赖 DOM 的 keep-markup 插件。
+if (typeof window !== 'undefined') {
+  window.Prism = Prism
+  /* eslint-disable */
+  import('prismjs/plugins/keep-markup/prism-keep-markup')
+  /* eslint-enable */
+}
 const langs = []
 
 for (const name of Object.keys(languages)) {

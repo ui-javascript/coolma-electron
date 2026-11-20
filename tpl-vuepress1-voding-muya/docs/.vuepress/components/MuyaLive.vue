@@ -11,8 +11,9 @@
 </template>
 
 <script>
-// 引擎模块顶层会访问 document（Selection、snap.svg 等），不能在 SSR 阶段求值；
-// 这里保留纯函数依赖的静态导入，把 Muya 本体放到 mounted 里动态 import。
+// 引擎已是 SSR 可引包：Selection 惰性取 document、prism 不碰全局、snap 只在画时序图时动态加载。
+// 所以这里恢复静态导入，SSR 只求值模块体，编辑器实例仍然在 mounted 里创建。
+import Muya, { QuickInsert, Transformer } from 'libs-muya/lib'
 import 'libs-muya/themes/default.css'
 import { buildEchoItems } from 'echo-core'
 import { buildRuneItems } from 'rune-core'
@@ -60,9 +61,6 @@ export default {
   methods: {
     async initEditor () {
       try {
-        const muyaModule = await import('libs-muya/lib')
-        const Muya = muyaModule.default || muyaModule
-        const { QuickInsert, Transformer } = muyaModule
         if (!pluginsRegistered) {
           Muya.use(QuickInsert)
           Muya.use(Transformer)

@@ -21,7 +21,20 @@ const filterOnlyParentElements = node => {
 
 class Selection {
   constructor (doc) {
-    this.doc = doc // document
+    // 不在模块顶层抓 document：SSR / Node 里没有 DOM，抓了会直接把引擎引包打死。
+    // 真正的 document 在首次调用选区方法时才取，桌面端行为不变。
+    this._doc = doc || null
+  }
+
+  get doc () {
+    if (this._doc) {
+      return this._doc
+    }
+    if (typeof document !== 'undefined') {
+      this._doc = document
+      return this._doc
+    }
+    throw new Error('Muya Selection requires a DOM document; render the editor on the client side')
   }
 
   findMatchingSelectionParent (testElementFunction, contentWindow) {
@@ -655,4 +668,5 @@ class Selection {
   }
 }
 
-export default new Selection(document)
+// 单例本身是惰性的：这里不再传 document，避免 Node / SSR 引包时求值 DOM。
+export default new Selection()

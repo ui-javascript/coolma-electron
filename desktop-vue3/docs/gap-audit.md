@@ -29,11 +29,12 @@
 
 1. **libs-muya 没有 src 目录**，源码就在 `lib/` 里，webpack 直接从 `lib/index.js` 出包；因此「改源码」和「构建产物」是同一份，无法做 clean build。
 2. **引擎仍有 2 个 app 级依赖**：`boot/i18n`、`src/components/echo/echoCore`。四端全靠 alias 兜（demo-vue2、vitepress、vuepress、desktop-vue2 各一份 shim）。
-3. **SSR 不安全**（本次构建实证）：
+3. **SSR 已收口（引擎级）**：
    - 已修：`lib/config/index.js` 的 `window && window.navigator` 改成 `typeof window` 守卫。
-   - 已修（消费端）：`MuyaLive.vue` 不再静态导入 `libs-muya/lib`，改成 `mounted` 里 `await import('libs-muya/lib')`；SSR 阶段只渲染页面正文和组件外壳，引擎模块体等客户端挂载后才求值。`vuepress build` 不再出现 `Failed to resolve async component / document is not defined`，`/pages/03ae9f/` 静态 HTML 已有正文。
-   - 仍记：引擎本身仍有顶层 DOM 访问（`selection/index.js` 的 `new Selection(document)`、`snap.svg-min.js` 的 `a.window.document`），真正的引擎级 SSR 安全另批处理；当前四端消费方都按客户端动态加载兜住。
-   - vitepress 没炸是因为那页走 ClientOnly，不代表引擎 SSR 安全。
+   - 已修（引擎级）：`selection/index.js` 的 `new Selection(document)` 改成惰性单例，`get doc()` 首次调用才取 document；`prism/index.js` 的 `window.Prism` 与 keep-markup 动态 import 包进浏览器分支。
+   - 已回收消费端：`MuyaLive.vue` 恢复静态导入 `libs-muya/lib`，`docs/guide/muya-live.md` 去掉 `<ClientOnly>`；SSR 直接渲染 `muya-live-editor` 外壳，编辑器实例仍在 `mounted` 创建。
+   - `snap.svg-min` 未 vendored 改动；`lib/renderers/index.js` 按需动态 import 时序图渲染器，静态引 `libs-muya/lib` 不会求值 snap。
+   - 验证：vuepress Client+Server 构建均通过，无 `document/window is not defined`；`dist/pages/03ae9f/index.html` 已含组件外壳与正文。
 
 ## P2 已接受差异（用户已拍板，不再追）
 
@@ -54,7 +55,7 @@
 | `libs-muya` core | `node scripts/build.js --core` | 通过，警告 4 条 |
 | `demo-vue2-vite-muya` | `vite build` | 通过（补 `stubs/popper.js/dist/esm/popper.js` 空壳后） |
 | `tpl-vitepress1-teek-muya` | `vitepress build docs` | 通过，53s |
-| `tpl-vuepress1-voding-muya` | `vuepress build docs` | 通过，但 SSR 阶段 `document is not defined` 警告（见 P1-3） |
+| `tpl-vuepress1-voding-muya` | `vuepress build docs` | 通过，Client+Server 均无 `document is not defined`（见 P1-3） |
 | `desktop-vue2` | `quasar build -m spa` | 通过（打包产物 `dist/spa`），说明 vue2 侧当前无语法错误 |
 | `desktop-vue3/frontend` | `vue-tsc --noEmit && vite build` | 通过，51s |
 | `desktop-vue3/packages/*` | 无 build 脚本 | 纯源码，由前端 typecheck 覆盖 |
