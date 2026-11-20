@@ -1,5 +1,5 @@
 /** 更新事件与命令（对齐 vue2 memocast.js 的 updater-* 事件 + ApiInvoker）。 */
-import { IPC_CHANNELS } from '@shared/ipc/channels';
+import { IPC_CHANNELS, IPC_EVENTS } from '@shared/ipc/channels';
 import type { IpcResult } from '@shared/ipc/contract';
 import { invoke } from '@/services/ipc';
 
@@ -10,8 +10,6 @@ export type UpdaterEvent =
   | { type: 'progress'; percent: number; bytesPerSecond: number; transferred: number; total: number }
   | { type: 'downloaded'; info: unknown }
   | { type: 'error'; message: string };
-
-export const UPDATE_EVENT_CHANNEL = 'updater-event';
 
 export function checkUpdate(): Promise<IpcResult<{ checking: boolean }>> {
   return invoke<{ checking: boolean }>(IPC_CHANNELS.app.updateCheck);
@@ -30,5 +28,5 @@ export function onUpdaterEvent(listener: (event: UpdaterEvent) => void): () => v
   if (!api) {
     return () => undefined;
   }
-  return api.on(UPDATE_EVENT_CHANNEL, (payload) => listener(payload as UpdaterEvent));
+  return api.on(IPC_EVENTS.updater, (payload) => listener(payload as UpdaterEvent));
 }

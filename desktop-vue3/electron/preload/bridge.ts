@@ -101,7 +101,7 @@ const INVOKE_CHANNELS = new Set<string>([
 
 
 
-const EVENT_CHANNELS = new Set<string>(['blog-deploy-progress', 'ai-chat-stream']);
+const EVENT_CHANNELS = new Set<string>(['blog-deploy-progress', 'ai-chat-stream', 'updater-event']);
 
 const api: CoolmaApi = {
   async invoke<T = unknown>(channel: string, payload?: unknown): Promise<IpcResult<T>> {

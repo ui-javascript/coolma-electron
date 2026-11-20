@@ -211,6 +211,7 @@ export const INVOKE_CHANNELS = new Set<string>([
 export const IPC_EVENTS = {
   blogProgress: 'blog-deploy-progress',
   aiChatStream: 'ai-chat-stream',
+  updater: 'updater-event',
 } as const;
 
-export const EVENT_CHANNELS = new Set<string>([IPC_EVENTS.blogProgress, IPC_EVENTS.aiChatStream]);
+export const EVENT_CHANNELS = new Set<string>(Object.values(IPC_EVENTS));

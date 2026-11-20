@@ -1,5 +1,6 @@
 import { BrowserWindow, app, dialog, shell } from 'electron';
 import { isDev } from 'ee-core/ps';
+import { IPC_EVENTS } from '../shared/ipc/channels';
 import type { AppInfo, IpcResult } from '../shared/ipc/contract';
 import { emptyPayloadSchema, openExternalSchema } from '../shared/ipc/schemas';
 import { fail, ok } from '../shared/ipc/result';
@@ -23,7 +24,7 @@ function bindUpdaterEvents(updater: typeof import('electron-updater').autoUpdate
   const send = (payload: UpdaterEvent): void => {
     BrowserWindow.getAllWindows().forEach((win) => {
       if (!win.isDestroyed()) {
-        win.webContents.send('updater-event', payload);
+        win.webContents.send(IPC_EVENTS.updater, payload);
       }
     });
   };
