@@ -48,39 +48,56 @@
         v-for="(item, index) in categoryItems"
         :key="item.id"
         class="library-card"
-        :class="{ 'is-selected': selectedIds.has(item.id), 'is-builtin': isBuiltinLibraryCard(item.id) }"
+        :class="{
+          'is-selected': selectedIds.has(item.id),
+          'is-builtin': isBuiltinLibraryCard(item.id),
+          'is-drop-target': dragOverIndex === index,
+        }"
+        :style="{ borderColor: `${item.color || '#909399'}66` }"
         :draggable="!selectionMode && !sorting && !deleting && !isBuiltinLibraryCard(item.id)"
         @dragstart="onDragStart($event, index)"
-        @dragover.prevent
+        @dragover.prevent="dragOverIndex = index"
+        @dragleave="onDragLeave(index)"
         @drop="onDrop(index)"
-        @dragend="dragIndex = -1"
+        @dragend="onDragEnd"
         @click="onCardClick(item)"
       >
+        <div v-if="isBuiltinLibraryCard(item.id)" class="card-builtin-badge">
+          <el-icon><CircleCheck /></el-icon>
+          <span>{{ t('library.builtinBadge') }}</span>
+        </div>
         <el-checkbox
           v-if="selectionMode && !isBuiltinLibraryCard(item.id)"
+          class="card-select"
           :model-value="selectedIds.has(item.id)"
           :aria-label="item.name"
           :disabled="deleting"
           @click.stop
           @change="toggleSelected(item.id)"
         />
-        <span class="card-avatar" :style="{ background: item.color || '#909399' }">{{ initialOf(item.name) }}</span>
+        <div class="card-header" :style="{ background: cardGradient(item.color) }">
+          <span class="card-icon" :style="{ borderColor: `${item.color || '#909399'}66` }">
+            <el-icon v-if="iconOf(item)"><component :is="iconOf(item)" /></el-icon>
+            <span v-else class="card-icon-text">{{ initialOf(item.name) }}</span>
+          </span>
+        </div>
         <div class="card-body">
-          <div class="card-heading">
-            <span class="card-name">{{ item.name }}</span>
-            <el-tag v-if="isBuiltinLibraryCard(item.id)" size="small" effect="plain">{{ t('library.builtinBadge') }}</el-tag>
+          <div class="card-name">
+            <span class="card-name-prefix">{{ kind === 'echo' ? '@' : '<' }}</span>
+            <span class="card-name-text">{{ item.name }}</span>
+            <span v-if="kind === 'rune'" class="card-name-suffix"> /&gt;</span>
           </div>
           <span class="card-desc">{{ item.desc || '—' }}</span>
         </div>
         <div v-if="!selectionMode" class="card-ops">
-          <el-button text size="small" :aria-label="t(isBuiltinLibraryCard(item.id) && production ? 'library.viewCard' : 'library.editCard')" @click.stop="openEdit(item)">
-            <el-icon v-if="isBuiltinLibraryCard(item.id) && production"><View /></el-icon>
-            <el-icon v-else><Edit /></el-icon>
-          </el-button>
-          <el-button v-if="!isBuiltinLibraryCard(item.id)" text size="small" type="danger"
+          <button type="button" class="card-op" :aria-label="t(isBuiltinLibraryCard(item.id) && production ? 'library.viewCard' : 'library.editCard')" @click.stop="openEdit(item)">
+            {{ t(isBuiltinLibraryCard(item.id) && production ? 'library.viewCard' : 'library.editCard') }}
+          </button>
+          <button v-if="!isBuiltinLibraryCard(item.id)" type="button" class="card-op card-op-danger"
             :aria-label="t('action.delete')" :disabled="sorting || deleting" @click.stop="askRemove([item])">
-            <el-icon><Delete /></el-icon>
-          </el-button>
+            {{ t('action.delete') }}
+          </button>
+          <span v-else class="card-op-spacer" />
         </div>
       </div>
     </div>
@@ -104,7 +121,35 @@
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Delete, Edit, Plus, View } from '@element-plus/icons-vue';
+import {
+  ArrowDownBold,
+  Bell,
+  Calendar,
+  CircleCheck,
+  CircleClose,
+  Coin,
+  CopyDocument,
+  Cpu,
+  Document,
+  Download,
+  Edit,
+  EditPen,
+  Hide,
+  Lightning,
+  Link,
+  Lock,
+  MagicStick,
+  Pointer,
+  Plus,
+  Select,
+  Share,
+  Sort,
+  Sunny,
+  TrendCharts,
+  User,
+  View,
+} from '@element-plus/icons-vue';
+import type { Component } from 'vue';
 import type { EchoCard, RuneCard } from '@shared/types/domain';
 import { isBuiltinLibraryCard } from '@shared/types/libraryCard';
 import { useLibraryStore } from '@/stores/library';
@@ -145,6 +190,46 @@ function initialOf(name: string): string {
     return '符';
   }
   return /[A-Za-z]/.test(first) ? first.toUpperCase() : first;
+}
+
+/** Material 图标名 → Element Plus 图标；未知的走首字兜底。 */
+const ICON_MAP: Record<string, Component> = {
+  auto_awesome: MagicStick,
+  block: CircleClose,
+  call_split: Share,
+  campaign: Bell,
+  casino: Coin,
+  check_box: Select,
+  difference: CopyDocument,
+  link: Link,
+  local_florist: Sunny,
+  park: Sunny,
+  psychology: Cpu,
+  shield: Lock,
+  thumb_up: Pointer,
+  thunderstorm: Lightning,
+  unfold_more: Sort,
+  visibility: View,
+  visibility_off: Hide,
+  description: Document,
+  preview: View,
+  edit: Edit,
+  cloud_download: Download,
+  show_chart: TrendCharts,
+  input: EditPen,
+  arrow_drop_down_circle: ArrowDownBold,
+  event: Calendar,
+  person: User,
+};
+
+function iconOf(item: RuneCard | EchoCard): Component | null {
+  return item.icon ? ICON_MAP[item.icon] ?? null : null;
+}
+
+/** vue2 runeCard 的头部渐变：135deg，色值 dd → 88。 */
+function cardGradient(color?: string | null): string {
+  const base = color || '#909399';
+  return `linear-gradient(135deg, ${base}dd 0%, ${base}88 100%)`;
 }
 
 async function onImported(): Promise<void> {
@@ -201,6 +286,7 @@ function onCardClick(item: RuneCard | EchoCard): void {
 const formVisible = ref(false);
 const editing = ref<RuneCard | EchoCard | null>(null);
 const dragIndex = ref(-1);
+const dragOverIndex = ref(-1);
 
 function openCreate(): void {
   editing.value = null;
@@ -253,9 +339,21 @@ function onDragStart(event: DragEvent, index: number): void {
   event.dataTransfer?.setData('text/plain', String(index));
 }
 
+function onDragLeave(index: number): void {
+  if (dragOverIndex.value === index) {
+    dragOverIndex.value = -1;
+  }
+}
+
+function onDragEnd(): void {
+  dragIndex.value = -1;
+  dragOverIndex.value = -1;
+}
+
 async function onDrop(index: number): Promise<void> {
   const from = dragIndex.value;
   dragIndex.value = -1;
+  dragOverIndex.value = -1;
   if (from < 0 || from === index || selectionMode.value || sorting.value || deleting.value) {
     return;
   }
@@ -365,81 +463,197 @@ async function onDrop(index: number): Promise<void> {
 
 .library-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  grid-template-columns: repeat(auto-fill, 132px);
+  justify-content: space-around;
   gap: 8px;
+  padding: 4px 2px;
 }
 
 .library-card {
+  position: relative;
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border: 1px solid var(--el-border-color-light);
+  flex-direction: column;
+  width: 132px;
+  min-height: 120px;
+  border: 1.5px solid;
   border-radius: 8px;
-  background: var(--el-fill-color-blank);
-  cursor: pointer;
+  overflow: hidden;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  cursor: grab;
+  user-select: none;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 
-.library-card[draggable='true'] { cursor: grab; }
+.library-card[draggable='true']:active {
+  cursor: grabbing;
+}
 
 .library-card:hover {
-  border-color: var(--el-color-primary-light-5);
-}
-
-.library-card.is-selected {
-  border-color: var(--el-color-primary);
-  background: var(--el-color-primary-light-9);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  z-index: 1;
 }
 
 .library-card.is-builtin {
-  background: var(--el-fill-color-light);
+  cursor: default;
 }
 
-.card-heading {
+.library-card.is-builtin:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.library-card.is-selected {
+  border-color: #7e57c2 !important;
+  box-shadow: 0 0 0 2px rgba(126, 87, 194, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.library-card.is-drop-target {
+  box-shadow: 0 0 0 3px #7e57c2;
+  transform: translateY(-2px);
+}
+
+.card-builtin-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  backdrop-filter: blur(4px);
+}
+
+.card-select {
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  z-index: 2;
+  height: auto;
+}
+
+.card-header {
   display: flex;
   align-items: center;
-  gap: 6px;
+  height: 46px;
+  padding: 6px 8px 4px;
+  box-sizing: border-box;
 }
 
-.card-avatar {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  flex: none;
-  display: flex;
+.card-icon {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.16);
   color: #fff;
-  font-size: 14px;
-  font-weight: 600;
-  user-select: none;
+  font-size: 15px;
+  font-weight: 700;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(6px);
+}
+
+.card-icon .el-icon {
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.35));
+}
+
+.card-icon-text {
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 .card-body {
-  flex: 1;
-  min-width: 0;
   display: flex;
+  min-height: 0;
+  flex: 1;
   flex-direction: column;
+  padding: 4px 8px 2px;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .card-name {
-  font-size: 13px;
-  font-weight: 600;
+  margin-bottom: 2px;
   overflow: hidden;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.card-name-prefix,
+.card-name-suffix {
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .card-desc {
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
+  display: -webkit-box;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 10px;
+  line-height: 1.3;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .card-ops {
-  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 26px;
+  padding: 2px 4px 4px;
+  box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.card-op {
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 10px;
+  line-height: 1.1;
+  cursor: pointer;
+}
+
+.card-op:hover {
+  color: #fff;
+}
+
+.card-op:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.card-op-danger {
+  margin-left: auto;
+  color: #ffb3b3;
+}
+
+.card-op-danger:hover {
+  color: #ff8080;
+}
+
+.card-op-spacer {
+  width: 1px;
 }
 
 .library-empty {
