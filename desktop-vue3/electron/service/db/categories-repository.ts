@@ -78,6 +78,48 @@ export const categoriesRepository = {
     };
   },
 
+  /** 离线创建、尚未在云端落地的目录；推送前按层级补建。 */
+  listLocalOnly(kbGuid?: string): CategoryRecord[] {
+    const db = getDatabase();
+    const rows = db
+      .prepare(
+        `SELECT
+           c.category,
+           c.parent,
+           c.kb_guid,
+           c.local_only,
+           (SELECT COUNT(*) FROM notes n WHERE n.category = c.category) AS note_count
+         FROM local_categories c
+         WHERE c.local_only = 1
+         ORDER BY c.category ASC`,
+      )
+      .all() as CategoryRow[];
+
+    return rows
+      .map((row) => ({
+        category: row.category,
+        parent: row.parent ?? '',
+        kbGuid: row.kb_guid ?? '',
+        localOnly: row.local_only ?? 0,
+        noteCount: Number(row.note_count) || 0,
+      }))
+      .filter((row) => !kbGuid || !row.kbGuid || row.kbGuid === kbGuid);
+  },
+
+  /** 云端目录已确认存在（新建成功或 400/409 幂等），本地取消 local_only。 */
+  markSynced(category: string, kbGuid?: string): boolean {
+    const normalized = normalizeCategory(category);
+    const db = getDatabase();
+    const info = kbGuid
+      ? db
+        .prepare('UPDATE local_categories SET local_only = 0, kb_guid = ?, updated_at = ? WHERE category = ?')
+        .run(kbGuid, Date.now(), normalized)
+      : db
+        .prepare('UPDATE local_categories SET local_only = 0, updated_at = ? WHERE category = ?')
+        .run(Date.now(), normalized);
+    return info.changes > 0;
+  },
+
   /** 该 category 下真实笔记数量；控制器据此拒绝删除非空文件夹。 */
   countNotes(category: string): number {
     const row = getDatabase()

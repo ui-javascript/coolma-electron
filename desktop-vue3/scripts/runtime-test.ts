@@ -37,6 +37,14 @@ import { coolmaUrl, hashImageName, parseCoolmaUrl } from '../electron/service/at
 import { collectTree, normalizeRemotePath } from '../electron/service/blog/sftp-fs';
 import { attachmentDir, saveAttachmentBuffer } from '../electron/service/attachments';
 import { uploadImageByPicGo } from '../electron/service/image/upload';
+import {
+  findCloudNoteByTitle,
+  isCategoryExistsError,
+  isNoteMissingError,
+  normalizeMatchCategory,
+  sortCategoriesByDepth,
+  toWizCategoryInput,
+} from '../electron/service/sync/push-rules';
 
 type Any = Record<string, any>;
 
@@ -848,6 +856,54 @@ async function main(): Promise<void> {
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }
+  }
+
+  // ==== 同步推送纯规则（vue2 pushToCloud 分支） ====
+  {
+    assert('同步规则：2004 视为云端笔记不存在', isNoteMissingError({ code: 2004 }), 'code 2004');
+    assert(
+      '同步规则：not found 文案也回退新建',
+      isNoteMissingError({ code: 500, message: 'note not found' }),
+      'message not found',
+    );
+    assert(
+      '同步规则：普通网络错误不回退新建',
+      !isNoteMissingError({ code: 'TIMEOUT', message: 'WizNote request timed out' }),
+      'timeout',
+    );
+    assert(
+      '同步规则：目录 409 视为已存在',
+      isCategoryExistsError({ status: 409, message: 'conflict' }) && isCategoryExistsError({ status: 400 }),
+      '409/400',
+    );
+    assert(
+      '同步规则：分类路径拆 parent/child',
+      JSON.stringify(toWizCategoryInput('/工作/子目录')) === JSON.stringify({ parent: '/工作/', child: '子目录' })
+        && JSON.stringify(toWizCategoryInput('/工作')) === JSON.stringify({ parent: '/', child: '工作' }),
+      JSON.stringify([toWizCategoryInput('/工作/子目录'), toWizCategoryInput('/工作')]),
+    );
+    assert(
+      '同步规则：目录按深度先父后子',
+      sortCategoriesByDepth([{ category: '/a/b/c' }, { category: '/a' }, { category: '/a/b' }])
+        .map((item) => item.category)
+        .join(',') === '/a,/a/b,/a/b/c',
+      'depth sort',
+    );
+    const cloudNotes = [
+      { docGuid: 'g1', title: '周报', category: '/My Notes/' },
+      { docGuid: 'g2', title: '周报', category: '/工作' },
+    ];
+    const matchedRoot = findCloudNoteByTitle(cloudNotes, { title: '周报', category: '/' });
+    assert(
+      '同步规则：同目录同名命中（根目录别名归一）',
+      matchedRoot?.docGuid === 'g1' && normalizeMatchCategory('/My Notes/') === '/',
+      JSON.stringify(matchedRoot),
+    );
+    assert(
+      '同步规则：同名不同目录不误配',
+      findCloudNoteByTitle(cloudNotes, { title: '周报', category: '/工作/子目录' }) === null,
+      'category mismatch',
+    );
   }
 
   console.log(failed === 0 ? '\n全部通过' : `\n失败 ${failed} 项`);

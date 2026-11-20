@@ -3,6 +3,7 @@ import type { IpcResult } from '../shared/ipc/contract';
 import { fail, ok } from '../shared/ipc/result';
 import { categoryCreateSchema, categoryRemoveSchema } from '../shared/ipc/schemas';
 import { categoriesRepository } from '../service/db/categories-repository';
+import { createRemoteCategory, getPublicConfig } from '../service/sync/wiznote';
 import { failFromError } from './controller-utils';
 
 class CategoriesController {
@@ -16,7 +17,26 @@ class CategoriesController {
 
   async create(args?: unknown): Promise<IpcResult<CategoryRecord>> {
     try {
-      return ok(categoriesRepository.create(categoryCreateSchema.parse(args)));
+      const input = categoryCreateSchema.parse(args);
+      const config = getPublicConfig();
+      // vue2 在线时先建云端目录再落本地；离线只落本地并标 local_only，等推送时补建。
+      if (config.loggedIn && config.kbGuid) {
+        await createRemoteCategory({ category: input.category, kbGuid: config.kbGuid });
+        return ok(
+          categoriesRepository.create({
+            ...input,
+            kbGuid: config.kbGuid,
+            localOnly: false,
+          }),
+        );
+      }
+      return ok(
+        categoriesRepository.create({
+          ...input,
+          kbGuid: config.kbGuid || '',
+          localOnly: true,
+        }),
+      );
     } catch (error) {
       return failFromError(error, 'CATEGORY_CREATE_ERROR');
     }

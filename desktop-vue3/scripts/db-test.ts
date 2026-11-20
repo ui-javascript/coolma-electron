@@ -132,12 +132,80 @@ assert('队列：markSynced 生效', marked === targetIds.length, `${marked}/${t
 const afterMark = syncLogRepository.summary().total;
 assert('队列：水位下降', afterMark === pendingAfter - targetIds.length, `${pendingAfter} -> ${afterMark}`);
 
+// ===== 删除日志专用查询 & 销账 =====
+const pendingDeletes = syncLogRepository.listPendingDeletes();
+assert(
+  '删除日志：listPendingDeletes 只回 delete',
+  pendingDeletes.length > 0 && pendingDeletes.every((entry) => entry.action === 'delete'),
+  JSON.stringify(pendingDeletes.map((entry) => entry.action)),
+);
+syncLogRepository.markSynced([pendingDeletes[0].id]);
+syncLogRepository.purgeSyncedDeletes();
+const afterPurge = syncLogRepository.listPendingDeletes();
+assert('删除日志：purge 后不再残留已同步行', afterPurge.length === pendingDeletes.length - 1, String(afterPurge.length));
+
+// 单篇笔记推送成功后的日志销账
+const markNoteTest = notesRepository.create({ category: '/工作', title: '日志销账' });
+const beforeNoteMark = syncLogRepository.listPending().filter((entry) => entry.noteId === markNoteTest.id).length;
+const noteMarked = syncLogRepository.markNoteSynced(markNoteTest.id);
+assert('队列：markNoteSynced 清掉本篇日志', beforeNoteMark > 0 && noteMarked === beforeNoteMark, `${beforeNoteMark} -> ${noteMarked}`);
+assert(
+  '队列：markNoteSynced 不影响别的笔记',
+  syncLogRepository.listPending().every((entry) => entry.noteId !== markNoteTest.id),
+  JSON.stringify(syncLogRepository.listPending().map((entry) => entry.noteId)),
+);
+
+// ===== 待推送账号过滤 =====
+const otherAccountNoteId = Number(
+  handle.database
+    .prepare(
+      `INSERT INTO notes (doc_guid, kb_guid, title, content, category, tags, created_at, updated_at, dirty)
+       VALUES ('other-guid', 'other-kb', '别的账号', '', '/工作', '', ?, ?, 1)`,
+    )
+    .run(Date.now(), Date.now()).lastInsertRowid,
+);
+const scopedDirty = notesRepository.listDirty(50, 'kb-1');
+assert(
+  '待推送：不含别的账号',
+  !scopedDirty.some((note) => note.id === otherAccountNoteId),
+  JSON.stringify(scopedDirty.map((note) => `${note.id}:${note.kbGuid}`)),
+);
+assert(
+  '待推送：保留当前账号与未归属笔记',
+  scopedDirty.every((note) => note.kbGuid === 'kb-1' || !note.kbGuid)
+    && scopedDirty.some((note) => !note.kbGuid),
+  JSON.stringify(scopedDirty.map((note) => `${note.id}:${note.kbGuid}`)),
+);
+
 // ===== 分类 =====
 const category = categoriesRepository.create({ category: '/工作/子目录' });
 assert('分类：创建返回节点', Boolean(category?.category), JSON.stringify(category));
 assert('分类：countNotes 统计', categoriesRepository.countNotes('/工作') >= 1, String(categoriesRepository.countNotes('/工作')));
 assert('分类：根目录不可删', categoriesRepository.remove('/') === false);
 assert('分类：parentOf 解析', categoriesRepository.parentOf('/工作/子目录') === '/工作', categoriesRepository.parentOf('/工作/子目录'));
+
+const offlineCategory = categoriesRepository.create({
+  category: '/离线目录/子目录',
+  kbGuid: 'kb-1',
+  localOnly: true,
+});
+assert('分类：离线创建标 local_only=1', offlineCategory.localOnly === 1, JSON.stringify(offlineCategory));
+assert(
+  '分类：listLocalOnly 只回待补建目录',
+  categoriesRepository.listLocalOnly('kb-1').every((item) => item.localOnly === 1 && item.kbGuid === 'kb-1'),
+  JSON.stringify(categoriesRepository.listLocalOnly('kb-1')),
+);
+assert(
+  '分类：listLocalOnly 能命中离线目录',
+  categoriesRepository.listLocalOnly('kb-1').some((item) => item.category === '/离线目录/子目录'),
+  JSON.stringify(categoriesRepository.listLocalOnly('kb-1').map((item) => item.category)),
+);
+assert('分类：markSynced 返回命中', categoriesRepository.markSynced('/离线目录/子目录', 'kb-1') === true);
+assert(
+  '分类：markSynced 后移出待补建',
+  !categoriesRepository.listLocalOnly('kb-1').some((item) => item.category === '/离线目录/子目录'),
+  JSON.stringify(categoriesRepository.listLocalOnly('kb-1').map((item) => item.category)),
+);
 
 // ===== 标签 =====
 const tag = tagsRepository.create('紧急');

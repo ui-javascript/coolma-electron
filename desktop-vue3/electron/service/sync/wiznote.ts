@@ -4,8 +4,17 @@ import { app } from 'electron';
 import * as wizMarkdown from '@altairwei/wiz-markdown';
 import { settingsRepository } from '../db/settings-repository';
 import { notesRepository } from '../db/notes-repository';
+import { syncLogRepository } from '../db/sync-log-repository';
+import { categoriesRepository } from '../db/categories-repository';
 import { ATTACHMENT_ROOT_NAME, parseCoolmaUrl } from '../attachments';
 import { isLiteCategory, replaceCoolmaWithIndexFiles, replaceIndexFilesWithCoolma } from './wiznote-resources';
+import {
+  findCloudNoteByTitle,
+  isCategoryExistsError,
+  isNoteMissingError,
+  sortCategoriesByDepth,
+  toWizCategoryInput,
+} from './push-rules';
 
 /**
  * 为知笔记（WizNote）同步客户端。
@@ -97,14 +106,17 @@ async function request<T>(
       signal: controller.signal,
     });
     if (response.status === 401 || response.status === 403) {
-      throw Object.assign(new Error(`WizNote responded ${response.status}`), { code: 'TOKEN_REQUIRED' });
+      throw Object.assign(new Error(`WizNote responded ${response.status}`), {
+        code: 'TOKEN_REQUIRED',
+        status: response.status,
+      });
     }
     const payload = (await response.json()) as Record<string, unknown>;
     const code = Number(payload.returnCode ?? payload.code ?? 200);
     if (code !== 200) {
       throw Object.assign(
         new Error(String(payload.returnMessage ?? payload.message ?? `WizNote code ${code}`)),
-        { code },
+        { code, status: response.status },
       );
     }
     return (unwrap && 'result' in payload ? payload.result : payload) as T;
@@ -223,6 +235,30 @@ export async function fetchCategories(): Promise<WizCategory[]> {
   return directory.items;
 }
 
+/** 在线创建云端目录；照 vue2 `KnowledgeBaseApi.createCategory`。 */
+export async function createRemoteCategory(input: {
+  category: string;
+  kbGuid?: string;
+}): Promise<void> {
+  const config = readConfig();
+  const kbGuid = input.kbGuid || config.kbGuid;
+  if (!config.token || !kbGuid) {
+    throw Object.assign(new Error('not logged in'), { code: 'NO_LOGIN' });
+  }
+  const { parent, child } = toWizCategoryInput(input.category);
+  if (!child) {
+    throw new Error('Category is required');
+  }
+  await request(
+    'POST',
+    `${config.kbServer}/ks/category/create/${kbGuid}?clientType=web&clientVersion=3.0&lang=zh-cn`,
+    { parent, pos: Math.floor(Date.now() / 1000).toFixed(0), child },
+    config,
+    30000,
+    false,
+  );
+}
+
 export interface WizNoteSummary {
   docGuid: string;
   title: string;
@@ -232,11 +268,11 @@ export interface WizNoteSummary {
   abstract: string;
 }
 
-export async function listNotes(category = '/', limit = 100): Promise<WizNoteSummary[]> {
+export async function listNotes(category = '/', limit = 100, start = 0): Promise<WizNoteSummary[]> {
   const config = readConfig();
   const query = new URLSearchParams({
     category,
-    start: '0',
+    start: String(Math.max(0, start)),
     count: String(limit),
     withAbstract: 'true',
     orderBy: 'dataModified',
@@ -506,28 +542,131 @@ export interface PushResult {
   pushed: number;
   created: number;
   failed: number;
+  deleted?: number;
   errors: string[];
 }
 
-/** 推本地 dirty 笔记：远端 docGuid 走 save，本地 local_ 走 create 再回填 docGuid。 */
+/** 拉某分类下全部笔记（每页 100，最多 20 页），用于同名同目录匹配。 */
+async function listCategoryNotes(category: string): Promise<WizNoteSummary[]> {
+  const pageSize = 100;
+  const all: WizNoteSummary[] = [];
+  for (let page = 0; page < 20; page += 1) {
+    const batch = await listNotes(category, pageSize, page * pageSize);
+    all.push(...batch);
+    if (batch.length < pageSize) {
+      break;
+    }
+  }
+  return all;
+}
+
+async function findCloudNoteInCategory(
+  cache: Map<string, WizNoteSummary[]>,
+  input: { title: string; category: string },
+): Promise<WizNoteSummary | null> {
+  const key = input.category || '/';
+  if (!cache.has(key)) {
+    cache.set(key, await listCategoryNotes(key));
+  }
+  return findCloudNoteByTitle(cache.get(key) ?? [], input);
+}
+
+async function deleteRemoteNote(docGuid: string, kbGuid: string): Promise<void> {
+  const config = readConfig();
+  await request(
+    'DELETE',
+    `${config.kbServer}/ks/note/delete/${kbGuid}/${docGuid}`,
+    undefined,
+    config,
+    40000,
+  );
+}
+
+async function saveRemoteNote(
+  config: WizConfig,
+  docGuid: string,
+  payload: Record<string, unknown>,
+): Promise<void> {
+  await request(
+    'PUT',
+    `${config.kbServer}/ks/note/save/${config.kbGuid}/${docGuid}?clientType=web&clientVersion=3.0&lang=zh-cn`,
+    { ...payload, docGuid },
+    config,
+    40000,
+  );
+}
+
+/**
+ * 推送前把离线创建的目录补到云端。
+ * 父目录先建；云端已存在（400/409/exists）按 vue2 幂等处理，直接标已同步。
+ */
+async function syncLocalCategoriesToCloud(config: WizConfig): Promise<{ synced: number; total: number }> {
+  const pending = sortCategoriesByDepth(categoriesRepository.listLocalOnly(config.kbGuid));
+  let synced = 0;
+  for (const item of pending) {
+    try {
+      await createRemoteCategory({ category: item.category, kbGuid: config.kbGuid });
+      categoriesRepository.markSynced(item.category, config.kbGuid);
+      synced += 1;
+    } catch (error) {
+      if (isCategoryExistsError(error)) {
+        categoriesRepository.markSynced(item.category, config.kbGuid);
+        synced += 1;
+      } else {
+        // 目录补建失败不阻断笔记推送，和 vue2 一致：只记日志继续。
+        console.warn('[sync] 目录补建失败', item.category, (error as Error).message);
+      }
+    }
+  }
+  return { synced, total: pending.length };
+}
+
+/** 推本地 dirty 笔记：删除日志 → 离线目录 → 更新/同名匹配/新建，全部本地优先。 */
 export async function push(input: { limit?: number } = {}): Promise<PushResult> {
   const config = readConfig();
   if (!config.token || !config.kbGuid) {
     throw Object.assign(new Error('not logged in'), { code: 'NO_LOGIN' });
   }
-  const notes = notesRepository.listDirty(input.limit || 50);
+
   let pushed = 0;
   let created = 0;
   let failed = 0;
+  let deleted = 0;
   const errors: string[] = [];
+
+  // vue2 推送顺序：先补目录，再删云端笔记，最后推 dirty 笔记。
+  try {
+    await syncLocalCategoriesToCloud(config);
+  } catch (error) {
+    errors.push(`目录同步失败：${(error as Error).message}`);
+  }
+
+  for (const log of syncLogRepository.listPendingDeletes(200)) {
+    const docGuid = log.docGuid ?? '';
+    if (!docGuid || docGuid.startsWith('local_')) {
+      // 从未上过云端的笔记，没有可删的远端对象，直接销账，避免日志永久积压。
+      syncLogRepository.markSynced([log.id]);
+      continue;
+    }
+    try {
+      await deleteRemoteNote(docGuid, log.kbGuid || config.kbGuid);
+      syncLogRepository.markSynced([log.id]);
+      deleted += 1;
+    } catch (error) {
+      errors.push(`删除云端笔记 ${docGuid} 失败：${(error as Error).message}`);
+    }
+  }
+  syncLogRepository.purgeSyncedDeletes();
+
+  const notes = notesRepository.listDirty(input.limit || 50, config.kbGuid);
+  const cloudCache = new Map<string, WizNoteSummary[]>();
 
   for (const note of notes) {
     const docGuid = note.docGuid ?? '';
     const isRemote = Boolean(docGuid) && !docGuid.startsWith('local_');
     const isLite = isLiteCategory(note.category);
     const category = note.category || '/My Notes/';
-    const targetGuid = isRemote ? docGuid : '';
-    const { html, names } = toWizHtml(note.content ?? '', isLite, config, docGuid, targetGuid);
+    const { html, names } = toWizHtml(note.content ?? '', isLite, config, docGuid, isRemote ? docGuid : '');
     const resources = names.map((name) => ({ name }));
     const payload = {
       html,
@@ -539,10 +678,47 @@ export async function push(input: { limit?: number } = {}): Promise<PushResult> 
       category,
     };
 
-    let remoteGuid = targetGuid;
+    let remoteGuid = isRemote ? docGuid : '';
     let createdHere = false;
     try {
-      if (!isRemote) {
+      // 1) 已有云端 GUID：先试更新。2004 表示云端已删，退回「找同名/新建」。
+      if (remoteGuid) {
+        try {
+          await saveRemoteNote(config, remoteGuid, payload);
+        } catch (error) {
+          if (isNoteMissingError(error)) {
+            remoteGuid = '';
+          } else {
+            throw error;
+          }
+        }
+      }
+
+      // 2) 无 GUID / local_ / 刚被 2004 清空：先找同目录同名笔记，有就覆盖，避免重复建。
+      if (!remoteGuid) {
+        try {
+          const matched = await findCloudNoteInCategory(cloudCache, { title: note.title, category });
+          if (matched?.docGuid) {
+            remoteGuid = matched.docGuid;
+            try {
+              await saveRemoteNote(config, remoteGuid, payload);
+            } catch (error) {
+              if (isNoteMissingError(error)) {
+                remoteGuid = '';
+                cloudCache.delete(category || '/');
+              } else {
+                throw error;
+              }
+            }
+          }
+        } catch (error) {
+          // 匹配接口挂了不阻断新建，和 vue2 一样降级 continue。
+          console.warn('[sync] 同名目录匹配失败', note.title, (error as Error).message);
+        }
+      }
+
+      // 3) 仍未命中：新建云端笔记，并先绑 guid，失败时不会重复建。
+      if (!remoteGuid) {
         const result = await request<Record<string, unknown>>(
           'POST',
           `${config.kbServer}/ks/note/create/${config.kbGuid}`,
@@ -555,11 +731,18 @@ export async function push(input: { limit?: number } = {}): Promise<PushResult> 
           throw new Error('createNote returned no guid');
         }
         createdHere = true;
-        // 先绑定远端 guid，后续 save/附件失败时把 dirty 打回去，避免下次又建一篇重复的。
         notesRepository.rebindDocGuid(note.id, remoteGuid, config.kbGuid);
+        cloudCache.get(category || '/')?.push({
+          docGuid: remoteGuid,
+          title: note.title,
+          category,
+          dataModified: Date.now(),
+          dataCreated: Date.now(),
+          abstract: '',
+        });
       }
 
-      // 本地附件上传到这篇远端笔记（新笔记创建后才有 docGuid）。
+      // 4) 附件上传到最终 guid，再 save 一次把 index_files 绑定上。
       for (const item of collectResources(note.content ?? '')) {
         try {
           const buffer = await readFile(item.filePath);
@@ -568,20 +751,14 @@ export async function push(input: { limit?: number } = {}): Promise<PushResult> 
           errors.push(`${note.title}: 附件 ${item.name} 上传失败 ${(error as Error).message}`);
         }
       }
+      await saveRemoteNote(config, remoteGuid, payload);
 
-      // create 已带上正文；附件上传后再 save 一次，让服务端把 index_files 绑定到 docGuid。
-      await request(
-        'PUT',
-        `${config.kbServer}/ks/note/save/${config.kbGuid}/${remoteGuid}?clientType=web&clientVersion=3.0&lang=zh-cn`,
-        { ...payload, docGuid: remoteGuid },
-        config,
-        40000,
-      );
       notesRepository.rebindDocGuid(note.id, remoteGuid, config.kbGuid);
-      if (isRemote) {
-        pushed += 1;
-      } else {
+      syncLogRepository.markNoteSynced(note.id);
+      if (createdHere) {
         created += 1;
+      } else {
+        pushed += 1;
       }
     } catch (error) {
       if (createdHere) {
@@ -592,7 +769,7 @@ export async function push(input: { limit?: number } = {}): Promise<PushResult> 
     }
   }
   saveConfig({ lastSyncAt: Date.now() });
-  return { pushed, created, failed, errors: errors.slice(0, 10) };
+  return { pushed, created, failed, deleted, errors: errors.slice(0, 10) };
 }
 
 /** 清掉遗留的密码（记住密码关闭时用）。 */

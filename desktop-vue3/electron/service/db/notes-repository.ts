@@ -244,10 +244,27 @@ export const notesRepository = {
     return row ? toRecord(row) : null;
   },
 
-  listDirty(limit = 200): NoteRecord[] {
-    const rows = getDatabase()
-      .prepare('SELECT * FROM notes WHERE dirty = 1 ORDER BY updated_at ASC LIMIT ?')
-      .all(Math.min(Math.max(limit, 1), 5000)) as NoteRow[];
+  /**
+   * 待推送笔记。
+   * vue2 `getPendingSyncNotesByKbGuid` 只取当前账号，防止跨账号污染。
+   * v3 新建笔记的 kb_guid 是 NULL（离线笔记也是），所以把 NULL / 空串一并算作「当前账号待归属」。
+   */
+  listDirty(limit = 200, kbGuid?: string): NoteRecord[] {
+    const max = Math.min(Math.max(limit, 1), 5000);
+    const rows = kbGuid
+      ? (getDatabase()
+        .prepare(
+          `SELECT * FROM notes
+            WHERE dirty = 1 AND (kb_guid = ? OR kb_guid IS NULL OR kb_guid = '')
+            ORDER BY COALESCE(local_modified, updated_at) ASC LIMIT ?`,
+        )
+        .all(kbGuid, max) as NoteRow[])
+      : (getDatabase()
+        .prepare(
+          `SELECT * FROM notes WHERE dirty = 1
+            ORDER BY COALESCE(local_modified, updated_at) ASC LIMIT ?`,
+        )
+        .all(max) as NoteRow[]);
     return rows.map(toRecord);
   },
 
@@ -306,11 +323,17 @@ export const notesRepository = {
     return this.get(id) as NoteRecord;
   },
 
-  /** 云端新建成功后，把本地 `local_` 占位 docGuid 换成服务端 guid。 */
+  /**
+   * 云端保存成功后，把本地 docGuid 换成服务端 guid 并清 dirty。
+   * vue2 同步完成会同时写 `server_modified = Date.now()`，这里保持一致。
+   */
   rebindDocGuid(id: number, docGuid: string, kbGuid: string | null): void {
+    const now = Date.now();
     getDatabase()
-      .prepare('UPDATE notes SET doc_guid = ?, kb_guid = ?, dirty = 0, updated_at = ?, local_modified = ? WHERE id = ?')
-      .run(docGuid, kbGuid, Date.now(), Date.now(), id);
+      .prepare(
+        'UPDATE notes SET doc_guid = ?, kb_guid = ?, server_modified = ?, dirty = 0, updated_at = ?, local_modified = ? WHERE id = ?',
+      )
+      .run(docGuid, kbGuid, now, now, now, id);
   },
 
   /** 推送中途失败时把 dirty 打回去，避免「已绑定远端 guid 但内容没存上」被当成已同步。 */

@@ -98,6 +98,32 @@ export const syncLogRepository = {
     return rows.map(toEntry);
   },
 
+  /** 只取删除日志；推送时先处理删除，避免被 create/update 挤掉配额。 */
+  listPendingDeletes(limit = 200): SyncLogEntry[] {
+    const db = getDatabase();
+    const rows = db
+      .prepare(
+        `SELECT * FROM sync_log WHERE synced = 0 AND action = 'delete'
+          ORDER BY timestamp ASC, id ASC LIMIT ?`,
+      )
+      .all(Math.min(Math.max(Number(limit) || 200, 1), 5000)) as SyncLogRow[];
+    return rows.map(toEntry);
+  },
+
+  /** 某篇笔记的 create/update 已成功推送到云端，清掉它的待同步日志。 */
+  markNoteSynced(noteId: number): number {
+    return getDatabase()
+      .prepare('UPDATE sync_log SET synced = 1 WHERE note_id = ? AND synced = 0')
+      .run(noteId).changes;
+  },
+
+  /** 删除日志处理完后清掉已同步行；vue2 `cleanupSyncedDeleteLogs` 同样不留。 */
+  purgeSyncedDeletes(): number {
+    return getDatabase()
+      .prepare("DELETE FROM sync_log WHERE action = 'delete' AND synced = 1")
+      .run().changes;
+  },
+
   summary(): PendingSyncSummary {
     const db = getDatabase();
     const rows = db
