@@ -11,16 +11,17 @@
  *     ↕ ipcRenderer.invoke('vue-sfc:parse')
  *   src-electron/main-process/api.js -> parseVueSfc()
  *
- * 这一组测试只覆盖 src 这一侧（playground 端核心），主应用侧单独跑。
+ * 这一组测试只覆盖外部 Playground 的客户端，主应用侧由 microAppIpcBridge.test.js 覆盖。
  */
 
-const path = require('path')
-
-// 绝对路径 require，避开 __dirname 在 jest 跨域时的差异
-// tests/unit/<x>/<y>.test.js  → 根目录需要往上 3 级
-const corePath = path.join(
+const { existsSync } = require('node:fs')
+const path = require('node:path')
+const corePath = path.resolve(
   __dirname, '..', '..', '..', '..', '_plugins', 'vue2-sfc-playground', 'src', 'parseClient.core.cjs'
 )
+if (!existsSync(corePath)) {
+  throw new Error(`缺少外部 Playground 源码：${corePath}。请先在 _plugins/vue2-sfc-playground/ 放置独立项目源码。`)
+}
 const core = require(corePath)
 
 const REQ = 'microapp:parse:request'

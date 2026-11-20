@@ -132,6 +132,27 @@ describe('microAppIpcBridge', () => {
     })
   })
 
+  test('并发解析乱序完成时，每个响应仍透传自己的 requestId', async () => {
+    let finishFirst
+    const first = new Promise(resolve => { finishFirst = resolve })
+    const secondResult = { template: 'second' }
+    mockParseVueSfc.mockReturnValueOnce(first).mockResolvedValueOnce(secondResult)
+    bridge.installMicroAppParseBridge()
+
+    const responses = []
+    mockBus.$on(RES, env => responses.push(env))
+    mockBus.$emit(REQ, { requestId: 'first', payload: { source: 'a' } })
+    mockBus.$emit(REQ, { requestId: 'second', payload: { source: 'b' } })
+
+    await Promise.resolve()
+    expect(responses).toEqual([{ requestId: 'second', ok: true, result: secondResult }])
+
+    const firstResult = { template: 'first' }
+    finishFirst(firstResult)
+    await Promise.resolve()
+    expect(responses[1]).toEqual({ requestId: 'first', ok: true, result: firstResult })
+  })
+
   test('缺 requestId 的请求被静默丢弃（不发响应）', async () => {
     bridge.installMicroAppParseBridge()
 

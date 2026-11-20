@@ -58,7 +58,9 @@ module.exports = {
   setupFiles: ['<rootDir>/tests/fixtures/jquery-setup.js'],
 
   testMatch: [
-    '<rootDir>/tests/**/*.test.js'
+    '<rootDir>/tests/**/*.test.js',
+    // 外部项目不随主仓库签出，由各自的命令显式运行。
+    '!**/tests/external/**'
   ],
 
   // 超时：echo anno_source 编译 16 张卡时偶尔慢
