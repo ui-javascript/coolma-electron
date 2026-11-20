@@ -65,6 +65,7 @@
 
 <script setup lang="ts">
 import { Delete, Monitor, Share, Switch } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
 import { computed, nextTick, onMounted, ref } from 'vue';
 import {
   muyaCursorToPosition,
@@ -80,7 +81,9 @@ import { formatNoteDate, noteTags } from '@/utils/note';
 import { createQuickInsertProvider } from '@/editor/quickInsert';
 import { quickInsertTypes } from '@/editor/insertHandlers';
 import { useLibraryStore } from '@/stores/library';
-import { saveAttachmentImage } from '@/services/ipc';
+import { saveAttachmentImage, uploadImageAttachment } from '@/services/ipc';
+import type { ImageUploadService } from '@/services/ipc';
+import { useAppStore } from '@/stores/app';
 import { useNotesStore } from '@/stores/notes';
 import SourceEditor from '@/components/SourceEditor.vue';
 
@@ -144,6 +147,7 @@ const pendingCursor = ref<MonacoPosition | null>(null);
 
 const libraryStore = useLibraryStore();
 const notesStore = useNotesStore();
+const appStore = useAppStore();
 
 /**
  * @ 快捷面板的数据源：符文与回响。
@@ -167,8 +171,8 @@ const extOfFile = (file: File): string => {
 };
 
 /**
- * 粘贴/拖入图片 → 落盘到本地附件目录 → 返回 coolma:// 地址写进 markdown。
- * 对齐 vue2 的 save-temp-image + resource-loader 那套路径约定。
+ * 粘贴/拖入图片 → 先本地落盘，再按设置走图床（PicGo / 为知官方 / 本地）。
+ * 图床失败时主进程返回本地 url + error，这里提示后照常插图，不让图片变空。
  */
 async function savePastedImage(file: File): Promise<string> {
   const summary = props.summary;
@@ -176,6 +180,25 @@ async function savePastedImage(file: File): Promise<string> {
     return '';
   }
   const base64 = await readFileAsBase64(file);
+  const configured = String(appStore.prefs['setting/server/imageUploadService'] || 'none');
+  const service: ImageUploadService =
+    configured === 'picgoServer' || configured === 'wizOfficialImageUploadService' ? configured : 'none';
+  const uploaded = await uploadImageAttachment({
+    base64,
+    ext: extOfFile(file),
+    name: file.name,
+    service,
+    kbGuid: summary.kbGuid,
+    docGuid: summary.docGuid,
+    noteId: summary.id,
+  });
+  if (uploaded.ok) {
+    if (uploaded.data.error) {
+      ElMessage.warning(t('editor.imageUploadFailed', { message: uploaded.data.error }));
+    }
+    return uploaded.data.url;
+  }
+  // IPC 本身失败（旧版本主进程 / 通道异常）→ 退回纯本地落盘
   const result = await saveAttachmentImage({
     base64,
     ext: extOfFile(file),
@@ -186,6 +209,7 @@ async function savePastedImage(file: File): Promise<string> {
   if (result.ok === false) {
     return '';
   }
+  ElMessage.warning(t('editor.imageUploadFailed', { message: uploaded.error.message }));
   return result.data.url;
 }
 
@@ -211,6 +235,7 @@ const editorOptions = {
 
 onMounted(() => {
   void libraryStore.load();
+  void appStore.loadPrefs();
 });
 /** 右键：把坐标与「选区是否为空」交给父级——菜单项启用条件按 vue2 依赖这个。 */
 function onContextMenu(event: MouseEvent): void {

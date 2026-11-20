@@ -40,6 +40,7 @@ export const IPC_CHANNELS = {
   },
   attachments: {
     saveImage: 'controller/attachments/saveImage',
+    uploadImage: 'controller/attachments/uploadImage',
     dir: 'controller/attachments/dir',
   },
   tags: {
@@ -142,6 +143,9 @@ export const INVOKE_CHANNELS = new Set<string>([
   IPC_CHANNELS.notes.create,
   IPC_CHANNELS.notes.update,
   IPC_CHANNELS.notes.remove,
+  IPC_CHANNELS.attachments.saveImage,
+  IPC_CHANNELS.attachments.uploadImage,
+  IPC_CHANNELS.attachments.dir,
   IPC_CHANNELS.categories.list,
   IPC_CHANNELS.categories.create,
   IPC_CHANNELS.categories.remove,

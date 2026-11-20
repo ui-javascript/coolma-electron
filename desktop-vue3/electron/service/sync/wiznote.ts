@@ -395,7 +395,7 @@ async function uploadResource(
   docGuid: string,
   name: string,
   buffer: Buffer,
-): Promise<void> {
+): Promise<string> {
   const form = new FormData();
   form.append('kbGuid', config.kbGuid);
   form.append('docGuid', docGuid);
@@ -411,6 +411,28 @@ async function uploadResource(
   if (code !== 200 || !result?.name) {
     throw new Error(String(payload.externMessage ?? payload.returnMessage ?? `upload ${name} failed`));
   }
+  return String(result.name);
+}
+
+/** 图床上传：把粘贴的图片直接传到为知官方图床，返回服务端资源名（本地再按同名落盘）。 */
+export async function uploadImageResource(input: {
+  buffer: Buffer;
+  name: string;
+  docGuid: string;
+}): Promise<{ name: string }> {
+  const config = readConfig();
+  if (!config.token || !config.kbGuid) {
+    throw new Error('WizNote is not logged in');
+  }
+  if (!config.kbServer) {
+    throw new Error('WizNote kbServer is missing');
+  }
+  const docGuid = String(input.docGuid || '').trim();
+  if (!docGuid) {
+    throw new Error('WizNote docGuid is missing');
+  }
+  const name = await uploadResource(config, docGuid, input.name, input.buffer);
+  return { name };
 }
 
 /** 推送前把本地 coolma:// 链接换回 index_files/<name>（vue2 embedMDNote 的逆操作）。 */

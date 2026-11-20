@@ -31,6 +31,7 @@ const INVOKE_CHANNELS = new Set<string>([
   'controller/categories/create',
   'controller/categories/remove',
   'controller/attachments/saveImage',
+  'controller/attachments/uploadImage',
   'controller/attachments/dir',
   'controller/tags/list',
   'controller/tags/create',

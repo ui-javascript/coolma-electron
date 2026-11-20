@@ -216,6 +216,26 @@ export function saveAttachmentImage(
   return invoke<{ url: string; filePath: string; name: string }>(IPC_CHANNELS.attachments.saveImage, input);
 }
 
+export type ImageUploadService = 'picgoServer' | 'wizOfficialImageUploadService' | 'none';
+
+export interface UploadImageInput extends SaveAttachmentInput {
+  name?: string;
+  service: ImageUploadService;
+}
+
+export interface UploadImageResult {
+  url: string;
+  localUrl: string;
+  uploaded: boolean;
+  service: ImageUploadService;
+  error?: string;
+}
+
+/** 贴图上传：主进程先本地落盘，再按图床服务上传；失败返回本地 url + error。 */
+export function uploadImageAttachment(input: UploadImageInput): Promise<IpcResult<UploadImageResult>> {
+  return invoke<UploadImageResult>(IPC_CHANNELS.attachments.uploadImage, input);
+}
+
 export function listCategories(): Promise<IpcResult<CategoryRecord[]>> {
   return invoke<CategoryRecord[]>(IPC_CHANNELS.categories.list);
 }

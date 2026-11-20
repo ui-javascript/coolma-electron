@@ -7,6 +7,7 @@
  * 验证的是引擎真实代码：selectItem → getTypeHandler → 应用侧处理器 → 引擎原语 → 段落写回。
  */
 import fs from 'node:fs/promises';
+import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
@@ -34,6 +35,8 @@ import {
 } from '../frontend/src/utils/autotag';
 import { coolmaUrl, hashImageName, parseCoolmaUrl } from '../electron/service/attachments';
 import { collectTree, normalizeRemotePath } from '../electron/service/blog/sftp-fs';
+import { attachmentDir, saveAttachmentBuffer } from '../electron/service/attachments';
+import { uploadImageByPicGo } from '../electron/service/image/upload';
 
 type Any = Record<string, any>;
 
@@ -804,6 +807,43 @@ async function main(): Promise<void> {
         [...tree.dirs].sort().join(',') === 'assets,assets/img'
           && [...tree.files].sort().join(',') === 'assets/app.js,assets/img/logo.png,index-link.html,index.html',
         JSON.stringify(tree),
+      );
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  }
+
+  // ==== 图床上传：PicGo HTTP 契约 + 为知资源名落盘 ====
+  {
+    const server = http.createServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ success: true, result: ['https://cdn.example.com/pasted.png'] }));
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()));
+    try {
+      const address = server.address();
+      const port = typeof address === 'object' && address ? address.port : 0;
+      const url = await uploadImageByPicGo('/tmp/pasted.png', `http://127.0.0.1:${port}/upload`);
+      assert('图床：PicGo 上传返回 result[0]', url === 'https://cdn.example.com/pasted.png', url);
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'coolma-image-'));
+    try {
+      const saved = await saveAttachmentBuffer({
+        root,
+        kbGuid: 'kb',
+        docGuid: 'doc',
+        buffer: Buffer.from('png'),
+        name: '../../evil.png',
+      });
+      assert(
+        '图床：为知资源名落盘被限制在附件目录内',
+        path.dirname(saved.filePath) === attachmentDir(root, 'kb', 'doc')
+          && saved.name === '_.._evil.png'
+          && saved.url.endsWith('/_.._evil.png'),
+        `${saved.filePath} | ${saved.url}`,
       );
     } finally {
       await fs.rm(root, { recursive: true, force: true });

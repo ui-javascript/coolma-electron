@@ -17,7 +17,7 @@
 | 8 | `settings/SettingsCloudFnPanel.vue` + `cloud/cloudFunctionConfigDialog.vue` + `cloud/cloudBspAppDemoDialog.vue` | 云函数 / 云应用 | 三个文件一整条链路 |
 | 9 | `settings/cdnDepEditDialog.vue` | CDN 依赖编辑 | 导出 HTML / 渲染依赖注入用 |
 | 10 | `blog/BlogDeployDialog.vue`、`BlogDeployProgressDialog.vue` | 博客部署 | 部署 + 进度，两个 dialog |
-| 11 | `image/ImageUploadServiceDialog.vue` | 图床上传服务 | 贴图落盘已有，图床（第三方）没有 |
+| 11 | `image/ImageUploadServiceDialog.vue` | 图床上传服务 | 已接：PicGo / 为知官方 / 本地，失败回退本地（P5 11.51） |
 | 12 | `update/UpdateDialog.vue` | 检查更新 | 版本比对 + 下载提示 |
 | 13 | `ranking/rankingTierDialog.vue` | 榜单分层 | — |
 | 14 | `navigation/NavigationDialog.vue` | 导航 | — |

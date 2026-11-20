@@ -40,6 +40,15 @@ export function coolmaUrl(kbGuid: string | null | undefined, docGuid: string | n
   return `coolma://coolma.app/${resolveKbSegment(kbGuid)}/${resolveDocSegment(docGuid, noteId)}/${name}`;
 }
 
+export interface SaveAttachmentBufferInput {
+  root: string;
+  kbGuid?: string | null;
+  docGuid?: string | null;
+  noteId?: number | null;
+  name: string;
+  buffer: Buffer;
+}
+
 export interface SaveAttachmentInput {
   root: string;
   kbGuid?: string | null;
@@ -55,23 +64,39 @@ export interface SaveAttachmentResult {
   url: string;
 }
 
-export async function saveImageAttachment(input: SaveAttachmentInput): Promise<SaveAttachmentResult> {
-  const raw = String(input.base64 ?? '');
-  const payload = raw.includes(',') && raw.startsWith('data:') ? raw.slice(raw.indexOf(',') + 1) : raw;
-  const buffer = Buffer.from(payload, 'base64');
-  if (buffer.length === 0) {
+function safeAttachmentName(name: string): string {
+  return String(name ?? '').replace(/[^\w.-]/g, '_').replace(/^[.]+/, '') || 'image';
+}
+
+/** 按指定文件名落盘（为知图床返回的 name 必须原样保存，协议地址才对得上）。 */
+export async function saveAttachmentBuffer(input: SaveAttachmentBufferInput): Promise<SaveAttachmentResult> {
+  if (!input.buffer || input.buffer.length === 0) {
     throw new Error('ATTACHMENT_EMPTY');
   }
-  const name = hashImageName(buffer, input.ext || '.png');
+  const name = safeAttachmentName(input.name);
   const dir = attachmentDir(input.root, input.kbGuid, input.docGuid, input.noteId);
   await mkdir(dir, { recursive: true });
   const filePath = path.join(dir, name);
-  await writeFile(filePath, buffer);
+  await writeFile(filePath, input.buffer);
   return {
     filePath,
     name,
     url: coolmaUrl(input.kbGuid, input.docGuid, name, input.noteId),
   };
+}
+
+export async function saveImageAttachment(input: SaveAttachmentInput): Promise<SaveAttachmentResult> {
+  const raw = String(input.base64 ?? '');
+  const payload = raw.includes(',') && raw.startsWith('data:') ? raw.slice(raw.indexOf(',') + 1) : raw;
+  const buffer = Buffer.from(payload, 'base64');
+  return saveAttachmentBuffer({
+    root: input.root,
+    kbGuid: input.kbGuid,
+    docGuid: input.docGuid,
+    noteId: input.noteId,
+    name: hashImageName(buffer, input.ext || '.png'),
+    buffer,
+  });
 }
 
 /**
