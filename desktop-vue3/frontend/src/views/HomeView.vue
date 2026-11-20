@@ -209,6 +209,7 @@ import { buildMuyaMenu } from '@/menus/muya';
 import { buildSideDrawerMenu } from '@/menus/sideDrawer';
 import type { ContextMenuItem } from '@/menus/types';
 import { exportCategoryMarkdown, getNote, listNotes } from '@/services/ipc';
+import { getSyncStatus } from '@/services/sync';
 import { useAppStore } from '@/stores/app';
 import { skinEffectBus } from '@/services/skinEffectBus';
 import { useNotesStore } from '@/stores/notes';
@@ -542,12 +543,12 @@ const folderMenuX = ref(0);
 const folderMenuY = ref(0);
 const folderMenuCategory = ref('');
 const folderMenuIsRoot = ref(false);
+const syncLoggedIn = ref(false);
 const folderMenuItems = computed<ContextMenuItem[]>(() =>
   buildSideDrawerMenu({
     category: folderMenuCategory.value,
     isRootCategory: folderMenuIsRoot.value,
-    // 当前没有登录态概念（同步服务面板还没复刻），本地库全量可用 → 按已登录处理
-    isLogin: true,
+    isLogin: syncLoggedIn.value,
     tierRankingReady: true,
     blogReady: true,
   }) as unknown as ContextMenuItem[],
@@ -591,7 +592,15 @@ function onEditorMenuCommand(command: string): void {
   }
 }
 
-function openFolderMenu(payload: { category: string; event: MouseEvent }): void {
+async function openFolderMenu(payload: { category: string; event: MouseEvent }): Promise<void> {
+  // vue2 侧栏菜单按 isLogin 决定是否显示导入/导出/榜单/博客/复制 Markdown；
+  // 设置页登录或登出后这里不缓存旧状态，每次打开菜单重新读。
+  try {
+    const status = await getSyncStatus();
+    syncLoggedIn.value = status.ok && status.data.loggedIn;
+  } catch {
+    syncLoggedIn.value = false;
+  }
   folderMenuCategory.value = payload.category;
   folderMenuIsRoot.value = !payload.category;
   folderMenuX.value = payload.event.clientX;
