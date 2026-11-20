@@ -145,7 +145,7 @@ export async function login(input: {
     { ...readConfig(), baseUrl, token: '' },
     40000,
   );
-  saveConfig({
+  const saved = saveConfig({
     baseUrl,
     token: String(result.token ?? ''),
     kbGuid: String(result.kbGuid ?? ''),
@@ -155,6 +155,11 @@ export async function login(input: {
     userGuid: String(result.userGuid ?? ''),
     password: input.rememberPassword ? input.password : undefined,
   });
+  // 照 vue2 登录/重登录：把 kb_guid 为空的离线笔记与目录归属到当前账号，等下次推送。
+  if (saved.kbGuid) {
+    notesRepository.migrateOffline(saved.kbGuid);
+    categoriesRepository.migrateOffline(saved.kbGuid);
+  }
   return getPublicConfig();
 }
 

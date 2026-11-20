@@ -106,6 +106,18 @@ export const categoriesRepository = {
       .filter((row) => !kbGuid || !row.kbGuid || row.kbGuid === kbGuid);
   },
 
+  /** 登录成功后把离线目录归属到当前账号，照 vue2 `db:migrateOfflineCategories`。 */
+  migrateOffline(kbGuid: string): number {
+    if (!kbGuid) {
+      return 0;
+    }
+    return getDatabase()
+      .prepare(
+        'UPDATE local_categories SET kb_guid = ?, updated_at = ? WHERE kb_guid IS NULL OR kb_guid = \'\'',
+      )
+      .run(kbGuid, Date.now()).changes;
+  },
+
   /** 云端目录已确认存在（新建成功或 400/409 幂等），本地取消 local_only。 */
   markSynced(category: string, kbGuid?: string): boolean {
     const normalized = normalizeCategory(category);

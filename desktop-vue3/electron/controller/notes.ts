@@ -12,6 +12,7 @@ import {
 import { notesRepository } from '../service/db/notes-repository';
 import { markdownFileName, sanitizeFileName, stripDataUrlBase64 } from '../service/export-utils';
 import { templatesRepository } from '../service/db/templates-repository';
+import { getPublicConfig } from '../service/sync/wiznote';
 import { failFromError } from './controller-utils';
 
 class NotesController {
@@ -53,7 +54,8 @@ class NotesController {
           templateContent = body;
         }
       }
-      return ok(notesRepository.create({ ...rest, templateContent }));
+      // vue2 在线新建笔记会带当前 kbGuid；离线才留 NULL，登录后由迁移归属。
+      return ok(notesRepository.create({ ...rest, templateContent, kbGuid: getPublicConfig().kbGuid || null }));
     } catch (error) {
       return failFromError(error, 'NOTE_CREATE_ERROR');
     }

@@ -40,6 +40,8 @@ export interface CreateNoteInput {
   templateContent?: string;
   category?: string;
   tags?: string;
+  /** 已登录时的当前账号；离线创建传 null / 不传。 */
+  kbGuid?: string | null;
 }
 
 export interface UpdateNoteInput {
@@ -269,6 +271,19 @@ export const notesRepository = {
   },
 
   /**
+   * 登录成功后把离线笔记归属到当前账号，照 vue2 `db:migrateOfflineNotes`。
+   * 只改 kb_guid 并保持 dirty=1，下次推送按当前账号上传。
+   */
+  migrateOffline(kbGuid: string): number {
+    if (!kbGuid) {
+      return 0;
+    }
+    return getDatabase()
+      .prepare("UPDATE notes SET kb_guid = ?, dirty = 1 WHERE kb_guid IS NULL OR kb_guid = ''")
+      .run(kbGuid).changes;
+  },
+
+  /**
    * 待推送笔记。
    * vue2 `getPendingSyncNotesByKbGuid` 只取当前账号，防止跨账号污染。
    * v3 新建笔记的 kb_guid 是 NULL（离线笔记也是），所以把 NULL / 空串一并算作「当前账号待归属」。
@@ -388,13 +403,13 @@ export const notesRepository = {
              doc_guid, kb_guid, title, content, category, tags,
              data_created, data_modified, local_modified, server_modified,
              created_at, updated_at, dirty
-           ) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, 1)`,
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, 1)`,
         )
-        .run(docGuid, title, content, category, tags, now, now, now, now, now);
+        .run(docGuid, input.kbGuid ?? null, title, content, category, tags, now, now, now, now, now);
 
       const id = Number(info.lastInsertRowid);
       replaceNoteTags(id, tags);
-      syncLogRepository.record({ noteId: id, action: 'create', docGuid, kbGuid: null });
+      syncLogRepository.record({ noteId: id, action: 'create', docGuid, kbGuid: input.kbGuid ?? null });
       return id;
     });
 

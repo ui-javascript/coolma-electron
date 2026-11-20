@@ -84,6 +84,8 @@ const second = notesRepository.create({ title: '测试笔记', content: 'dup', c
 assert('笔记：同名自动去重', second.title === '测试笔记 (2)', second.title);
 const elsewhere = notesRepository.create({ title: '测试笔记', content: 'other', category: '/生活' });
 assert('笔记：跨分类不撞名', elsewhere.title === '测试笔记', elsewhere.title);
+const onlineNote = notesRepository.create({ title: '在线笔记', content: 'online', category: '/工作', kbGuid: 'kb-1' });
+assert('笔记：在线创建带当前账号', onlineNote.kbGuid === 'kb-1', String(onlineNote.kbGuid));
 
 // 拉取去重：分类 + 标题 + 当前账号（NULL 归当前）
 const matchedLocal = notesRepository.findByTitleCategory({ category: '/工作', title: first.title, kbGuid: 'kb-1' });
@@ -186,6 +188,20 @@ assert(
   JSON.stringify(scopedDirty.map((note) => `${note.id}:${note.kbGuid}`)),
 );
 
+// ===== 登录后离线笔记迁移 =====
+const offlineMoved = notesRepository.migrateOffline('kb-2');
+assert('迁移：离线笔记数量 > 0', offlineMoved > 0, String(offlineMoved));
+assert(
+  '迁移：离线笔记归属当前账号且保持 dirty',
+  notesRepository.get(first.id)?.kbGuid === 'kb-2' && notesRepository.get(first.id)?.dirty === 1,
+  JSON.stringify(notesRepository.get(first.id)),
+);
+assert(
+  '迁移：别的账号笔记不被动',
+  notesRepository.get(otherAccountNoteId)?.kbGuid === 'other-kb',
+  JSON.stringify(notesRepository.get(otherAccountNoteId)),
+);
+
 // ===== 分类 =====
 const category = categoriesRepository.create({ category: '/工作/子目录' });
 assert('分类：创建返回节点', Boolean(category?.category), JSON.stringify(category));
@@ -214,6 +230,16 @@ assert(
   '分类：markSynced 后移出待补建',
   !categoriesRepository.listLocalOnly('kb-1').some((item) => item.category === '/离线目录/子目录'),
   JSON.stringify(categoriesRepository.listLocalOnly('kb-1').map((item) => item.category)),
+);
+
+const offlineCategory2 = categoriesRepository.create({ category: '/离线二', localOnly: true });
+assert('分类：离线创建默认空账号', offlineCategory2.kbGuid === '', JSON.stringify(offlineCategory2));
+const movedCategories = categoriesRepository.migrateOffline('kb-2');
+assert('分类：迁移返回命中数量', movedCategories > 0, String(movedCategories));
+assert(
+  '分类：迁移后归属当前账号',
+  categoriesRepository.list().find((item) => item.category === '/离线二')?.kbGuid === 'kb-2',
+  JSON.stringify(categoriesRepository.list().find((item) => item.category === '/离线二')),
 );
 
 // ===== 标签 =====
