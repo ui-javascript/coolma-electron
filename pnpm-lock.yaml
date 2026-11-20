@@ -318,7 +318,7 @@ importers:
         version: 0.65.4
       '@vitejs/plugin-vue':
         specifier: ^6.0.1
-        version: 6.0.11(vite@7.3.8(@types/node@24.19.2)(jiti@2.7.0)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2)(tsx@4.23.15))(vue@3.5.45(typescript@5.8.3))
+        version: 6.0.11(vite@5.4.21(@types/node@24.19.2)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2))(vue@3.5.45(typescript@5.8.3))
       '@vue/tsconfig':
         specifier: ^0.7.0
         version: 0.7.0(typescript@5.8.3)(vue@3.5.45(typescript@5.8.3))
@@ -327,10 +327,10 @@ importers:
         version: 5.8.3
       unocss:
         specifier: ^0.65.4
-        version: 0.65.4(postcss@8.5.33)(rollup@4.68.5)(supports-color@8.1.1)(vite@7.3.8(@types/node@24.19.2)(jiti@2.7.0)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2)(tsx@4.23.15))(vue@3.5.45(typescript@5.8.3))
+        version: 0.65.4(postcss@8.5.33)(rollup@4.68.5)(supports-color@8.1.1)(vite@5.4.21(@types/node@24.19.2)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2))(vue@3.5.45(typescript@5.8.3))
       vite:
-        specifier: ^7.1.2
-        version: 7.3.8(@types/node@24.19.2)(jiti@2.7.0)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2)(tsx@4.23.15)
+        specifier: ^5.4.21
+        version: 5.4.21(@types/node@24.19.2)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2)
       vue-tsc:
         specifier: ^3.0.5
         version: 3.3.14(typescript@5.8.3)
@@ -14535,46 +14535,6 @@ packages:
       terser:
         optional: true
 
-  vite@7.3.8:
-    resolution: {integrity: sha512-3tTi78MAKhVk9h+YZVXMQ8POmneJuE97QUPAWtJghHzhH7BAyiqQOC2KZh1DWOsu/USB2cRXhznPByaabvYXfw==}
-    engines: {node: ^20.19.0 || >=22.12.0}
-    hasBin: true
-    peerDependencies:
-      '@types/node': ^20.19.0 || >=22.12.0
-      jiti: '>=1.21.0'
-      less: ^4.0.0
-      lightningcss: ^1.21.0
-      sass: ^1.70.0
-      sass-embedded: ^1.70.0
-      stylus: '>=0.54.8'
-      sugarss: ^5.0.0
-      terser: ^5.16.0
-      tsx: ^4.8.1
-      yaml: ^2.4.2
-    peerDependenciesMeta:
-      '@types/node':
-        optional: true
-      jiti:
-        optional: true
-      less:
-        optional: true
-      lightningcss:
-        optional: true
-      sass:
-        optional: true
-      sass-embedded:
-        optional: true
-      stylus:
-        optional: true
-      sugarss:
-        optional: true
-      terser:
-        optional: true
-      tsx:
-        optional: true
-      yaml:
-        optional: true
-
   vitepress-plugin-auto-frontmatter@1.0.13:
     resolution: {integrity: sha512-NRbaiJaPOQEAsF6kSt5lhjSkBx0kwBzHh8CLaoLwtqE7ypm+jj15VZalVf1El7WhG5ml7k1tHE7C8SxPmZ8NXw==}
 
@@ -20038,13 +19998,13 @@ snapshots:
 
   '@ungap/structured-clone@1.4.0': {}
 
-  '@unocss/astro@0.65.4(rollup@4.68.5)(supports-color@8.1.1)(vite@7.3.8(@types/node@24.19.2)(jiti@2.7.0)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2)(tsx@4.23.15))(vue@3.5.45(typescript@5.8.3))':
+  '@unocss/astro@0.65.4(rollup@4.68.5)(supports-color@8.1.1)(vite@5.4.21(@types/node@24.19.2)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2))(vue@3.5.45(typescript@5.8.3))':
     dependencies:
       '@unocss/core': 0.65.4
       '@unocss/reset': 0.65.4
-      '@unocss/vite': 0.65.4(rollup@4.68.5)(supports-color@8.1.1)(vite@7.3.8(@types/node@24.19.2)(jiti@2.7.0)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2)(tsx@4.23.15))(vue@3.5.45(typescript@5.8.3))
+      '@unocss/vite': 0.65.4(rollup@4.68.5)(supports-color@8.1.1)(vite@5.4.21(@types/node@24.19.2)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2))(vue@3.5.45(typescript@5.8.3))
     optionalDependencies:
-      vite: 7.3.8(@types/node@24.19.2)(jiti@2.7.0)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2)(tsx@4.23.15)
+      vite: 5.4.21(@types/node@24.19.2)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2)
     transitivePeerDependencies:
       - rollup
       - supports-color
@@ -20196,7 +20156,7 @@ snapshots:
     dependencies:
       '@unocss/core': 0.65.4
 
-  '@unocss/vite@0.65.4(rollup@4.68.5)(supports-color@8.1.1)(vite@7.3.8(@types/node@24.19.2)(jiti@2.7.0)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2)(tsx@4.23.15))(vue@3.5.45(typescript@5.8.3))':
+  '@unocss/vite@0.65.4(rollup@4.68.5)(supports-color@8.1.1)(vite@5.4.21(@types/node@24.19.2)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2))(vue@3.5.45(typescript@5.8.3))':
     dependencies:
       '@ampproject/remapping': 2.3.0
       '@rollup/pluginutils': 5.5.1(rollup@4.68.5)
@@ -20206,7 +20166,7 @@ snapshots:
       chokidar: 3.6.0
       magic-string: 0.30.21
       tinyglobby: 0.2.17
-      vite: 7.3.8(@types/node@24.19.2)(jiti@2.7.0)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2)(tsx@4.23.15)
+      vite: 5.4.21(@types/node@24.19.2)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2)
     transitivePeerDependencies:
       - rollup
       - supports-color
@@ -20232,10 +20192,10 @@ snapshots:
       vite: 5.4.21(@types/node@26.6.6)(less@4.9.1(supports-color@8.1.1))(sass@1.32.12)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2)
       vue: 3.5.45(typescript@5.9.3)
 
-  '@vitejs/plugin-vue@6.0.11(vite@7.3.8(@types/node@24.19.2)(jiti@2.7.0)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2)(tsx@4.23.15))(vue@3.5.45(typescript@5.8.3))':
+  '@vitejs/plugin-vue@6.0.11(vite@5.4.21(@types/node@24.19.2)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2))(vue@3.5.45(typescript@5.8.3))':
     dependencies:
       '@rolldown/pluginutils': 1.1.1
-      vite: 7.3.8(@types/node@24.19.2)(jiti@2.7.0)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2)(tsx@4.23.15)
+      vite: 5.4.21(@types/node@24.19.2)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2)
       vue: 3.5.45(typescript@5.8.3)
 
   '@volar/language-core@2.4.15':
@@ -33661,9 +33621,9 @@ snapshots:
 
   universalify@2.0.1: {}
 
-  unocss@0.65.4(postcss@8.5.33)(rollup@4.68.5)(supports-color@8.1.1)(vite@7.3.8(@types/node@24.19.2)(jiti@2.7.0)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2)(tsx@4.23.15))(vue@3.5.45(typescript@5.8.3)):
+  unocss@0.65.4(postcss@8.5.33)(rollup@4.68.5)(supports-color@8.1.1)(vite@5.4.21(@types/node@24.19.2)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2))(vue@3.5.45(typescript@5.8.3)):
     dependencies:
-      '@unocss/astro': 0.65.4(rollup@4.68.5)(supports-color@8.1.1)(vite@7.3.8(@types/node@24.19.2)(jiti@2.7.0)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2)(tsx@4.23.15))(vue@3.5.45(typescript@5.8.3))
+      '@unocss/astro': 0.65.4(rollup@4.68.5)(supports-color@8.1.1)(vite@5.4.21(@types/node@24.19.2)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2))(vue@3.5.45(typescript@5.8.3))
       '@unocss/cli': 0.65.4(rollup@4.68.5)(supports-color@8.1.1)
       '@unocss/core': 0.65.4
       '@unocss/postcss': 0.65.4(postcss@8.5.33)(supports-color@8.1.1)
@@ -33679,9 +33639,9 @@ snapshots:
       '@unocss/transformer-compile-class': 0.65.4
       '@unocss/transformer-directives': 0.65.4
       '@unocss/transformer-variant-group': 0.65.4
-      '@unocss/vite': 0.65.4(rollup@4.68.5)(supports-color@8.1.1)(vite@7.3.8(@types/node@24.19.2)(jiti@2.7.0)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2)(tsx@4.23.15))(vue@3.5.45(typescript@5.8.3))
+      '@unocss/vite': 0.65.4(rollup@4.68.5)(supports-color@8.1.1)(vite@5.4.21(@types/node@24.19.2)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2))(vue@3.5.45(typescript@5.8.3))
     optionalDependencies:
-      vite: 7.3.8(@types/node@24.19.2)(jiti@2.7.0)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2)(tsx@4.23.15)
+      vite: 5.4.21(@types/node@24.19.2)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2)
     transitivePeerDependencies:
       - postcss
       - rollup
@@ -34258,6 +34218,19 @@ snapshots:
       stylus: 0.54.8(supports-color@8.1.1)
       terser: 5.51.2
 
+  vite@5.4.21(@types/node@24.19.2)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2):
+    dependencies:
+      esbuild: 0.21.5
+      postcss: 8.5.33
+      rollup: 4.68.5
+    optionalDependencies:
+      '@types/node': 24.19.2
+      fsevents: 2.3.3
+      less: 4.9.1(supports-color@8.1.1)
+      sass: 1.108.2
+      stylus: 0.54.8(supports-color@8.1.1)
+      terser: 5.51.2
+
   vite@5.4.21(@types/node@26.6.6)(less@4.9.1(supports-color@8.1.1))(sass@1.32.12)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2):
     dependencies:
       esbuild: 0.21.5
@@ -34270,24 +34243,6 @@ snapshots:
       sass: 1.32.12
       stylus: 0.54.8(supports-color@8.1.1)
       terser: 5.51.2
-
-  vite@7.3.8(@types/node@24.19.2)(jiti@2.7.0)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2)(tsx@4.23.15):
-    dependencies:
-      esbuild: 0.28.2
-      fdir: 6.5.0(picomatch@4.0.7)
-      picomatch: 4.0.7
-      postcss: 8.5.33
-      rollup: 4.68.5
-      tinyglobby: 0.2.17
-    optionalDependencies:
-      '@types/node': 24.19.2
-      fsevents: 2.3.3
-      jiti: 2.7.0
-      less: 4.9.1(supports-color@8.1.1)
-      sass: 1.108.2
-      stylus: 0.54.8(supports-color@8.1.1)
-      terser: 5.51.2
-      tsx: 4.23.15
 
   vitepress-plugin-auto-frontmatter@1.0.13:
     dependencies:

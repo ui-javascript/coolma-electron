@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { AIMessage } from '../../types/chat';
-import MessageItem from './MessageItem.vue';
+import type { ChatMessage } from '../ChatMessage/type';
+import MessageItem from '../ChatMessage/MessageItem.vue';
 
 interface Props {
-  messages: AIMessage[];
+  messages: ChatMessage[];
   loading?: boolean;
 }
 
@@ -18,11 +18,6 @@ const emit = defineEmits<{
   (e: 'copy', content: string): void;
   (e: 'scroll-to-bottom'): void;
 }>();
-
-// Scroll to bottom when new messages arrive
-const scrollToBottom = () => {
-  emit('scroll-to-bottom');
-};
 
 // Retry handler
 const handleRetry = (messageId: string) => {

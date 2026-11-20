@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { ChatMessage } from '../type';
+import type { ChatMessage } from './type';
 
 interface Props {
   message: ChatMessage;

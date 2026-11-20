@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import type { SkillCategory, Skill } from './skillsData';
-import { skillsData } from './skillsData';
 
 interface Props {
   categories: SkillCategory[];

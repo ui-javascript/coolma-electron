@@ -17,7 +17,7 @@ const emit = defineEmits<{
 
 const placeholder = ref('输入主题和写作要求')
 
-const initialValue = [
+const initialValue: CustomElement[] = [
     {
         type: 'paragraph', children: [
             { text: '', },
