@@ -49,6 +49,7 @@ export default {
     saved: '已保存',
     saveFailed: '保存失败',
     refresh: "刷新",
+    pendingSync: "待同步",
     pullRefresh: "下拉刷新",
     releaseRefresh: "松手刷新",
     loadFailed: '加载笔记失败',

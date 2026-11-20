@@ -49,6 +49,7 @@ export default {
     saved: 'Saved',
     saveFailed: 'Save failed',
     refresh: "Refresh",
+    pendingSync: "Pending sync",
     pullRefresh: "Pull to refresh",
     releaseRefresh: "Release to refresh",
     loadFailed: 'Failed to load notes',

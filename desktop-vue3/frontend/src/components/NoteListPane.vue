@@ -86,7 +86,15 @@
             @click.stop
             @change="toggleSelect(note.id)"
           />
+          <el-icon class="note-file-icon"><component :is="fileIcon(note.title)" /></el-icon>
           <span class="note-title">{{ note.title }}</span>
+          <el-icon
+            v-if="note.dirty === 1"
+            class="note-sync-icon"
+            :title="t('notes.pendingSync')"
+          >
+            <Upload />
+          </el-icon>
           <button
             type="button"
             class="note-more"
@@ -96,7 +104,7 @@
             <el-icon><MoreFilled /></el-icon>
           </button>
         </div>
-        <p class="note-excerpt">{{ note.excerpt }}</p>
+        <p v-if="!props.dense" class="note-excerpt">{{ note.excerpt }}</p>
         <div class="note-meta">
           <span>{{ formatNoteDate(note, t) }}</span>
           <el-tag size="small" effect="plain">{{ primaryTag(note, t) }}</el-tag>
@@ -114,7 +122,22 @@
 </template>
 
 <script setup lang="ts">
-import { Delete, Download, FolderOpened, MoreFilled, Plus, Refresh, Search } from '@element-plus/icons-vue';
+import {
+  Delete,
+  Document,
+  Download,
+  Files,
+  FolderOpened,
+  Monitor,
+  MoreFilled,
+  Notebook,
+  Plus,
+  Refresh,
+  Search,
+  Tickets,
+  Upload,
+} from '@element-plus/icons-vue';
+import type { Component } from 'vue';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { NoteSummary } from '@shared/types/domain';
@@ -202,6 +225,16 @@ function toggleSelectAll(value: string | number | boolean): void {
   commitSelection(value ? props.notes.map((note) => note.id) : []);
 }
 
+/** 文件类型图标，对齐 vue2 NoteItem 的 fileIcon 映射。 */
+function fileIcon(title: string): Component {
+  const lower = title.toLowerCase();
+  if (lower.endsWith('.md')) return Document;
+  if (lower.endsWith('.txt')) return Tickets;
+  if (lower.endsWith('.html') || lower.endsWith('.htm')) return Monitor;
+  if (lower.endsWith('.pdf')) return Files;
+  return Notebook;
+}
+
 function clearSelection(): void {
   anchorId.value = null;
   commitSelection([]);
@@ -256,6 +289,18 @@ function resetPull(): void {
   margin-bottom: 0;
 }
 
+.note-file-icon {
+  flex: 0 0 auto;
+  color: var(--coolma-muted);
+  font-size: 14px;
+}
+
+.note-sync-icon {
+  flex: 0 0 auto;
+  color: var(--coolma-primary);
+  font-size: 12px;
+}
+
 .notes-toolbar-actions {
   display: flex;
   align-items: center;
@@ -280,12 +325,3 @@ function resetPull(): void {
   color: var(--coolma-primary);
 }
 </style>
-
-/* 紧凑列表模式（vue2 noteListDenseMode） */
-.note-list.dense .note-item {
-  padding: 6px 12px;
-}
-
-.note-list.dense .note-item-head {
-  margin-bottom: 0;
-}
