@@ -36,6 +36,7 @@ function normalizePath(category: string): string[] {
 export function buildCategoryTree(
   items: readonly CategoryTreeInput[],
   labelOf: (path: string, segment: string) => string = (_path, segment) => segment,
+  pos: Readonly<Record<string, number>> = {},
 ): CategoryTreeNode[] {
   const roots: CategoryTreeNode[] = [];
   const nodeMap = new Map<string, CategoryTreeNode>();
@@ -74,7 +75,15 @@ export function buildCategoryTree(
   }
 
   const sortNodes = (nodes: CategoryTreeNode[]): void => {
-    nodes.sort((left, right) => left.label.localeCompare(right.label));
+    nodes.sort((left, right) => {
+      // 照 vue2：两端都有 pos 才按服务端顺序，否则退回 label。
+      const leftPos = pos[left.key];
+      const rightPos = pos[right.key];
+      if (leftPos !== undefined && rightPos !== undefined) {
+        return leftPos - rightPos;
+      }
+      return left.label.localeCompare(right.label);
+    });
     nodes.forEach((node) => sortNodes(node.children));
   };
   sortNodes(roots);

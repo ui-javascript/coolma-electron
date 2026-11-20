@@ -633,6 +633,18 @@ async function main(): Promise<void> {
     assert('常规视图：分类树根节点按 label 排序且缺父级自动补', tree.length === 2 && Boolean(work), JSON.stringify(tree.map((n) => n.key)));
     assert('常规视图：分类树 key 形如 /Work/Deep/ 且层级正确', work?.children.some((child) => child.key === '/Work/Deep/') === true && work?.children[0]?.children.some((child) => child.key === '/Work/Deep/More/') === true, JSON.stringify(work));
     assert('常规视图：分类树保留直接笔记数', work?.count === 2 && tree.find((n) => n.key === '/Life/')?.count === 3, JSON.stringify(tree));
+    const ordered = buildCategoryTree(
+      [{ category: '/A/' }, { category: '/Z/' }, { category: '/B/' }],
+      (_path, segment) => segment,
+      { '/Z/': 0, '/A/': 1, '/B/': 2 },
+    );
+    assert('常规视图：文件夹按云端 pos 排序（不是纯 label）', ordered.map((node) => node.key).join(',') === '/Z/,/A/,/B/', ordered.map((node) => node.key).join(','));
+    const mixed = buildCategoryTree(
+      [{ category: '/A/' }, { category: '/Z/' }],
+      (_path, segment) => segment,
+      { '/Z/': 0 },
+    );
+    assert('常规视图：只有一端有 pos 时退回 label 排序（对齐 vue2）', mixed.map((node) => node.key).join(',') === '/A/,/Z/', mixed.map((node) => node.key).join(','));
     const treemap = buildTagTreemapData([
       { name: 'A', count: 9 },
       { name: 'B', count: 7 },

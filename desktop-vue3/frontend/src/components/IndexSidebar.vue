@@ -133,6 +133,7 @@ import { TooltipComponent } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 import { IndexModeEnum, type CalendarDateBasis, type IndexMode } from '@shared/enums/app';
 import { useNotesStore } from '@/stores/notes';
+import { useAppStore } from '@/stores/app';
 import { buildCategoryTree, buildTagTreemapData, type CategoryTreeNode } from '@/utils/categoryTree';
 import { folderName, noteTags, noteTimeGroup } from '@/utils/note';
 import CalendarPanel from './CalendarPanel.vue';
@@ -164,6 +165,7 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 const notesStore = useNotesStore();
+const appStore = useAppStore();
 
 defineExpose({ startCreateFolder: () => { void createFolder(); } });
 
@@ -202,9 +204,12 @@ const folderTree = computed<CategoryTreeNode[]>(() => {
     }
   }
 
+  const rawPos = appStore.prefs['setting/sync/categoryPos'];
+  const pos = rawPos && typeof rawPos === 'object' ? (rawPos as Record<string, number>) : {};
   return buildCategoryTree(
     Array.from(counts, ([category, count]) => ({ category, count })),
     (_path, segment) => segment,
+    pos,
   );
 });
 

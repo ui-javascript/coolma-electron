@@ -81,6 +81,7 @@ async function request<T>(
   body: unknown,
   config: WizConfig,
   timeout = 30000,
+  unwrap = true,
 ): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
@@ -106,7 +107,7 @@ async function request<T>(
         { code },
       );
     }
-    return ('result' in payload ? payload.result : payload) as T;
+    return (unwrap && 'result' in payload ? payload.result : payload) as T;
   } catch (error) {
     if ((error as Error)?.name === 'AbortError') {
       throw Object.assign(new Error('WizNote request timed out'), { code: 'TIMEOUT' });
@@ -158,18 +159,46 @@ export interface WizCategory {
   parent: string;
 }
 
-export async function fetchCategories(): Promise<WizCategory[]> {
+export const CATEGORY_POS_KEY = 'setting/sync/categoryPos';
+
+function normalizeCategoryPosition(raw: unknown): Record<string, number> {
+  if (!raw || typeof raw !== 'object') {
+    return {};
+  }
+  const result: Record<string, number> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    const pos = Number(value);
+    if (key && Number.isFinite(pos)) {
+      result[key] = pos;
+    }
+  }
+  return result;
+}
+
+/**
+ * 分类列表 + 服务端顺序 pos（vue2 `fetchRemoteCategories` 的 `res?.pos`）。
+ * `pos` 是 `/My Notes/` 这种 key → 序号；侧栏树按它排序，不是前端瞎排。
+ */
+export async function fetchCategoryDirectory(): Promise<{ items: WizCategory[]; pos: Record<string, number> }> {
   const config = readConfig();
   if (!config.kbGuid) {
     throw Object.assign(new Error('not logged in'), { code: 'NO_LOGIN' });
   }
-  const raw = await request<unknown>('GET', `${config.kbServer}/ks/category/all/${config.kbGuid}`, undefined, config);
+  const payload = await request<Record<string, unknown>>(
+    'GET',
+    `${config.kbServer}/ks/category/all/${config.kbGuid}`,
+    undefined,
+    config,
+    30000,
+    false,
+  );
+  const raw = payload.result ?? payload;
   const list = Array.isArray(raw)
     ? raw
-    : Array.isArray((raw as { result?: unknown })?.result)
-      ? ((raw as { result: unknown[] }).result)
+    : Array.isArray((raw as { categories?: unknown })?.categories)
+      ? ((raw as { categories: unknown[] }).categories)
       : [];
-  return list
+  const items = list
     .map((item) => {
       const category = typeof item === 'string'
         ? item
@@ -182,6 +211,16 @@ export async function fetchCategories(): Promise<WizCategory[]> {
       return { category, parent: parent || '/' };
     })
     .filter((item): item is WizCategory => item !== null);
+  return {
+    items,
+    pos: normalizeCategoryPosition(payload.pos ?? payload.resultPos),
+  };
+}
+
+export async function fetchCategories(): Promise<WizCategory[]> {
+  const directory = await fetchCategoryDirectory();
+  settingsRepository.set(CATEGORY_POS_KEY, directory.pos);
+  return directory.items;
 }
 
 export interface WizNoteSummary {
@@ -406,6 +445,12 @@ export async function pull(input: { category?: string; limit?: number } = {}): P
     throw Object.assign(new Error('not logged in'), { code: 'NO_LOGIN' });
   }
   const list = await listNotes(input.category || '/', input.limit || 100);
+  // 分类顺序是服务端 pos，拉笔记时顺手刷一次；失败不影响笔记导入。
+  try {
+    await fetchCategories();
+  } catch {
+    // 分类接口失败不阻断 pull
+  }
   let imported = 0;
   let failed = 0;
   const errors: string[] = [];
