@@ -26,23 +26,27 @@ function isAllowedNavigation(rawUrl: string): boolean {
 }
 
 function buildCsp(): string {
+  // 设置页允许用户配任意 CDN 地址，运行时才注入；远程脚本/样式/字体必须放行，
+  // 否则生产包的 script-src 'self' 会把 city-picker / layui 全挡掉。
+  const remote = 'https: http:';
+
   if (isDev()) {
     return [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-eval'",
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob:",
-      "font-src 'self' data:",
+      `script-src 'self' 'unsafe-eval' ${remote}`,
+      `style-src 'self' 'unsafe-inline' ${remote}`,
+      `img-src 'self' data: blob: ${remote}`,
+      `font-src 'self' data: ${remote}`,
       `connect-src 'self' ${DEV_CONNECT_SOURCES}`,
     ].join('; ');
   }
 
   return [
     "default-src 'self'",
-    "script-src 'self'",
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
-    "font-src 'self' data:",
+    `script-src 'self' ${remote}`,
+    `style-src 'self' 'unsafe-inline' ${remote}`,
+    `img-src 'self' data: blob: ${remote}`,
+    `font-src 'self' data: ${remote}`,
     "connect-src 'self' https:",
     "object-src 'none'",
     "base-uri 'none'",

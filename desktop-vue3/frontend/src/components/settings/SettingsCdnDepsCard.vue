@@ -46,23 +46,15 @@
 <script setup lang="ts">
 /**
  * CDN 依赖编辑（复刻 vue2 SettingsGeneralPanel 的 Cdn 子页 + cdnDepEditDialog）。
- * 存储键 `setting/cdnDeps`（vue2 走 DatabaseClient.cdnDeps.saveAll + localStorage 双写）。
- * vue3 尚未接「运行时注入脚本」这一层（vue2 boot/cdn-deps.js），本批只做清单维护。
+ * 存储键 `setting/cdnDeps`；保存后异步重注，对齐 vue2 的 `cdnDepsChanged`。
+ * 列表始终带上内置项（内置项只读锁定，自定义项可增删改）。
  */
 import { onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
 import { Link, Lock } from '@element-plus/icons-vue';
 import { useAppStore } from '@/stores/app';
-
-interface CdnDep {
-  id: string;
-  name: string;
-  url: string;
-  enabled: boolean;
-  applyToBlog: boolean;
-  isBuiltIn?: boolean;
-}
+import { mergeCdnDeps, reloadCdnDeps, type CdnDep } from '@/utils/cdnDeps';
 
 const STORAGE_KEY = 'setting/cdnDeps';
 const { t } = useI18n();
@@ -96,25 +88,9 @@ const rules: FormRules = {
   ],
 };
 
-function normalize(raw: unknown): CdnDep[] {
-  if (!Array.isArray(raw)) {
-    return [];
-  }
-  return raw
-    .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object'))
-    .map((item) => ({
-      id: String(item.id ?? newId()),
-      name: String(item.name ?? ''),
-      url: String(item.url ?? ''),
-      enabled: item.enabled === undefined ? true : Boolean(item.enabled),
-      applyToBlog: Boolean(item.applyToBlog),
-      isBuiltIn: Boolean(item.isBuiltIn),
-    }));
-}
-
 async function load(): Promise<void> {
   await appStore.loadPrefs();
-  deps.value = normalize(appStore.prefs[STORAGE_KEY]);
+  deps.value = mergeCdnDeps(appStore.prefs[STORAGE_KEY]);
 }
 
 function openEdit(dep: CdnDep | null): void {
@@ -144,6 +120,8 @@ async function saveAll(): Promise<void> {
   await appStore.setPref(STORAGE_KEY, deps.value);
   saving.value = false;
   ElMessage.success(t('settings.cdnSaved'));
+  // 对齐 vue2 保存后的 cdnDepsChanged：异步重注，不阻塞设置页。
+  void reloadCdnDeps();
 }
 
 function remove(id: string): void {

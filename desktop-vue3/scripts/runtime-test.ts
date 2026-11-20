@@ -50,6 +50,7 @@ import { emitAiInsert, onAiInsert } from '../frontend/src/editor/aiInsert';
 import { buildFolderMarkdown } from '../frontend/src/utils/folderMarkdown';
 import { drainSseDataLines, extractDeltaText } from '../electron/service/ai/sse';
 import { formatDocumentByPangu } from '../frontend/src/utils/pangu';
+import { BUILT_IN_CDN_DEPS, getResourceType, isJQueryCoreDep, mergeCdnDeps } from '../frontend/src/utils/cdn-rules';
 import { cloudTagsToNames, localNamesToCloudTags, splitCloudTagString } from '../electron/service/sync/tag-rules';
 
 type Any = Record<string, any>;
@@ -1010,6 +1011,33 @@ async function main(): Promise<void> {
       '盘古：代码块内容不拆空格、任务列表不被转义',
       panguOut.includes('const a=1中文') && panguOut.includes('* [ ] 任务中文 English'),
       panguOut,
+    );
+
+    const defaultCdn = mergeCdnDeps([]);
+    assert(
+      'CDN：空保存项回落内置 7 项且都标内置',
+      defaultCdn.length === 7 && defaultCdn.every((dep) => dep.isBuiltIn === true) && defaultCdn.filter((dep) => dep.url).length === 7,
+      String(defaultCdn.length),
+    );
+    const merged = mergeCdnDeps([
+      { id: 'layui', name: 'layui JS', url: 'https://x/layui.js', enabled: false, applyToBlog: true },
+      { id: 'custom', name: 'custom.js', url: 'https://x/custom.js', enabled: true, applyToBlog: false },
+    ]);
+    const layui = merged.find((dep) => dep.name === 'layui JS');
+    const custom = merged.find((dep) => dep.name === 'custom.js');
+    assert(
+      'CDN：内置同名字段覆盖、自定义项追加',
+      merged.length === 8 && layui?.enabled === false && layui?.applyToBlog === true && layui?.isBuiltIn === true && custom?.isBuiltIn === false,
+      JSON.stringify({ len: merged.length, layui, custom }),
+    );
+    assert(
+      'CDN：资源类型与 jQuery 核心识别',
+      getResourceType('a.js') === 'script'
+        && getResourceType('a.css') === 'stylesheet'
+        && getResourceType('a.woff2') === 'font'
+        && isJQueryCoreDep({ name: 'jQuery', url: 'https://x/jquery.min.js' }) === true
+        && isJQueryCoreDep({ name: 'jQuery Migrate', url: 'https://x/jquery-migrate.min.js' }) === false,
+      `${getResourceType('a.woff2')}`,
     );
   }
 

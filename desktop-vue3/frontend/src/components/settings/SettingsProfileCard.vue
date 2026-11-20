@@ -3,11 +3,7 @@
     <el-alert type="error" :closable="false" show-icon class="profile-hint" :title="t('settings.profileHint')" />
     <el-form label-position="top">
       <el-form-item :label="t('settings.profileCity')">
-        <div class="city-row">
-          <el-input v-model="city.province" :placeholder="t('settings.profileProvince')" />
-          <el-input v-model="city.city" :placeholder="t('settings.profileCityName')" />
-          <el-input v-model="city.district" :placeholder="t('settings.profileDistrict')" />
-        </div>
+        <CityPickerField v-model="cityModel" :placeholder="t('settings.profileCityPicker')" width="100%" />
         <div class="field-hint">{{ t('settings.profileCityHint') }}</div>
       </el-form-item>
     </el-form>
@@ -29,18 +25,23 @@
 /**
  * 个人资料（复刻 vue2 settingsProfilePanel）：只维护「常驻城市」一项，
  * 存 `setting/profile/city`，选择即保存（组件内防抖 400ms）。
- * vue2 用 CDN city-picker 三级联动；vue3 暂时退化成三个文本输入（城市库注入未迁移）。
+ * 城市选择走 CDN city-picker 三级联动（CityPickerField），与 vue2 同链路。
  */
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Location } from '@element-plus/icons-vue';
 import { useAppStore } from '@/stores/app';
+import CityPickerField, { type CityValue } from '@/components/CityPickerField.vue';
 
 const STORAGE_KEY = 'setting/profile/city';
 const { t } = useI18n();
 const appStore = useAppStore();
 
-const city = reactive({ province: '', city: '', district: '' });
+const city = reactive<CityValue>({ province: '', city: '', district: '' });
+const cityModel = computed({
+  get: () => ({ ...city }),
+  set: (value: CityValue) => Object.assign(city, normalize(value)),
+});
 const loaded = ref(false);
 const saving = ref(false);
 const lastSavedAt = ref('');
@@ -49,7 +50,7 @@ let timer: ReturnType<typeof setTimeout> | null = null;
 
 const hasCity = computed(() => Boolean(city.province || city.city || city.district));
 
-function normalize(raw: unknown): { province: string; city: string; district: string } {
+function normalize(raw: unknown): CityValue {
   const value = (raw ?? {}) as Record<string, unknown>;
   return {
     province: String(value.province ?? ''),
@@ -97,7 +98,6 @@ onMounted(load);
 
 <style scoped>
 .profile-hint { margin-bottom: 12px; }
-.city-row { display: flex; gap: 8px; }
 .field-hint { font-size: 12px; color: var(--el-text-color-secondary); margin-top: 4px; }
 .profile-current { margin-top: 12px; padding: 12px; border-radius: 8px; background: var(--el-fill-color-light, #f5f7fa); }
 .profile-current-label { font-size: 12px; color: var(--el-text-color-secondary); margin-bottom: 4px; }

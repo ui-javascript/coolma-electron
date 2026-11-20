@@ -8,9 +8,12 @@ const devAddress = `${devHost}:${devPort}`;
 
 export default defineConfig(({ mode }) => {
   const isProduction = mode === 'production';
+  // CDN 依赖是用户在设置页里配的任意地址，运行时才注入；CSP 必须在文档加载时就放行
+  // 远程脚本/样式/字体，否则生产包会被 script-src 'self' 全部挡掉。
+  const remote = 'https: http:';
   const csp = isProduction
-    ? "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https:; object-src 'none'; base-uri 'none'; form-action 'none'"
-    : `default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://${devAddress} ws://${devAddress}`;
+    ? `default-src 'self'; script-src 'self' ${remote}; style-src 'self' 'unsafe-inline' ${remote}; img-src 'self' data: blob: ${remote}; font-src 'self' data: ${remote}; connect-src 'self' https:; object-src 'none'; base-uri 'none'; form-action 'none'`
+    : `default-src 'self'; script-src 'self' 'unsafe-eval' ${remote}; style-src 'self' 'unsafe-inline' ${remote}; img-src 'self' data: blob: ${remote}; font-src 'self' data: ${remote}; connect-src 'self' http://${devAddress} ws://${devAddress}`;
 
   return {
     base: './',
