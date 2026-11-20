@@ -3,7 +3,7 @@ import type { IpcResult } from '../shared/ipc/contract';
 import { fail, ok } from '../shared/ipc/result';
 import { categoryCreateSchema, categoryRemoveSchema } from '../shared/ipc/schemas';
 import { categoriesRepository } from '../service/db/categories-repository';
-import { createRemoteCategory, getPublicConfig } from '../service/sync/wiznote';
+import { createRemoteCategory, deleteRemoteCategory, getPublicConfig } from '../service/sync/wiznote';
 import { failFromError } from './controller-utils';
 
 class CategoriesController {
@@ -49,6 +49,15 @@ class CategoriesController {
       const noteCount = categoriesRepository.countNotes(category);
       if (noteCount > 0) {
         return fail('CATEGORY_NOT_EMPTY', `Category ${category} still has ${noteCount} note(s)`);
+      }
+      const config = getPublicConfig();
+      // vue2 在线时先删云端目录；云端失败只 warn，本地照样删。
+      if (config.loggedIn && config.kbGuid) {
+        try {
+          await deleteRemoteCategory({ category, kbGuid: config.kbGuid });
+        } catch (error) {
+          console.warn('[categories.remove] 云端目录删除失败', category, (error as Error).message);
+        }
       }
       return ok({ deleted: categoriesRepository.remove(category) });
     } catch (error) {

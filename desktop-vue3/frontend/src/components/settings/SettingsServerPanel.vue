@@ -209,12 +209,12 @@ async function doPull(): Promise<void> {
   syncError.value = '';
   syncMessage.value = '';
   try {
-    const result = await syncPull({ limit: 100 });
+    const result = await syncPull();
     if (!result.ok) {
       syncError.value = result.error.message;
       return;
     }
-    syncMessage.value = t('settings.syncPullDone', { imported: result.data.imported, failed: result.data.failed });
+    syncMessage.value = t('settings.syncPullDone', { imported: result.data.imported, skipped: result.data.skipped, backfilled: result.data.backfilled, failed: result.data.failed });
     if (result.data.errors.length) {
       syncError.value = result.data.errors.join('\n');
     }

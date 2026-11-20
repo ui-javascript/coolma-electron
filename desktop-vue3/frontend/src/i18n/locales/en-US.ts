@@ -692,7 +692,7 @@ export default {
     "settings.syncPull": "Pull to local",
     "settings.syncPush": "Push local changes",
     "settings.syncCategories": "Fetch categories",
-    "settings.syncPullDone": "Pull finished: {imported} imported, {failed} failed",
+    "settings.syncPullDone": "Pull finished: {imported} imported, {skipped} skipped, {backfilled} backfilled, {failed} failed",
     "settings.syncPushDone": "Push finished: {pushed} updated, {created} created, {failed} failed",
     "settings.syncNeedCredentials": "Account and password are required",
     "settings.syncLoginDone": "Signed in",

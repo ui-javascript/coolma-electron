@@ -45,6 +45,7 @@ import {
   sortCategoriesByDepth,
   toWizCategoryInput,
 } from '../electron/service/sync/push-rules';
+import { cloudDedupeKey, toWizCategoryDeletePath } from '../electron/service/sync/pull-rules';
 
 type Any = Record<string, any>;
 
@@ -903,6 +904,24 @@ async function main(): Promise<void> {
       '同步规则：同名不同目录不误配',
       findCloudNoteByTitle(cloudNotes, { title: '周报', category: '/工作/子目录' }) === null,
       'category mismatch',
+    );
+    assert(
+      '拉取规则：根目录别名与大小写归一去重 key 一致',
+      cloudDedupeKey({ title: ' 周报 ', category: '/My Notes/', kbGuid: 'KB' })
+        === cloudDedupeKey({ title: '周报', category: '/', kbGuid: 'kb' }),
+      cloudDedupeKey({ title: ' 周报 ', category: '/My Notes/', kbGuid: 'KB' }),
+    );
+    assert(
+      '拉取规则：不同目录不共用去重 key',
+      cloudDedupeKey({ title: '周报', category: '/工作', kbGuid: 'kb' })
+        !== cloudDedupeKey({ title: '周报', category: '/生活', kbGuid: 'kb' }),
+      'category differs',
+    );
+    assert(
+      '拉取规则：目录删除路径补尾斜杠、根目录拒绝',
+      toWizCategoryDeletePath('/工作/子目录') === '/工作/子目录/'
+        && toWizCategoryDeletePath('/') === '/',
+      toWizCategoryDeletePath('/工作/子目录'),
     );
   }
 

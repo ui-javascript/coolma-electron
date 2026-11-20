@@ -245,6 +245,30 @@ export const notesRepository = {
   },
 
   /**
+   * 拉取去重：同分类 + 同标题 + 当前账号（含未归属的 NULL / 空串）。
+   * vue2 `_buildRestorePreviewStats` 用 `title|归一分类|kbGuid` 建本地集合，
+   * 云端同 key 的笔记直接跳过，永不覆盖本地。
+   */
+  findByTitleCategory(input: {
+    category: string;
+    title: string;
+    kbGuid?: string | null;
+  }): NoteRecord | null {
+    const category = normalizeCategory(input.category);
+    const title = normalizeTitle(input.title);
+    const kbGuid = input.kbGuid ?? '';
+    const row = getDatabase()
+      .prepare(
+        `SELECT * FROM notes
+          WHERE category = ? AND title = ?
+            AND (kb_guid = ? OR kb_guid IS NULL OR kb_guid = '')
+          ORDER BY id ASC LIMIT 1`,
+      )
+      .get(category, title, kbGuid) as NoteRow | undefined;
+    return row ? toRecord(row) : null;
+  },
+
+  /**
    * 待推送笔记。
    * vue2 `getPendingSyncNotesByKbGuid` 只取当前账号，防止跨账号污染。
    * v3 新建笔记的 kb_guid 是 NULL（离线笔记也是），所以把 NULL / 空串一并算作「当前账号待归属」。

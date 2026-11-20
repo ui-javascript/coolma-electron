@@ -692,7 +692,7 @@ export default {
     "settings.syncPull": "拉取到本地",
     "settings.syncPush": "推送本地修改",
     "settings.syncCategories": "拉分类",
-    "settings.syncPullDone": "拉取完成：导入 {imported} 篇，失败 {failed} 篇",
+    "settings.syncPullDone": "拉取完成：导入 {imported} 篇，跳过 {skipped} 篇，回填 {backfilled} 篇，失败 {failed} 篇",
     "settings.syncPushDone": "推送完成：更新 {pushed} 篇，新建 {created} 篇，失败 {failed} 篇",
     "settings.syncNeedCredentials": "账号和密码都要填",
     "settings.syncLoginDone": "登录成功",

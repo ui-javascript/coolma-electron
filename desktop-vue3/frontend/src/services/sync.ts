@@ -20,7 +20,10 @@ export interface SyncCategory {
 
 export interface PullResult {
   imported: number;
+  skipped: number;
+  backfilled: number;
   failed: number;
+  total: number;
   errors: string[];
 }
 

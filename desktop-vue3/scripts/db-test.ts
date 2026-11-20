@@ -85,6 +85,15 @@ assert('笔记：同名自动去重', second.title === '测试笔记 (2)', secon
 const elsewhere = notesRepository.create({ title: '测试笔记', content: 'other', category: '/生活' });
 assert('笔记：跨分类不撞名', elsewhere.title === '测试笔记', elsewhere.title);
 
+// 拉取去重：分类 + 标题 + 当前账号（NULL 归当前）
+const matchedLocal = notesRepository.findByTitleCategory({ category: '/工作', title: first.title, kbGuid: 'kb-1' });
+assert('拉取去重：同目录同标题命中', matchedLocal?.id === first.id, JSON.stringify(matchedLocal));
+assert(
+  '拉取去重：不同目录不命中',
+  notesRepository.findByTitleCategory({ category: '/生活', title: '测试笔记 (2)', kbGuid: 'kb-1' }) === null,
+  'category differs',
+);
+
 // ===== 列表与 LIKE 转义 =====
 const percent = notesRepository.create({ title: '100% 覆盖', content: 'x', category: '/工作' });
 const listAll = notesRepository.list({ category: '/工作' });

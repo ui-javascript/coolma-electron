@@ -15,6 +15,7 @@ import {
   sortCategoriesByDepth,
   toWizCategoryInput,
 } from './push-rules';
+import { toWizCategoryDeletePath } from './pull-rules';
 
 /**
  * 为知笔记（WizNote）同步客户端。
@@ -259,6 +260,31 @@ export async function createRemoteCategory(input: {
   );
 }
 
+/** 在线删除云端目录；照 vue2 `deleteCategory`，失败由调用方决定是否吞掉。 */
+export async function deleteRemoteCategory(input: {
+  category: string;
+  kbGuid?: string;
+}): Promise<void> {
+  const config = readConfig();
+  const kbGuid = input.kbGuid || config.kbGuid;
+  if (!config.token || !kbGuid) {
+    throw Object.assign(new Error('not logged in'), { code: 'NO_LOGIN' });
+  }
+  const category = toWizCategoryDeletePath(input.category);
+  if (category === '/') {
+    throw new Error('Root category cannot be deleted');
+  }
+  const query = new URLSearchParams({ category });
+  await request(
+    'DELETE',
+    `${config.kbServer}/ks/category/delete/${kbGuid}?${query.toString()}`,
+    undefined,
+    config,
+    30000,
+    false,
+  );
+}
+
 export interface WizNoteSummary {
   docGuid: string;
   title: string;
@@ -492,17 +518,65 @@ function toWizHtml(
 
 export interface PullResult {
   imported: number;
+  skipped: number;
+  backfilled: number;
   failed: number;
+  total: number;
   errors: string[];
 }
 
-/** 拉取一个分类（默认根）下的笔记，落进本地 SQLite（dirty=0）。 */
+const PULL_PAGE_SIZE = 100;
+const PULL_MAX_NOTES = 10000;
+
+/**
+ * 拉取云端列表：分页直到取空。
+ * vue2 `_fetchAllCloudDocs` 用 `category:''` 取全库、每页 100；这里多一层 docGuid 去重，
+ * 防止服务端忽略 start 时死循环，也防止同一篇跨页重复。
+ */
+async function collectCloudNotes(category: string, limit?: number): Promise<WizNoteSummary[]> {
+  const cap = Math.min(Math.max(1, limit ?? PULL_MAX_NOTES), PULL_MAX_NOTES);
+  const items: WizNoteSummary[] = [];
+  const seen = new Set<string>();
+  let start = 0;
+  while (items.length < cap) {
+    const batch = await listNotes(category, PULL_PAGE_SIZE, start);
+    if (batch.length === 0) {
+      break;
+    }
+    let added = 0;
+    for (const summary of batch) {
+      if (!summary.docGuid || seen.has(summary.docGuid)) {
+        continue;
+      }
+      seen.add(summary.docGuid);
+      items.push(summary);
+      added += 1;
+      if (items.length >= cap) {
+        break;
+      }
+    }
+    // 整页都是旧 guid，说明服务端没认 start，继续翻只会死循环。
+    if (added === 0 && batch.length === PULL_PAGE_SIZE) {
+      break;
+    }
+    if (items.length >= cap || batch.length < PULL_PAGE_SIZE) {
+      break;
+    }
+    start += PULL_PAGE_SIZE;
+  }
+  return items;
+}
+
+/**
+ * 拉取云端笔记，落进本地 SQLite（dirty=0）。
+ * 默认取全库（vue2 `pullFromCloud` 的 `category:''`），显式 category 只用于单目录排查。
+ */
 export async function pull(input: { category?: string; limit?: number } = {}): Promise<PullResult> {
   const config = readConfig();
   if (!config.token || !config.kbGuid) {
     throw Object.assign(new Error('not logged in'), { code: 'NO_LOGIN' });
   }
-  const list = await listNotes(input.category || '/', input.limit || 100);
+  const list = await collectCloudNotes(input.category ?? '', input.limit);
   // 分类顺序是服务端 pos，拉笔记时顺手刷一次；失败不影响笔记导入。
   try {
     await fetchCategories();
@@ -510,17 +584,67 @@ export async function pull(input: { category?: string; limit?: number } = {}): P
     // 分类接口失败不阻断 pull
   }
   let imported = 0;
+  let skipped = 0;
+  let backfilled = 0;
   let failed = 0;
   const errors: string[] = [];
+
   for (const summary of list) {
+    const docGuid = summary.docGuid;
+    if (!docGuid) {
+      skipped += 1;
+      continue;
+    }
+
+    const existing = notesRepository.getByDocGuid(docGuid);
+    if (existing && existing.docGuid && !existing.docGuid.startsWith('local_')) {
+      // vue2 对已存在的云端笔记不覆盖；只有本地正文为空时才回填。
+      if (String(existing.content ?? '').trim()) {
+        skipped += 1;
+        continue;
+      }
+      try {
+        const note = await download(docGuid);
+        const { content, missing } = await toMarkdown(note, config, docGuid);
+        if (missing > 0) {
+          errors.push(`${summary.title}: ${missing} 个附件未能缓存`);
+        }
+        notesRepository.upsertRemote({
+          docGuid,
+          kbGuid: config.kbGuid,
+          title: String(note.info?.title ?? summary.title).replace(/\.md$/i, ''),
+          content,
+          category: String(note.info?.category ?? summary.category),
+          tags: String(note.info?.tags ?? ''),
+          serverModified: Number(note.info?.dataModified ?? summary.dataModified) || null,
+        });
+        backfilled += 1;
+      } catch (error) {
+        failed += 1;
+        errors.push(`${summary.title}: ${(error as Error).message}`);
+      }
+      continue;
+    }
+
+    // 同分类 + 同标题 + 当前账号已存在 → 跳过，不覆盖本地（vue2 localNoteSet 去重）。
+    const localMatch = notesRepository.findByTitleCategory({
+      category: String(summary.category ?? ''),
+      title: String(summary.title || 'Untitled'),
+      kbGuid: config.kbGuid,
+    });
+    if (localMatch) {
+      skipped += 1;
+      continue;
+    }
+
     try {
-      const note = await download(summary.docGuid);
-      const { content, missing } = await toMarkdown(note, config, summary.docGuid);
+      const note = await download(docGuid);
+      const { content, missing } = await toMarkdown(note, config, docGuid);
       if (missing > 0) {
         errors.push(`${summary.title}: ${missing} 个附件未能缓存`);
       }
       notesRepository.upsertRemote({
-        docGuid: summary.docGuid,
+        docGuid,
         kbGuid: config.kbGuid,
         title: String(note.info?.title ?? summary.title).replace(/\.md$/i, ''),
         content,
@@ -535,7 +659,7 @@ export async function pull(input: { category?: string; limit?: number } = {}): P
     }
   }
   saveConfig({ lastSyncAt: Date.now() });
-  return { imported, failed, errors: errors.slice(0, 10) };
+  return { imported, skipped, backfilled, failed, total: list.length, errors: errors.slice(0, 10) };
 }
 
 export interface PushResult {
