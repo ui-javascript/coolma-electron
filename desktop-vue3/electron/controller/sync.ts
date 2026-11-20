@@ -49,7 +49,7 @@ class SyncController {
 
   async logout(): Promise<IpcResult<ReturnType<typeof getPublicConfig>>> {
     try {
-      return ok(logout());
+      return ok(await logout());
     } catch (error) {
       return failFromError(error, 'SYNC_LOGOUT_ERROR');
     }

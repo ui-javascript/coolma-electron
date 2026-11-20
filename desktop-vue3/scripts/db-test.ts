@@ -154,6 +154,15 @@ syncLogRepository.markSynced([pendingDeletes[0].id]);
 syncLogRepository.purgeSyncedDeletes();
 const afterPurge = syncLogRepository.listPendingDeletes();
 assert('删除日志：purge 后不再残留已同步行', afterPurge.length === pendingDeletes.length - 1, String(afterPurge.length));
+assert(
+  '删除日志：按账号过滤，别的账号不串',
+  syncLogRepository.listPendingDeletes(200, 'kb-1').length === afterPurge.length
+    && syncLogRepository.listPendingDeletes(200, 'other-kb').length === 0,
+  JSON.stringify({
+    kb1: syncLogRepository.listPendingDeletes(200, 'kb-1').length,
+    other: syncLogRepository.listPendingDeletes(200, 'other-kb').length,
+  }),
+);
 
 // 单篇笔记推送成功后的日志销账
 const markNoteTest = notesRepository.create({ category: '/工作', title: '日志销账' });
@@ -239,6 +248,28 @@ assert('分类：迁移返回命中数量', movedCategories > 0, String(movedCat
 assert(
   '分类：迁移后归属当前账号',
   categoriesRepository.list().find((item) => item.category === '/离线二')?.kbGuid === 'kb-2',
+  JSON.stringify(categoriesRepository.list().find((item) => item.category === '/离线二')),
+);
+
+// ===== 登出解除账号归属（不删数据）=====
+const detachedNotes = notesRepository.detachFromKb('kb-1');
+assert('登出：解除归属数量 > 0', detachedNotes > 0, String(detachedNotes));
+assert(
+  '登出：笔记 kb_guid 置空且标脏',
+  notesRepository.get(onlineNote.id)?.kbGuid === null && notesRepository.get(onlineNote.id)?.dirty === 1,
+  JSON.stringify(notesRepository.get(onlineNote.id)),
+);
+assert(
+  '登出：别的账号笔记不被动',
+  notesRepository.get(otherAccountNoteId)?.kbGuid === 'other-kb',
+  JSON.stringify(notesRepository.get(otherAccountNoteId)),
+);
+const detachedCategories = categoriesRepository.detachFromKb('kb-2');
+assert('登出：目录解除归属数量 > 0', detachedCategories > 0, String(detachedCategories));
+assert(
+  '登出：目录退回离线且保留 local_only',
+  categoriesRepository.list().find((item) => item.category === '/离线二')?.kbGuid === ''
+    && categoriesRepository.list().find((item) => item.category === '/离线二')?.localOnly === 1,
   JSON.stringify(categoriesRepository.list().find((item) => item.category === '/离线二')),
 );
 

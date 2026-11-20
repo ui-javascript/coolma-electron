@@ -99,14 +99,19 @@ export const syncLogRepository = {
   },
 
   /** 只取删除日志；推送时先处理删除，避免被 create/update 挤掉配额。 */
-  listPendingDeletes(limit = 200): SyncLogEntry[] {
+  listPendingDeletes(limit = 200, kbGuid?: string): SyncLogEntry[] {
     const db = getDatabase();
     const rows = db
       .prepare(
         `SELECT * FROM sync_log WHERE synced = 0 AND action = 'delete'
+          AND (? IS NULL OR kb_guid IS NULL OR kb_guid = '' OR kb_guid = ?)
           ORDER BY timestamp ASC, id ASC LIMIT ?`,
       )
-      .all(Math.min(Math.max(Number(limit) || 200, 1), 5000)) as SyncLogRow[];
+      .all(
+        kbGuid || null,
+        kbGuid || null,
+        Math.min(Math.max(Number(limit) || 200, 1), 5000),
+      ) as SyncLogRow[];
     return rows.map(toEntry);
   },
 

@@ -271,6 +271,22 @@ export const notesRepository = {
   },
 
   /**
+   * 登出时解除账号归属：照 vue2 `db:clearNotesByKbGuid`，不是删笔记。
+   * `kb_guid` 置 NULL、`dirty=1`，下次登录由 `migrateOffline` 归到新账号再推送。
+   */
+  detachFromKb(kbGuid: string): number {
+    if (!kbGuid) {
+      return 0;
+    }
+    const now = Date.now();
+    return getDatabase()
+      .prepare(
+        'UPDATE notes SET kb_guid = NULL, dirty = 1, local_modified = ?, updated_at = ? WHERE kb_guid = ?',
+      )
+      .run(now, now, kbGuid).changes;
+  },
+
+  /**
    * 登录成功后把离线笔记归属到当前账号，照 vue2 `db:migrateOfflineNotes`。
    * 只改 kb_guid 并保持 dirty=1，下次推送按当前账号上传。
    */

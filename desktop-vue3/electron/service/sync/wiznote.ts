@@ -173,10 +173,27 @@ export async function login(input: {
   return getPublicConfig();
 }
 
-export function logout(): ReturnType<typeof getPublicConfig> {
+export async function logout(): Promise<ReturnType<typeof getPublicConfig>> {
   const config = readConfig();
   if (config.token) {
-    void request('GET', `${config.baseUrl}/as/user/logout`, undefined, config, 10000).catch(() => undefined);
+    try {
+      await request('GET', `${config.baseUrl}/as/user/logout`, undefined, config, 10000);
+    } catch {
+      // 账号服务登出失败不影响本地登出：token 照清。
+    }
+  }
+  // 照 vue2 logout：笔记解除账号归属并标脏、目录退回离线；数据一条不删。
+  if (config.kbGuid) {
+    try {
+      notesRepository.detachFromKb(config.kbGuid);
+    } catch (error) {
+      console.warn('[sync] 登出解除笔记归属失败', (error as Error).message);
+    }
+    try {
+      categoriesRepository.detachFromKb(config.kbGuid);
+    } catch (error) {
+      console.warn('[sync] 登出解除目录归属失败', (error as Error).message);
+    }
   }
   saveConfig({ token: '', kbGuid: '', kbServer: '' });
   return getPublicConfig();
@@ -917,7 +934,8 @@ export async function push(input: { limit?: number } = {}): Promise<PushResult> 
     errors.push(`目录同步失败：${(error as Error).message}`);
   }
 
-  for (const log of syncLogRepository.listPendingDeletes(200)) {
+  // 只处理当前账号的删除日志；换账号后旧账号日志留到下次登录再销，避免误删别人的云端笔记。
+  for (const log of syncLogRepository.listPendingDeletes(200, config.kbGuid)) {
     const docGuid = log.docGuid ?? '';
     if (!docGuid || docGuid.startsWith('local_')) {
       // 从未上过云端的笔记，没有可删的远端对象，直接销账，避免日志永久积压。

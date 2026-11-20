@@ -181,6 +181,12 @@ async function doLogin(): Promise<void> {
     }
     status.value = result.data;
     syncMessage.value = t('settings.syncLoginDone');
+    // 照 vue2 登录后动作：拉云端目录、刷新本地笔记列表，再看待推队列。
+    const categoryResult = await getSyncCategories();
+    if (categoryResult.ok) {
+      categories.value = categoryResult.data;
+    }
+    await notesStore.loadAll?.();
     await loadPending();
     // 对齐 vue2：登录成功后本地若还有待推队列，立刻弹「立即同步」。
     if (pending.value > 0) {
@@ -200,6 +206,10 @@ async function doLogout(): Promise<void> {
     if (result.ok) {
       status.value = result.data;
       categories.value = [];
+      // 照 vue2 登出：笔记仍在本地，只是解除账号归属；列表与待同步数要重读。
+      await notesStore.loadAll?.();
+      await loadPending();
+      offlineVisible.value = false;
     }
   } finally {
     busy.value = false;
