@@ -26,6 +26,27 @@
           />
         </el-select>
       </el-form-item>
+      <el-form-item v-if="kind === 'rune' && !readonly" :label="t('library.templatePreset')">
+        <div class="template-picker">
+          <el-select
+            v-model="presetId"
+            clearable
+            filterable
+            class="template-select"
+            :placeholder="t('library.templatePresetPlaceholder')"
+            @change="applyPreset"
+          >
+            <el-option-group v-for="group in presetGroups" :key="group.key" :label="t(group.label)">
+              <el-option v-for="item in group.items" :key="item.id" :label="item.name" :value="item.id">
+                <span class="preset-name">{{ item.name }}</span>
+                <span class="preset-desc">{{ item.desc }}</span>
+              </el-option>
+            </el-option-group>
+          </el-select>
+          <el-button text @click="resetTemplate">{{ t('library.resetTemplate') }}</el-button>
+        </div>
+        <span class="form-hint">{{ t('library.templateHint') }}</span>
+      </el-form-item>
       <el-form-item :label="t('library.source')">
         <el-input
           v-model="source"
@@ -58,6 +79,7 @@ import { EchoCategoryEnum, RuneCategoryEnum, resolveLibraryCategory } from '@sha
 import { hasEchoParens, hasRuneTemplateDiv } from '@/utils/parsingRules';
 import { useAppStore } from '@/stores/app';
 import type { EchoCard, RuneCard } from '@shared/types/domain';
+import { defaultRuneTemplate, runeTemplateBuiltins } from '@shared/builtins/catalog';
 
 /**
  * 符文/回响表单：一个对话框管两种卡片，靠 kind 区分字段。
@@ -102,6 +124,41 @@ const categoryOptions = computed(() =>
 );
 const source = ref('');
 const inheritOn = ref(false);
+const presetId = ref('');
+const runePresets = runeTemplateBuiltins();
+
+/** 内置模板按分类分组，顺序固定：通用 → 简历。 */
+const presetGroups = computed(() =>
+  [
+    { key: 'general', label: 'runeCategoryGeneral' },
+    { key: 'resume', label: 'runeCategoryResume' },
+  ].map((group) => ({
+    ...group,
+    items: runePresets.filter((item) => item.category === group.key),
+  })),
+);
+
+/** 选中内置模板：覆盖模板内容；名称/描述为空时带入，分类跟随模板（对齐 vue2 onPresetPicked）。 */
+function applyPreset(id: string): void {
+  const preset = runePresets.find((item) => item.id === id);
+  if (!preset) {
+    return;
+  }
+  source.value = preset.payload.template;
+  if (!form.name.trim()) {
+    form.name = preset.name;
+  }
+  if (!form.desc.trim()) {
+    form.desc = preset.desc;
+  }
+  form.category = preset.category;
+}
+
+/** 重置回 vue2 默认的 inheritFromPrevious 演示模板。 */
+function resetTemplate(): void {
+  source.value = defaultRuneTemplate();
+  presetId.value = '';
+}
 
 watch(
   () => props.modelValue,
@@ -109,6 +166,7 @@ watch(
     if (!open) {
       return;
     }
+    presetId.value = '';
     if (props.editing) {
       form.id = props.editing.id;
       form.name = props.editing.name;
@@ -127,8 +185,10 @@ watch(
       form.desc = '';
       form.color = props.kind === 'rune' ? '#7E57C2' : '#26A69A';
       form.category = resolveLibraryCategory(props.kind, props.initialCategory);
-      source.value = '';
-      inheritOn.value = false;
+      // vue2 createRuneForm 新增默认就是 inheritFromPrevious 演示模板，开关默认开。
+      source.value = props.kind === 'rune' ? defaultRuneTemplate() : '';
+      inheritOn.value = props.kind === 'rune';
+      presetId.value = '';
     }
   },
   { immediate: true },
@@ -203,6 +263,28 @@ async function submit(): Promise<void> {
 
 .category-select {
   width: 200px;
+}
+
+.template-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.template-select {
+  flex: 1;
+}
+
+.preset-name {
+  font-size: 13px;
+}
+
+.preset-desc {
+  float: right;
+  margin-left: 12px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
 }
 
 .form-hint {

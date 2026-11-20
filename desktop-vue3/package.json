@@ -28,7 +28,8 @@
     "rebuild:sqlite": "node scripts/fetch-better-sqlite3-prebuild.mjs",
     "icon": "ee-bin icon",
     "test:db": "node -e \"require('esbuild').buildSync({entryPoints:['scripts/db-test.ts'],bundle:true,format:'cjs',platform:'node',outfile:'/tmp/coolma-db-test.js',logLevel:'error'})\" && node /tmp/coolma-db-test.js",
-    "gen:echo-cards": "node scripts/gen-builtin-echo-cards.mjs"
+    "sync:builtins": "node scripts/sync-builtins-from-vue2.mjs && node scripts/gen-builtins.mjs",
+    "gen:builtins": "node scripts/gen-builtins.mjs"
   },
   "dependencies": {
     "@altairwei/wiz-markdown": "^1.0.13",

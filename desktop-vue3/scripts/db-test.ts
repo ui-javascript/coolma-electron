@@ -11,6 +11,7 @@ import { categoriesRepository } from '../electron/service/db/categories-reposito
 import { tagsRepository } from '../electron/service/db/tags-repository';
 import { settingsRepository } from '../electron/service/db/settings-repository';
 import { runesRepository, echoesRepository } from '../electron/service/db/library-repository';
+import { syncBuiltinCatalog } from '../electron/service/db/builtins';
 import { templatesRepository } from '../electron/service/db/templates-repository';
 import { previewImport, commitImport } from '../electron/service/packs-service';
 import { aiModelsRepository, aiSkillsRepository } from '../electron/service/db/ai-repository';
@@ -38,7 +39,7 @@ setDatabase(handle.database);
 const schemaVersion = runMigrations(handle.database);
 
 // ===== 迁移 =====
-assert('迁移：version 走到 5', schemaVersion === 5, String(schemaVersion));
+assert('迁移：version 走到 6', schemaVersion === 6, String(schemaVersion));
 const tables = handle.database
   .prepare("SELECT name FROM sqlite_master WHERE type='table'")
   .all()
@@ -57,6 +58,23 @@ assert('符文/回响：内置示例不可删除',
     && echoesRepository.list().some((item) => item.id === '__builtin_nice__'));
 assert('播种：vue2 内置回响 17 张', echoes.filter((item) => item.id.startsWith('__builtin_')).length === 17, String(echoes.length));
 assert('播种：v3 demo 占位卡已清掉', !echoes.some((item) => item.id === 'builtin-echo-demo'), JSON.stringify(echoes.map((item) => item.id)));
+// 通用对账：catalog 里没有的 __builtin_* 行，启动时会被清掉；用户卡片不受影响。
+handle.database.prepare(
+  `INSERT INTO echoes (id, name, "desc", color, icon, anno_source, render_type, category, sort_order, created_at, updated_at)
+   VALUES ('__builtin_obsolete__', 'obsolete', '', '#000', 'block', 'export default {}', 'anno', 'builtin', 99, ?, ?)`,
+).run(Date.now(), Date.now());
+const userEcho = echoesRepository.save({ id: 'e-keep-1', name: '保留卡片', annoSource: 'export default {}' });
+// 改坏一张内置卡，再对账应被 JSON 内容覆盖回来（内置项只读，系统说了算）。
+handle.database.prepare("UPDATE echoes SET name = '被改坏' WHERE id = '__builtin_nice__'").run();
+syncBuiltinCatalog(handle.database);
+assert(
+  '内置目录：过期内置被清、用户卡片保留、内置内容回正',
+  !echoesRepository.list().some((item) => item.id === '__builtin_obsolete__')
+    && echoesRepository.list().some((item) => item.id === userEcho.id)
+    && echoesRepository.list().filter((item) => item.id.startsWith('__builtin_')).length === 17
+    && echoesRepository.list().find((item) => item.id === '__builtin_nice__')?.name === 'nice',
+  '',
+);
 
 // ===== 笔记创建与唯一标题 =====
 const first = notesRepository.create({ title: '测试笔记', content: 'hello', category: '/工作' });

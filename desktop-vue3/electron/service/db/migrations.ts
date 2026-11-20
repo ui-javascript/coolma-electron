@@ -1,5 +1,6 @@
 import type { SqlDatabase } from './connection';
-import { BUILTIN_ECHO_CARDS } from './builtin-echo-cards';
+import { echoBuiltins } from '../../shared/builtins/catalog';
+import { syncBuiltinCatalog } from './builtins';
 
 type DB = SqlDatabase;
 
@@ -348,14 +349,14 @@ const migration5: Migration = {
       `INSERT OR IGNORE INTO echoes (id, name, "desc", color, icon, anno_source, render_type, category, sort_order, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, 'anno', ?, ?, ?, ?)`,
     );
-    for (const card of BUILTIN_ECHO_CARDS) {
+    for (const card of echoBuiltins()) {
       insert.run(
         card.id,
         card.name,
         card.desc,
         card.color,
         card.icon,
-        card.annoSource,
+        card.payload.annoSource,
         card.category,
         card.sortOrder,
         now,
@@ -367,7 +368,22 @@ const migration5: Migration = {
   },
 };
 
-export const MIGRATIONS: readonly Migration[] = [migration1, migration2, migration3, migration4, migration5];
+/**
+ * 迁移 6：按当前 catalog.json 对账。
+ * - 新增的内置回响补进库；
+ * - 已从 JSON 移除的 `__builtin_*` 回响删掉；
+ * - 再清一次 v3 的 demo 占位卡。
+ * 这样以后删内置项只改 JSON + 升迁移版本，不用手工写 DELETE。
+ */
+const migration6: Migration = {
+  version: 6,
+  name: 'reconcile-builtin-catalog',
+  up(db) {
+    syncBuiltinCatalog(db);
+  },
+};
+
+export const MIGRATIONS: readonly Migration[] = [migration1, migration2, migration3, migration4, migration5, migration6];
 
 export function runMigrations(db: DB): number {
   db.exec(`

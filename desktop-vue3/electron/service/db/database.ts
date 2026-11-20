@@ -5,6 +5,7 @@ import { app } from 'electron';
 import { logger } from 'ee-core/log';
 import type { DatabaseStatus } from '../../shared/types/domain';
 import { runMigrations } from './migrations';
+import { syncBuiltinCatalog } from './builtins';
 import { clearDatabase, getDatabase as getCurrentDatabase, setDatabase, type SqlDatabase } from './connection';
 
 type DB = Database.Database;
@@ -37,6 +38,8 @@ export function initDatabase(options: { filePath?: string } = {}): DB {
     database.pragma('wal_autocheckpoint = 1000');
 
     const schemaVersion = runMigrations(database as unknown as SqlDatabase);
+    // 每次启动对账内置回响，JSON 里删掉的项无需新迁移版本即可下线。
+    syncBuiltinCatalog(database as unknown as SqlDatabase);
     setDatabase(database as unknown as SqlDatabase);
     db = database;
     dbPath = filePath;

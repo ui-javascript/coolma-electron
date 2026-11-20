@@ -692,7 +692,11 @@ async function main(): Promise<void> {
 
   // ==== 内置回响：17 张全部编译 / render / jQuery handler 真跑 ====
   {
-    const { BUILTIN_ECHO_CARDS } = await import('../electron/service/db/builtin-echo-cards');
+    const { echoBuiltins } = await import('../electron/shared/builtins/catalog');
+    const BUILTIN_ECHO_CARDS = echoBuiltins().map((card) => ({
+      id: card.id,
+      annoSource: card.payload.annoSource,
+    }));
     const { safeEvalAnnoSource, HANDLER_PRELUDE } = await import('../packages/plugins-muya-echo/src/core/echoAnnoSource.js') as Any;
     const compiled = BUILTIN_ECHO_CARDS.map((card) => {
       const definition = safeEvalAnnoSource(card.annoSource, HANDLER_PRELUDE)();
@@ -737,6 +741,35 @@ async function main(): Promise<void> {
     } finally {
       p.remove();
     }
+  }
+
+  // ==== 内置符文模板：14 个齐全、默认模板可编译 ====
+  {
+    const { runeTemplateBuiltins, defaultRuneTemplate } = await import('../electron/shared/builtins/catalog');
+    const RUNE_TEMPLATE_PRESETS = runeTemplateBuiltins();
+    const DEFAULT_RUNE_TEMPLATE = defaultRuneTemplate();
+    assert('符文模板：14 个内置模板', RUNE_TEMPLATE_PRESETS.length === 14, String(RUNE_TEMPLATE_PRESETS.length));
+    assert(
+      '符文模板：id 唯一且都有 template',
+      new Set(RUNE_TEMPLATE_PRESETS.map((item) => item.id)).size === 14
+        && RUNE_TEMPLATE_PRESETS.every((item) => item.payload.template.includes('<template>') && item.payload.template.includes('export default')),
+      '',
+    );
+    const { builtinById, builtinIds, builtinItems } = await import('../electron/shared/builtins/catalog');
+    assert(
+      '内置目录：kind 筛选 / id 查询 / 全量唯一',
+      builtinItems().length === 31
+        && builtinItems('echo').length === 17
+        && builtinIds('rune-template').length === 14
+        && builtinById('echo', '__builtin_nice__')?.name === 'nice'
+        && new Set(builtinItems().map((item) => item.id)).size === 31,
+      '',
+    );
+    assert(
+      '符文模板：新增默认 inheritFromPrevious 演示',
+      DEFAULT_RUNE_TEMPLATE.includes('inheritFromPrevious') && DEFAULT_RUNE_TEMPLATE.includes('RuneInheritDemo'),
+      DEFAULT_RUNE_TEMPLATE.slice(0, 80),
+    );
   }
 
   console.log(failed === 0 ? '\n全部通过' : `\n失败 ${failed} 项`);

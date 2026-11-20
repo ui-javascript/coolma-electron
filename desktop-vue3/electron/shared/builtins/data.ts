@@ -1,0 +1,461 @@
+// 由 electron/shared/builtins/catalog.json 生成，不要手改。
+// 增删内置项请改 catalog.json 后执行 pnpm run gen:builtins。
+import type { BuiltinCatalog } from './types';
+
+export const BUILTIN_CATALOG: BuiltinCatalog = {
+  "version": 1,
+  "source": "desktop-vue2/src/components/{rune/runeTemplates,echo/echoBuiltins}",
+  "items": [
+    {
+      "kind": "rune-template",
+      "builtin": true,
+      "id": "builtin-tpl-createBlankTemplate",
+      "name": "空白模板",
+      "desc": "标准 Vue SFC 格式（template + script + style + data + methods）",
+      "category": "general",
+      "color": "#7E57C2",
+      "icon": "description",
+      "sortOrder": 0,
+      "payload": {
+        "template": "<template>\n  <div class=\"blank-page\">\n    <!-- HTML 结构区域 -->\n    <p>Vue2 空白组件</p>\n  </div>\n</template>\n\n<script>\nexport default {\n  name: 'BlankDemo',\n  // 接收父组件参数\n  props: {},\n  data() {\n    return {\n      // 响应式数据\n    }\n  },\n  computed: {\n    // 计算属性\n  },\n  watch: {\n    // 数据监听\n  },\n  methods: {\n    // 业务方法\n  },\n  // 生命周期钩子\n  created() {},\n  mounted() {},\n  updated() {},\n  destroyed() {}\n}\n</script>\n\n<style lang=\"less\" scoped>\n\n</style>"
+      }
+    },
+    {
+      "kind": "rune-template",
+      "builtin": true,
+      "id": "builtin-tpl-createInheritDemoTemplate",
+      "name": "inheritFromPrevious 演示",
+      "desc": "演示从上一个 echo / rune 取值（inheritFromPrevious + props.value 回写）",
+      "category": "general",
+      "color": "#26C6DA",
+      "icon": "preview",
+      "sortOrder": 1,
+      "payload": {
+        "template": "<template>\n  <div class=\"rune-inherit-demo\">\n    <textarea\n      :value=\"text\"\n      :placeholder=\"placeholderText\"\n      @blur=\"handleBlur\"\n    />\n  </div>\n</template>\n\n<script>\nexport default {\n  name: 'RuneInheritDemo',\n  props: {\n    value: { type: [String, Number], default: '' },\n    runeId: { type: String, default: '' },\n    nodeId: { type: String, default: '' },\n    rune: { type: Object, default: () => ({}) },\n    // ★ 用户期望的\"默认 false\"语义在这里：\n    // 父组件没显式传 inheritFromPrevious 时，SFC 自动拿到 false。\n    // 如果父组件（host.dataset / muya 兜底）有显式值，会覆盖这里。\n    inheritFromPrevious: { type: [Boolean, Number, String], default: false },\n    onValueChange: { type: Function, default: null }\n  },\n  computed: {\n    placeholderText () {\n      return this._inheritFlagTrue\n        ? '父组件显式传入 inheritFromPrevious=true —— value 由 quickInsert 灌入上一非空行'\n        : 'SFC 自己用了 default: false —— value 不会自动继承上一行'\n    },\n    _inheritFlagTrue () {\n      return this.inheritFromPrevious === true || this.inheritFromPrevious === 1 || this.inheritFromPrevious === '1'\n    }\n  },\n  data() {\n    return {\n      text: this.value == null ? '' : String(this.value)\n    }\n  },\n  created () {\n    // ★ SFC 自行控制入口：当父组件没传、且 SFC 显式声明 default: false 时，\n    // 把上一行继承来的 value 清掉，并 $emit('input', '') 同步回 Markdown。\n    // 这是 Vue 自家 props 规则下\"prop 没传就用 default\"的延伸：\n    // 如果 SFC 拿到的 inheritFromPrevious=false，主动否决卡片级继承语义。\n    if (!this._inheritFlagTrue) {\n      this.text = ''\n      this.$emit('input', '')\n    }\n  },\n  watch: {\n    value(next) {\n      const s = next == null ? '' : String(next)\n      if (s !== this.text) this.text = s\n    },\n    inheritFromPrevious(next) {\n      this._lastInheritFlag = next\n    }\n  },\n  methods: {\n    handleBlur(event) {\n      const next = event && event.target ? String(event.target.value || '') : ''\n      this.text = next\n      this.$emit('input', next)\n    }\n  }\n}\n</script>\n\n<style lang=\"less\" scoped>\n.rune-inherit-demo textarea {\n  width: 100%;\n  min-height: 60px;\n  resize: vertical;\n  box-sizing: border-box;\n  padding: 8px 10px;\n  border-radius: 8px;\n  border: 1px solid rgba(126, 87, 194, 0.35);\n  background: rgba(255, 255, 255, 0.9);\n  font: inherit;\n  font-size: 13px;\n  outline: none;\n}\n.rune-inherit-demo textarea:focus {\n  border-color: #7E57C2;\n  box-shadow: 0 0 0 2px rgba(126, 87, 194, 0.2);\n}\n</style>"
+      }
+    },
+    {
+      "kind": "rune-template",
+      "builtin": true,
+      "id": "builtin-tpl-createInputTemplate",
+      "name": "输入框",
+      "desc": "@blur 时触发 $emit(\"input\")，适合表单场景",
+      "category": "general",
+      "color": "#66BB6A",
+      "icon": "edit",
+      "sortOrder": 2,
+      "payload": {
+        "template": "<template>\n  <div class=\"rune-echo-demo\">\n    <input\n      class=\"rune-echo-demo__input\"\n      :value=\"text\"\n      placeholder=\"输入内容，失焦同步数据\"\n      @blur=\"handleInput\"\n    />\n  </div>\n</template>\n\n<script>\nexport default {\n  props: {\n    value: {\n      type: [String, Number],\n      default: null\n    }\n  },\n  data() {\n    return {\n      text: this.value == null ? '' : String(this.value)\n    }\n  },\n  watch: {\n    value(next) {\n      const normalized = next == null ? '' : String(next)\n      if (normalized !== this.text) {\n        this.text = normalized\n      }\n    }\n  },\n  methods: {\n    handleInput(event) {\n      const next = event && event.target ? String(event.target.value || '') : ''\n      this.text = next\n      this.$emit('input', next)\n    }\n  }\n}\n</script>\n\n<style lang=\"less\" scoped>\n.rune-echo-demo__input {\n  width: 100%;\n  box-sizing: border-box;\n  padding: 7px 10px;\n  border-radius: 8px;\n  border: 1px solid rgba(126, 87, 194, 0.4);\n  background: rgba(255, 255, 255, 0.9);\n  font: inherit;\n  outline: none;\n  transition: border-color 0.15s, box-shadow 0.15s;\n}\n.rune-echo-demo__input:focus {\n  border-color: #7E57C2;\n  box-shadow: 0 0 0 2px rgba(126, 87, 194, 0.2);\n}\n</style>"
+      }
+    },
+    {
+      "kind": "rune-template",
+      "builtin": true,
+      "id": "builtin-tpl-createHolyShieldTemplate",
+      "name": "hel-micro",
+      "desc": "远程组件，演示 $hel.preFetchLib",
+      "category": "general",
+      "color": "#FFB300",
+      "icon": "cloud_download",
+      "sortOrder": 3,
+      "payload": {
+        "template": "<template>\n  <div class=\"hel-micro\">\n    <input\n      class=\"hel-micro__input\"\n      v-model=\"rawInput\"\n      placeholder=\"输入数字，失焦后显示结果\"\n      @blur=\"onInput\"\n    />\n    <div class=\"hel-micro__result\" v-if=\"result !== null\">\n      <span>num.random 结果：</span>\n      <code>{{ result }}</code>\n    </div>\n  </div>\n</template>\n\n<script>\n// hel-micro 远程加载：this.$hel 在 src/boot/hel-micro-renderer.js 中挂载\nexport default {\n  props: {\n    value: { type: [String, Number], default: null },\n    runeId: { type: String, default: '' },\n    nodeId: { type: String, default: '' },\n    rune: { type: Object, default: null }\n  },\n  data() {\n    return {\n      rawInput: '',\n      result: null,\n      _debounceTimer: null\n    }\n  },\n  watch: {\n    value(next) {\n      const s = next == null ? '' : String(next)\n      if (s !== this.rawInput) this.rawInput = s\n    }\n  },\n  methods: {\n    async onInput() {\n      clearTimeout(this._debounceTimer)\n      this._debounceTimer = setTimeout(async () => {\n        try {\n          const lib = await this.$hel.preFetchLib('hel-tpl-remote-lib', '2.0.1')\n          console.log('lib', lib)\n          const n = parseFloat(this.rawInput)\n          this.result = lib.num.random(n)\n          this.$emit('input', String(this.result))\n        } catch (e) {\n          console.error('[hel-micro] load failed:', e)\n          this.result = 'load failed'\n        }\n      }, 300)\n    }\n  },\n  beforeDestroy() {\n    clearTimeout(this._debounceTimer)\n  }\n}\n</script>\n\n<style lang=\"less\" scoped>\n.hel-micro {\n  display: flex;\n  flex-direction: column;\n  gap: 8px;\n  padding: 12px 14px;\n  border-radius: 10px;\n  background: rgba(255, 193, 7, 0.06);\n  border: 1px dashed rgba(255, 193, 7, 0.4);\n  font-family: inherit;\n  color: inherit;\n}\n.hel-micro__input {\n  width: 100%;\n  box-sizing: border-box;\n  padding: 7px 10px;\n  border-radius: 8px;\n  border: 1px solid rgba(255, 193, 7, 0.5);\n  background: rgba(255, 255, 255, 0.9);\n  font: inherit;\n  font-size: 13px;\n  outline: none;\n  transition: border-color 0.15s, box-shadow 0.15s;\n}\n.hel-micro__input:focus {\n  border-color: #FFB300;\n  box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.2);\n}\n.hel-micro__result {\n  display: flex;\n  flex-wrap: wrap;\n  align-items: center;\n  gap: 6px;\n  font-size: 12px;\n  color: rgba(0, 0, 0, 0.7);\n  background: rgba(255, 193, 7, 0.1);\n  border-radius: 6px;\n  padding: 6px 10px;\n}\n.hel-micro__result code {\n  font-family: Consolas, Monaco, monospace;\n  background: rgba(255, 160, 0, 0.12);\n  padding: 1px 6px;\n  border-radius: 4px;\n  color: #E65100;\n  font-weight: 600;\n}\n</style>"
+      }
+    },
+    {
+      "kind": "rune-template",
+      "builtin": true,
+      "id": "builtin-tpl-createJsxGraphTemplate",
+      "name": "JsxGraph",
+      "desc": "通过 this.$jxg 初始化坐标系，点击上报坐标（JSXGraph）",
+      "category": "general",
+      "color": "#4FC3F7",
+      "icon": "show_chart",
+      "sortOrder": 4,
+      "payload": {
+        "template": "<template>\n  <div>\n    <div ref=\"jxgBox\" class=\"rune-jsxgraph-demo\"/>\n  </div>\n</template>\n\n<script>\n// JsxGraph 符文：通过 this.$jxg 调用 JSXGraph 初始化坐标系，鼠标点击上报坐标\n// this.$jxg 在 src/boot/jxgraph.js 中挂载。\nexport default {\n  props: {\n    value: { type: [String, Number], default: null }\n  },\n  data() {\n    return {\n      board: null\n    }\n  },\n  mounted() {\n    this.$nextTick(() => {\n      this.initBoard()\n    })\n  },\n  beforeDestroy() {\n    if (this.board) {\n      this.board.destroy && this.board.destroy()\n      this.board = null\n    }\n  },\n  methods: {\n    initBoard() {\n      const container = this.$refs.jxgBox\n      if (!container || !this.$jxg) return\n      if (this.board) {\n        this.board.destroy && this.board.destroy()\n      }\n      this.board = this.$jxg.JSXGraph.initBoard(container, {\n        boundingbox: [-6, 6, 6, -6],\n        axis: true,\n        grid: true,\n        showNavigation: false\n      })\n      this.board.on('down', (e) => {\n        const pos = this.board.getUsrCoordsOfMouse(e)\n        this.$emit('input', JSON.stringify({ x: pos[0].toFixed(2), y: pos[1].toFixed(2) }))\n      })\n    }\n  }\n}\n</script>\n\n<style lang=\"less\" scoped>\n.rune-jsxgraph-demo {\n  width: 100%;\n  height: 320px;\n  border-radius: 8px;\n  overflow: hidden;\n  background: #fff;\n}\n.body--dark .rune-jsxgraph-demo {\n  background: #2a2a2a;\n}\n</style>"
+      }
+    },
+    {
+      "kind": "rune-template",
+      "builtin": true,
+      "id": "builtin-tpl-createFireflyTemplate",
+      "name": "萤火虫",
+      "desc": "CSS3 多点发光动画，点击萤火虫上报坐标（参考博客园）",
+      "category": "general",
+      "color": "#FFD54F",
+      "icon": "auto_awesome",
+      "sortOrder": 5,
+      "payload": {
+        "template": "<template>\n  <div class=\"rune-firefly-demo\">\n    <div class=\"rune-firefly-demo__sky\">\n      <div\n        v-for=\"(fly, idx) in fireflies\"\n        :key=\"fly.id\"\n        class=\"rune-firefly-demo__firefly\"\n        :style=\"fly.style\"\n        :class=\"{ 'is-active': activeId === fly.id }\"\n        @click=\"onPickFly(fly, idx)\"\n      />\n    </div>\n\n    <div class=\"rune-firefly-demo__panel\">\n      <div class=\"rune-firefly-demo__title\">\n        <q-icon name=\"auto_awesome\" color=\"amber\" size=\"1.2em\" class=\"q-mr-xs\" />\n        萤火虫之夜\n      </div>\n      <div class=\"rune-firefly-demo__desc\">基于 CSS3 发光动画 + 多点随机飞行，参考博客园文章思路</div>\n      <div class=\"rune-firefly-demo__meta\">\n        <span>数量: <code>{{ fireflies.length }}</code></span>\n        <span>当前: <code>{{ activeId || '-' }}</code></span>\n        <span>坐标: <code>{{ lastPicked || '-' }}</code></span>\n      </div>\n    </div>\n  </div>\n</template>\n\n<script>\n// 萤火虫符文：多只萤火虫在夜空随机飞行 + 脉冲发光\n// 思路来自 https://www.cnblogs.com/ai888/p/18622910\nexport default {\n  props: {\n    value: { type: String, default: '' },\n    runeId: { type: String, default: '' },\n    nodeId: { type: String, default: '' },\n    rune: { type: Object, default: null }\n  },\n  data() {\n    return {\n      activeId: '',\n      lastPicked: '',\n      fireflies: this._buildFireflies(8)\n    }\n  },\n  mounted() {\n    this._timer && clearInterval(this._timer)\n    this._timer = setInterval(() => {\n      this.fireflies = this.fireflies.map(f => ({\n        ...f,\n        style: this._randomStyle()\n      }))\n    }, 2200)\n  },\n  beforeDestroy() {\n    if (this._timer) {\n      clearInterval(this._timer)\n      this._timer = null\n    }\n  },\n  methods: {\n    _buildFireflies(n) {\n      const list = []\n      for (let i = 0; i < n; i++) {\n        list.push({\n          id: 'firefly-' + (i + 1),\n          style: this._randomStyle()\n        })\n      }\n      return list\n    },\n    _randomStyle() {\n      const x = Math.random() * 95\n      const y = Math.random() * 90\n      const delay = (Math.random() * 2).toFixed(2)\n      const dur = (1.2 + Math.random() * 1.6).toFixed(2)\n      const size = 10 + Math.round(Math.random() * 10)\n      const hue = Math.random() > 0.5 ? 'ff0' : 'ffe066'\n      return {\n        left: x + '%',\n        top: y + '%',\n        width: size + 'px',\n        height: size + 'px',\n        animationDelay: delay + 's',\n        animationDuration: dur + 's',\n        '--firefly-color': '#' + hue\n      }\n    },\n    onPickFly(fly, idx) {\n      this.activeId = fly.id\n      this.lastPicked = fly.id + ' (' + fly.style.left + ', ' + fly.style.top + ')'\n      this.$emit('input', this.lastPicked)\n    }\n  }\n}\n</script>\n\n<style lang=\"less\" scoped>\n.rune-firefly-demo {\n  position: relative;\n  width: 100%;\n  height: 320px;\n  border-radius: 12px;\n  overflow: hidden;\n  background: radial-gradient(ellipse at top, #0f2027 0%, #203a43 45%, #2c5364 100%);\n  border: 1px solid rgba(255, 235, 130, 0.25);\n  font-family: inherit;\n  color: #fff8d6;\n}\n.rune-firefly-demo__sky {\n  position: absolute;\n  inset: 0;\n  z-index: 1;\n}\n.rune-firefly-demo__firefly {\n  position: absolute;\n  border-radius: 50%;\n  background: #333;\n  cursor: pointer;\n  animation-name: firefly-glow, firefly-float;\n  animation-iteration-count: infinite, infinite;\n  animation-direction: alternate, alternate;\n  animation-timing-function: ease-in-out, ease-in-out;\n  transform: translate(-50%, -50%);\n  transition: filter 0.2s;\n}\n.rune-firefly-demo__firefly::before,\n.rune-firefly-demo__firefly::after {\n  content: '';\n  position: absolute;\n  border-radius: 50%;\n  pointer-events: none;\n}\n.rune-firefly-demo__firefly::before {\n  width: 100%;\n  height: 100%;\n  background: radial-gradient(circle, #fff, transparent);\n  opacity: 0.3;\n  animation: firefly-glow 1s infinite alternate;\n}\n.rune-firefly-demo__firefly::after {\n  width: 80%;\n  height: 80%;\n  top: 10%;\n  left: 10%;\n  background: radial-gradient(circle, #f00, transparent);\n  opacity: 0.6;\n  animation: firefly-pulse 1s infinite alternate;\n}\n.rune-firefly-demo__firefly.is-active {\n  filter: brightness(1.6) drop-shadow(0 0 6px #fff7a8);\n}\n@keyframes firefly-glow {\n  0%   { box-shadow: 0 0 5px #333, 0 0 10px #333, 0 0 15px #333, 0 0 20px var(--firefly-color, #ff0); }\n  100% { box-shadow: 0 0 10px #333, 0 0 20px var(--firefly-color, #ff0), 0 0 30px var(--firefly-color, #ff0), 0 0 40px var(--firefly-color, #ff0); }\n}\n@keyframes firefly-pulse {\n  0%   { transform: scale(1); }\n  100% { transform: scale(1.15); }\n}\n@keyframes firefly-float {\n  0%   { margin-left: 0;    margin-top: 0; }\n  25%  { margin-left: 12px; margin-top: -8px; }\n  50%  { margin-left: -10px; margin-top: 6px; }\n  75%  { margin-left: 6px;  margin-top: -4px; }\n  100% { margin-left: 0;    margin-top: 0; }\n}\n.rune-firefly-demo__panel {\n  position: absolute;\n  left: 12px;\n  right: 12px;\n  bottom: 10px;\n  z-index: 2;\n  padding: 8px 10px;\n  border-radius: 8px;\n  background: rgba(0, 0, 0, 0.35);\n  backdrop-filter: blur(2px);\n  color: #fff8d6;\n  font-size: 12px;\n}\n.rune-firefly-demo__title {\n  display: flex;\n  align-items: center;\n  font-weight: 700;\n  letter-spacing: 0.5px;\n  font-size: 13px;\n}\n.rune-firefly-demo__desc {\n  margin-top: 2px;\n  font-size: 11px;\n  opacity: 0.8;\n}\n.rune-firefly-demo__meta {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 10px;\n  margin-top: 4px;\n  font-size: 11px;\n  opacity: 0.9;\n}\n.rune-firefly-demo__meta code {\n  font-family: Consolas, Monaco, monospace;\n  background: rgba(255, 235, 130, 0.15);\n  padding: 1px 5px;\n  border-radius: 4px;\n  color: #ffe066;\n}\n</style>"
+      }
+    },
+    {
+      "kind": "rune-template",
+      "builtin": true,
+      "id": "builtin-tpl-createElInputTemplate",
+      "name": "el-input",
+      "desc": "Element-UI 输入框，@blur 时触发 $emit(\"input\")",
+      "category": "general",
+      "color": "#26A69A",
+      "icon": "input",
+      "sortOrder": 6,
+      "payload": {
+        "template": "<template>\n  <div class=\"rune-el-input-demo\">\n    <el-input\n      class=\"rune-el-input-demo__field\"\n      v-model=\"text\"\n      :placeholder=\"placeholder\"\n      clearable\n      @blur=\"handleBlur\"\n    />\n    <div class=\"rune-el-input-demo__meta\">\n      <span>v-model: <code>{{ text || '-' }}</code></span>\n      <span>value: <code>{{ value == null ? '-' : value }}</code></span>\n    </div>\n  </div>\n</template>\n\n<script>\nexport default {\n  props: {\n    value: {\n      type: [String, Number],\n      default: null\n    },\n    placeholder: {\n      type: String,\n      default: '输入内容，失焦后同步数据'\n    }\n  },\n  data() {\n    return {\n      text: this.value == null ? '' : String(this.value)\n    }\n  },\n  watch: {\n    value(next) {\n      const normalized = next == null ? '' : String(next)\n      if (normalized !== this.text) {\n        this.text = normalized\n      }\n    }\n  },\n  methods: {\n    handleBlur() {\n      const next = this.text == null ? '' : String(this.text)\n      this.$emit('input', next)\n    }\n  }\n}\n</script>\n\n<style lang=\"less\" scoped>\n.rune-el-input-demo {\n  display: flex;\n  flex-direction: column;\n  gap: 8px;\n  padding: 4px;\n  font-family: inherit;\n  color: inherit;\n}\n.rune-el-input-demo__field {\n  width: 100%;\n}\n.rune-el-input-demo__meta {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 12px;\n  font-size: 11px;\n  color: rgba(0, 0, 0, 0.55);\n}\n.rune-el-input-demo__meta code {\n  font-family: Consolas, Monaco, monospace;\n  background: rgba(126, 87, 194, 0.1);\n  padding: 1px 5px;\n  border-radius: 4px;\n  color: #6A1B9A;\n}\n</style>"
+      }
+    },
+    {
+      "kind": "rune-template",
+      "builtin": true,
+      "id": "builtin-tpl-createElSelectTemplate",
+      "name": "el-select",
+      "desc": "Element-UI 下拉选择，@change 时触发 $emit(\"input\")",
+      "category": "general",
+      "color": "#5C6BC0",
+      "icon": "arrow_drop_down_circle",
+      "sortOrder": 7,
+      "payload": {
+        "template": "<template>\n  <div class=\"rune-el-select-demo\">\n    <el-select\n      class=\"rune-el-select-demo__field\"\n      v-model=\"selected\"\n      :placeholder=\"placeholder\"\n      clearable\n      @change=\"handleChange\"\n    >\n      <el-option\n        v-for=\"opt in options\"\n        :key=\"opt.value\"\n        :label=\"opt.label\"\n        :value=\"opt.value\"\n      />\n    </el-select>\n    <div class=\"rune-el-select-demo__meta\">\n      <span>v-model: <code>{{ selected || '-' }}</code></span>\n      <span>value: <code>{{ value == null ? '-' : value }}</code></span>\n    </div>\n  </div>\n</template>\n\n<script>\nexport default {\n  props: {\n    value: {\n      type: [String, Number],\n      default: null\n    },\n    placeholder: {\n      type: String,\n      default: '选择一项后同步数据'\n    }\n  },\n  data() {\n    return {\n      selected: this.value == null ? '' : String(this.value),\n      options: [\n        { value: 'purple', label: '紫水晶' },\n        { value: 'blue',   label: '海蓝宝' },\n        { value: 'green',  label: '翡翠' },\n        { value: 'amber',  label: '琥珀' },\n        { value: 'crimson', label: '红玛瑙' }\n      ]\n    }\n  },\n  watch: {\n    value(next) {\n      const normalized = next == null ? '' : String(next)\n      if (normalized !== this.selected) {\n        this.selected = normalized\n      }\n    }\n  },\n  methods: {\n    handleChange(val) {\n      const next = val == null ? '' : String(val)\n      this.$emit('input', next)\n    }\n  }\n}\n</script>\n\n<style lang=\"less\" scoped>\n.rune-el-select-demo {\n  display: flex;\n  flex-direction: column;\n  gap: 8px;\n  padding: 4px;\n  font-family: inherit;\n  color: inherit;\n}\n.rune-el-select-demo__field {\n  width: 100%;\n}\n.rune-el-select-demo__meta {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 12px;\n  font-size: 11px;\n  color: rgba(0, 0, 0, 0.55);\n}\n.rune-el-select-demo__meta code {\n  font-family: Consolas, Monaco, monospace;\n  background: rgba(126, 87, 194, 0.1);\n  padding: 1px 5px;\n  border-radius: 4px;\n  color: #6A1B9A;\n}\n</style>"
+      }
+    },
+    {
+      "kind": "rune-template",
+      "builtin": true,
+      "id": "builtin-tpl-createElDatePickerTemplate",
+      "name": "el-date-picker",
+      "desc": "Element-UI 日期选择（默认 date），@change 时触发 $emit(\"input\")",
+      "category": "general",
+      "color": "#7E57C2",
+      "icon": "event",
+      "sortOrder": 8,
+      "payload": {
+        "template": "<template>\n  <div class=\"rune-el-date-demo\">\n    <el-date-picker\n      class=\"rune-el-date-demo__field\"\n      v-model=\"picked\"\n      :type=\"type\"\n      :placeholder=\"placeholder\"\n      :format=\"format\"\n      :value-format=\"valueFormat\"\n      clearable\n      @change=\"handleChange\"\n    />\n    <div class=\"rune-el-date-demo__meta\">\n      <span>v-model: <code>{{ picked || '-' }}</code></span>\n      <span>value: <code>{{ value == null ? '-' : value }}</code></span>\n    </div>\n  </div>\n</template>\n\n<script>\nexport default {\n  props: {\n    value: {\n      type: [String, Number, Date],\n      default: null\n    },\n    placeholder: {\n      type: String,\n      default: '选择日期，变化时同步数据'\n    },\n    type: {\n      type: String,\n      default: 'date'\n    },\n    format: {\n      type: String,\n      default: 'yyyy-MM-dd'\n    },\n    valueFormat: {\n      type: String,\n      default: 'yyyy-MM-dd'\n    }\n  },\n  data() {\n    return {\n      picked: this.toPickedFormat(this.value)\n    }\n  },\n  watch: {\n    value(next) {\n      const normalized = this.toPickedFormat(next)\n      if (normalized !== this.picked) {\n        this.picked = normalized\n      }\n    }\n  },\n  methods: {\n    // 统一入口：把任意入参（字符串 / 数字时间戳 / Date 对象 / null）归一化为\n    // picker 能接受的形态。返回 null 而不是 '' —— el-date-picker 内部对\n    // 空字符串解析时会打印 \"Invalid Date\" 警告，使用 null 才是清空态。\n    toPickedFormat(raw) {\n      if (raw == null || raw === '') return null\n      let d\n      if (raw instanceof Date) {\n        d = raw\n      } else if (typeof raw === 'number') {\n        d = new Date(raw)\n      } else {\n        const s = String(raw).trim()\n        if (!s) return null\n        // yyyy-MM-dd 或 yyyy-MM-dd HH:mm:ss 等常见形态直接按本地时区解析，\n        // 避免 new Date('2026-07-04') 被当 UTC 解析而少一天\n        const m = s.match(/^(\\d{4})-(\\d{1,2})-(\\d{1,2})(.*)$/)\n        if (m) {\n          d = new Date(\n            parseInt(m[1], 10),\n            parseInt(m[2], 10) - 1,\n            parseInt(m[3], 10)\n          )\n        } else {\n          d = new Date(s)\n        }\n      }\n      if (!(d instanceof Date) || isNaN(d.getTime())) return null\n      // 用 valueFormat 把日期格式化回字符串，picker 真正能识别的形态。\n      // 简易支持 yyyy-MM-dd / yyyy-MM-dd HH:mm:ss 两种最常见的格式。\n      const pad = (n) => (n < 10 ? '0' + n : '' + n)\n      const yyyy = d.getFullYear()\n      const MM = pad(d.getMonth() + 1)\n      const dd = pad(d.getDate())\n      if (/HH:mm:ss/.test(this.valueFormat || '')) {\n        const HH = pad(d.getHours())\n        const mm = pad(d.getMinutes())\n        const ss = pad(d.getSeconds())\n        return (yyyy + '-' + MM + '-' + dd + ' ' + HH + ':' + mm + ':' + ss)\n      }\n      return yyyy + '-' + MM + '-' + dd\n    },\n    handleChange(val) {\n      // picker 清空按钮触发时 val 为 null —— 与 data.picked 初始化逻辑保持一致\n      const next = val == null ? null : this.toPickedFormat(val)\n      this.picked = next\n      // emit 时把 null 还原为空字符串，与上层 el-input/el-select 模板的\n      // \"value 为空时给 ''\" 的对外约定保持一致；非空时给 yyyy-MM-dd 字符串\n      this.$emit('input', next == null ? '' : next)\n    }\n  }\n}\n</script>\n\n<style lang=\"less\" scoped>\n.rune-el-date-demo {\n  display: flex;\n  flex-direction: column;\n  gap: 8px;\n  padding: 4px;\n  font-family: inherit;\n  color: inherit;\n}\n.rune-el-date-demo__field {\n  width: 100%;\n}\n.rune-el-date-demo__meta {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 12px;\n  font-size: 11px;\n  color: rgba(0, 0, 0, 0.55);\n}\n.rune-el-date-demo__meta code {\n  font-family: Consolas, Monaco, monospace;\n  background: rgba(126, 87, 194, 0.1);\n  padding: 1px 5px;\n  border-radius: 4px;\n  color: #6A1B9A;\n}\n</style>"
+      }
+    },
+    {
+      "kind": "rune-template",
+      "builtin": true,
+      "id": "builtin-tpl-createResumeBasicInfoTemplate",
+      "name": "简历-基本信息",
+      "desc": "头像 + 姓名 + 职位 + 联系方式，独立 rune 卡片，可自由组合",
+      "category": "resume",
+      "color": "#7E57C2",
+      "icon": "person",
+      "sortOrder": 9,
+      "payload": {
+        "template": "<template>\n  <div class=\"rune-rb\">\n    <div class=\"rune-rb__avatar\">\n      <img v-if=\"value && value.avatar\" :src=\"value.avatar\" alt=\"avatar\" />\n      <span v-else class=\"rune-rb__avatar-fallback\">{{ initials }}</span>\n    </div>\n    <div class=\"rune-rb__main\">\n      <div class=\"rune-rb__name\">{{ (value && value.name) || '未命名' }}</div>\n      <div class=\"rune-rb__title\">{{ (value && value.title) || '' }}</div>\n      <div class=\"rune-rb__meta\">\n        <span v-if=\"value && value.phone\"><q-icon name=\"phone\" size=\"0.95em\" class=\"q-mr-xs\" />{{ value.phone }}</span>\n        <span v-if=\"value && value.email\"><q-icon name=\"email\" size=\"0.95em\" class=\"q-mr-xs\" />{{ value.email }}</span>\n        <span v-if=\"value && value.location\"><q-icon name=\"place\" size=\"0.95em\" class=\"q-mr-xs\" />{{ value.location }}</span>\n      </div>\n    </div>\n  </div>\n</template>\n\n<script>\nexport default {\n  name: 'RuneResumeBasicInfo',\n  props: {\n    value: { type: Object, default: () => ({}) }\n  },\n  computed: {\n    initials () {\n      const n = (this.value && this.value.name || '').trim()\n      if (!n) return '?'\n      return n.slice(0, 1).toUpperCase()\n    }\n  }\n}\n</script>\n\n<style lang=\"less\" scoped>\n.rune-rb { display: flex; align-items: center; gap: 16px; }\n.rune-rb__avatar { flex: 0 0 auto; width: 64px; height: 64px; border-radius: 50%; overflow: hidden; background: rgba(126, 87, 194, 0.12); display: flex; align-items: center; justify-content: center; }\n.rune-rb__avatar img { width: 100%; height: 100%; object-fit: cover; }\n.rune-rb__avatar-fallback { color: #6A1B9A; font-size: 24px; font-weight: 700; }\n.rune-rb__main { flex: 1 1 auto; min-width: 0; }\n.rune-rb__name { font-size: 20px; font-weight: 700; color: #222; }\n.rune-rb__title { font-size: 13px; color: #6A1B9A; margin-top: 2px; font-weight: 500; }\n.rune-rb__meta { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 6px; font-size: 12px; color: rgba(0, 0, 0, 0.65); }\n</style>"
+      }
+    },
+    {
+      "kind": "rune-template",
+      "builtin": true,
+      "id": "builtin-tpl-createResumeTitleTemplate",
+      "name": "简历-标题段落",
+      "desc": "段落标题（H1/H2/H3），独立 rune 卡片",
+      "category": "resume",
+      "color": "#5C6BC0",
+      "icon": "title",
+      "sortOrder": 10,
+      "payload": {
+        "template": "<template>\n  <div :class=\"['rune-rt', 'rune-rt--' + level]\">\n    <span class=\"rune-rt__bar\" />\n    <span class=\"rune-rt__text\">{{ (value && value.text) || '标题' }}</span>\n  </div>\n</template>\n\n<script>\nexport default {\n  name: 'RuneResumeTitleSection',\n  props: {\n    value: { type: Object, default: () => ({}) }\n  },\n  computed: {\n    level () {\n      const lv = Number((this.value && value.level) || 2)\n      if (lv === 1) return 'h1'\n      if (lv === 3) return 'h3'\n      return 'h2'\n    }\n  }\n}\n</script>\n\n<style lang=\"less\" scoped>\n.rune-rt { display: flex; align-items: center; gap: 8px; padding: 4px 0; }\n.rune-rt__bar { display: inline-block; width: 4px; height: 16px; background: #7E57C2; border-radius: 2px; }\n.rune-rt__text { color: #333; font-weight: 700; }\n.rune-rt--h1 .rune-rt__text { font-size: 22px; }\n.rune-rt--h1 .rune-rt__bar { height: 20px; }\n.rune-rt--h2 .rune-rt__text { font-size: 16px; }\n.rune-rt--h3 .rune-rt__text { font-size: 13px; color: #555; }\n.rune-rt--h3 .rune-rt__bar { height: 12px; background: #B39DDB; }\n</style>"
+      }
+    },
+    {
+      "kind": "rune-template",
+      "builtin": true,
+      "id": "builtin-tpl-createResumeExperienceTemplate",
+      "name": "简历-时间段经历",
+      "desc": "工作 / 项目经历（职位 / 机构 / 起止 / 描述），独立 rune 卡片",
+      "category": "resume",
+      "color": "#26A69A",
+      "icon": "schedule",
+      "sortOrder": 11,
+      "payload": {
+        "template": "<template>\n  <div class=\"rune-re\">\n    <div class=\"rune-re__head\">\n      <div class=\"rune-re__title\">{{ (value && value.title) || '职位' }}</div>\n      <div class=\"rune-re__time\">\n        <q-icon name=\"schedule\" size=\"0.9em\" class=\"q-mr-xs\" />\n        {{ (value && value.startDate) || '开始' }} ~ {{ value && value.current ? '至今' : ((value && value.endDate) || '结束') }}\n      </div>\n    </div>\n    <div class=\"rune-re__org\">\n      <q-icon name=\"business\" size=\"0.9em\" class=\"q-mr-xs\" />\n      {{ (value && value.org) || '机构' }}\n    </div>\n    <div class=\"rune-re__desc\" v-if=\"value && value.desc\">{{ value.desc }}</div>\n  </div>\n</template>\n\n<script>\nexport default {\n  name: 'RuneResumeExperienceTime',\n  props: {\n    value: { type: Object, default: () => ({}) }\n  }\n}\n</script>\n\n<style lang=\"less\" scoped>\n.rune-re { display: flex; flex-direction: column; gap: 4px; padding: 4px 0; }\n.rune-re__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }\n.rune-re__title { font-size: 14px; font-weight: 600; color: #222; }\n.rune-re__time { font-size: 12px; color: #6A1B9A; white-space: nowrap; }\n.rune-re__org { font-size: 12px; color: rgba(0, 0, 0, 0.65); }\n.rune-re__desc { font-size: 12px; color: rgba(0, 0, 0, 0.75); line-height: 1.6; white-space: pre-wrap; }\n</style>"
+      }
+    },
+    {
+      "kind": "rune-template",
+      "builtin": true,
+      "id": "builtin-tpl-createResumeTextTemplate",
+      "name": "简历-自由文本",
+      "desc": "自我介绍 / 备注，多行文本，独立 rune 卡片",
+      "category": "resume",
+      "color": "#4FC3F7",
+      "icon": "subject",
+      "sortOrder": 12,
+      "payload": {
+        "template": "<template>\n  <div class=\"rune-rtx\">\n    <div class=\"rune-rtx__text\" v-if=\"value && value.text\">{{ value.text }}</div>\n    <div class=\"rune-rtx__placeholder\" v-else>自由文本组件，点击编辑...</div>\n  </div>\n</template>\n\n<script>\nexport default {\n  name: 'RuneResumeTextContent',\n  props: {\n    value: { type: Object, default: () => ({}) }\n  }\n}\n</script>\n\n<style lang=\"less\" scoped>\n.rune-rtx { padding: 4px 0; }\n.rune-rtx__text { font-size: 13px; color: rgba(0, 0, 0, 0.8); line-height: 1.7; white-space: pre-wrap; }\n.rune-rtx__placeholder { font-size: 12px; color: rgba(0, 0, 0, 0.35); font-style: italic; }\n</style>"
+      }
+    },
+    {
+      "kind": "rune-template",
+      "builtin": true,
+      "id": "builtin-tpl-createResumeSkillTemplate",
+      "name": "简历-技能标签",
+      "desc": "技能名 + 熟练度进度条，独立 rune 卡片",
+      "category": "resume",
+      "color": "#FFB300",
+      "icon": "insights",
+      "sortOrder": 13,
+      "payload": {
+        "template": "<template>\n  <div class=\"rune-rs\">\n    <div v-for=\"(s, i) in items\" :key=\"i\" class=\"rune-rs__row\">\n      <div class=\"rune-rs__name\">{{ s.name }}</div>\n      <el-progress\n        class=\"rune-rs__bar\"\n        :percentage=\"clamp(s.level)\"\n        :show-text=\"false\"\n        :stroke-width=\"8\"\n        color=\"#7E57C2\"\n      />\n      <div class=\"rune-rs__val\">{{ clamp(s.level) }}%</div>\n    </div>\n    <div v-if=\"!items.length\" class=\"rune-rs__empty\">暂无技能</div>\n  </div>\n</template>\n\n<script>\nexport default {\n  name: 'RuneResumeSkillBar',\n  props: {\n    value: { type: Object, default: () => ({ items: [] }) }\n  },\n  computed: {\n    items () {\n      return Array.isArray(this.value && this.value.items) ? this.value.items : []\n    }\n  },\n  methods: {\n    clamp (v) {\n      const n = Number(v)\n      if (!isFinite(n)) return 0\n      return Math.max(0, Math.min(100, Math.round(n)))\n    }\n  }\n}\n</script>\n\n<style lang=\"less\" scoped>\n.rune-rs { display: flex; flex-direction: column; gap: 8px; }\n.rune-rs__row { display: flex; align-items: center; gap: 10px; }\n.rune-rs__name { flex: 0 0 100px; font-size: 12px; color: #333; font-weight: 500; }\n.rune-rs__bar { flex: 1 1 auto; min-width: 0; height: 8px; background: rgba(126, 87, 194, 0.12); border-radius: 4px; overflow: hidden; }\n.rune-rs__bar-inner { height: 100%; background: #7E57C2; transition: width 0.25s; }\n.rune-rs__val { flex: 0 0 40px; text-align: right; font-size: 11px; color: #6A1B9A; font-family: Consolas, Monaco, monospace; }\n.rune-rs__empty { font-size: 12px; color: rgba(0, 0, 0, 0.35); font-style: italic; }\n</style>"
+      }
+    },
+    {
+      "kind": "echo",
+      "builtin": true,
+      "id": "__builtin_nice__",
+      "name": "nice",
+      "desc": "把所在行除 @nice 之外的文本用 <mark> 包裹",
+      "category": "builtin",
+      "color": "#4CAF50",
+      "icon": "thumb_up",
+      "sortOrder": 0,
+      "payload": {
+        "annoSource": "export default {\n  //   【nice】 —— 把所在行 / block 内除 @nice 之外的节点用 <mark> 包裹\n  //   使用示例：\n  //     - 你好世界 @nice              → li 内「你好世界」被 <mark> 高亮\n  //     # 今天天气真好 @nice          → h1 文本被 <mark> 高亮\n  //     普通段落 xxx @nice            → p 文本被 <mark> 高亮,\n  type: 'echo-chant',\n  field: 'nice',\n  title: 'nice',\n  version: 1,\n\n  props: {},\n\n  render (props = {}) {\n    return '<span class=\"ag-echo-placeholder-marker\"><span class=\"ag-echo-anno-at\" contenteditable=\"false\">@</span><span class=\"ag-echo-anno-name ag-rune ag-rune--nice\" contenteditable=\"false\" data-echo-chant-id=\"nice\">nice</span></span>'\n  },\n\n  //   【handler】把 block 内除 @nice 之外的节点用 <mark> 包起来\n  afterRender (node, props = {}) {\n    \n    const $rune = $(node)\n    if (!$rune.length) return\n    const $prev = $rune.prev()\n    if (!$prev.length) return\n    const $parent = $prev.parent()\n    if ($parent.attr('data-nice-marked')) return\n    const $mark = $('<mark class=\"ag-rune-nice-highlight\"></mark>').append($prev.clone())\n    $prev.replaceWith($mark)\n    $parent.attr('data-nice-marked', 'true')\n  }\n}",
+        "renderType": "anno"
+      }
+    },
+    {
+      "kind": "echo",
+      "builtin": true,
+      "id": "__builtin_growth__",
+      "name": "生生不息",
+      "desc": "为附近符合条件的元素加上生长的动画特效",
+      "category": "showy",
+      "color": "#43A047",
+      "icon": "park",
+      "sortOrder": 1,
+      "payload": {
+        "annoSource": "export default {\n  //   【生生不息 / growth】 —— 给附近符合条件的元素加上\"生长\"的动画特效\n  //   影响范围（scope）：\n  //     - siblings(默认)   同段落或同 block 的兄弟节点\n  //     - prev-block       前一块兄弟节点\n  //     - block            当前 block（含自身）\n  //     - document         整篇容器\n  //   命中元素（target）：CSS 选择器，默认 p/pre/h1~h6/li/blockquote/table\n  //   触发方式（trigger）：auto=自动 stagger；manual=需要外部触发器\n  //   示例：@生生不息{scope: \"siblings\", trigger: \"manual\", target: \"p, li\"}(春风吹又生),\n  type: 'echo-chant',\n  field: 'growth',\n  title: '生生不息',\n  version: 1,\n\n  props: {\"scope\":\"siblings\",\"trigger\":\"auto\",\"target\":\"[data-block-type], p, pre, li, h1, h2, h3, h4, h5, h6, blockquote, table\"},\n\n  render (props = {}) {\n    return '<span class=\"ag-echo-placeholder-marker\"><span class=\"ag-echo-anno-at\" contenteditable=\"false\">@</span><span class=\"ag-echo-anno-name ag-rune ag-rune--growth\" contenteditable=\"false\" data-echo-chant-id=\"growth\">生生不息</span></span>'\n  },\n\n  //   【handler】自动给目标元素加生长动画；trigger=auto 时按 index 设置 stagger delay\n  afterRender (node, props = {}) {\n    \n    const mergedProps = Object.assign({ scope: 'siblings', trigger: 'auto', target: '[data-block-type], p, pre, li, h1, h2, h3, h4, h5, h6, blockquote, table' }, props || {})\n    const targetSelector = mergedProps.target\n    const $container = $(node).closest('[data-block-type], .mu-block, p, pre, li, h1, h2, h3, h4, h5, h6, blockquote, table, ul, ol').parent()\n    if (!$container.length) return () => {}\n    const container = $container.get(0)\n    const $targets = $(container).find(targetSelector)\n    $targets.each((i, el) => {\n      $(el).addClass('ag-rune-growth-target')\n      if (mergedProps.trigger === 'auto') $(el).css('--ag-rune-growth-delay', (Math.min(i, 8) * 120) + 'ms')\n    })\n    $(node).addClass('ag-rune-growth-active')\n    return () => {\n      $targets.removeClass('ag-rune-growth-target').css('--ag-rune-growth-delay', '')\n      $(node).removeClass('ag-rune-growth-active')\n    }\n  }\n}",
+        "renderType": "anno"
+      }
+    },
+    {
+      "kind": "echo",
+      "builtin": true,
+      "id": "__builtin_shatter__",
+      "name": "破万法",
+      "desc": "使附近一行或一个块的回响作用都失效",
+      "category": "showy",
+      "color": "#E53935",
+      "icon": "block",
+      "sortOrder": 2,
+      "payload": {
+        "annoSource": "export default {\n  //   【破万法 / shatter】 —— 让附近一行或一个块的回响作用都失效\n  //   影响范围（target）：line(默认) 同段落的兄弟 echo；block 整个当前 block\n  //   示例：@破万法{target: \"block\"}(此段一切回响失效),\n  type: 'echo-chant',\n  field: 'shatter',\n  title: '破万法',\n  version: 1,\n\n  props: {},\n\n  render (props = {}) {\n    return '<span class=\"ag-echo-placeholder-marker\"><span class=\"ag-echo-anno-at\" contenteditable=\"false\">@</span><span class=\"ag-echo-anno-name ag-rune ag-rune--shatter\" contenteditable=\"false\" data-echo-chant-id=\"shatter\">破万法</span></span>'\n  },\n\n  //   【handler】target=line 时屏蔽同段 echo；target=block 时屏蔽整个 block 内的 echo\n  afterRender (node, props = {}) {\n    \n    const mergedProps = Object.assign({ target: 'line' }, props || {})\n    const $rune = $(node)\n    const $scopeRoot = mergedProps.target === 'block'\n      ? $rune.closest('[data-block-type], .mu-block, p, pre, li, h1, h2, h3, h4, h5, h6, blockquote')\n      : $rune.parent()\n    if (!$scopeRoot.length) return () => {}\n    const $echoes = $scopeRoot.find('[data-echo-inline=\"true\"]').filter((_i, n) => n !== node)\n    $echoes.attr('data-shatter-disabled', 'true').addClass('ag-rune-shatter-disabled')\n    $rune.addClass('ag-rune-shatter-active')\n    return () => {\n      $echoes.removeAttr('data-shatter-disabled').removeClass('ag-rune-shatter-disabled')\n      $rune.removeClass('ag-rune-shatter-active')\n    }\n  }\n}",
+        "renderType": "anno"
+      }
+    },
+    {
+      "kind": "echo",
+      "builtin": true,
+      "id": "__builtin_skywalk__",
+      "name": "天行健",
+      "desc": "强化排版并指定某种主题",
+      "category": "showy",
+      "color": "#1E88E5",
+      "icon": "auto_awesome",
+      "sortOrder": 3,
+      "payload": {
+        "annoSource": "export default {\n  //   【天行健 / skywalk】 —— 强化排版并切换主题（document 级别）\n  //   参数：theme(light/dark/sepia/auto) + layout(compact/enhanced/luxe)\n  //   CSS 钩子：data-skywalk-theme / data-skywalk-layout\n  //   示例：@天行健{theme: \"sepia\", layout: \"luxe\"}(本文走浓郁路线),\n  type: 'echo-chant',\n  field: 'skywalk',\n  title: '天行健',\n  version: 1,\n\n  props: {},\n\n  render (props = {}) {\n    return '<span class=\"ag-echo-placeholder-marker\"><span class=\"ag-echo-anno-at\" contenteditable=\"false\">@</span><span class=\"ag-echo-anno-name ag-rune ag-rune--skywalk\" contenteditable=\"false\" data-echo-chant-id=\"skywalk\">天行健</span></span>'\n  },\n\n  //   【handler】document scope：记忆原 theme/layout，cleanup 时还原\n  afterRender (node, props = {}) {\n    \n    const mergedProps = Object.assign({ theme: 'auto', layout: 'enhanced' }, props || {})\n    const $root = $(node).closest('[data-echo-document], .mu-editor, article, [data-doc-id]').first()\n    if (!$root.length) return () => {}\n    const root = $root.get(0)\n    const prev = {\n      theme: root.getAttribute('data-skywalk-theme'),\n      layout: root.getAttribute('data-skywalk-layout')\n    }\n    $root.attr('data-skywalk-theme', mergedProps.theme).attr('data-skywalk-layout', mergedProps.layout)\n    $(node).addClass('ag-rune-skywalk-active')\n    return () => {\n      if (prev.theme === null) $root.removeAttr('data-skywalk-theme')\n      else $root.attr('data-skywalk-theme', prev.theme)\n      if (prev.layout === null) $root.removeAttr('data-skywalk-layout')\n      else $root.attr('data-skywalk-layout', prev.layout)\n      $(node).removeClass('ag-rune-skywalk-active')\n    }\n  }\n}",
+        "renderType": "anno"
+      }
+    },
+    {
+      "kind": "echo",
+      "builtin": true,
+      "id": "__builtin_twinbloom__",
+      "name": "双生花",
+      "desc": "复制前/后一个 block 并生成占位副本",
+      "category": "showy",
+      "color": "#8E24AA",
+      "icon": "local_florist",
+      "sortOrder": 4,
+      "payload": {
+        "annoSource": "export default {\n  //   【双生花 / twinbloom】 —— 用 jQuery .clone() 复制「上一个元素 / 上一行」作占位\n  //   【核心】影响范围 source：\n  //     - prev-sibling(默认) 同行上一个 inline / element 兄弟节点\n  //     - prev-line          上一行 block 节点\n  //     - next-line          下一行 block 节点\n  //   参数：placeholderText=占位文本（若被克隆节点没有可见文本则用此填充）\n  //   示例：@twinbloom{source: \"prev-line\"}(克隆上一行),\n  type: 'echo-chant',\n  field: 'twinbloom',\n  title: '双生花',\n  version: 1,\n\n  props: {},\n\n  render (props = {}) {\n    return '<span class=\"ag-echo-placeholder-marker\"><span class=\"ag-echo-anno-at\" contenteditable=\"false\">@</span><span class=\"ag-echo-anno-name ag-rune ag-rune--twinbloom\" contenteditable=\"false\" data-echo-chant-id=\"twinbloom\">双生花</span></span>'\n  },\n\n  //   【handler】jQuery .clone()：按 source 复制 prev-sibling / prev-line / next-line；cleanup 时移除克隆块\n  afterRender (node, props = {}) {\n    \n    const $rune = $(node)\n    if (!$rune.length) return () => {}\n    const mergedProps = Object.assign({ source: 'prev-sibling', placeholderText: '双生节点' }, props || {})\n    const source = String(mergedProps.source || 'prev-sibling').toLowerCase()\n    const placeholderText = mergedProps.placeholderText || '双生节点'\n    const twinId = $rune.attr('data-echo-chant-id') || 'twinbloom'\n    const $block = $rune.closest('[data-block-type], .mu-block, p, pre, li, h1, h2, h3, h4, h5, h6, blockquote').first()\n    if (!$block.length) return () => {}\n    let $src, $target, insertBefore = false\n    if (source === 'prev-line' || source === 'prev-block') {\n      $src = $block.prev(); $target = $block\n    } else if (source === 'next-line' || source === 'next-block') {\n      $src = $block.next(); $target = $block; insertBefore = true\n    } else {\n      $src = $rune.prevAll(':not([data-echo-chant-id]):not(mark):not(.ag-rune)').first()\n      if (!$src.length) $src = $block\n      $target = $rune\n    }\n    if (!$src.length) return () => {}\n    const $neighbor = insertBefore ? $target.prev() : $target.next()\n    let $clone = $neighbor.filter(function () { return this.getAttribute('data-twinbloom-of') === twinId })\n    let existedBefore = $clone.length > 0\n    if (!existedBefore) {\n      $clone = $src.clone(true)\n        .attr('data-twinbloom-of', twinId)\n        .attr('data-twinbloom-source', source)\n        .attr('contenteditable', 'false')\n        .addClass('ag-rune-twinbloom-clone')\n        .css({ outline: '2px dashed #8E24AA', 'outline-offset': '2px',\n          'background-color': 'rgba(142,36,170,0.06)', 'border-radius': '6px',\n          padding: '8px 12px' })\n      if (!$clone.find('[data-twinbloom-badge]').length) {\n        $clone.prepend(\n          $('<span></span>').attr('data-twinbloom-badge', twinId)\n            .text('🌸 双生花 · ' + placeholderText)\n            .css({ 'font-size': '11px', color: '#8E24AA',\n              padding: '2px 8px', 'background-color': 'rgba(142,36,170,.12)',\n              border: '1px solid rgba(142,36,170,.4)', 'border-radius': '4px',\n              display: 'inline-block', 'margin-bottom': '6px' })\n        )\n      }\n      if (!$clone.text().replace(/🌸.*$/, '').trim()) {\n        $clone.append($('<span></span>').attr('data-twinbloom-placeholder', 'true').text(placeholderText))\n      }\n      insertBefore ? $target.before($clone) : $target.after($clone)\n    }\n    $rune.addClass('ag-rune-twinbloom-active')\n    return () => {\n      if (!existedBefore) $clone.remove()\n      $rune.removeClass('ag-rune-twinbloom-active')\n    }\n  }\n}",
+        "renderType": "anno"
+      }
+    },
+    {
+      "kind": "echo",
+      "builtin": true,
+      "id": "__builtin_mindsteal__",
+      "name": "夺心魄",
+      "desc": "使附近符合条件的咏唱叠加或篡改某种制定的效果",
+      "category": "showy",
+      "color": "#F4511E",
+      "icon": "psychology",
+      "sortOrder": 5,
+      "payload": {
+        "annoSource": "export default {\n  //   【夺心魄 / mindsteal】 —— 篡改附近符合条件的符文效果\n  //   参数：mode=override|stack|disable；targets=其它 id（逗号分隔）\n  //   示例：@夺心魄{mode: \"disable\", targets: \"growth,skywalk\"}(覆盖附近的生长与主题),\n  type: 'echo-chant',\n  field: 'mindsteal',\n  title: '夺心魄',\n  version: 1,\n\n  props: {},\n\n  render (props = {}) {\n    return '<span class=\"ag-echo-placeholder-marker\"><span class=\"ag-echo-anno-at\" contenteditable=\"false\">@</span><span class=\"ag-echo-anno-name ag-rune ag-rune--mindsteal\" contenteditable=\"false\" data-echo-chant-id=\"mindsteal\">夺心魄</span></span>'\n  },\n\n  //   【handler】mode=disable 直接停掉动画；targets 为空时作用于所有 echo-chant\n  afterRender (node, props = {}) {\n    \n    const mergedProps = Object.assign({ mode: 'override', targets: '' }, props || {})\n    const targetsCsv = String(mergedProps.targets || '').trim()\n    const targets = targetsCsv ? targetsCsv.split(',').map(s => s.trim()).filter(Boolean) : null\n    const $scope = $(node).parent()\n    if (!$scope.length) return () => {}\n    const $candidates = $scope.find('[data-echo-chant-id]')\n      .filter((_i, n) => n !== node)\n      .filter((_i, n) => !targets || targets.indexOf($(n).attr('data-echo-chant-id')) !== -1)\n    $candidates.each((_i, n) => {\n      $(n).attr('data-mindsteal-mode', mergedProps.mode)\n      if (mergedProps.mode === 'disable') $(n).css('animation', 'none', 'important')\n    })\n    $(node).addClass('ag-rune-mindsteal-active')\n    return () => {\n      $candidates.removeAttr('data-mindsteal-mode').css('animation', '')\n      $(node).removeClass('ag-rune-mindsteal-active')\n    }\n  }\n}",
+        "renderType": "anno"
+      }
+    },
+    {
+      "kind": "echo",
+      "builtin": true,
+      "id": "__builtin_lucky__",
+      "name": "强运",
+      "desc": "点击后触发 AI 识别当前 Markdown 的错别字并修正",
+      "category": "showy",
+      "color": "#FB8C00",
+      "icon": "casino",
+      "sortOrder": 6,
+      "payload": {
+        "annoSource": "export default {\n  //   【强运 / lucky】 —— 点击触发 AI 校对，是\"事件型 echo-chant\"样板\n  //   事件流：handler 给节点加 role=button / tabindex=0；点击时调用\n  //     window.__memocastEchoChantHandlers.lucky({node, props})，由应用层注册回调\n  //   示例：@强运{model: \"gpt-4o-mini\", action: \"ai-proofread\"}(一键润色),\n  type: 'echo-chant',\n  field: 'lucky',\n  title: '强运',\n  version: 1,\n\n  props: {},\n\n  render (props = {}) {\n    return '<span class=\"ag-echo-placeholder-marker\"><span class=\"ag-echo-anno-at\" contenteditable=\"false\">@</span><span class=\"ag-echo-anno-name ag-rune ag-rune--lucky\" contenteditable=\"false\" data-echo-chant-id=\"lucky\">强运</span></span>'\n  },\n\n  //   【handler】事件型：cleanup 必须解绑 + 移除属性；callback 走 window.__memocastEchoChantHandlers.lucky（应用层注册）\n  afterRender (node, props = {}) {\n    \n    const mergedProps = Object.assign({ label: '点击触发 AI 校对' }, props || {})\n    const $rune = $(node)\n    $rune.css('cursor', 'pointer').attr('role', 'button').attr('tabindex', '0')\n      .attr('title', mergedProps.label).addClass('ag-rune-lucky-active')\n    const trigger = async (ev) => {\n      ev.preventDefault(); ev.stopPropagation()\n      $rune.addClass('ag-rune-lucky-loading')\n      try {\n        const handler = (typeof window !== 'undefined')\n          ? (window.__memocastEchoChantHandlers && window.__memocastEchoChantHandlers.lucky)\n          : null\n        if (typeof handler === 'function') await handler({ node, props })\n        else console.info('[lucky] no window.__memocastEchoChantHandlers.lucky registered')\n      } catch (err) { console.error('[lucky] handler failed:', err) }\n      finally { $rune.removeClass('ag-rune-lucky-loading') }\n    }\n    const onClick = (ev) => trigger(ev)\n    const onKey = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') trigger(ev) }\n    $rune.on('click', onClick).on('keydown', onKey)\n    return () => {\n      $rune.off('click', onClick).off('keydown', onKey)\n        .removeClass('ag-rune-lucky-active ag-rune-lucky-loading')\n        .css('cursor', '').removeAttr('role').removeAttr('tabindex').removeAttr('title')\n    }\n  }\n}",
+        "renderType": "anno"
+      }
+    },
+    {
+      "kind": "echo",
+      "builtin": true,
+      "id": "__builtin_scapegoat__",
+      "name": "替罪",
+      "desc": "在作用域内接住后续 echo / DOM 抛出的错误，并以受伤态提示",
+      "category": "showy",
+      "color": "#6D4C41",
+      "icon": "shield",
+      "sortOrder": 7,
+      "payload": {
+        "annoSource": "export default {\n  //   【替罪 / scapegoat】 —— 作用域内的\"救场位\"\n  //   回响种类：echo-chant（影响附近元素、做防灾 / 占位 / 兜底）\n  //   语义：把最近 block 标为 standby；后续 echo / DOM 抛错时把 standby 转 injured，错误写到 data-scapegoat-error\n  //   模仿提示：把 props.intensity 改成 0.5 可以让 standby 默认变 injured（模拟\"已知错误\"）,\n  type: 'echo-chant',\n  field: 'scapegoat',\n  title: '替罪',\n  version: 1,\n\n  props: {},\n\n  render (props = {}) {\n    return '<span class=\"ag-echo-placeholder-marker\"><span class=\"ag-echo-anno-at\" contenteditable=\"false\">@</span><span class=\"ag-echo-anno-name ag-rune ag-rune--scapegoat\" contenteditable=\"false\" data-echo-chant-id=\"scapegoat\">替罪</span></span>'\n  },\n\n  //   【handler】cleanup：移除监听 + 移除 standby/injured 状态\n  afterRender (node, props = {}) {\n    \n    const $block = $(node).closest('[data-block-type], .mu-block, p, pre, li, h1, h2, h3, h4, h5, h6, blockquote, table, ul, ol').first()\n    if (!$block.length) return () => {}\n    const intensity = Number(props.intensity) || 0\n    if (intensity > 0) {\n      $block.addClass('ag-rune-scapegoat-injured').attr('data-scapegoat-error', props.error || 'pre-injured by intensity')\n    } else {\n      $block.addClass('ag-rune-scapegoat-standby')\n    }\n    const onError = (event) => {\n      $block.removeClass('ag-rune-scapegoat-standby').addClass('ag-rune-scapegoat-injured')\n        .attr('data-scapegoat-error', (event && event.message) || 'unknown error')\n    }\n    const onRuneError = (event) => {\n      const detail = event && event.detail\n      if (!detail) return\n      $block.removeClass('ag-rune-scapegoat-standby').addClass('ag-rune-scapegoat-injured')\n        .attr('data-scapegoat-rune-error', String(detail.id || 'unknown'))\n    }\n    if (typeof window !== 'undefined') {\n      window.addEventListener('error', onError, true)\n      window.addEventListener('ag:rune:error', onRuneError)\n    }\n    return () => {\n      if (typeof window !== 'undefined') {\n        window.removeEventListener('error', onError, true)\n        window.removeEventListener('ag:rune:error', onRuneError)\n      }\n      $block.removeClass('ag-rune-scapegoat-standby ag-rune-scapegoat-injured')\n        .removeAttr('data-scapegoat-error').removeAttr('data-scapegoat-rune-error')\n    }\n  }\n}",
+        "renderType": "anno"
+      }
+    },
+    {
+      "kind": "echo",
+      "builtin": true,
+      "id": "__builtin_calamity__",
+      "name": "招灾",
+      "desc": "在作用域内随机给文字片段染上哥特渐变彩",
+      "category": "showy",
+      "color": "#5E35B1",
+      "icon": "thunderstorm",
+      "sortOrder": 8,
+      "payload": {
+        "annoSource": "export default {\n  //   【招灾 / calamity】 —— \"随机哥德\"：作用域内随机给文字片段染上哥特渐变彩\n  //   回响种类：echo-chant\n  //   参数：intensity = 0.1-0.8 的小数（默认 0.3，最大 0.8）\n  //   CSS 钩子：.ag-rune-calamity-gothic\n  //   示例：@招灾{intensity: 0.5}(周围一半文字染彩),\n  type: 'echo-chant',\n  field: 'calamity',\n  title: '招灾',\n  version: 1,\n\n  props: {},\n\n  render (props = {}) {\n    return '<span class=\"ag-echo-placeholder-marker\"><span class=\"ag-echo-anno-at\" contenteditable=\"false\">@</span><span class=\"ag-echo-anno-name ag-rune ag-rune--calamity\" contenteditable=\"false\" data-echo-chant-id=\"calamity\">招灾</span></span>'\n  },\n\n  //   【handler】cleanup：取消染彩 class\n  afterRender (node, props = {}) {\n    \n    const scope = props.scope || 'siblings'\n    const $scope = scope === 'block'\n      ? $(node).closest('[data-block-type], .mu-block, p, pre, li, h1, h2, h3, h4, h5, h6, blockquote')\n      : $(node).parent()\n    if (!$scope.length) return () => {}\n    const intensity = Math.max(0.05, Math.min(0.8, Number(props.intensity) || 0.3))\n    const textHosts = $scope.find('p, h1, h2, h3, h4, h5, h6, li, blockquote, td, th, dd, dt')\n      .filter((_i, el) => el && el !== node && $(el).text().trim().length >= 2)\n      .get()\n    if (!textHosts.length) return () => {}\n    const targetCount = Math.max(1, Math.floor(textHosts.length * intensity))\n    const pool = textHosts.slice()\n    for (let i = pool.length - 1; i > 0; i--) {\n      const j = Math.floor(Math.random() * (i + 1))\n      const tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp\n    }\n    const picked = pool.slice(0, Math.min(targetCount, pool.length))\n    $(picked).addClass('ag-rune-calamity-gothic')\n    return () => { $(picked).removeClass('ag-rune-calamity-gothic') }\n  }\n}",
+        "renderType": "anno"
+      }
+    },
+    {
+      "kind": "echo",
+      "builtin": true,
+      "id": "__builtin_disperse__",
+      "name": "离析",
+      "desc": "使附近的元素使用更加宽松的排版",
+      "category": "showy",
+      "color": "#00897B",
+      "icon": "call_split",
+      "sortOrder": 9,
+      "payload": {
+        "annoSource": "export default {\n  //   【离析 / disperse】 —— 让附近元素使用更宽松排版（block 级别）\n  //   参数：density=tight|normal|loose（loose 是默认）\n  //   CSS 钩子：data-disperse-density\n  //   示例：@离析{density: \"tight\"}(回归紧凑排版),\n  type: 'echo-chant',\n  field: 'disperse',\n  title: '离析',\n  version: 1,\n\n  props: {},\n\n  render (props = {}) {\n    return '<span class=\"ag-echo-placeholder-marker\"><span class=\"ag-echo-anno-at\" contenteditable=\"false\">@</span><span class=\"ag-echo-anno-name ag-rune ag-rune--disperse\" contenteditable=\"false\" data-echo-chant-id=\"disperse\">离析</span></span>'\n  },\n\n  //   【handler】block scope 写 data-disperse-density；CSS 据此调整 line-height/margin\n  afterRender (node, props = {}) {\n    \n    const mergedProps = Object.assign({ density: 'loose' }, props || {})\n    const $block = $(node).closest('[data-block-type], .mu-block, p, pre, li, h1, h2, h3, h4, h5, h6, blockquote').first()\n    if (!$block.length) return () => {}\n    const previous = $block.attr('data-disperse-density')\n    $block.attr('data-disperse-density', mergedProps.density)\n    $(node).addClass('ag-rune-disperse-active')\n    return () => {\n      if (previous === undefined) $block.removeAttr('data-disperse-density')\n      else $block.attr('data-disperse-density', previous)\n      $(node).removeClass('ag-rune-disperse-active')\n    }\n  }\n}",
+        "renderType": "anno"
+      }
+    },
+    {
+      "kind": "echo",
+      "builtin": true,
+      "id": "__builtin_peek__",
+      "name": "peek",
+      "desc": "高亮展示内容，支持折叠展开",
+      "category": "builtin",
+      "color": "#FF7043",
+      "icon": "visibility",
+      "sortOrder": 10,
+      "payload": {
+        "annoSource": "export default {\n  //   【peek】 —— 高亮展示内容，支持折叠展开\n  //   参数：collapsed=true|false（默认 false），level=1-3（高亮强度）\n  //   CSS 钩子：ag-rune-peek, ag-rune-peek-collapsed\n  //   示例：@peek{collapsed: true}(折叠展示),\n  type: 'echo-chant',\n  field: 'peek',\n  title: 'peek',\n  version: 1,\n\n  props: {},\n\n  render (props = {}) {\n    return '<span class=\"ag-echo-placeholder-marker\"><span class=\"ag-echo-anno-at\" contenteditable=\"false\">@</span><span class=\"ag-echo-anno-name ag-rune ag-rune--peek\" contenteditable=\"false\" data-echo-chant-id=\"peek\">peek</span></span>'\n  },\n\n  //   【handler】添加高亮 class，可交互折叠\n  afterRender (node, props = {}) {\n    \n    const mergedProps = Object.assign({ collapsed: false, level: 1 }, props || {})\n    const $rune = $(node)\n    const level = Math.max(1, Math.min(3, Number(mergedProps.level) || 1))\n    $rune.addClass('ag-rune-peek ag-rune-peek-level-' + level)\n    if (mergedProps.collapsed) $rune.addClass('ag-rune-peek-collapsed')\n    return () => {\n      $rune.removeClass('ag-rune-peek ag-rune-peek-collapsed ag-rune-peek-level-1 ag-rune-peek-level-2 ag-rune-peek-level-3')\n    }\n  }\n}",
+        "renderType": "anno"
+      }
+    },
+    {
+      "kind": "echo",
+      "builtin": true,
+      "id": "__builtin_ignore__",
+      "name": "ignore",
+      "desc": "标记为可忽略内容，视觉淡化",
+      "category": "builtin",
+      "color": "#90A4AE",
+      "icon": "visibility_off",
+      "sortOrder": 11,
+      "payload": {
+        "annoSource": "export default {\n  //   【ignore】 —— 标记为可忽略内容，视觉淡化\n  //   参数：opacity=0.1-1（淡化透明度，默认 0.4）\n  //   CSS 钩子：ag-rune-ignore\n  //   示例：@ignore{opacity: 0.3}(淡化次要内容),\n  type: 'echo-chant',\n  field: 'ignore',\n  title: 'ignore',\n  version: 1,\n\n  props: {},\n\n  render (props = {}) {\n    return '<span class=\"ag-echo-placeholder-marker\"><span class=\"ag-echo-anno-at\" contenteditable=\"false\">@</span><span class=\"ag-echo-anno-name ag-rune ag-rune--ignore\" contenteditable=\"false\" data-echo-chant-id=\"ignore\">ignore</span></span>'\n  },\n\n  //   【handler】降低 block 透明度，cleanup 时还原\n  afterRender (node, props = {}) {\n    \n    const mergedProps = Object.assign({ opacity: 0.4 }, props || {})\n    const $block = $(node).closest('[data-block-type], .mu-block, p, pre, li, h1, h2, h3, h4, h5, h6, blockquote').first()\n    if (!$block.length) return () => {}\n    const prevOpacity = $block.css('opacity') || '1'\n    $block.addClass('ag-rune-ignore').css('opacity', mergedProps.opacity)\n    return () => {\n      $block.removeClass('ag-rune-ignore').css('opacity', prevOpacity)\n    }\n  }\n}",
+        "renderType": "anno"
+      }
+    },
+    {
+      "kind": "echo",
+      "builtin": true,
+      "id": "__builtin_ad__",
+      "name": "ad",
+      "desc": "插入广告占位或标注为广告内容",
+      "category": "builtin",
+      "color": "#FFB300",
+      "icon": "campaign",
+      "sortOrder": 12,
+      "payload": {
+        "annoSource": "export default {\n  //   【ad】 —— 插入广告占位或标注为广告内容\n  //   参数：type=banner|inline|sidebar（默认 banner）\n  //   CSS 钩子：ag-rune-ad, ag-rune-ad-banner, ag-rune-ad-inline, ag-rune-ad-sidebar\n  //   示例：@ad{type: \"inline\"}(内联广告标注),\n  type: 'echo-chant',\n  field: 'ad',\n  title: 'ad',\n  version: 1,\n\n  props: {},\n\n  render (props = {}) {\n    return '<span class=\"ag-echo-placeholder-marker\"><span class=\"ag-echo-anno-at\" contenteditable=\"false\">@</span><span class=\"ag-echo-anno-name ag-rune ag-rune--ad\" contenteditable=\"false\" data-echo-chant-id=\"ad\">ad</span></span>'\n  },\n\n  //   【handler】添加广告标记样式\n  afterRender (node, props = {}) {\n    \n    const mergedProps = Object.assign({ type: 'banner' }, props || {})\n    const $block = $(node).closest('[data-block-type], .mu-block, p, pre, li, h1, h2, h3, h4, h5, h6, blockquote').first()\n    if (!$block.length) return () => {}\n    const adType = String(mergedProps.type || 'banner').toLowerCase()\n    $block.addClass('ag-rune-ad ag-rune-ad-' + adType)\n    return () => {\n      $block.removeClass('ag-rune-ad ag-rune-ad-banner ag-rune-ad-inline ag-rune-ad-sidebar')\n    }\n  }\n}",
+        "renderType": "anno"
+      }
+    },
+    {
+      "kind": "echo",
+      "builtin": true,
+      "id": "__builtin_diff__",
+      "name": "diff",
+      "desc": "标记差异对比内容",
+      "category": "builtin",
+      "color": "#7E57C2",
+      "icon": "difference",
+      "sortOrder": 13,
+      "payload": {
+        "annoSource": "export default {\n  //   【diff】 —— 标记差异对比内容\n  //   参数：mode=add|remove|change（默认 change）\n  //   CSS 钩子：ag-rune-diff, ag-rune-diff-add, ag-rune-diff-remove, ag-rune-diff-change\n  //   示例：@diff{mode: \"add\"}(新增内容),\n  type: 'echo-chant',\n  field: 'diff',\n  title: 'diff',\n  version: 1,\n\n  props: {},\n\n  render (props = {}) {\n    return '<span class=\"ag-echo-placeholder-marker\"><span class=\"ag-echo-anno-at\" contenteditable=\"false\">@</span><span class=\"ag-echo-anno-name ag-rune ag-rune--diff\" contenteditable=\"false\" data-echo-chant-id=\"diff\">diff</span></span>'\n  },\n\n  //   【handler】添加 diff 标记样式\n  afterRender (node, props = {}) {\n    \n    const mergedProps = Object.assign({ mode: 'change' }, props || {})\n    const $block = $(node).closest('[data-block-type], .mu-block, p, pre, li, h1, h2, h3, h4, h5, h6, blockquote').first()\n    if (!$block.length) return () => {}\n    const diffMode = String(mergedProps.mode || 'change').toLowerCase()\n    $block.addClass('ag-rune-diff ag-rune-diff-' + diffMode)\n    return () => {\n      $block.removeClass('ag-rune-diff ag-rune-diff-add ag-rune-diff-remove ag-rune-diff-change')\n    }\n  }\n}",
+        "renderType": "anno"
+      }
+    },
+    {
+      "kind": "echo",
+      "builtin": true,
+      "id": "__builtin_ref__",
+      "name": "ref",
+      "desc": "标记为参考资料，可跳转链接",
+      "category": "builtin",
+      "color": "#29B6F6",
+      "icon": "link",
+      "sortOrder": 14,
+      "payload": {
+        "annoSource": "export default {\n  //   【ref】 —— 标记为参考资料，可跳转链接\n  //   参数：url=外部链接（可选），title=标题（可选）\n  //   CSS 钩子：ag-rune-ref\n  //   示例：@ref{url: \"https://...\"}(参考资料),\n  type: 'echo-chant',\n  field: 'ref',\n  title: 'ref',\n  version: 1,\n\n  props: {},\n\n  render (props = {}) {\n    return '<span class=\"ag-echo-placeholder-marker\"><span class=\"ag-echo-anno-at\" contenteditable=\"false\">@</span><span class=\"ag-echo-anno-name ag-rune ag-rune--ref\" contenteditable=\"false\" data-echo-chant-id=\"ref\">ref</span></span>'\n  },\n\n  //   【handler】添加参考标记样式，可点击跳转\n  afterRender (node, props = {}) {\n    \n    const mergedProps = Object.assign({ url: '', title: '' }, props || {})\n    const $rune = $(node)\n    $rune.addClass('ag-rune-ref')\n    if (mergedProps.url) {\n      $rune.css('cursor', 'pointer')\n      $rune.on('click', (e) => {\n        e.preventDefault()\n        window.open(mergedProps.url, '_blank')\n      })\n    }\n    return () => { $rune.removeClass('ag-rune-ref').css('cursor', '').off('click') }\n  }\n}",
+        "renderType": "anno"
+      }
+    },
+    {
+      "kind": "echo",
+      "builtin": true,
+      "id": "__builtin_todo__",
+      "name": "todo",
+      "desc": "标记待办事项，可交互勾选",
+      "category": "builtin",
+      "color": "#26A69A",
+      "icon": "check_box",
+      "sortOrder": 15,
+      "payload": {
+        "annoSource": "export default {\n  //   【todo】 —— 标记待办事项，可交互勾选\n  //   参数：checked=true|false（默认 false）\n  //   CSS 钩子：ag-rune-todo, ag-rune-todo-checked\n  //   示例：@todo{checked: false}(待完成事项),\n  type: 'echo-chant',\n  field: 'todo',\n  title: 'todo',\n  version: 1,\n\n  props: {},\n\n  render (props = {}) {\n    return '<span class=\"ag-echo-placeholder-marker\"><span class=\"ag-echo-anno-at\" contenteditable=\"false\">@</span><span class=\"ag-echo-anno-name ag-rune ag-rune--todo\" contenteditable=\"false\" data-echo-chant-id=\"todo\">todo</span></span>'\n  },\n\n  //   【handler】添加待办标记样式\n  afterRender (node, props = {}) {\n    \n    const mergedProps = Object.assign({ checked: false }, props || {})\n    const $block = $(node).closest('[data-block-type], .mu-block, p, pre, li, h1, h2, h3, h4, h5, h6, blockquote').first()\n    if (!$block.length) return () => {}\n    $block.addClass('ag-rune-todo')\n    if (mergedProps.checked) $block.addClass('ag-rune-todo-checked')\n    return () => { $block.removeClass('ag-rune-todo ag-rune-todo-checked') }\n  }\n}",
+        "renderType": "anno"
+      }
+    },
+    {
+      "kind": "echo",
+      "builtin": true,
+      "id": "__builtin_fold__",
+      "name": "fold",
+      "desc": "把当前标题到下一个标题之间的内容折叠（类似 <details>）",
+      "category": "builtin",
+      "color": "#5C6BC0",
+      "icon": "unfold_more",
+      "sortOrder": 16,
+      "payload": {
+        "annoSource": "export default {\n  //   【fold / 折叠】 —— 将当前标题至下一个标题之间的内容折叠（类似 <details>）\n  //   触发方式：将 @fold 放置在标题行内（h1 - h6）\n  //   参数：collapsed = true/false（默认 true，并可通过 localStorage 持久化偏好）\n  //     localStorage 键：echo-fold-{echoId|nodeId|heading-index}\n  //   示例：# 第一章内容 @fold{collapsed:false}(点击折叠),\n  type: 'echo-chant',\n  field: 'fold',\n  title: 'fold',\n  version: 1,\n\n  props: {\"collapsed\":true},\n\n  render (props = {}) {\n    return '<span class=\"ag-echo-placeholder-marker\"><span class=\"ag-echo-anno-at\" contenteditable=\"false\">@</span><span class=\"ag-echo-anno-name ag-rune ag-rune--fold\" contenteditable=\"false\" data-echo-chant-id=\"fold\">fold</span></span>'\n  },\n\n  //   【handler】包裹标题之后兄弟节点并切换折叠，图标与标题文字同行，持久化折叠状态\n  afterRender (node, props = {}) {\n    \n    const $rune = $(node)\n    if (!$rune.length) return () => {}\n\n    // 找到包含该回响的标题元素\n    const $heading = $rune.closest('h1, h2, h3, h4, h5, h6')\n    if (!$heading.length) return () => {}\n\n    // Per-instance 幂等（挂在 $rune[0] 上，而不是 $heading 上）\n    //   - 同一 heading 行内允许多个 @fold 实例，各自独立\n    //   - Muya 重渲染 cleanup 时会清掉这个标记，下一次 afterRender 重装（这是正确的）\n    if ($rune[0].__agFoldInstalled) return () => {}\n\n    // === 显式找下一个 heading tag（替代 nextUntil，更可预期） ===\n    // nextUntil 的边界判断对 whitespace 文本节点 / comment / 内部 marker\n    // 节点的兼容性差；用 nextAll + findIndex 显式找下一个 h1-h6 tag，\n    // 避免吞掉下面不属于\"until\" 的兄弟节点。\n    const headingRe = /^h[1-6]$/i\n    const siblings = $heading.nextAll().toArray()\n    const nextHeadingIdx = siblings.findIndex(el => headingRe.test(el.tagName))\n    const $siblingsToWrap = nextHeadingIdx === -1\n      ? $(siblings)\n      : $(siblings.slice(0, nextHeadingIdx))\n    if (!$siblingsToWrap.length) return () => {}\n\n    // 读取 props 偏好；localStorage 中保存的偏好覆盖默认 collapsed\n    const mergedProps = Object.assign({ collapsed: true }, props || {})\n    // storageKey 三段降级：echoId（rune-style 稳定实例 id）> nodeId（向下兼容）>\n    //   heading 在同级 heading 集合里的索引 > 'fold'。\n    // 每行 heading 的 fold 是独立的偏好存储。\n    let headingIndex = ''\n    try {\n      const $allHeadings = $heading.parent().children('h1, h2, h3, h4, h5, h6')\n      headingIndex = String($allHeadings.index($heading[0]))\n    } catch (e) {}\n    const storageKey = 'echo-fold-' + (props.echoId || props.nodeId || headingIndex || 'fold')\n    let stored = null\n    try { stored = localStorage.getItem(storageKey) } catch (e) {}\n    if (stored !== null) {\n      mergedProps.collapsed = (stored === 'true')\n    }\n\n    // 包裹容器\n    const wrapperId = 'fold-container-' + Math.random().toString(36).substr(2, 9)\n    $siblingsToWrap.wrapAll('<div class=\"ag-fold-wrapper\" id=\"' + wrapperId + '\"></div>')\n    const $wrapper = $('#' + wrapperId)\n\n    // 确保标题支持图标绝对定位，并预留右侧空间\n    const prevPosition = $heading.css('position')\n    const prevPaddingRight = $heading.css('paddingRight')\n    if (prevPosition === 'static') $heading.css('position', 'relative')\n    $heading.css('padding-right', '28px')\n\n    // 创建折叠图标，绝对定位到标题右侧\n    const $toggleIcon = $(\n      '<span class=\"ag-fold-toggle-icon\" style=\"'\n      + 'position: absolute;'\n      + 'right: 4px;'\n      + 'top: 50%;'\n      + 'transform: translateY(-50%);'\n      + 'cursor: pointer;'\n      + 'font-size: 0.8em;'\n      + 'user-select: none;'\n      + 'line-height: 1;'\n      + '\">▼</span>'\n    )\n    $heading.append($toggleIcon)\n\n    // 折叠 / 展开逻辑\n    const toggleFold = (collapse) => {\n      if (collapse) {\n        $wrapper.slideUp(200)\n        $toggleIcon.text('▶')\n        $wrapper.addClass('ag-fold-collapsed')\n      } else {\n        $wrapper.slideDown(200)\n        $toggleIcon.text('▼')\n        $wrapper.removeClass('ag-fold-collapsed')\n      }\n    }\n\n    // 图标点击事件，同时更新 localStorage\n    const iconClickHandler = () => {\n      const nowCollapsed = $wrapper.hasClass('ag-fold-collapsed')\n      const newCollapsed = !nowCollapsed\n      toggleFold(newCollapsed)\n      try { localStorage.setItem(storageKey, newCollapsed ? 'true' : 'false') } catch (e) {}\n    }\n    $toggleIcon.on('click', iconClickHandler)\n\n    // 设置初始状态（已由 localStorage 调整）\n    toggleFold(!!mergedProps.collapsed)\n\n    // 给回响标记自身加激活样式\n    $rune.addClass('ag-rune-fold-active')\n\n    // 在 $rune 上挂 per-instance 已装标记（让 cleanup / 下次重渲染能识别）\n    $rune[0].__agFoldInstalled = true\n\n    // cleanup 函数：恢复所有改动，不清除 localStorage 偏好\n    return () => {\n      $toggleIcon.off('click', iconClickHandler)\n      $toggleIcon.remove()\n      if ($wrapper.length) {\n        $wrapper.children().unwrap()\n        $wrapper.remove()\n      }\n      $heading\n        .css('position', prevPosition === 'static' ? '' : prevPosition)\n        .css('padding-right', prevPaddingRight)\n      $rune.removeClass('ag-rune-fold-active')\n      try { delete $rune[0].__agFoldInstalled } catch (e) {}\n    }\n  \n  }\n}",
+        "renderType": "anno"
+      }
+    }
+  ]
+};
