@@ -317,14 +317,14 @@ async function runSftpTest(): Promise<void> {
   }
 }
 
-async function runSftpUpload(): Promise<void> {
+async function runSftpUpload(): Promise<boolean> {
   if (!sftpReady()) {
     ElMessage.warning(t('blog.sftpNeedFields'));
-    return;
+    return false;
   }
   if (!distDir.value) {
     ElMessage.warning(t('blog.sftpNeedDist'));
-    return;
+    return false;
   }
   uploading.value = true;
   try {
@@ -332,13 +332,14 @@ async function runSftpUpload(): Promise<void> {
     const result = await uploadBlogSftp({ localDir: distDir.value, config: sftpPayload() });
     if (!result.ok) {
       ElMessage.error(t('blog.sftpFailed', { message: result.error.message }));
-      return;
+      return false;
     }
     if (result.data.backupPath) {
       ElMessage.success(t('blog.sftpDoneBackup', { uploaded: result.data.uploaded, total: result.data.total, path: result.data.backupPath }));
     } else {
       ElMessage.success(t('blog.sftpDone', { uploaded: result.data.uploaded, total: result.data.total }));
     }
+    return true;
   } finally {
     uploading.value = false;
   }
@@ -379,8 +380,8 @@ async function runBuild(): Promise<void> {
     if (result.data.distDir) {
       distDir.value = result.data.distDir;
     }
-    if (sftp.enabled) {
-      await runSftpUpload();
+    if (sftp.enabled && !(await runSftpUpload())) {
+      return;
     }
     ElMessage.success(t('blog.buildDone'));
   } finally {
