@@ -1,12 +1,18 @@
 <template>
   <div class="ai-panel">
     <div ref="scrollRef" class="ai-messages">
-      <div v-if="messages.length === 0" class="ai-welcome">
-        <div class="ai-welcome-title">{{ t('aiHelper.welcomeTitle') }}</div>
-        <div class="ai-welcome-desc">{{ t('aiHelper.welcomeDesc') }}</div>
-        <div class="ai-welcome-hint">
-          {{ hasNote ? t('aiHelper.contextOn', { title: noteTitle }) : t('aiHelper.contextOff') }}
-        </div>
+      <Welcome
+        class="ai-welcome"
+        variant="filled"
+        :title="t('aiHelper.welcomeTitle')"
+        :description="t('aiHelper.welcomeDesc')"
+      >
+        <template #image>
+          <el-icon class="ai-welcome-icon"><ChatDotRound /></el-icon>
+        </template>
+      </Welcome>
+      <div class="ai-welcome-hint">
+        {{ hasNote ? t('aiHelper.contextOn', { title: noteTitle }) : t('aiHelper.contextOff') }}
       </div>
       <div
         v-for="message in messages"
@@ -41,23 +47,18 @@
     </div>
 
     <div class="ai-composer">
-      <el-input
-        v-model="draft"
-        type="textarea"
-        :rows="3"
-        resize="none"
-        :placeholder="t('aiHelper.placeholder')"
-        @keydown.enter.exact.prevent="send"
-      />
       <div class="ai-composer-actions">
         <el-button text size="small" :disabled="busy" @click="clear">{{ t('aiHelper.clear') }}</el-button>
         <el-button v-if="busy" type="warning" plain size="small" @click="stopGenerating">
           {{ t('aiHelper.stopGenerating') }}
         </el-button>
-        <el-button type="primary" size="small" :loading="busy" :disabled="!draft.trim() || busy" @click="send">
-          {{ t('aiHelper.send') }}
-        </el-button>
       </div>
+      <XSender
+        ref="senderRef"
+        :disabled="busy"
+        :placeholder="t('aiHelper.placeholder')"
+        @submit="send"
+      />
     </div>
   </div>
 </template>
@@ -74,6 +75,8 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import { useI18n } from 'vue-i18n';
+import { ChatDotRound } from '@element-plus/icons-vue';
+import { Welcome, XSender } from 'vue-element-plus-x';
 import { emitAiInsert } from '@/editor/aiInsert';
 import { aiChatCancel, aiChatStream, onAiChatStream } from '@/services/ipc';
 import { useNotesStore } from '@/stores/notes';
@@ -89,8 +92,13 @@ const props = defineProps<{ noteId?: number | null }>();
 const { t } = useI18n();
 const notesStore = useNotesStore();
 
+type SenderExposed = {
+  getModelValue: () => { text: string };
+  clear: () => void;
+};
+
 const messages = ref<ChatMessage[]>([]);
-const draft = ref('');
+const senderRef = ref<SenderExposed | null>(null);
 const busy = ref(false);
 const error = ref('');
 const applyingMessageId = ref<number | null>(null);
@@ -150,7 +158,7 @@ function contextMessages(): Array<{ role: 'system' | 'user' | 'assistant'; conte
 }
 
 async function send(): Promise<void> {
-  const text = draft.value.trim();
+  const text = String(senderRef.value?.getModelValue().text ?? '').trim();
   if (!text || busy.value) {
     return;
   }
@@ -158,7 +166,7 @@ async function send(): Promise<void> {
   seq += 1;
   const userMessage: ChatMessage = { id: seq, role: 'user', content: text };
   messages.value.push(userMessage);
-  draft.value = '';
+  senderRef.value?.clear();
   busy.value = true;
 
   seq += 1;
@@ -277,21 +285,16 @@ onBeforeUnmount(() => {
 }
 
 .ai-welcome {
-  padding: 16px 4px;
+  margin: 4px 0 8px;
 }
 
-.ai-welcome-title {
-  font-weight: 600;
-  margin-bottom: 6px;
-}
-
-.ai-welcome-desc {
-  font-size: 13px;
-  color: var(--el-text-color-secondary);
-  margin-bottom: 8px;
+.ai-welcome-icon {
+  font-size: 24px;
+  color: var(--el-color-primary);
 }
 
 .ai-welcome-hint {
+  margin: 0 4px 12px;
   font-size: 12px;
   color: var(--el-text-color-secondary);
 }
