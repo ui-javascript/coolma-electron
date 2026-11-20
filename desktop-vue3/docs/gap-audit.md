@@ -31,7 +31,8 @@
 2. **引擎仍有 2 个 app 级依赖**：`boot/i18n`、`src/components/echo/echoCore`。四端全靠 alias 兜（demo-vue2、vitepress、vuepress、desktop-vue2 各一份 shim）。
 3. **SSR 不安全**（本次构建实证）：
    - 已修：`lib/config/index.js` 的 `window && window.navigator` 改成 `typeof window` 守卫。
-   - 未修：`snap.svg-min.js`（UMD 里 `a.window.document`）等模块顶层直接摸 `document`，vuepress `vuepress build` 静态渲染时 `MuyaLive.vue` 这个 async 组件解析失败 → `Reason: ReferenceError: document is not defined`。构建「成功」但页面是空的，属于隐性回归。
+   - 已修（消费端）：`MuyaLive.vue` 不再静态导入 `libs-muya/lib`，改成 `mounted` 里 `await import('libs-muya/lib')`；SSR 阶段只渲染页面正文和组件外壳，引擎模块体等客户端挂载后才求值。`vuepress build` 不再出现 `Failed to resolve async component / document is not defined`，`/pages/03ae9f/` 静态 HTML 已有正文。
+   - 仍记：引擎本身仍有顶层 DOM 访问（`selection/index.js` 的 `new Selection(document)`、`snap.svg-min.js` 的 `a.window.document`），真正的引擎级 SSR 安全另批处理；当前四端消费方都按客户端动态加载兜住。
    - vitepress 没炸是因为那页走 ClientOnly，不代表引擎 SSR 安全。
 
 ## P2 已接受差异（用户已拍板，不再追）

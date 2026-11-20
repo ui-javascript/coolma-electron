@@ -1,6 +1,7 @@
 <template>
   <div class="muya-live">
     <div ref="editor" class="muya-live-editor"></div>
+    <p v-if="loadError" class="muya-live-error">引擎加载失败：{{ loadError }}</p>
     <p class="muya-live-tip">
       输入 <code>@</code> 唤起快捷面板：符文/回响分组的数据来自
       <code>rune-core</code> / <code>echo-core</code> 的 pure 层（CJS lib），
@@ -10,8 +11,8 @@
 </template>
 
 <script>
-// 与 desktop-vue2 同款导入路径（webpack4 对 ESM lib 的兼容写法）
-import Muya, { QuickInsert, Transformer } from 'libs-muya/lib'
+// 引擎模块顶层会访问 document（Selection、snap.svg 等），不能在 SSR 阶段求值；
+// 这里保留纯函数依赖的静态导入，把 Muya 本体放到 mounted 里动态 import。
 import 'libs-muya/themes/default.css'
 import { buildEchoItems } from 'echo-core'
 import { buildRuneItems } from 'rune-core'
@@ -38,6 +39,7 @@ export default {
   data () {
     return {
       editorInstance: null,
+      loadError: '',
       markdown: [
         '# Muya 引擎实机演示（VuePress）',
         '',
@@ -56,31 +58,39 @@ export default {
     this.editorInstance = null
   },
   methods: {
-    initEditor () {
-      if (!pluginsRegistered) {
-        Muya.use(QuickInsert)
-        Muya.use(Transformer)
-        pluginsRegistered = true
-      }
-      this.editorInstance = new Muya(this.$refs.editor, {
-        markdown: this.markdown,
-        // 面板数据源：谁调 buildXxxItems 谁就是数据的主人（桌面端=SQLite，文档站=样例卡片）
-        quickInsertProvider () {
-          return {
-            sectionName: '符文',
-            echoSectionName: '回响',
-            items: {
-              符文: buildRuneItems(demoRunes, '符文'),
-              回响: buildEchoItems(demoEchoes, '回响')
+    async initEditor () {
+      try {
+        const muyaModule = await import('libs-muya/lib')
+        const Muya = muyaModule.default || muyaModule
+        const { QuickInsert, Transformer } = muyaModule
+        if (!pluginsRegistered) {
+          Muya.use(QuickInsert)
+          Muya.use(Transformer)
+          pluginsRegistered = true
+        }
+        this.editorInstance = new Muya(this.$refs.editor, {
+          markdown: this.markdown,
+          // 面板数据源：谁调 buildXxxItems 谁就是数据的主人（桌面端=SQLite，文档站=样例卡片）
+          quickInsertProvider () {
+            return {
+              sectionName: '符文',
+              echoSectionName: '回响',
+              items: {
+                符文: buildRuneItems(demoRunes, '符文'),
+                回响: buildEchoItems(demoEchoes, '回响')
+              }
             }
-          }
-        },
-        imagePathPicker: () => '',
-        imageAction: () => ''
-      })
-      this.editorInstance.on('change', ({ markdown }) => {
-        this.markdown = markdown
-      })
+          },
+          imagePathPicker: () => '',
+          imageAction: () => ''
+        })
+        this.editorInstance.on('change', ({ markdown }) => {
+          this.markdown = markdown
+        })
+      } catch (error) {
+        this.loadError = error && error.message ? error.message : String(error)
+        console.error('[MuyaLive] failed to load editor:', error)
+      }
     }
   }
 }
@@ -97,6 +107,12 @@ export default {
 .muya-live-editor {
   min-height: 320px;
   text-align: left;
+}
+
+.muya-live-error {
+  color: #c62828;
+  font-size: 13px;
+  margin: 8px 0 0;
 }
 
 .muya-live-tip {
