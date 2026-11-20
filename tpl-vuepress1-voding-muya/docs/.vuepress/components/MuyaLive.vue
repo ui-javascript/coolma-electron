@@ -11,9 +11,6 @@
 </template>
 
 <script>
-// 引擎已是 SSR 可引包：Selection 惰性取 document、prism 不碰全局、snap 只在画时序图时动态加载。
-// 所以这里恢复静态导入，SSR 只求值模块体，编辑器实例仍然在 mounted 里创建。
-import Muya, { QuickInsert, Transformer } from 'libs-muya/lib'
 import 'libs-muya/themes/default.css'
 import { buildEchoItems } from 'echo-core'
 import { buildRuneItems } from 'rune-core'
@@ -61,6 +58,9 @@ export default {
   methods: {
     async initEditor () {
       try {
+        // 编辑器依赖浏览器环境，等组件挂载后再加载。
+        const { default: Muya, QuickInsert, Transformer } = await import('libs-muya/lib')
+        if (!this.$refs.editor) return
         if (!pluginsRegistered) {
           Muya.use(QuickInsert)
           Muya.use(Transformer)
