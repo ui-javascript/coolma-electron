@@ -19,6 +19,20 @@
           <span v-if="message.status === 'pending' && !message.content" class="ai-thinking">{{ t('aiHelper.thinking') }}</span>
           <pre v-else class="ai-text">{{ message.content }}</pre>
         </div>
+        <div
+          v-if="message.role === 'assistant' && message.status !== 'pending' && message.content && hasNote"
+          class="ai-message-actions"
+        >
+          <el-button
+            text
+            size="small"
+            :loading="applyingMessageId === message.id"
+            :disabled="applyingMessageId !== null && applyingMessageId !== message.id"
+            @click="applyToNote(message)"
+          >
+            {{ t('aiHelper.applyToNote') }}
+          </el-button>
+        </div>
       </div>
       <div v-if="error" class="ai-error">{{ error }}</div>
     </div>
@@ -53,7 +67,9 @@
  *  - vue2 有「选择模型 / 技能调用 / 插入到笔记」等动作，本批只做「围绕当前笔记问答」。
  */
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { ElMessage } from 'element-plus';
 import { useI18n } from 'vue-i18n';
+import { emitAiInsert } from '@/editor/aiInsert';
 import { aiChat } from '@/services/ipc';
 import { useNotesStore } from '@/stores/notes';
 
@@ -72,6 +88,7 @@ const messages = ref<ChatMessage[]>([]);
 const draft = ref('');
 const busy = ref(false);
 const error = ref('');
+const applyingMessageId = ref<number | null>(null);
 const scrollRef = ref<HTMLElement | null>(null);
 let seq = 0;
 
@@ -138,9 +155,38 @@ async function send(): Promise<void> {
   assistantMessage.status = undefined;
 }
 
+/** 对齐 vue2 applyToCurrentNote：把整段回复追加到当前编辑器末尾，不覆盖原文。 */
+function applyToNote(message: ChatMessage): void {
+  if (message.role !== 'assistant') {
+    return;
+  }
+  if (!hasNote.value) {
+    ElMessage.warning(t('aiHelper.applyNoNote'));
+    return;
+  }
+  const text = String(message.content ?? '').trim();
+  if (!text) {
+    ElMessage.warning(t('aiHelper.applyEmpty'));
+    return;
+  }
+  applyingMessageId.value = message.id;
+  const handled = emitAiInsert(text);
+  if (handled) {
+    ElMessage.success(t('aiHelper.applyDone'));
+  } else {
+    ElMessage.warning(t('aiHelper.applyNoEditor'));
+  }
+  window.setTimeout(() => {
+    if (applyingMessageId.value === message.id) {
+      applyingMessageId.value = null;
+    }
+  }, 800);
+}
+
 function clear(): void {
   messages.value = [];
   error.value = '';
+  applyingMessageId.value = null;
 }
 
 onBeforeUnmount(() => {
@@ -219,6 +265,10 @@ onBeforeUnmount(() => {
 
 .ai-thinking {
   color: var(--el-text-color-secondary);
+}
+
+.ai-message-actions {
+  margin-top: 4px;
 }
 
 .ai-error {

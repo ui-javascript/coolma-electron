@@ -66,7 +66,7 @@
 <script setup lang="ts">
 import { Delete, Monitor, Share, Switch } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
-import { computed, nextTick, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import {
   muyaCursorToPosition,
   positionToMuyaCursor,
@@ -86,6 +86,7 @@ import type { ImageUploadService } from '@/services/ipc';
 import { useAppStore } from '@/stores/app';
 import { useNotesStore } from '@/stores/notes';
 import SourceEditor from '@/components/SourceEditor.vue';
+import { onAiInsert } from '@/editor/aiInsert';
 
 const props = defineProps<{
   summary: NoteSummary | null;
@@ -143,6 +144,32 @@ function toggleSourceMode(): void {
 const muyaRef = ref<any>(null);
 const monacoRef = ref<any>(null);
 const pendingCursor = ref<MonacoPosition | null>(null);
+
+/**
+ * AI 回复追加到末尾（对齐 vue2 Muya/Monaco 的 INSERT_AI_TEXT 处理器）。
+ * Muya 保留当前光标、把整段拼到文末；Monaco 在末行执行一次 insert 并把光标落到新增段尾。
+ */
+function appendAiText(text: string): boolean {
+  const clean = String(text ?? '').trim();
+  if (!clean || !props.summary) {
+    return false;
+  }
+  if (sourceMode.value) {
+    return monacoRef.value?.appendText?.(clean) === true;
+  }
+  const current = String(muyaRef.value?.getMarkdown?.() ?? props.content ?? '');
+  const cursor = muyaRef.value?.getCursor?.() ?? null;
+  const next = `${current}${clean}`;
+  if (cursor && typeof muyaRef.value?.setMarkdownWithCursor === 'function') {
+    muyaRef.value.setMarkdownWithCursor(next, cursor);
+  } else {
+    muyaRef.value?.setMarkdown?.(next);
+  }
+  return true;
+}
+
+const stopAiInsert = onAiInsert(appendAiText);
+onBeforeUnmount(stopAiInsert);
 
 
 const libraryStore = useLibraryStore();

@@ -112,7 +112,43 @@ function setCursor(position: { lineNumber?: number; column?: number } | null | u
   editor.focus();
 }
 
-defineExpose({ getCursor, setCursor });
+/**
+ * 把整段文本追加到 Monaco 末尾（对齐 vue2 Monaco.insertAiTextHandler）。
+ * 末行非空时先补一个换行，避免 AI 段粘在最后一行；光标落到新增段尾。
+ */
+function appendText(text: string): boolean {
+  if (!editor || !text) {
+    return false;
+  }
+  const model = editor.getModel();
+  if (!model) {
+    return false;
+  }
+  const lineCount = model.getLineCount();
+  const lastLineMaxColumn = model.getLineMaxColumn(lineCount);
+  const lastRange = {
+    startLineNumber: lineCount,
+    startColumn: lastLineMaxColumn,
+    endLineNumber: lineCount,
+    endColumn: lastLineMaxColumn,
+  };
+  const lastLineText = model.getLineContent(lineCount) || '';
+  const padding = lastLineText.length === 0 ? '' : '\n';
+  const insertText = `${padding}${text}`;
+  editor.executeEdits('insert-ai-text', [{ range: lastRange, text: insertText, forceMoveMarkers: true }]);
+
+  const insertedLineCount = (insertText.match(/\n/g) || []).length;
+  const finalLineNumber = lineCount + insertedLineCount;
+  const finalColumn = insertedLineCount === 0
+    ? lastLineMaxColumn + insertText.length
+    : model.getLineMaxColumn(finalLineNumber);
+  editor.setPosition({ lineNumber: finalLineNumber, column: finalColumn });
+  editor.revealLine(finalLineNumber);
+  editor.focus();
+  return true;
+}
+
+defineExpose({ getCursor, setCursor, appendText });
 </script>
 
 <style scoped>

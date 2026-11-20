@@ -46,6 +46,7 @@ import {
   toWizCategoryInput,
 } from '../electron/service/sync/push-rules';
 import { cloudDedupeKey, toWizCategoryDeletePath } from '../electron/service/sync/pull-rules';
+import { emitAiInsert, onAiInsert } from '../frontend/src/editor/aiInsert';
 import { cloudTagsToNames, localNamesToCloudTags, splitCloudTagString } from '../electron/service/sync/tag-rules';
 
 type Any = Record<string, any>;
@@ -947,6 +948,16 @@ async function main(): Promise<void> {
       mapped.tags === 'G1*g2' && mapped.missing.length === 1 && mapped.missing[0] === '新标签',
       JSON.stringify(mapped),
     );
+
+    let received = '';
+    assert('AI 插入：没有编辑器时无人接住', emitAiInsert('hello') === false, 'false');
+    const stop = onAiInsert((text) => {
+      received = text;
+      return true;
+    });
+    assert('AI 插入：有编辑器时接住文本', emitAiInsert('hello') === true && received === 'hello', received);
+    stop();
+    assert('AI 插入：退订后不再接住', emitAiInsert('again') === false && received === 'hello', received);
   }
 
   console.log(failed === 0 ? '\n全部通过' : `\n失败 ${failed} 项`);
