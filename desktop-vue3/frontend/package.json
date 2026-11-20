@@ -26,6 +26,8 @@
     "plugins-muya-echo": "workspace:*",
     "plugins-muya-rune": "workspace:*",
     "quasar": "2.35.5",
+    "remark": "13.0.0",
+    "remark-pangu": "2.2.0",
     "reveal.js": "4.6.1",
     "splitpanes": "^4.1.2",
     "vue": "^3.5.45",

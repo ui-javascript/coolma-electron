@@ -32,7 +32,7 @@ export default {
     copyFolderFailed: '复制失败，请检查剪贴板权限',
     copySuffix: '副本',
     duplicateSuccess: '已复制笔记',
-    panguPending: '盘古格式化还没接（vue2 走主进程）',
+    panguFailed: '盘古格式化失败',
     commandPending: '这个动作还没接上',
   search: {
     placeholder: '搜索标题、正文或标签...',

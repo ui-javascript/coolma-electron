@@ -49,6 +49,7 @@ import { cloudDedupeKey, toWizCategoryDeletePath } from '../electron/service/syn
 import { emitAiInsert, onAiInsert } from '../frontend/src/editor/aiInsert';
 import { buildFolderMarkdown } from '../frontend/src/utils/folderMarkdown';
 import { drainSseDataLines, extractDeltaText } from '../electron/service/ai/sse';
+import { formatDocumentByPangu } from '../frontend/src/utils/pangu';
 import { cloudTagsToNames, localNamesToCloudTags, splitCloudTagString } from '../electron/service/sync/tag-rules';
 
 type Any = Record<string, any>;
@@ -479,8 +480,10 @@ async function main(): Promise<void> {
     const empty = buildMuyaMenu({ selectionEmpty: true }) as Array<Record<string, unknown>>;
     const ids = empty.map((i) => i.id).filter(Boolean);
     assert('菜单：空选区编辑器菜单 4 项置灰', ['cut', 'copy', 'copyAsMarkdown', 'copyAsHtml'].every((id) => (empty.find((i) => i.id === id) as { enabled?: boolean }).enabled === false), JSON.stringify(ids));
-    const filled = buildMuyaMenu({ selectionEmpty: false, panguReady: false }) as Array<Record<string, unknown>>;
-    assert('菜单：有选区时剪切复制可用、盘古仍置灰', (filled.find((i) => i.id === 'cut') as { enabled?: boolean }).enabled === true && (filled.find((i) => i.id === 'formatDocument') as { enabled?: boolean }).enabled === false);
+    const filled = buildMuyaMenu({ selectionEmpty: false, panguReady: true }) as Array<Record<string, unknown>>;
+    assert('菜单：有选区时剪切复制与盘古可用', (filled.find((i) => i.id === 'cut') as { enabled?: boolean }).enabled === true && (filled.find((i) => i.id === 'formatDocument') as { enabled?: boolean }).enabled === true);
+    const noPangu = buildMuyaMenu({ selectionEmpty: false, panguReady: false }) as Array<Record<string, unknown>>;
+    assert('菜单：盘古未就绪时置灰', (noPangu.find((i) => i.id === 'formatDocument') as { enabled?: boolean }).enabled === false, 'disabled');
 
     const { buildMarkMapMenu } = await import('@/menus/markMap');
     assert('菜单：导图只留另存 HTML（与 vue2 注释掉 PNG/SVG 一致）', (buildMarkMapMenu() as Array<Record<string, unknown>>).map((i) => i.id).join(',') === 'saveAsHtml');
@@ -993,6 +996,20 @@ async function main(): Promise<void> {
       'AI 流：流式请求必须带 requestId',
       !aiChatStreamSchema.safeParse({ messages: [{ role: 'user', content: 'x' }] }).success,
       'rejected',
+    );
+
+    const panguOut = await formatDocumentByPangu(
+      '# 标题中文English\n\n中文English混排123\n\n```\nconst a=1中文\n```\n\n* [ ] 任务中文English\n',
+    );
+    assert(
+      '盘古：中英混排补空格',
+      panguOut.includes('标题中文 English') && panguOut.includes('中文 English 混排 123'),
+      panguOut,
+    );
+    assert(
+      '盘古：代码块内容不拆空格、任务列表不被转义',
+      panguOut.includes('const a=1中文') && panguOut.includes('* [ ] 任务中文 English'),
+      panguOut,
     );
   }
 

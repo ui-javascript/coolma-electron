@@ -32,7 +32,7 @@ export default {
     copyFolderFailed: 'Copy failed. Check clipboard permission',
     copySuffix: 'copy',
     duplicateSuccess: 'Note duplicated',
-    panguPending: 'Pangu formatting is not wired yet (vue2 does it in main)',
+    panguFailed: 'Pangu formatting failed',
     commandPending: 'This action is not wired yet',
   search: {
     placeholder: 'Search title, body or tag...',

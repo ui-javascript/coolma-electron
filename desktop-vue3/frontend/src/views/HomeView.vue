@@ -560,8 +560,7 @@ const editorSelectionEmpty = ref(true);
 const editorMenuItems = computed<ContextMenuItem[]>(() =>
   buildMuyaMenu({
     selectionEmpty: editorSelectionEmpty.value,
-    // 盘古格式化 vue2 走主进程，vue3 还没接 → 置灰（不装样子）
-    panguReady: false,
+    panguReady: true,
     mindmapReady: true,
   }) as unknown as ContextMenuItem[],
 );
@@ -579,7 +578,11 @@ function onEditorMenuCommand(command: string): void {
     return;
   }
   if (command === 'formatDocument') {
-    ElMessage.info(t('notes.panguPending'));
+    void editorPaneRef.value?.formatDocument?.().then((handled) => {
+      if (!handled) {
+        ElMessage.warning(t('notes.panguFailed'));
+      }
+    });
     return;
   }
   const handled = editorPaneRef.value?.runEditorCommand?.(command) ?? false;

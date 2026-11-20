@@ -5,7 +5,7 @@
  * / 分隔 / 粘贴为纯文本 / 盘古格式化 / 分隔 / 生成思维导图。
  *
  * 启用条件按 vue2：选区为空（start===end）时 CUT / COPY / COPY_AS_HTML / COPY_AS_MARKDOWN 全置灰。
- * 盘古格式化在 vue3 未实现（vue2 走主进程），项保留但置灰。
+ * 盘古格式化由 panguReady 控制；编辑器就绪后启用，未就绪时置灰。
  */
 export interface MuyaMenuInput {
   selectionEmpty: boolean;

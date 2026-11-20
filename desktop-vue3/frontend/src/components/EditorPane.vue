@@ -87,6 +87,7 @@ import { useAppStore } from '@/stores/app';
 import { useNotesStore } from '@/stores/notes';
 import SourceEditor from '@/components/SourceEditor.vue';
 import { onAiInsert } from '@/editor/aiInsert';
+import { formatDocumentByPangu } from '@/utils/pangu';
 
 const props = defineProps<{
   summary: NoteSummary | null;
@@ -170,6 +171,30 @@ function appendAiText(text: string): boolean {
 
 const stopAiInsert = onAiInsert(appendAiText);
 onBeforeUnmount(stopAiInsert);
+
+/** 盘古格式化当前文档；源码模式直接回抛 update，Muya 走 setMarkdown。 */
+async function formatDocument(): Promise<boolean> {
+  const before = sourceMode.value
+    ? String(props.content ?? '')
+    : String(muyaRef.value?.getMarkdown?.() ?? props.content ?? '');
+  if (!before.trim()) {
+    return true;
+  }
+  try {
+    const after = await formatDocumentByPangu(before);
+    if (after === before) {
+      return true;
+    }
+    if (sourceMode.value) {
+      emit('update:content', after);
+    } else {
+      muyaRef.value?.setMarkdown?.(after);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 
 const libraryStore = useLibraryStore();
@@ -333,5 +358,5 @@ function scrollToHeading(index: number): boolean {
   return true;
 }
 
-defineExpose({ scrollToHeading, toggleSourceMode, runEditorCommand });
+defineExpose({ scrollToHeading, toggleSourceMode, runEditorCommand, formatDocument });
 </script>
