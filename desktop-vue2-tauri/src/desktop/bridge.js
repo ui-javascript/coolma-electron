@@ -5,6 +5,7 @@ import { Menu } from '@tauri-apps/api/menu'
 import axios from 'axios'
 import { handleDesktopChannel, UNHANDLED } from './files'
 import { loadTheme, openThemeFolder, refreshThemeFolder } from './theme'
+import { checkUpdate, downloadUpdate, installUpdate } from './updater'
 
 const subscriptions = new Map()
 const request = axios.create({ baseURL: 'https://ac.wiz.cn', timeout: 50000 })
@@ -71,9 +72,9 @@ async function invoke (channel, ...args) {
     case 'pop-context-menu': return popupContextMenu(payload)
     case 'get-app-path': return isTauri() ? invokeNative('app_data_path') : ''
     case 'open-sqlite-file': return isTauri() ? invokeNative('open_database_folder') : undefined
-    case 'check-update': return { supported: false }
-    case 'need-update': return undefined
-    case 'quit-and-install': return undefined
+    case 'check-update': return checkUpdate(emit)
+    case 'need-update': return payload ? downloadUpdate(emit) : undefined
+    case 'quit-and-install': return installUpdate(emit)
     case 'load-theme': return isTauri() ? loadTheme(payload) : ''
     case 'open-theme-folder': return isTauri() ? openThemeFolder() : undefined
     case 'refresh-theme-folder': return isTauri() ? refreshThemeFolder() : []

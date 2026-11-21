@@ -15,6 +15,15 @@
     ],
     "security": { "capabilities": ["main"] }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IERBNDJGRkQ1QUQzMkUxMUYKUldRZjRUS3QxZjlDMm9RdEI0a3ovMlEyeWtGdDkwZzVoYUErSFVtdWNNT2hXU29VUGZpOTMvOXoK",
+      "endpoints": [
+        "https://github.com/ui-javascript/coolma-electron/releases/download/tauri-latest/latest.json"
+      ],
+      "windows": { "installMode": "passive" }
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",

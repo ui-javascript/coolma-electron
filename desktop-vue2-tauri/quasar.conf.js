@@ -79,7 +79,7 @@ module.exports = function (/* ctx */) {
       //   5. 依赖自身需要 polyfill 或运行时代码注入（如 process.env 注入）
       // 新增依赖时请先 Read node_modules/<pkg>/package.json + 入口文件确认是否满足上述条件，
       // 不要等到 pnpm build 报错再回头补。
-      transpileDependencies: [/vega.*/, /@quasar.*/, /libs-muya-vue2.*/, /quill/, 'htmlparser2', 'parse5', 'cheerio', /monaco.*/, 'sql.js', /reveal\.js.*/, /portkey-ai/, /openai/, 'consola', 'enum-plus', /@tauri-apps[/\\]api/, /@tauri-apps[/\\]plugin-dialog/, /vue-layerx.*/],
+      transpileDependencies: [/vega.*/, /@quasar.*/, /libs-muya-vue2.*/, /quill/, 'htmlparser2', 'parse5', 'cheerio', /monaco.*/, 'sql.js', /reveal\.js.*/, /portkey-ai/, /openai/, 'consola', 'enum-plus', /@tauri-apps[/\\]api/, /@tauri-apps[/\\]plugin-dialog/, /@tauri-apps[/\\]plugin-updater/, /vue-layerx.*/],
 
       // rtl: false, // https://quasar.dev/options/rtl-support
       // preloadChunks: true,
