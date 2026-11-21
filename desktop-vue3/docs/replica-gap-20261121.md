@@ -11,6 +11,8 @@
 
 > 2026-11-21 批 A 已落地：P0-1 回响实例弹窗、P0-2 手动标签入口、P0-3 文件夹笔记导入、P0-4 豆包 provider。B1/B2 已落地：P1-5 自动上传与顶栏同步（App 级 3s 首传 + 30s 轮询 + 5min 冷却，顶栏 push/pull 与 pending 角标，Settings 手动同步共用同一把锁）；P1-6 强运 AI 校对（全局 handler 注册、当前 Markdown 校对、变化检测后整篇写回）；B3 已落地：P1-7 符文/回响表单 AI 代码生成（`aiCodegen` 构建 prompt、表单 AI 按钮经 busDialog 带 callback、面板 codegen 模式预填/提取/回写源码）；B4 已落地：P1-8 博客构建环境引导（Node 检测与安装指引、package.json/config 自动生成或修复、sidebar/nav builders、缺依赖安装、清缓存后构建）；B5 已落地：P1-9 博客 base 输入与 VuePress base 规范化回写（已有 config 只改 base、保留其它字段，hope 的 config({...}) 也支持）。B6 已落地：P1-10 单条 GitHub `.vue` 符文导入（blob/raw/gist URL 归一、SSRF 白名单、302 逐跳校验、5MB/20s、前 20 行注释元数据、1MB 模板、入库后列表刷新）。B7 已落地：P1-11 微应用通用 IPC 桥 + `vue-sfc:parse` 特例桥（通用桥解包 IpcResult、白名单/越权/失败回包；`controller/microapp/parse` 复用 `@vue/compiler-sfc` 2.7.16，输出与 Vue2 playground 同形的 template/script/style/customBlocks）。B8 已落地：P1-12 完整键盘 accelerator 表（`utils/shortcuts.ts` 对齐 vue2 KeyBindings，按物理键与精确修饰键匹配，Muya/Monaco 双编辑器命令和应用级视图/搜索/DevTools 已接）。
 >
+> 清单外补充（本轮）：AI 技能补启用开关、必填/重名校验、禁用徽标与“编辑技能”文案；AI 模型补必填、Base URL 协议、密钥必填、重名校验及设为默认/删除反馈；顶栏长标题按 vue2 规则“前 9…后 12”截断。均已推送。
+>
 > 2026-11-21 批 C/收尾：P2-13~18 已落地；C8 自定义主题目录（主题扫描/默认主题落盘/加载 CSS/打开目录）、C9 日志/SQLite/重置入口、C10 标题栏与系统关闭（Alt+F4/系统 X）二次确认、C11 默认排序 `TitleAsc` 均已落地并推送。P2-19 云函数按用户要求**暂停，待方案**；P2-24 博客 `customBuildCommand` 经复核 v3 已实现，本条记录过期。剩余主要是 Electron 真机端到端验收与次级弹窗视觉对照。补充：标签弹窗已改为即点即存且 chip 可删除标签；右键“复制笔记”已改为选择目标目录，并按目标目录去重标题（同目录重名生成 ` (n)`，不再固定加“副本”）。
 
 

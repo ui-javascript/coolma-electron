@@ -259,9 +259,12 @@ async function test(item: AiModelView): Promise<void> {
 
 async function setDefault(item: AiModelView): Promise<void> {
   const result = await setDefaultAiModel(item.id);
-  if (result.ok) {
-    await refresh();
+  if (!result.ok) {
+    ElMessage.error(`${t('aiConfigSaveFailed')}: ${result.error.message}`);
+    return;
   }
+  await refresh();
+  ElMessage.success(t('aiDefaultModelUpdated'));
 }
 
 async function remove(item: AiModelView): Promise<void> {
@@ -271,9 +274,12 @@ async function remove(item: AiModelView): Promise<void> {
     return;
   }
   const result = await removeAiModel(item.id);
-  if (result.ok) {
-    await refresh();
+  if (!result.ok) {
+    ElMessage.error(t('aiConfigDeleteFailed'));
+    return;
   }
+  await refresh();
+  ElMessage.success(t('aiConfigDeleted'));
 }
 </script>
 
