@@ -340,6 +340,16 @@ export function useNoteActions(options: UseNoteActionsOptions) {
     }
   }
 
+  /** 打开当前笔记的标签编辑器（复刻 vue2 点标题开 TagDialog）。 */
+  function openTagDialog(note?: NoteSummary | null): void {
+    const target = note ?? options.activeSummary.value ?? menuNote.value;
+    if (!target) {
+      return;
+    }
+    tagTarget.value = target;
+    tagVisible.value = true;
+  }
+
   async function deleteSelected(): Promise<void> {
     const ids = [...options.selectedIds.value];
     if (ids.length === 0) {
@@ -397,6 +407,7 @@ export function useNoteActions(options: UseNoteActionsOptions) {
     tagTarget,
     tagValue,
     confirmTags,
+    openTagDialog,
     metaPending,
     batchPending,
     openBatchMove,

@@ -7,6 +7,8 @@ export interface AppInfo {
   platform: string;
   arch: string;
   isDev: boolean;
+  /** 豆包 WebApp 本地构建产物的 file:// 地址；未打包资源时为空。 */
+  doubaoUrl: string;
 }
 
 export interface IpcError {

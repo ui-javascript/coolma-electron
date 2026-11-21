@@ -54,6 +54,8 @@ import { BUILT_IN_CDN_DEPS, getResourceType, isJQueryCoreDep, mergeCdnDeps } fro
 import { fitWindowBounds, parseWindowState } from '../electron/service/os/window-state-rules';
 import { cloudTagsToNames, localNamesToCloudTags, splitCloudTagString } from '../electron/service/sync/tag-rules';
 import { DEFAULT_LOGIN_BASE, isValidServerUrl, normalizeServerUrl, resolveSignupUrl } from '../frontend/src/utils/loginRules';
+import { readEchoInstance, rewriteEchoInstance } from '../frontend/src/utils/echoToken';
+import { resolveEchoSchema } from '../frontend/src/utils/echoSchema';
 
 type Any = Record<string, any>;
 
@@ -309,6 +311,22 @@ async function main(): Promise<void> {
     (editorRoot().querySelector('.coolma-echo-demo')?.textContent || '').trim() === '42',
     String(editorRoot().querySelector('.coolma-echo-demo')?.textContent)
   );
+
+  // ===== 回响实例弹窗的 token 解析/回写（只改目标实例，保留 prompt 与其它实例）=====
+  {
+    const markdown = "A @nice{echoId: 'e1', value: 'old', foo: 3}(提示) B @nice{echoId: 'e2', value: 'keep'}() C";
+    const token = readEchoInstance(markdown, 'e1');
+    assert('实例 token 解析', Boolean(token) && token!.prompt === '提示' && token!.props.value === 'old', JSON.stringify(token));
+    const next = rewriteEchoInstance(markdown, 'e1', { ...token!.props, value: 'new', foo: 5, enabled: true });
+    assert(
+      '实例回写只改目标',
+      /echoId: 'e1'/.test(next) && /value: 'new'/.test(next) && /foo: 5/.test(next) &&
+        /echoId: 'e2', value: 'keep'/.test(next) && /\(提示\)/.test(next),
+      next,
+    );
+    const growthSchema = resolveEchoSchema({ id: '__builtin_growth__' } as Any);
+    assert('内置回响 schema 可解析', growthSchema.length === 3 && growthSchema[0]?.field === 'scope', String(growthSchema.length));
+  }
 
   // ===== 演示稿切片纯逻辑（L3 里再跑一遍，防止 vite/组件层改动悄悄破坏）=====
   {

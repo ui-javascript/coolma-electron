@@ -40,12 +40,22 @@
             <el-icon><Monitor /></el-icon>
             <span>{{ t('preview.pptPreview') }}</span>
           </el-button>
-          <span class="editor-meta-title">{{ summary.title }}</span>
+          <button
+            type="button"
+            class="editor-meta-title editor-title-button"
+            :title="t('notes.tagsEdit')"
+            @click="emit('edit-tags')"
+          >{{ summary.title }}</button>
         </div>
         <div class="editor-meta-right">
-          <span class="editor-meta-note">
+          <button
+            type="button"
+            class="editor-meta-note editor-tags-button"
+            :title="t('notes.tagsEdit')"
+            @click="emit('edit-tags')"
+          >
             {{ noteTags(summary).join(' · ') || t('notes.untagged') }} · {{ formatNoteDate(summary, t) }}
-          </span>
+          </button>
           <span v-if="saveHint" class="save-hint" :class="{ saving }">{{ saveHint }}</span>
           <el-button
             v-if="noteLink"
@@ -75,6 +85,7 @@
       <div
         v-show="!sourceMode"
         class="editor-context-host"
+        @click.capture="onEditorClick"
         @contextmenu.capture="onContextMenu"
         @mouseup="onMuyaDomSelection"
         @keyup="onMuyaDomSelection"
@@ -175,6 +186,7 @@ import AiRewriteDialog from '@/components/AiRewriteDialog.vue';
 import AiTagDialog from '@/components/AiTagDialog.vue';
 import { normalizeTagName } from '@/utils/autotag';
 import { formatDocumentByPangu } from '@/utils/pangu';
+import { readEchoInstance, rewriteEchoInstance, type EchoInstancePatch, type EchoInstanceToken } from '@/utils/echoToken';
 
 const props = defineProps<{
   summary: NoteSummary | null;
@@ -194,6 +206,8 @@ const emit = defineEmits<{
   (event: 'update:content', value: string): void;
   (event: 'delete'): void;
   (event: 'save'): void;
+  (event: 'edit-tags'): void;
+  (event: 'echo-instance', payload: EchoInstanceToken): void;
   (event: 'mind-map'): void;
   (event: 'ppt-preview'): void;
   (event: 'context-menu', payload: { x: number; y: number; selectionEmpty: boolean; locked: boolean }): void;
@@ -620,6 +634,78 @@ function onContextMenu(event: MouseEvent): void {
   emit('context-menu', { x: event.clientX, y: event.clientY, selectionEmpty, locked: locked.value });
 }
 
+/**
+ * 点击正文回响 → 交父级打开实例弹窗。
+ * 只认渲染层打的 data-echo-host，避免普通文本点击被截走；强运是按钮，保留它自己的 AI 点击。
+ */
+function onEditorClick(event: MouseEvent): void {
+  if (locked.value) {
+    return;
+  }
+  const target = event.target as HTMLElement | null;
+  const host = target?.closest?.('[data-echo-host="true"]') as HTMLElement | null;
+  if (!host) {
+    return;
+  }
+  if (host.classList.contains('ag-rune-lucky-active') || target?.closest?.('.ag-rune-lucky-active')) {
+    return;
+  }
+  if (target?.closest?.('a, button, input, textarea, select, [role="button"]')) {
+    return;
+  }
+
+  const echoId = String(host.dataset.echoId || '').trim();
+  if (!echoId) {
+    return;
+  }
+  const markdown = String(muyaRef.value?.getMarkdown?.() ?? props.content ?? '');
+  const found = readEchoInstance(markdown, echoId);
+  let token = found;
+
+  if (!token) {
+    let props: Record<string, unknown> = { value: host.dataset.echoValue || '' };
+    try {
+      const parsed = JSON.parse(String(host.dataset.echoPropsJson || '{}'));
+      if (parsed && typeof parsed === 'object') {
+        props = parsed as Record<string, unknown>;
+      }
+    } catch {
+      // dataset 损坏时用 value 兜底，仍允许打开弹窗。
+    }
+    token = {
+      echoId,
+      nodeId: String(host.dataset.echoNodeId || ''),
+      echoName: String(host.dataset.echoName || '').trim() || '回响',
+      definitionId: String(host.dataset.echoDefinitionId || '').trim(),
+      props,
+      prompt: String(host.dataset.echoValue || ''),
+      raw: '',
+    };
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+  emit('echo-instance', token);
+}
+
+/** 实例弹窗保存：只替换当前 echoId 的 token，保留 prompt 和其它实例。 */
+function applyEchoInstance(patch: EchoInstancePatch): boolean {
+  const markdown = sourceMode.value
+    ? props.content
+    : String(muyaRef.value?.getMarkdown?.() ?? props.content ?? '');
+  const next = rewriteEchoInstance(markdown, patch.echoId, patch.props);
+  if (!next) {
+    return false;
+  }
+  if (sourceMode.value) {
+    emit('update:content', next);
+    return true;
+  }
+  muyaRef.value?.setMarkdown?.(next);
+  emit('update:content', next);
+  return true;
+}
+
 /** 右键菜单动作：直接转给引擎（copyAsMarkdown / copyAsHtml / pasteAsPlainText / insertParagraph）。 */
 function runEditorCommand(command: string): boolean {
   if (locked.value && !['copy', 'copyAsHtml', 'copyAsMarkdown'].includes(command)) {
@@ -675,5 +761,5 @@ function scrollToHeading(index: number): boolean {
   return true;
 }
 
-defineExpose({ scrollToHeading, toggleSourceMode, toggleLock, runEditorCommand, formatDocument });
+defineExpose({ scrollToHeading, toggleSourceMode, toggleLock, runEditorCommand, formatDocument, applyEchoInstance });
 </script>

@@ -23,7 +23,7 @@
         <el-button circle plain :title="paneLayoutTitle" class="pane-layout-btn" @click="cyclePaneLayout">
           <el-icon><Operation /></el-icon>
         </el-button>
-        <el-button circle plain :title="t('aiHelper.title')" @click="aiDrawerVisible = true">
+        <el-button circle plain :title="t('aiHelper.title')" @click="openAiAssistant">
           <el-icon><ChatDotRound /></el-icon>
         </el-button>
         <el-button circle plain :title="t('search.title')" @click="searchVisible = true">
@@ -117,6 +117,8 @@
           :app-info="appStore.appInfo"
           @delete="deleteActiveNote"
           @save="flushSave"
+          @edit-tags="openActiveTags"
+          @echo-instance="openEchoInstance"
           @context-menu="openEditorMenu"
           @mind-map="mindMapVisible = true"
           @ppt-preview="pptPreviewVisible = true"
@@ -138,7 +140,7 @@
       @command="onNoteMenuCommand"
       @close="closeMenu"
     />
-    <PackImportDialog v-model="packImportVisible" :kind="packImportKind" @imported="onPackImported" />
+    <NoteImportDialog v-model="noteImportVisible" :category="noteImportCategory" />
     <ContextMenu
       :visible="editorMenuVisible"
       :x="editorMenuX"
@@ -171,6 +173,19 @@
       :pending="metaPending"
       @confirm="confirmTags"
     />
+    <EchoInstanceDialog
+      v-model="echoInstanceVisible"
+      :token="echoInstanceToken"
+      :echo="echoInstanceCard"
+      @save="saveEchoInstance"
+      @open-definition="openEchoDefinition"
+    />
+    <LibraryFormDialog
+      v-model="echoDefinitionVisible"
+      kind="echo"
+      :editing="echoDefinitionCard"
+      @saved="onEchoDefinitionSaved"
+    />
     <BlogDeployDialog v-model="blogVisible" :category="blogCategory" />
     <TierRankingDialog
       v-model="tierVisible"
@@ -180,6 +195,7 @@
       @fill="onTierFill"
     />
     <AiHelperDrawer v-model="aiDrawerVisible" :note-id="activeId" />
+    <AiDoubaoDrawer v-model="doubaoDrawerVisible" />
     <SearchDialog v-model="searchVisible" @select="selectNote" />
     <NoteOutlineDrawer v-model="outlineVisible" :markdown="activeContent" @jump="jumpToHeading" />
     <FullscreenOverlay ref="fullscreenOverlayRef" :app-entry="deleteEffectEntry" />
@@ -196,12 +212,15 @@ import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { IndexModeEnum, NoteOrderTypeEnum, type CalendarDateBasis, type IndexMode } from '@shared/enums/app';
 import type { NoteSummary } from '@shared/types/domain';
+import type { EchoCard } from '@shared/types/domain';
+import type { EchoInstancePatch, EchoInstanceToken } from '@/utils/echoToken';
 import EditorPane from '@/components/EditorPane.vue';
 import SkinEffects from '@/components/SkinEffects.vue';
 import MicroAppDrawer from '@/components/MicroAppDrawer.vue';
 import FullscreenOverlay from '@/components/FullscreenOverlay.vue';
 import SearchDialog from '@/components/SearchDialog.vue';
 import AiHelperDrawer from '@/components/AiHelperDrawer.vue';
+import AiDoubaoDrawer from '@/components/AiDoubaoDrawer.vue';
 import TierRankingDialog from '@/components/TierRankingDialog.vue';
 import BlogDeployDialog from '@/components/BlogDeployDialog.vue';
 import NoteOutlineDrawer from '@/components/NoteOutlineDrawer.vue';
@@ -216,9 +235,11 @@ import PreviewPptDialog from '@/components/PreviewPptDialog.vue';
 import IndexSidebar from '@/components/IndexSidebar.vue';
 import MoveNoteDialog from '@/components/MoveNoteDialog.vue';
 import ContextMenu from '@/components/ContextMenu.vue';
-import PackImportDialog from '@/components/PackImportDialog.vue';
+import NoteImportDialog from '@/components/NoteImportDialog.vue';
 import NoteListPane from '@/components/NoteListPane.vue';
 import TagEditorDialog from '@/components/TagEditorDialog.vue';
+import EchoInstanceDialog from '@/components/EchoInstanceDialog.vue';
+import LibraryFormDialog from '@/components/LibraryFormDialog.vue';
 import { useNoteActions } from '@/composables/useNoteActions';
 import { buildNoteListMenu } from '@/menus/noteList';
 import { buildMuyaMenu } from '@/menus/muya';
@@ -492,6 +513,7 @@ const {
   tagVisible,
   tagValue,
   confirmTags,
+  openTagDialog,
   metaPending,
   batchPending,
   openBatchMove,
@@ -664,8 +686,59 @@ async function openFolderMenu(payload: { category: string; event: MouseEvent }):
   folderMenuVisible.value = true;
 }
 
-function onPackImported(): void {
-  void notesStore.loadAll();
+function openActiveTags(): void {
+  if (activeSummary.value) {
+    openTagDialog(activeSummary.value);
+  }
+}
+
+/** 顶栏 AI 入口按设置里的 provider 分流：doubao → 豆包 WebApp，builtin → 内置助手。 */
+function openAiAssistant(): void {
+  if (localStorage.getItem('coolma.aiProvider') === 'doubao') {
+    if (appStore.appInfo?.doubaoUrl) {
+      doubaoDrawerVisible.value = true;
+      return;
+    }
+    ElMessage.warning(t('aiDoubao.missingBuild'));
+    return;
+  }
+  aiDrawerVisible.value = true;
+}
+
+function findEchoCard(token: EchoInstanceToken): EchoCard | null {
+  const byDefinition = token.definitionId
+    ? libraryStore.echoes.find((card) => card.id === token.definitionId)
+    : undefined;
+  if (byDefinition) {
+    return byDefinition;
+  }
+  return libraryStore.echoes.find((card) => card.name === token.echoName) ?? null;
+}
+
+function openEchoInstance(token: EchoInstanceToken): void {
+  echoInstanceToken.value = token;
+  echoInstanceCard.value = findEchoCard(token);
+  echoInstanceVisible.value = true;
+}
+
+function saveEchoInstance(patch: EchoInstancePatch): void {
+  const applied = editorPaneRef.value?.applyEchoInstance(patch) ?? false;
+  if (!applied) {
+    ElMessage.error(t('echoInstance.saveFailed'));
+  }
+}
+
+function openEchoDefinition(token: EchoInstanceToken): void {
+  const card = findEchoCard(token);
+  if (!card) {
+    ElMessage.warning(t('echoInstance.definitionMissing'));
+    return;
+  }
+  echoDefinitionCard.value = card;
+  echoDefinitionVisible.value = true;
+}
+
+function onEchoDefinitionSaved(): void {
   void libraryStore.load(true);
 }
 
@@ -682,9 +755,9 @@ async function onFolderMenuCommand(command: string): Promise<void> {
     case 'createNote':
       createNote();
       break;
-    case 'importPack':
-      // 打包导入对话框已存在（PackImportDialog），入口在设置页；这里复用同一个可见标志
-      packImportVisible.value = true;
+    case 'importNotes':
+      noteImportCategory.value = category || '';
+      noteImportVisible.value = true;
       break;
     case 'exportMarkdown':
       await exportFolder(category);
@@ -1051,11 +1124,17 @@ function handleShortcut(event: KeyboardEvent): void {
 const microDrawerVisible = ref(false);
 const searchVisible = ref(false);
 const aiDrawerVisible = ref(false);
+const doubaoDrawerVisible = ref(false);
 const outlineVisible = ref(false);
 const editorPaneRef = ref<InstanceType<typeof EditorPane> | null>(null);
 const sidebarRef = ref<InstanceType<typeof IndexSidebar> | null>(null);
-const packImportVisible = ref(false);
-const packImportKind = ref<'runes' | 'echoes'>('runes');
+const noteImportVisible = ref(false);
+const noteImportCategory = ref('');
+const echoInstanceVisible = ref(false);
+const echoInstanceToken = ref<EchoInstanceToken | null>(null);
+const echoInstanceCard = ref<EchoCard | null>(null);
+const echoDefinitionVisible = ref(false);
+const echoDefinitionCard = ref<EchoCard | null>(null);
 const deleteEffectEntry = ref<MicroApp | null>(null);
 const fullscreenOverlayRef = ref<InstanceType<typeof FullscreenOverlay> | null>(null);
 const skinEffectsRef = ref<any>(null);

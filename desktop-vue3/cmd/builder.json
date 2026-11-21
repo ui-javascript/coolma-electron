@@ -7,6 +7,12 @@
   },
   "asar": true,
   "npmRebuild": false,
+  "extraResources": [
+    {
+      "from": "../_plugins/doubao-input/dist",
+      "to": "doubao-input"
+    }
+  ],
   "files": [
     "public/**/*",
     "package.json",

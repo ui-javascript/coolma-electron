@@ -31,7 +31,7 @@ export function buildSideDrawerMenu(input: SideDrawerMenuInput) {
   pushCreate();
   if (input.isLogin) {
     items.push({ type: 'separator', label: '' });
-    items.push({ id: 'importPack', label: '导入…' });
+    items.push({ id: 'importNotes', label: '导入…' });
     items.push({
       id: 'export',
       label: '导出',
