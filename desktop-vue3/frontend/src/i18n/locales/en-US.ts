@@ -393,6 +393,10 @@ export default {
     noteTemplateName: 'Name',
     noteTemplateDesc: 'Description',
     noteTemplateContent: 'Body',
+    noteTemplateNamePlaceholder: 'e.g. Meeting Notes',
+    noteTemplateDescPlaceholder: 'Optional, brief description',
+    noteTemplateContentPlaceholder: 'Template body. When creating a note, this content is appended after "# Title".',
+    noteTemplateContentHint: 'Do not include the H1 title line; the title is generated automatically and placed first.',
     noteTemplateEdit: 'Edit template',
     noteTemplateDelete: 'Delete template',
     noteTemplateDeleteConfirm: 'Delete template "{name}"?',
@@ -877,12 +881,17 @@ export default {
     "view.listEditor": "Two panes: list + editor",
     "view.editorOnly": "Editor only",
   action: {
+    close: 'Close',
+    edit: 'Edit',
+    ok: 'OK',
+
     newNote: 'New',
     settings: 'Settings',
     back: 'Back',
     delete: 'Delete',
     cancel: 'Cancel',
     confirm: 'OK',
+    save: 'Save',
     p1Only: 'The P2 note UI is not wired yet; it lands in P3.',
   },
   status: {

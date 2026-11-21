@@ -393,6 +393,10 @@ export default {
     noteTemplateName: '模板名',
     noteTemplateDesc: '描述',
     noteTemplateContent: '正文',
+    noteTemplateNamePlaceholder: '例如：会议记录',
+    noteTemplateDescPlaceholder: '可选，简要说明模板用途',
+    noteTemplateContentPlaceholder: '在此输入模板正文。新建笔记时，模板内容会拼到「# 标题」之后。',
+    noteTemplateContentHint: '模板正文不应再写 H1 标题行；标题由新建笔记时自动生成并放在最前面。',
     noteTemplateEdit: '编辑模板',
     noteTemplateDelete: '删除模板',
     noteTemplateDeleteConfirm: '确定删除模板「{name}」？',
@@ -877,12 +881,17 @@ export default {
     "view.listEditor": "两栏：列表 + 正文",
     "view.editorOnly": "单栏：只看正文",
   action: {
+    close: '关闭',
+    edit: '编辑',
+    ok: '确定',
+
     newNote: '新建',
     settings: '设置',
     back: '返回',
     delete: '删除',
     cancel: '取消',
     confirm: '确定',
+    save: '保存',
     p1Only: 'P2 尚未接入新建笔记 UI，P3 实现。',
   },
   status: {

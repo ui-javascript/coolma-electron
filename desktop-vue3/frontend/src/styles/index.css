@@ -1453,3 +1453,37 @@ html.dark .editor-action-bar {
     padding: 12px;
   }
 }
+
+/* 笔记模板表单：对齐 vue2 noteTemplateFormDialog 品牌橙 + 两列字段 */
+.note-template-form-dialog {
+  display: flex;
+  flex-direction: column;
+  max-width: 80vw;
+  max-height: 86vh;
+  padding: 0;
+}
+
+.note-template-form-dialog .el-dialog__header {
+  flex: 0 0 auto;
+  margin-right: 0;
+  padding: 8px 40px 8px 12px;
+}
+
+.note-template-form-dialog .el-dialog__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 16px;
+  overflow: auto;
+}
+
+.note-template-form-dialog .el-dialog__footer {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border-top: 1px solid rgb(120 120 120 / 18%);
+}
+
+@media (max-width: 700px) {
+  .note-template-form-dialog {
+    width: 96vw !important;
+  }
+}
