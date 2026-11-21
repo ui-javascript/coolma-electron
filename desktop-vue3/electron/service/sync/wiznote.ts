@@ -12,10 +12,12 @@ import {
   findCloudNoteByTitle,
   isCategoryExistsError,
   isNoteMissingError,
+  normalizeMatchCategory,
   sortCategoriesByDepth,
   toWizCategoryInput,
+  toWizRemoteCategory,
 } from './push-rules';
-import { toWizCategoryDeletePath } from './pull-rules';
+import { buildNoteListQuery, stripWizMarkdownSuffix } from './pull-rules';
 import { cloudTagsToNames, localNamesToCloudTags } from './tag-rules';
 
 /**
@@ -425,7 +427,10 @@ export async function createRemoteCategory(input: {
   if (!config.token || !kbGuid) {
     throw Object.assign(new Error('not logged in'), { code: 'NO_LOGIN' });
   }
-  const { parent, child } = toWizCategoryInput(input.category);
+  if (normalizeMatchCategory(input.category) === '/') {
+    throw new Error('Root category cannot be created');
+  }
+  const { parent, child } = toWizCategoryInput(toWizRemoteCategory(input.category));
   if (!child) {
     throw new Error('Category is required');
   }
@@ -449,10 +454,10 @@ export async function deleteRemoteCategory(input: {
   if (!config.token || !kbGuid) {
     throw Object.assign(new Error('not logged in'), { code: 'NO_LOGIN' });
   }
-  const category = toWizCategoryDeletePath(input.category);
-  if (category === '/') {
+  if (normalizeMatchCategory(input.category) === '/') {
     throw new Error('Root category cannot be deleted');
   }
+  const category = toWizRemoteCategory(input.category);
   const query = new URLSearchParams({ category });
   await request(
     'DELETE',
@@ -475,13 +480,7 @@ export interface WizNoteSummary {
 
 export async function listNotes(category = '/', limit = 100, start = 0): Promise<WizNoteSummary[]> {
   const config = readConfig();
-  const query = new URLSearchParams({
-    category,
-    start: String(Math.max(0, start)),
-    count: String(limit),
-    withAbstract: 'true',
-    orderBy: 'dataModified',
-  });
+  const query = buildNoteListQuery({ category, limit, start });
   const raw = await request<unknown>(
     'GET',
     `${config.kbServer}/ks/note/list/category/${config.kbGuid}?${query.toString()}`,
@@ -795,12 +794,19 @@ export async function pull(input: { category?: string; limit?: number } = {}): P
         if (missing > 0) {
           errors.push(`${summary.title}: ${missing} 个附件未能缓存`);
         }
+        const remoteCategory = String(note.info?.category ?? summary.category);
+        const remoteTitle = stripWizMarkdownSuffix(note.info?.title ?? summary.title) || 'Untitled';
+        const conflict = notesRepository.findByTitleCategory({ category: remoteCategory, title: remoteTitle, kbGuid: config.kbGuid });
+        if (conflict && conflict.docGuid !== docGuid) {
+          skipped += 1;
+          continue;
+        }
         notesRepository.upsertRemote({
           docGuid,
           kbGuid: config.kbGuid,
-          title: String(note.info?.title ?? summary.title).replace(/\.md$/i, ''),
+          title: remoteTitle,
           content,
-          category: String(note.info?.category ?? summary.category),
+          category: remoteCategory,
           tags: cloudTagsToNames(String(note.info?.tags ?? ''), tagMaps.guidToName),
           serverModified: Number(note.info?.dataModified ?? summary.dataModified) || null,
         });
@@ -813,9 +819,10 @@ export async function pull(input: { category?: string; limit?: number } = {}): P
     }
 
     // 同分类 + 同标题 + 当前账号已存在 → 跳过，不覆盖本地（vue2 localNoteSet 去重）。
+    // 云端标题常带 .md，落库会去掉；查重也必须先去掉，否则会撞唯一索引。
     const localMatch = notesRepository.findByTitleCategory({
       category: String(summary.category ?? ''),
-      title: String(summary.title || 'Untitled'),
+      title: stripWizMarkdownSuffix(summary.title) || 'Untitled',
       kbGuid: config.kbGuid,
     });
     if (localMatch) {
@@ -829,12 +836,20 @@ export async function pull(input: { category?: string; limit?: number } = {}): P
       if (missing > 0) {
         errors.push(`${summary.title}: ${missing} 个附件未能缓存`);
       }
+      const remoteCategory = String(note.info?.category ?? summary.category);
+      const remoteTitle = stripWizMarkdownSuffix(note.info?.title ?? summary.title) || 'Untitled';
+      // 云端可能有两篇不同 docGuid、但标题/分类相同的笔记；本地只能留一篇。
+      const conflict = notesRepository.findByTitleCategory({ category: remoteCategory, title: remoteTitle, kbGuid: config.kbGuid });
+      if (conflict && conflict.docGuid !== docGuid) {
+        skipped += 1;
+        continue;
+      }
       notesRepository.upsertRemote({
         docGuid,
         kbGuid: config.kbGuid,
-        title: String(note.info?.title ?? summary.title).replace(/\.md$/i, ''),
+        title: remoteTitle,
         content,
-        category: String(note.info?.category ?? summary.category),
+        category: remoteCategory,
         tags: cloudTagsToNames(String(note.info?.tags ?? ''), tagMaps.guidToName),
         serverModified: Number(note.info?.dataModified ?? summary.dataModified) || null,
       });
@@ -986,7 +1001,7 @@ export async function push(input: { limit?: number } = {}): Promise<PushResult> 
     const docGuid = note.docGuid ?? '';
     const isRemote = Boolean(docGuid) && !docGuid.startsWith('local_');
     const isLite = isLiteCategory(note.category);
-    const category = note.category || '/My Notes/';
+    const category = toWizRemoteCategory(note.category);
     const { html, names } = toWizHtml(note.content ?? '', isLite, config, docGuid, isRemote ? docGuid : '');
     const resources = names.map((name) => ({ name }));
     let cloudTags: string | undefined;

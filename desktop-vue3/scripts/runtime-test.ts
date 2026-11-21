@@ -45,8 +45,9 @@ import {
   normalizeMatchCategory,
   sortCategoriesByDepth,
   toWizCategoryInput,
+  toWizRemoteCategory,
 } from '../electron/service/sync/push-rules';
-import { cloudDedupeKey, toWizCategoryDeletePath } from '../electron/service/sync/pull-rules';
+import { buildNoteListQuery, cloudDedupeKey, stripWizMarkdownSuffix, toWizCategoryDeletePath } from '../electron/service/sync/pull-rules';
 import { emitAiInsert, onAiInsert } from '../frontend/src/editor/aiInsert';
 import { buildFolderMarkdown } from '../frontend/src/utils/folderMarkdown';
 import { drainSseDataLines, extractDeltaText } from '../electron/service/ai/sse';
@@ -1595,6 +1596,10 @@ async function main(): Promise<void> {
     assert('为知同步：embed→extract 往返保住标题与加粗', markdown.includes('# 标题') && markdown.includes('**粗**'), JSON.stringify(markdown));
     assert('为知同步：autoLogin/login/status/pull/push 通道齐全且白名单放行', [IPC_CHANNELS.sync.autoLogin, IPC_CHANNELS.sync.login, IPC_CHANNELS.sync.status, IPC_CHANNELS.sync.pull, IPC_CHANNELS.sync.push].every((c) => INVOKE_CHANNELS.has(c)), String(INVOKE_CHANNELS.size));
     assert('为知同步：login 空账号被 zod 拦下', !syncLoginSchema.safeParse({ userId: '', password: '' }).success, 'rejected');
+    const listQuery = buildNoteListQuery({ category: '/My Notes/', limit: 20, start: 40 });
+    assert('为知同步：列表只发服务端认识的 orderBy=modified', listQuery.get('orderBy') === 'modified' && listQuery.get('start') === '40' && listQuery.get('count') === '20', listQuery.toString());
+    assert('为知同步：云端 .md 标题查重前统一去扩展名', stripWizMarkdownSuffix(' 计算机.md ') === '计算机' && stripWizMarkdownSuffix('a\u00a0b.MD') === 'a b', stripWizMarkdownSuffix(' 计算机.md '));
+    assert('为知同步：本地根分类推送时映射为 /My Notes/', toWizRemoteCategory('/') === '/My Notes/' && toWizRemoteCategory('/工作') === '/My Notes/工作/' && toWizRemoteCategory('/My Notes/【0】计算机') === '/My Notes/【0】计算机/', `root=${toWizRemoteCategory('/')} top=${toWizRemoteCategory('/工作')} nested=${toWizRemoteCategory('/My Notes/【0】计算机')}`);
     const { isLiteCategory, replaceIndexFilesWithCoolma, replaceCoolmaWithIndexFiles } = await import('../electron/service/sync/wiznote-resources');
     assert('为知同步：只有 Lite 分类算 lite/markdown（vue2 去斜杠判定）', isLiteCategory('/Lite/') && isLiteCategory('Lite') && !isLiteCategory('/My Notes/Lite2/'), 'Lite rule');
     const mapped = replaceIndexFilesWithCoolma('<img src="index_files/a.png">', 'kb', 'doc', ['a.png']);

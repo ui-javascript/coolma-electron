@@ -29,3 +29,33 @@ export function toWizCategoryDeletePath(category: string): string {
   }
   return `${normalized}/`;
 }
+
+/**
+ * 为知列表查询参数。vue2 用 `orderBy=modified`，服务端只认
+ * `modified/created/title`；`dataModified` 会被 2000 拒掉。
+ */
+export function buildNoteListQuery(input: {
+  category?: string;
+  limit?: number;
+  start?: number;
+} = {}): URLSearchParams {
+  return new URLSearchParams({
+    category: input.category ?? '',
+    start: String(Math.max(0, input.start ?? 0)),
+    count: String(Math.max(1, input.limit ?? 100)),
+    withAbstract: 'true',
+    orderBy: 'modified',
+  });
+}
+
+/**
+ * 云端 `.md` 笔记标题落本地时要去扩展名；查重也必须用同一个标题，
+ * 否则「带 .md 查不到 → 去 .md 插入」会撞 category+title+kb 唯一索引。
+ */
+export function stripWizMarkdownSuffix(title: unknown): string {
+  return String(title ?? '')
+    .replace(/\u00a0/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\.md$/i, '');
+}

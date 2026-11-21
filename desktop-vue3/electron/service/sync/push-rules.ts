@@ -58,6 +58,25 @@ export function isCategoryExistsError(error: unknown): boolean {
   return /exists|已存在|exist/i.test(String(candidate.message ?? ''));
 }
 
+/**
+ * 本地分类 → 为知远端分类。
+ * 本地把根目录统一存成 `/`，为知云端根是 `/My Notes/`；直接发 `/` 会被
+ * `invalid category: /` 拒掉。顶层本地目录统一挂到 `/My Notes/` 下。
+ */
+export function toWizRemoteCategory(category: unknown): string {
+  const normalized = normalizeMatchCategory(category);
+  if (normalized === '/') {
+    return '/My Notes/';
+  }
+  if (normalized === '/My Notes') {
+    return '/My Notes/';
+  }
+  if (normalized.startsWith('/My Notes/')) {
+    return `${normalized}/`;
+  }
+  return `/My Notes/${normalized.replace(/^\/+/, '')}/`;
+}
+
 /** 本地分类路径 → 为知 createCategory 需要的 parent / child。 */
 export function toWizCategoryInput(category: string): { parent: string; child: string } {
   const segments = String(category ?? '')
