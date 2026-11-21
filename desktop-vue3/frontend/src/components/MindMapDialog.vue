@@ -1,40 +1,47 @@
 <template>
   <el-dialog
     v-model="visible"
-    :title="t('editor.mindMap')"
-    width="72vw"
-    top="4vh"
+    width="70vw"
+    top="5vh"
     append-to-body
     destroy-on-close
     class="mind-map-dialog"
     @opened="generate"
     @closed="destroy"
   >
+    <template #header>
+      <div class="mind-map-heading">
+        <el-icon class="mind-map-heading__icon"><Share /></el-icon>
+        <span>{{ t('editor.mindMap') }}</span>
+      </div>
+    </template>
     <div ref="containerRef" class="mind-map-container" @contextmenu.prevent="onContextMenu">
       <svg ref="svgRef" class="mind-map-svg" />
       <div class="mind-map-toolbar">
-        <el-button-group>
-          <el-button size="small" :title="t('editor.zoomIn')" @click="zoomIn">
+        <el-button-group class="mind-map-zoom">
+          <el-button :title="t('editor.zoomIn')" @click="zoomIn">
             <el-icon><ZoomIn /></el-icon>
           </el-button>
-          <el-button size="small" :title="t('editor.zoomOut')" @click="zoomOut">
+          <el-button :title="t('editor.zoomOut')" @click="zoomOut">
             <el-icon><ZoomOut /></el-icon>
           </el-button>
-          <el-button size="small" :title="t('editor.fitScreen')" @click="fit">
+          <el-button :title="t('editor.fitScreen')" @click="fit">
             <el-icon><FullScreen /></el-icon>
           </el-button>
-          <el-button size="small" :title="t('editor.fullscreen')" @click="toggleFullscreen">
+          <el-button :title="t('editor.fullscreen')" @click="toggleFullscreen">
             <el-icon><Aim /></el-icon>
           </el-button>
         </el-button-group>
-        <el-button size="small" @click="exportPng">
-          <el-icon><Picture /></el-icon>
-          <span>{{ t('editor.mindMapPng') }}</span>
-        </el-button>
-        <el-button size="small" @click="saveAsHtml">
-          <el-icon><Document /></el-icon>
-          <span>{{ t('editor.mindMapHtml') }}</span>
-        </el-button>
+        <el-button-group class="mind-map-export">
+          <el-button :title="t('editor.mindMapPng')" @click="exportPng">
+            <el-icon><Picture /></el-icon>
+            <span>{{ t('editor.mindMapPng') }}</span>
+          </el-button>
+          <el-button :title="t('editor.mindMapHtml')" @click="saveAsHtml">
+            <el-icon><Document /></el-icon>
+            <span>{{ t('editor.mindMapHtml') }}</span>
+          </el-button>
+        </el-button-group>
       </div>
       <p v-if="errorMessage" class="mind-map-error">{{ errorMessage }}</p>
     </div>
@@ -52,7 +59,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { Aim, Document, FullScreen, Picture, ZoomIn, ZoomOut } from '@element-plus/icons-vue';
+import { Aim, Document, FullScreen, Picture, Share, ZoomIn, ZoomOut } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { exportNotePng, exportText } from '@/services/ipc';
 import ContextMenu from '@/components/ContextMenu.vue';
@@ -197,7 +204,46 @@ async function exportPng(): Promise<void> {
 }
 </script>
 
+<style>
+.mind-map-dialog {
+  width: 70vw !important;
+  min-width: 70vw;
+  max-height: 90vh;
+  min-height: 70vh;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+}
+
+.mind-map-dialog .el-dialog__header {
+  margin: 0;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--coolma-border, #ebeef5);
+}
+
+.mind-map-dialog .el-dialog__body {
+  flex: 1;
+  min-height: 0;
+  padding: 12px 16px 16px;
+  overflow: hidden;
+}
+</style>
+
 <style scoped>
+.mind-map-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--coolma-text, #303133);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.mind-map-heading__icon {
+  color: var(--themeColor, #409eff);
+  font-size: 22px;
+}
+
 .mind-map-container {
   position: relative;
   height: 68vh;
@@ -218,6 +264,40 @@ async function exportPng(): Promise<void> {
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+.mind-map-zoom {
+  border-radius: 99px;
+  overflow: hidden;
+  box-shadow: 0 3px 12px rgb(0 0 0 / 16%);
+}
+
+.mind-map-zoom :deep(.el-button) {
+  width: 36px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--themeColor, #409eff);
+  color: floralwhite;
+}
+
+.mind-map-zoom :deep(.el-button:hover) {
+  background: color-mix(in srgb, var(--themeColor, #409eff) 82%, #fff);
+  color: floralwhite;
+}
+
+.mind-map-export {
+  border-radius: 99px;
+  overflow: hidden;
+  box-shadow: 0 3px 12px rgb(0 0 0 / 16%);
+}
+
+.mind-map-export :deep(.el-button) {
+  border-color: transparent;
+  background: var(--coolma-panel, #fff);
+  color: var(--coolma-text, #303133);
+  font-size: 12px;
 }
 
 .mind-map-error {

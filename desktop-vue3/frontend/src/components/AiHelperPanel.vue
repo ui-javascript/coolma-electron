@@ -1,94 +1,121 @@
 <template>
   <div class="ai-panel">
-    <div ref="scrollRef" class="ai-messages">
-      <Welcome
-        class="ai-welcome"
-        variant="filled"
-        :title="welcomeTitle"
-        :description="welcomeDescription"
-      >
-        <template #image>
-          <el-icon class="ai-welcome-icon"><ChatDotRound /></el-icon>
-        </template>
-      </Welcome>
-      <div v-if="!codeGenMode" class="ai-welcome-hint">
-        {{ hasNote ? t('aiHelper.contextOn', { title: noteTitle }) : t('aiHelper.contextOff') }}
-      </div>
-      <div
-        v-for="message in messages"
-        :key="message.id"
-        class="ai-message"
-        :class="`is-${message.role}`"
-      >
-        <div class="ai-message-label">{{ message.role === 'user' ? t('aiHelper.you') : t('aiHelper.assistant') }}</div>
-        <div class="ai-bubble">
-          <span v-if="message.status === 'pending' && !message.content" class="ai-thinking">{{ t('aiHelper.thinking') }}</span>
-          <pre v-else class="ai-text">{{ message.content }}</pre>
-        </div>
-        <div v-if="message.role === 'assistant' && message.status && message.status !== 'pending'" class="ai-message-status">
-          {{ statusText(message) }}
-        </div>
-        <div
-          v-if="message.role === 'assistant' && !message.status && message.content && hasNote && !codeGenMode"
-          class="ai-message-actions"
+    <div class="ai-chat-shell">
+      <div ref="scrollRef" class="ai-messages">
+        <Welcome
+          class="ai-welcome"
+          variant="filled"
+          :title="welcomeTitle"
+          :description="welcomeDescription"
         >
-          <el-button
-            text
-            size="small"
-            :loading="applyingMessageId === message.id"
-            :disabled="applyingMessageId !== null && applyingMessageId !== message.id"
-            @click="applyToNote(message)"
-          >
-            {{ t('aiHelper.applyToNote') }}
-          </el-button>
-          <el-button
-            text
-            type="danger"
-            size="small"
-            :disabled="applyingMessageId !== null"
-            @click="overwriteNote(message)"
-          >
-            {{ t('aiHelper.overwriteNote') }}
-          </el-button>
+          <template #image>
+            <el-icon class="ai-welcome-icon"><ChatDotRound /></el-icon>
+          </template>
+        </Welcome>
+        <div v-if="!codeGenMode" class="ai-welcome-hint">
+          {{ hasNote ? t('aiHelper.contextOn', { title: noteTitle }) : t('aiHelper.contextOff') }}
         </div>
-        <div
-          v-if="message.role === 'assistant' && codeGenMode && !message.status && message.content"
-          class="ai-message-actions"
-        >
-          <el-button
-            type="primary"
-            plain
-            size="small"
-            :loading="applyingMessageId === message.id"
-            :disabled="applyingMessageId !== null && applyingMessageId !== message.id"
-            @click="applyCodeToEditor(message)"
-          >
-            {{ applyingMessageId === message.id
-              ? t('aiHelper.codeApplying')
-              : t('aiHelper.applyCodeTo', { type: codeGenTypeLabel }) }}
-          </el-button>
-        </div>
-      </div>
-      <div v-if="error" class="ai-error">{{ error }}</div>
-    </div>
 
-    <div class="ai-composer">
-      <div v-if="codeGenMode" class="ai-composer__hint">
-        {{ t('aiHelper.codegenComposerHint', { type: codeGenTypeLabel }) }}
+        <div class="ai-message-list">
+          <div
+            v-for="message in messages"
+            :key="message.id"
+            class="ai-message"
+            :class="`is-${message.role}`"
+          >
+            <div class="ai-message-label">
+              {{ message.role === 'user' ? t('aiHelper.you') : t('aiHelper.assistant') }}
+            </div>
+            <div class="ai-bubble" :class="{ 'is-markdown': message.role === 'assistant' && message.content }">
+              <span v-if="message.status === 'pending' && !message.content" class="ai-thinking">
+                {{ t('aiHelper.thinking') }}
+              </span>
+              <div
+                v-else-if="message.role === 'assistant' && message.content"
+                class="ai-markdown"
+                v-html="renderMarkdown(message.content)"
+              />
+              <pre v-else class="ai-text">{{ message.content }}</pre>
+            </div>
+            <div
+              v-if="message.role === 'assistant' && message.status && message.status !== 'pending'"
+              class="ai-message-status"
+            >
+              {{ statusText(message) }}
+            </div>
+            <div
+              v-if="message.role === 'assistant' && !message.status && message.content && hasNote && !codeGenMode"
+              class="ai-message-actions"
+            >
+              <button
+                type="button"
+                class="ai-apply-link"
+                :disabled="applyingMessageId !== null && applyingMessageId !== message.id"
+                @click="applyToNote(message)"
+              >
+                <span
+                  v-if="applyingMessageId === message.id"
+                  class="ai-apply-link__dot"
+                  aria-hidden="true"
+                />
+                <span v-else class="ai-apply-link__icon" aria-hidden="true">
+                  <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 3H4a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V7" />
+                    <path d="M11.5 2.5h2v2" />
+                    <path d="M8 8l5.5-5.5" />
+                  </svg>
+                </span>
+                <span>{{ t('aiHelper.applyToNote') }}</span>
+              </button>
+              <button
+                type="button"
+                class="ai-apply-link is-danger"
+                :disabled="applyingMessageId !== null"
+                @click="overwriteNote(message)"
+              >
+                {{ t('aiHelper.overwriteNote') }}
+              </button>
+            </div>
+            <div
+              v-if="message.role === 'assistant' && codeGenMode && !message.status && message.content"
+              class="ai-message-actions"
+            >
+              <el-button
+                type="primary"
+                plain
+                size="small"
+                :loading="applyingMessageId === message.id"
+                :disabled="applyingMessageId !== null && applyingMessageId !== message.id"
+                @click="applyCodeToEditor(message)"
+              >
+                {{ applyingMessageId === message.id
+                  ? t('aiHelper.codeApplying')
+                  : t('aiHelper.applyCodeTo', { type: codeGenTypeLabel }) }}
+              </el-button>
+            </div>
+          </div>
+        </div>
+        <div v-if="error" class="ai-error">{{ error }}</div>
       </div>
-      <div class="ai-composer-actions">
-        <el-button text size="small" :disabled="busy" @click="clear">{{ t('aiHelper.clear') }}</el-button>
-        <el-button v-if="busy" type="warning" plain size="small" @click="stopGenerating">
-          {{ t('aiHelper.stopGenerating') }}
-        </el-button>
+
+      <div class="ai-composer">
+        <div v-if="codeGenMode" class="ai-composer__hint">
+          {{ t('aiHelper.codegenComposerHint', { type: codeGenTypeLabel }) }}
+        </div>
+        <div class="ai-composer-actions">
+          <el-button text size="small" :disabled="busy" @click="clear">{{ t('aiHelper.clear') }}</el-button>
+          <el-button v-if="busy" type="warning" plain size="small" @click="stopGenerating">
+            {{ t('aiHelper.stopGenerating') }}
+          </el-button>
+        </div>
+        <XSender
+          ref="senderRef"
+          :disabled="busy"
+          :max-length="100000"
+          :placeholder="composerPlaceholder"
+          @submit="send"
+        />
       </div>
-      <XSender
-        ref="senderRef"
-        :disabled="busy"
-        :max-length="100000"
-        :placeholder="composerPlaceholder"
-        @submit="send"
-      />
     </div>
   </div>
 </template>
@@ -111,6 +138,7 @@ import { emitAiInsert } from '@/editor/aiInsert';
 import { aiChatCancel, aiChatStream, onAiChatStream } from '@/services/ipc';
 import { useNotesStore } from '@/stores/notes';
 import { extractGeneratedCode } from '@/utils/aiCodegen';
+import { renderMarkdown } from '@/utils/markdown';
 
 interface ChatMessage {
   id: number;
@@ -424,103 +452,291 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .ai-panel {
-  display: flex;
-  flex-direction: column;
+  box-sizing: border-box;
   height: 100%;
   min-height: 0;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.ai-chat-shell {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--coolma-border, #ebeef5);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #f8fbff 0%, var(--coolma-panel, #fff) 48%, var(--coolma-panel, #fff) 100%);
 }
 
 .ai-messages {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 12px;
+  padding: 16px 16px 0;
 }
 
 .ai-welcome {
-  margin: 4px 0 8px;
+  margin: 0;
 }
 
 .ai-welcome-icon {
+  color: var(--themeColor, #409eff);
   font-size: 24px;
-  color: var(--el-color-primary);
 }
 
 .ai-welcome-hint {
-  margin: 0 4px 12px;
+  margin: 4px 2px 10px;
+  color: #909399;
   font-size: 12px;
-  color: var(--el-text-color-secondary);
+}
+
+.ai-message-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-bottom: 12px;
 }
 
 .ai-message {
-  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.ai-message.is-user .ai-message-label {
-  text-align: right;
+.ai-message.is-user {
+  align-items: flex-end;
 }
 
 .ai-message-label {
-  font-size: 11px;
-  color: var(--el-text-color-secondary);
-  margin-bottom: 4px;
+  color: #909399;
+  font-size: 12px;
 }
 
 .ai-bubble {
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: var(--el-fill-color-light, #f5f7fa);
+  max-width: 85%;
+  padding: 5px;
+  border: 1px solid rgb(0 0 0 / 6%);
+  border-radius: 12px;
+  background: var(--coolma-panel, #fff);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 8%);
+  color: var(--coolma-text, #303133);
   font-size: 13px;
   line-height: 1.6;
+  overflow-wrap: anywhere;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
 .ai-message.is-user .ai-bubble {
-  background: var(--el-color-primary-light-9, #ecf5ff);
+  border-color: var(--themeColor, #409eff);
+  background: var(--themeColor, #409eff);
+  color: #fff;
+}
+
+.ai-bubble.is-markdown {
+  white-space: normal;
+}
+
+.ai-markdown {
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.ai-markdown :deep(h1),
+.ai-markdown :deep(h2),
+.ai-markdown :deep(h3),
+.ai-markdown :deep(h4),
+.ai-markdown :deep(h5),
+.ai-markdown :deep(h6) {
+  margin: 1em 0 0.5em;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.ai-markdown :deep(h1) { font-size: 1.5em; }
+.ai-markdown :deep(h2) { font-size: 1.25em; }
+.ai-markdown :deep(h3) { font-size: 1.1em; }
+
+.ai-markdown :deep(p) { margin: 0.5em 0; }
+
+.ai-markdown :deep(ul),
+.ai-markdown :deep(ol) {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.ai-markdown :deep(li) { margin: 0.25em 0; }
+
+.ai-markdown :deep(code) {
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  background: rgb(0 0 0 / 6%);
+  font-family: 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 0.9em;
+}
+
+.ai-markdown :deep(pre.code-block) {
+  margin: 0.75em 0;
+  padding: 8px 10px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #f6f8fa;
+}
+
+.ai-markdown :deep(pre.code-block code) {
+  padding: 0;
+  background: transparent;
+  font-size: 0.85em;
+  white-space: pre;
+}
+
+.ai-markdown :deep(blockquote) {
+  margin: 0.5em 0;
+  padding-left: 1em;
+  border-left: 3px solid #dcdfe6;
+  color: #909399;
+}
+
+.ai-markdown :deep(a) {
+  color: var(--themeColor, #409eff);
+  text-decoration: none;
+}
+
+.ai-markdown :deep(table) {
+  width: 100%;
+  margin: 0.5em 0;
+  border-collapse: collapse;
+}
+
+.ai-markdown :deep(th),
+.ai-markdown :deep(td) {
+  padding: 0.5em;
+  border: 1px solid #ebeef5;
+  text-align: left;
+}
+
+.ai-markdown :deep(th) {
+  background: #fafafa;
+  font-weight: 600;
+}
+
+.ai-markdown :deep(hr) {
+  margin: 1em 0;
+  border: 0;
+  border-top: 1px solid #ebeef5;
 }
 
 .ai-text {
   margin: 0;
-  white-space: pre-wrap;
   font-family: inherit;
+  white-space: pre-wrap;
 }
 
 .ai-thinking {
-  color: var(--el-text-color-secondary);
+  color: #909399;
+  font-style: italic;
 }
 
 .ai-message-status {
-  margin-top: 4px;
+  color: #c0c4cc;
   font-size: 12px;
-  color: var(--el-text-color-secondary);
 }
 
 .ai-message-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin-top: 4px;
+  padding-left: 4px;
 }
 
-.ai-error {
-  margin: 8px 12px;
+.ai-apply-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #909399;
+  cursor: pointer;
   font-size: 12px;
+  line-height: 1.4;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.ai-apply-link:hover:not(:disabled) {
+  background: var(--themeColor10, rgb(64 158 255 / 10%));
+  color: var(--themeColor, #409eff);
+}
+
+.ai-apply-link.is-danger:hover:not(:disabled) {
+  background: rgb(245 108 108 / 10%);
   color: var(--el-color-danger, #f56c6c);
 }
 
+.ai-apply-link:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.ai-apply-link__icon {
+  display: inline-flex;
+  width: 12px;
+  height: 12px;
+  align-items: center;
+  justify-content: center;
+}
+
+.ai-apply-link__dot {
+  position: relative;
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--themeColor, #409eff);
+}
+
+.ai-apply-link__dot::after {
+  position: absolute;
+  inset: -3px;
+  border: 2px solid rgb(64 158 255 / 45%);
+  border-radius: 50%;
+  animation: ai-apply-pulse 0.9s ease-out infinite;
+  content: '';
+}
+
+@keyframes ai-apply-pulse {
+  0% { opacity: 1; transform: scale(0.6); }
+  100% { opacity: 0; transform: scale(1.4); }
+}
+
+.ai-error {
+  margin: 8px 0;
+  color: var(--el-color-danger, #f56c6c);
+  font-size: 12px;
+}
+
 .ai-composer {
-  padding: 8px 12px 12px;
-  border-top: 1px solid var(--el-border-color-lighter, rgba(0, 0, 0, 0.08));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px 16px;
+  border-top: 1px solid rgb(0 0 0 / 5%);
+  background: color-mix(in srgb, var(--coolma-panel, #fff) 92%, transparent);
 }
 
 .ai-composer__hint {
-  margin: 2px 0 8px;
+  color: #909399;
   font-size: 12px;
-  color: var(--el-text-color-secondary);
 }
 
 .ai-composer-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 8px;
 }
 </style>
