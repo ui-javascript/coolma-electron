@@ -34,6 +34,7 @@ module.exports = function (/* ctx */) {
       'cdn-deps',
       'tauri-clipboard',
       'tauri-desktop',
+      'external-links',
       'microapp-builtins'
     ],
 

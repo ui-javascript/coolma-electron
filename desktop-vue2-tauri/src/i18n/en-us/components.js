@@ -9,6 +9,7 @@ export default {
   signIn: 'Sign In',
   signUp: 'Sign Up',
   cancel: 'Cancel',
+  openLinkHint: 'Open the link in your browser!',
   close: 'Close',
   confirm: 'Confirm',
   fieldIsRequired: 'Field is required',

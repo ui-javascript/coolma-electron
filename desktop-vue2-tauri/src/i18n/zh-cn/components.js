@@ -612,6 +612,7 @@ export default {
   saveAndSync: '保存并同步',
   saveOnly: '仅保存',
   cancel: '取消',
+  openLinkHint: '使用浏览器打开链接！',
   deleteTag: '删除标签',
   deleteTagHint: '你确定要删除这个标签吗？',
   noTags: '没有标签，按下回车创建标签',
