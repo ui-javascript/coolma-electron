@@ -134,3 +134,12 @@ export function joinFolderPath(parent: string, child: string): string {
     .filter(Boolean);
   return `/${[...parentParts, ...names].join('/')}`;
 }
+
+/** 批量删除模板可执行 ids：只留当前存在且非内置的模板（对齐 vue2 confirmBatchDeleteTemplates）。 */
+export function removableTemplateIds(
+  templates: Array<{ id: string; isBuiltin: boolean }>,
+  selected: string[],
+): string[] {
+  const allowed = new Set(templates.filter((tpl) => tpl.id && !tpl.isBuiltin).map((tpl) => tpl.id));
+  return selected.filter((id) => allowed.has(id));
+}

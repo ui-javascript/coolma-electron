@@ -41,7 +41,7 @@
 | 14 | 新建笔记不询问标题 | vue2 弹“模板 + 标题”；v3 直接建“未命名笔记” | ✅ 已补：`NewNoteDialog` 统一接列表新建、侧栏模板下拉、右键与 Ctrl+N；空模板置首、模板按 `sortOrder/createdAt` 排序，默认标题取末级分类 + `YYYYMM`，打开聚焦全选标题；无模板也交由主进程补 `# 标题`；typecheck/runtime/frontend build 过；未在 Electron 窗口内点弹窗 |
 | 15 | 右键新建子目录不挂当前节点 | v3 只能手输 `/父/子`；vue2 预置右键节点为 `parentCategory` | ✅ 已补：`startCreateFolder(parentCategory)` 由右键节点传入，弹窗只收子目录名并用 `joinFolderPath` 拼成 `/父/子`；工具栏新建仍支持多级路径；typecheck/runtime/frontend build 过；未在 Electron 窗口内右键点菜单 |
 | 16 | 删除非空文件夹语义不同 | vue2 只删分类节点，笔记仍在；v3 返回 `CATEGORY_NOT_EMPTY` 拒绝删除 | ✅ 已补：主进程去掉非空拦截，`categories.remove` 只删节点；侧栏删除不再按笔记数阻断，HomeView 删除后仅当筛选落在被删子树时回退并提示成功；db 断言确认删目录后笔记仍在；typecheck/test:db/runtime/frontend build/build-electron 过；未在 Electron 窗口内点删除 |
-| 17 | 笔记模板缺批量删除、拖拽排序 | v3 只有新增/编辑/单删 |
+| 17 | 笔记模板缺批量删除（“拖拽排序”为误记） | vue2 实际只有勾选后批量删除，没有拖拽排序；v3 只有新增/编辑/单删 | ✅ 已补：`NoteTemplateCard` 加非内置模板勾选、已选数量与批删按钮，确认后逐条删并提示数量；`removableTemplateIds` 过滤内置与失效 id；typecheck/runtime/frontend build 过；未在 Electron 窗口内勾选批删 |
 | 18 | 符文/回响表单元数据缩水 | v2 有图标选择、代码编辑器、字段分区；v3 基本是名称/描述/颜色/分类 + textarea |
 | 19 | 云函数设置少分支且测试不真实 | 少 Supabase、`electron/app-plus`；测试只 HEAD baseUrl；示例不能执行 `invokeDemo` |
 | 20 | 自定义主题目录管理缺失 | v2 有主题帮助、刷新主题目录、打开主题目录；v3 皮肤固定三种 |
