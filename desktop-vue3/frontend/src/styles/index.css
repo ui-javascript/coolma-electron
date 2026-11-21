@@ -1583,3 +1583,35 @@ html.dark .editor-action-bar {
     width: 96vw !important;
   }
 }
+
+/* 微应用编辑：对齐 vue2 microAppEditDialog 的 60vw 紧凑卡片 */
+.micro-app-edit-dialog {
+  min-width: 460px;
+  max-width: 560px;
+  padding: 0;
+  border-radius: 8px;
+}
+
+.micro-app-edit-dialog .el-dialog__header {
+  display: none;
+}
+
+.micro-app-edit-dialog .el-dialog__body {
+  padding: 0;
+}
+
+.micro-app-edit-dialog .el-dialog__footer {
+  padding: 8px 12px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.micro-app-edit-dialog .el-form-item {
+  margin-bottom: 16px;
+}
+
+@media (max-width: 620px) {
+  .micro-app-edit-dialog {
+    width: 94vw !important;
+    min-width: 0;
+  }
+}
