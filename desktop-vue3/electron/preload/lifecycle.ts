@@ -18,7 +18,8 @@ class Lifecycle {
 
     // 图片附件协议：coolma://coolma.app/<kb>/<doc>/<name>
     try {
-      const { registerCoolmaProtocol } = await import('../service/coolma-protocol');
+      // 动态 import 走 ESM 解析器，相对路径必须带 .js 后缀，否则找不到模块
+      const { registerCoolmaProtocol } = await import('../service/coolma-protocol.js');
       registerCoolmaProtocol();
     } catch (error) {
       logger.error('[lifecycle] register coolma protocol failed');

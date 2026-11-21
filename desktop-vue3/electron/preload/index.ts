@@ -13,7 +13,8 @@ function preload(): void {
   try {
     initDatabase();
     // 启动时按策略自动备份（默认 24h 一次、保留 7 份），不阻塞窗口加载
-    void import('../service/db/backup')
+    // 动态 import 走 ESM 解析器，相对路径必须带 .js 后缀，否则找不到模块
+    void import('../service/db/backup.js')
       .then(({ autoBackupIfDue }) => {
         const created = autoBackupIfDue();
         if (created) {
