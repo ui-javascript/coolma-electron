@@ -755,6 +755,173 @@ async function main(): Promise<void> {
 
 
 
+  // ── 微应用 SFC 解析 / 通用 IPC 桥真链路 ──
+  {
+    const { default: MicroAppController } = await import('../electron/controller/microapp');
+    const controller = new MicroAppController();
+    const sfcSource =
+      '<template><div class="demo">{{ msg }}</div></template>\n' +
+      "<script>export default { data() { return { msg: 'hi' } } }</script>\n" +
+      '<style scoped>.demo { color: red; }</style>';
+    const compiled = await controller.parse({ source: sfcSource, options: { filename: 'demo.vue', scopeId: 'data-v-test' } });
+    const compiledData = compiled.ok ? compiled.data : null;
+    assert(
+      '微应用 SFC：主进程通道返回 Vue2 playground 四段结果',
+      Boolean(
+        compiledData &&
+          compiledData.template.includes('var render = function render()') &&
+          (compiledData.script as { content?: string })?.content?.includes('msg') &&
+          compiledData.style.includes('data-v-test') &&
+          Array.isArray(compiledData.customBlocks),
+      ),
+      JSON.stringify(compiled.ok ? Object.keys(compiled.data) : compiled.error),
+    );
+    const missingTemplate = await controller.parse({ source: '<script>export default {}</script>' });
+    assert(
+      '微应用 SFC：缺 template 返回 VUE_SFC_TEMPLATE_REQUIRED',
+      !missingTemplate.ok && missingTemplate.error.code === 'VUE_SFC_TEMPLATE_REQUIRED',
+      JSON.stringify(missingTemplate),
+    );
+    const nonString = await controller.parse({ source: 123 });
+    assert(
+      '微应用 SFC：非字符串源码保留 VUE_SFC_SOURCE_REQUIRED',
+      !nonString.ok && nonString.error.code === 'VUE_SFC_SOURCE_REQUIRED',
+      JSON.stringify(nonString),
+    );
+    const { IPC_CHANNELS, INVOKE_CHANNELS } = await import('@shared/ipc/channels');
+    assert(
+      '微应用 SFC：解析通道已登记进 preload 白名单',
+      IPC_CHANNELS.microapp.parse === 'controller/microapp/parse' &&
+        INVOKE_CHANNELS.has(IPC_CHANNELS.microapp.parse),
+      IPC_CHANNELS.microapp.parse,
+    );
+
+    const handlers = new Map<string, Set<(payload: Any) => unknown>>();
+    const outbox = new Map<string, Any[]>();
+    const fakeBus = {
+      $on(event: string, handler: (payload: Any) => unknown) {
+        const set = handlers.get(event) ?? new Set();
+        set.add(handler);
+        handlers.set(event, set);
+      },
+      $off(event: string, handler: (payload: Any) => unknown) {
+        handlers.get(event)?.delete(handler);
+      },
+      $emit(event: string, payload?: Any) {
+        if (event.endsWith(':response')) {
+          const list = outbox.get(event) ?? [];
+          list.push(payload);
+          outbox.set(event, list);
+          return;
+        }
+        for (const handler of handlers.get(event) ?? []) {
+          void handler(payload);
+        }
+      },
+    };
+    const { setWujieBus } = await import('@/services/wujieBus');
+    setWujieBus(fakeBus);
+    const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+    const calls: Array<{ channel: string; payload: unknown }> = [];
+    const originalCoolma = (window as Any).coolma;
+    (window as Any).coolma = {
+      invoke: async (channel: string, payload: unknown) => {
+        calls.push({ channel, payload });
+        if (channel === IPC_CHANNELS.microapp.parse) {
+          return { ok: true, data: { template: 'var render = function render() {}', script: {}, style: '', customBlocks: [] } };
+        }
+        if (channel === IPC_CHANNELS.app.info) {
+          return { ok: true, data: { name: 'Coolma Vue3' } };
+        }
+        return { ok: true, data: null };
+      },
+    };
+
+    try {
+      const { installGenericMicroAppIpcBridge } = await import('@/services/genericMicroAppBridge');
+      const genericUninstall = installGenericMicroAppIpcBridge();
+      fakeBus.$emit('microapp:ipc:request', { requestId: 'g1', channel: IPC_CHANNELS.app.info, args: {} });
+      await tick();
+      const genericOk = (outbox.get('microapp:ipc:response') ?? []).find((item: Any) => item.requestId === 'g1');
+      assert('通用桥：白名单通道成功 invoke 并回包', genericOk?.ok === true && genericOk.result?.name === 'Coolma Vue3', JSON.stringify(genericOk));
+      fakeBus.$emit('microapp:ipc:request', { requestId: 'g2', channel: IPC_CHANNELS.notes.remove, args: { id: 1 } });
+      await tick();
+      const denied = (outbox.get('microapp:ipc:response') ?? []).find((item: Any) => item.requestId === 'g2');
+      assert(
+        '通用桥：非白名单通道被拒且不触发 invoke',
+        denied?.ok === false && denied.error?.code === 'CHANNEL_NOT_ALLOWED' && calls.length === 1,
+        JSON.stringify({ denied, calls: calls.length }),
+      );
+      (window as Any).coolma = {
+        invoke: async (channel: string) => {
+          calls.push({ channel, payload: null });
+          return { ok: false, error: { code: 'TEST_IPC_FAIL', message: 'ipc boom' } };
+        },
+      };
+      fakeBus.$emit('microapp:ipc:request', { requestId: 'g3', channel: IPC_CHANNELS.app.info, args: {} });
+      await tick();
+      const failed = (outbox.get('microapp:ipc:response') ?? []).find((item: Any) => item.requestId === 'g3');
+      assert(
+        '通用桥：主进程 IpcResult 失败时解包为 ok=false',
+        failed?.ok === false && failed.error?.code === 'TEST_IPC_FAIL',
+        JSON.stringify(failed),
+      );
+      genericUninstall();
+    } finally {
+      (window as Any).coolma = originalCoolma;
+    }
+
+    const { installMicroAppParseBridge, setMicroAppParseImpl, isMicroAppParseBridgeInstalled } = await import(
+      '@/services/microAppBridge'
+    );
+    const originalParseCoolma = (window as Any).coolma;
+    const parseCalls: Array<{ channel: string; payload: Any }> = [];
+    (window as Any).coolma = {
+      invoke: async (channel: string, payload: Any) => {
+        parseCalls.push({ channel, payload });
+        return { ok: true, data: { template: 'var render = function render() {}', script: {}, style: '', customBlocks: [] } };
+      },
+    };
+    try {
+      setMicroAppParseImpl(null);
+      const parseUninstall = installMicroAppParseBridge();
+      fakeBus.$emit('microapp:parse:request', {
+        requestId: 'p1',
+        payload: { source: sfcSource, filename: 'card.vue', sourceMap: false, options: {} },
+      });
+      await tick();
+      const parseResp = (outbox.get('microapp:parse:response') ?? []).find((item: Any) => item.requestId === 'p1');
+      assert(
+        '解析桥：bus 请求转 controller/microapp/parse 并回包',
+        parseResp?.ok === true &&
+          parseResp.result?.template?.includes('var render') &&
+          parseCalls[0]?.channel === IPC_CHANNELS.microapp.parse &&
+          parseCalls[0]?.payload?.options?.filename === 'card.vue',
+        JSON.stringify({ parseResp, call: parseCalls[0] }),
+      );
+      const beforeMissing = (outbox.get('microapp:parse:response') ?? []).length;
+      fakeBus.$emit('microapp:parse:request', { payload: { source: '<template/>' } });
+      await tick();
+      assert(
+        '解析桥：缺 requestId 的请求被忽略',
+        (outbox.get('microapp:parse:response') ?? []).length === beforeMissing,
+        String((outbox.get('microapp:parse:response') ?? []).length),
+      );
+      setMicroAppParseImpl(() => {
+        throw Object.assign(new Error('parse boom'), { code: 'TEST_PARSE_FAIL' });
+      });
+      fakeBus.$emit('microapp:parse:request', { requestId: 'p2', payload: { source: '<template/>' } });
+      await tick();
+      const parseFail = (outbox.get('microapp:parse:response') ?? []).find((item: Any) => item.requestId === 'p2');
+      assert('解析桥：实现抛错时回 ok=false 与错误码', parseFail?.ok === false && parseFail.error?.code === 'TEST_PARSE_FAIL', JSON.stringify(parseFail));
+      parseUninstall();
+      assert('解析桥：卸载后不再标记已装', isMicroAppParseBridgeInstalled() === false, 'installed');
+    } finally {
+      (window as Any).coolma = originalParseCoolma;
+    }
+    setWujieBus(null);
+  }
+
   updater: {
     const { IPC_CHANNELS } = await import('@shared/ipc/channels');
     assert('更新：三个通道都在 IPC_CHANNELS', ['updateCheck', 'updateDownload', 'updateInstall'].every((k) => typeof (IPC_CHANNELS.app as Record<string, string>)[k] === 'string'), 'channels');

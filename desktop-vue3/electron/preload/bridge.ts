@@ -13,6 +13,7 @@ const INVOKE_CHANNELS = new Set<string>([
   'controller/app/openExternal',
   'controller/app/pickDirectory',
   'controller/app/pickFile',
+  'controller/microapp/parse',
   'controller/window/minimize',
   'controller/window/state',
   'controller/window/toggleMaximize',

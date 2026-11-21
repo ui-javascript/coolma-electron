@@ -2,11 +2,11 @@
  * 微应用 ↔ 主进程桥（wujie bus 通道，移植 vue2 microAppIpcBridge.js）。
  *
  * 子应用在 iframe 里 `window.$wujie.bus.$emit('microapp:parse:request', { requestId, payload })`，
- * 主应用这里监听 → 走主进程能力 → 再 `$emit('microapp:parse:response', { requestId, result })`。
- *
- * vue3 目前主进程还没有 vue-sfc 解析通道（vue2 是 ParseVueSfc），
- * 这里先把桥的骨架和事件名固定下来，处理器留成可注入的（后续接解析通道只换 impl）。
+ * 主应用监听 → `controller/microapp/parse`（Vue 2 SFC 编译）→
+ * `$emit('microapp:parse:response', { requestId, ok, result | error })`。
  */
+import { IPC_CHANNELS } from '@shared/ipc/channels';
+import { invoke } from '@/services/ipc';
 import { getWujieBus } from '@/services/wujieBus';
 
 export const PARSE_REQUEST_EVENT = 'microapp:parse:request';
@@ -23,7 +23,33 @@ let impl: ParseImpl | null = null;
 let installed = false;
 let uninstallRef: (() => void) | null = null;
 
-/** 注入实际的解析实现（后续接主进程通道时调用一次）。 */
+/**
+ * 把 vue2 parseClient 的 payload 形状转成主进程入参：
+ *   - payload 可以是源码字符串
+ *   - 或 { source, options, filename, sourceMap }
+ * 与 vue2 microAppIpcBridge 的 filename/sourceMap 合并顺序一致。
+ */
+export async function parseMicroAppSfc(payload: unknown): Promise<unknown> {
+  const source = typeof payload === 'string' ? payload : (payload as { source?: unknown } | null | undefined)?.source;
+  const objectPayload = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
+  const options = (objectPayload.options && typeof objectPayload.options === 'object' ? objectPayload.options : {}) as Record<
+    string,
+    unknown
+  >;
+  const filename = String(objectPayload.filename || 'inline.vue');
+  const sourceMap = objectPayload.sourceMap || false;
+
+  const result = await invoke(IPC_CHANNELS.microapp.parse, {
+    source,
+    options: { ...options, filename, sourceMap },
+  });
+  if (!result.ok) {
+    throw Object.assign(new Error(result.error.message), { code: result.error.code });
+  }
+  return result.data;
+}
+
+/** 注入自定义解析实现（测试用）；传 null 恢复为无实现状态。 */
 export function setMicroAppParseImpl(next: ParseImpl | null): void {
   impl = next;
 }
@@ -35,6 +61,9 @@ export function installMicroAppParseBridge(): () => void {
   const bus = getWujieBus() as { $on: Function; $off: Function; $emit: Function } | null;
   if (!bus) {
     return () => {};
+  }
+  if (!impl) {
+    impl = parseMicroAppSfc;
   }
 
   const handler = async (envelope: MicroAppParsePayload = {}): Promise<void> => {

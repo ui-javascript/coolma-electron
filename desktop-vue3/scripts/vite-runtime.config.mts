@@ -25,7 +25,7 @@ export default defineConfig({
     target: 'node20',
     rollupOptions: {
       input: fileURLToPath(new URL('runtime-test.ts', import.meta.url)),
-      external: ['jsdom'],
+      external: ['jsdom', '@vue/compiler-sfc'],
       output: {
         entryFileNames: 'rt.mjs',
         format: 'es',
@@ -33,6 +33,6 @@ export default defineConfig({
     },
   },
   ssr: {
-    external: ['jsdom'],
+    external: ['jsdom', '@vue/compiler-sfc'],
   },
 });

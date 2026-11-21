@@ -316,3 +316,20 @@ export const aiSkillSaveSchema = z.object({
 export const aiIdSchema = z.object({
   id: z.number().int().positive(),
 });
+
+/** 微应用 Vue 2 SFC 编译入参：允许直接传源码，或 { source, options }。 */
+export const vueSfcParseSchema = z.union([
+  z.string().max(5_000_000),
+  z
+    .object({
+      // 非字符串留给编译器抛 VUE_SFC_SOURCE_REQUIRED，与 vue2 错误码一致
+      source: z.unknown().optional(),
+      options: z.record(z.unknown()).optional(),
+    })
+    .strict()
+    .superRefine((value, ctx) => {
+      if (typeof value.source === 'string' && value.source.length > 5_000_000) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['source'], message: 'source exceeds 5MB' });
+      }
+    }),
+]);

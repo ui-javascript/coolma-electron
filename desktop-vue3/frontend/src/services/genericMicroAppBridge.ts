@@ -77,8 +77,13 @@ export function installGenericMicroAppIpcBridge(options: {
       if (!api?.invoke) {
         throw Object.assign(new Error('coolma bridge unavailable'), { code: 'BRIDGE_UNAVAILABLE' });
       }
-      const result = await api.invoke(channel, args);
-      bus.$emit(IPC_RESPONSE_EVENT, { requestId, ok: true, result });
+      const response = await api.invoke(channel, args);
+      if (!response?.ok) {
+        throw Object.assign(new Error(response?.error?.message || 'IPC invoke failed'), {
+          code: response?.error?.code || 'IPC_BRIDGE_FAILED',
+        });
+      }
+      bus.$emit(IPC_RESPONSE_EVENT, { requestId, ok: true, result: response.data });
     } catch (error) {
       const typed = error as Error & { code?: string };
       bus.$emit(IPC_RESPONSE_EVENT, {
