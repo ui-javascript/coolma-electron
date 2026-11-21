@@ -12,7 +12,7 @@ export function installBusDialogs(): void {
     registerBusDialog(
       'AiHelperBusDialog',
       () => import('@/components/AiHelperBusDialog.vue'),
-      { kind: 'drawer', props: { size: '420px', title: 'AI 助手' } },
+      { kind: 'drawer', props: { size: '420px', title: 'AI 助手', zIndex: 9999, modal: false } },
     );
   }
   startBusDialogs();

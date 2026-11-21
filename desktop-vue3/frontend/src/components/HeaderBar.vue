@@ -208,7 +208,7 @@ const modeOptions: Array<{
 }> = [
   { value: IndexModeEnum.Folder, label: 'Idx神引', icon: Folder, descriptionKey: 'index.folderMode' },
   { value: IndexModeEnum.Tag, label: 'Core超脱', icon: CollectionTag, descriptionKey: 'index.tagMode' },
-  { value: IndexModeEnum.Time, label: 'Arch终极', icon: Calendar, descriptionKey: 'index.calendarMode' },
+  { value: IndexModeEnum.Calendar, label: 'Arch终极', icon: Calendar, descriptionKey: 'index.calendarMode' },
 ];
 
 const currentMode = computed(() => {

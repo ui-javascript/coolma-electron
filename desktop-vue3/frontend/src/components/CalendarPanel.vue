@@ -1,14 +1,17 @@
 <template>
   <div class="calendar-panel">
     <div class="calendar-header">
-      <el-select v-model="basisProxy" size="small" class="basis-select">
-        <el-option
-          v-for="item in basisOptions"
-          :key="item.value"
-          :label="t(item.label)"
-          :value="item.value"
-        />
-      </el-select>
+      <div class="basis-group">
+        <span class="basis-label">{{ t('calendar.filterLabel') }}</span>
+        <el-select v-model="basisProxy" size="small" class="basis-select">
+          <el-option
+            v-for="item in basisOptions"
+            :key="item.value"
+            :label="t(item.label)"
+            :value="item.value"
+          />
+        </el-select>
+      </div>
       <div class="month-nav">
         <el-button text size="small" @click="shiftMonth(-1)">
           <el-icon><ArrowLeft /></el-icon>
@@ -143,60 +146,89 @@ function shiftMonth(delta: number): void {
 <style scoped>
 .calendar-panel {
   padding: 8px 10px;
+  overflow-x: hidden;
 }
 
 .calendar-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  margin-bottom: 8px;
+  justify-content: flex-end;
+  gap: 6px 10px;
+  margin-bottom: 6px;
+  padding: 2px 0 4px;
+}
+
+.basis-group {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.basis-label {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .basis-select {
-  width: 96px;
+  width: 112px;
 }
 
 .month-nav {
   display: flex;
+  flex: 0 0 100%;
   align-items: center;
-  gap: 2px;
+  justify-content: space-between;
+  gap: 0;
 }
 
 .month-label {
+  min-width: 0;
+  flex: 1;
+  color: var(--el-text-color-primary);
   font-size: 13px;
   font-weight: 600;
-  min-width: 68px;
   text-align: center;
+  white-space: nowrap;
 }
 
 .calendar-week-head,
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 2px;
 }
 
 .week-name {
-  font-size: 11px;
+  padding: 3px 0 5px;
+  border-bottom: 1px solid var(--el-border-color-lighter, #ebeef5);
   color: var(--el-text-color-secondary);
+  font-size: 11px;
   text-align: center;
-  padding: 2px 0;
+}
+
+.calendar-grid {
+  border-top: 1px solid var(--el-border-color-lighter, #ebeef5);
+  border-left: 1px solid var(--el-border-color-lighter, #ebeef5);
 }
 
 .calendar-cell {
   position: relative;
-  border: none;
-  background: transparent;
-  border-radius: 6px;
-  padding: 5px 0;
-  font-size: 12px;
-  color: var(--el-text-color-primary);
-  cursor: pointer;
   display: flex;
+  min-height: 32px;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
+  gap: 2px;
+  padding: 4px 0;
+  border: 0;
+  border-right: 1px solid var(--el-border-color-lighter, #ebeef5);
+  border-bottom: 1px solid var(--el-border-color-lighter, #ebeef5);
+  border-radius: 0;
+  background: transparent;
+  color: var(--el-text-color-primary);
+  cursor: pointer;
+  font-size: 12px;
 }
 
 .calendar-cell:hover {
@@ -213,7 +245,8 @@ function shiftMonth(delta: number): void {
 }
 
 .calendar-cell.selected {
-  background: var(--el-color-primary-light-8);
+  background: var(--el-color-primary-light-9);
+  box-shadow: inset 0 0 0 1px var(--el-color-primary-light-5);
 }
 
 .note-dot {

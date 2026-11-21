@@ -4,6 +4,7 @@
     fullscreen
     :title="t('preview.pptPreview')"
     class="ppt-preview-dialog"
+    modal-class="ppt-preview-overlay"
     @opened="initReveal"
     @closed="destroyReveal"
   >
@@ -158,23 +159,132 @@ function exportDeck(mode: 'native' | 'pdf'): void {
 }
 </script>
 
+<style>
+.ppt-preview-overlay {
+  z-index: 9999 !important;
+}
+
+.ppt-preview-dialog {
+  display: flex;
+  height: 100vh;
+  flex-direction: column;
+  margin: 0;
+  border-radius: 0;
+  background: #0f172a;
+}
+
+.ppt-preview-dialog .el-dialog__header {
+  margin: 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgb(255 255 255 / 8%);
+  background: rgb(15 23 42 / 92%);
+}
+
+.ppt-preview-dialog .el-dialog__body {
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.ppt-preview-dialog .el-dialog__headerbtn .el-dialog__close {
+  color: #cbd5e1;
+}
+</style>
+
 <style scoped>
 .ppt-toolbar {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-height: 40px;
+  color: #f8fafc;
+}
+
+.ppt-toolbar > .el-icon {
+  color: var(--themeColor, #409eff);
+  font-size: 22px;
 }
 
 .ppt-title {
-  font-weight: 600;
+  color: #f8fafc;
+  font-size: 16px;
+  font-weight: 700;
 }
 
 .ppt-split {
   margin-left: auto;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.ppt-split :deep(.el-radio-button__inner) {
+  border-color: transparent;
+  background: #4b5563;
+  color: #fff;
+  font-size: 12px;
+}
+
+.ppt-split :deep(.el-radio-button.is-active .el-radio-button__inner) {
+  background: var(--themeColor, #409eff);
+  color: #fff;
+  box-shadow: none;
+}
+
+.ppt-toolbar :deep(.el-button) {
+  border-color: rgb(255 255 255 / 18%);
+  background: transparent;
+  color: #e2e8f0;
+}
+
+.ppt-toolbar :deep(.el-button:hover) {
+  border-color: var(--themeColor, #409eff);
+  background: rgb(255 255 255 / 8%);
+  color: #fff;
 }
 
 .ppt-preview-container {
-  height: calc(100vh - 120px);
-  background: #111827;
+  height: 100%;
+  background: radial-gradient(circle at top, #1e293b 0%, #020617 70%);
+}
+
+.ppt-preview-container :deep(.reveal),
+.ppt-preview-container :deep(.reveal-viewport) {
+  width: 100%;
+  height: 100%;
+  background: transparent !important;
+  color: #e2e8f0;
+}
+
+.ppt-preview-container :deep(.slides) {
+  color: #cbd5e1;
+  text-align: left;
+}
+
+.ppt-preview-container :deep(.slides section) {
+  color: #cbd5e1;
+  font-size: 0.9em;
+}
+
+.ppt-preview-container :deep(.slides h1),
+.ppt-preview-container :deep(.slides h2),
+.ppt-preview-container :deep(.slides h3) {
+  color: #f8fafc !important;
+  text-transform: none;
+}
+
+.ppt-preview-container :deep(.slides p),
+.ppt-preview-container :deep(.slides li),
+.ppt-preview-container :deep(.slides blockquote) {
+  color: #cbd5e1;
+}
+
+.ppt-preview-container :deep(.slides code) {
+  color: #f8fafc;
+}
+
+.ppt-preview-container :deep(.controls),
+.ppt-preview-container :deep(.progress) {
+  color: var(--themeColor, #409eff);
 }
 </style>

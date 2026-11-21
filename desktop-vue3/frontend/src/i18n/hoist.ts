@@ -6,6 +6,11 @@ export type { Messages };
 const LIBRARY_OWN_KEYS = new Set([
   'management', 'runesTab', 'echoesTab', 'runesTitle', 'echoesTitle', 'add', 'empty', 'dragHint',
   'name', 'namePlaceholder', 'desc', 'descPlaceholder', 'color', 'category', 'source',
+  'aiGenerateRune', 'aiGenerateEcho', 'githubImport', 'remoteRuneTitle', 'remoteRuneUrlLabel',
+  'remoteRuneUrlPlaceholder', 'remoteRuneHint', 'remoteRuneCategoryLabel', 'remoteRuneAuto',
+  'remoteRuneImport', 'remoteRuneDone', 'remoteRuneFailed', 'remoteRuneTooLarge', 'remoteRuneDuplicate',
+  'icon', 'echoAnnoSource', 'echoSyntax', 'echoSyntaxName', 'echoSyntaxHint',
+  'runeTemplateContent', 'templatePreset', 'templatePresetPlaceholder', 'templateHint', 'resetTemplate',
   'templatePlaceholder', 'annoPlaceholder', 'inherit', 'inheritHint', 'newRune', 'editRune',
   'newEcho', 'editEcho', 'nameRequired', 'saveFailed', 'saveSuccess', 'deleteFailed',
   'deleteSuccess', 'sortFailed', 'deleteConfirm',

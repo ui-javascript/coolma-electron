@@ -1,14 +1,23 @@
 <template>
   <el-dialog
     v-model="visible"
-    :title="t('login.title')"
-    width="420px"
+    width="500px"
     :close-on-click-modal="false"
     :close-on-press-escape="false"
     :show-close="false"
     append-to-body
     class="login-dialog"
   >
+    <template #header>
+      <div class="login-dialog-heading">
+        <el-icon class="login-dialog-icon"><UserFilled /></el-icon>
+        <span class="login-dialog-title">{{ t('login.title') }}</span>
+        <button type="button" class="login-power-btn" :title="t('action.close')" @click="quitApp">
+          <el-icon><SwitchButton /></el-icon>
+        </button>
+      </div>
+    </template>
+
     <el-form label-position="top" @submit.prevent="doLogin">
       <el-form-item :label="t('login.username')">
         <el-input v-model="form.userId" spellcheck="false" autocomplete="username" autofocus />
@@ -34,7 +43,7 @@
 
       <div class="login-actions">
         <el-button type="primary" native-type="submit" :loading="busy">{{ t('login.signIn') }}</el-button>
-        <el-button :disabled="busy" @click="signUp">{{ t('login.signUp') }}</el-button>
+        <el-button type="success" :disabled="busy" @click="signUp">{{ t('login.signUp') }}</el-button>
         <el-button text :disabled="busy" @click="skip">{{ t('login.skipLogin') }}</el-button>
       </div>
     </el-form>
@@ -51,11 +60,12 @@
  * 这里只负责手动登录、开关项持久化、注册外链和跳过登录。
  */
 import { computed, reactive, ref, watch } from 'vue';
+import { SwitchButton, UserFilled } from '@element-plus/icons-vue';
 import { useI18n } from 'vue-i18n';
 import { useAppStore } from '@/stores/app';
 import { useNotesStore } from '@/stores/notes';
-import { getPendingSync } from '@/services/ipc';
 import { getSyncStatus, syncLogin } from '@/services/sync';
+import { closeWindow, getPendingSync } from '@/services/ipc';
 import { openExternal } from '@/services/cloudfn';
 import { DEFAULT_LOGIN_BASE, isValidServerUrl, normalizeServerUrl, resolveSignupUrl } from '@/utils/loginRules';
 import SyncOfflinePromptDialog from '@/components/SyncOfflinePromptDialog.vue';
@@ -202,6 +212,14 @@ function skip(): void {
   emit('skip');
 }
 
+/** vue2 顶栏右上角电源按钮直接关应用；浏览器预览无 IPC 时退化为关闭弹窗。 */
+async function quitApp(): Promise<void> {
+  const result = await closeWindow();
+  if (!result.ok) {
+    visible.value = false;
+  }
+}
+
 async function afterSynced(): Promise<void> {
   await notesStore.loadAll?.();
   const result = await getPendingSync();
@@ -225,11 +243,66 @@ async function afterSynced(): Promise<void> {
 .login-actions {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .login-actions :deep(.el-button) {
   width: 100%;
   margin-left: 0;
+}
+
+.login-dialog-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.login-dialog-icon {
+  color: var(--el-color-primary);
+  font-size: 26px;
+}
+
+.login-dialog-title {
+  flex: 1;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.login-power-btn {
+  display: flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--el-color-danger);
+  cursor: pointer;
+  font-size: 19px;
+}
+
+.login-power-btn:hover {
+  background: var(--el-color-danger-light-9);
+}
+</style>
+
+<style>
+.login-dialog {
+  width: 500px !important;
+  max-width: 50vw;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.login-dialog .el-dialog__header {
+  margin: 0;
+  padding: 8px 12px;
+}
+
+.login-dialog .el-dialog__body {
+  padding: 10px 16px 18px;
 }
 </style>

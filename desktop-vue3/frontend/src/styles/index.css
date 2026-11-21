@@ -1375,9 +1375,9 @@ html.dark .editor-action-bar {
 .tag-treemap {
   flex: 1;
   width: 100%;
-  min-height: 220px;
-  margin-top: 4px;
-  padding: 4px 6px 6px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
   box-sizing: border-box;
 }
 
@@ -1398,4 +1398,220 @@ html.dark .editor-action-bar {
   background: rgba(33, 181, 111, 0.9) !important;
   border-color: rgba(33, 181, 111, 0.9) !important;
   color: #fff !important;
+}
+
+/* 符文/回响表单：对齐 vue2 runeFormDialog / echoFormDialog 双列卡片 */
+.library-form-dialog {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.library-form-dialog--rune {
+  min-width: 600px;
+  max-width: 82vw;
+  height: 78vh;
+  max-height: 86vh;
+}
+
+.library-form-dialog--echo {
+  min-width: 680px;
+  max-width: 88vw;
+  height: 80vh;
+  max-height: 88vh;
+}
+
+.library-form-dialog .el-dialog__header {
+  flex: 0 0 auto;
+  margin-right: 0;
+  padding: 16px 44px 12px 16px;
+}
+
+.library-form-dialog .el-dialog__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.library-form-dialog .el-dialog__footer {
+  flex: 0 0 auto;
+  padding: 0 16px 16px;
+}
+
+@media (max-width: 900px) {
+  .library-form-dialog--rune,
+  .library-form-dialog--echo {
+    width: 96vw !important;
+    min-width: auto;
+    max-width: 96vw;
+    height: 88vh;
+  }
+
+  .library-form-dialog .el-dialog__body {
+    padding: 12px;
+  }
+}
+
+/* 笔记模板表单：对齐 vue2 noteTemplateFormDialog 品牌橙 + 两列字段 */
+.note-template-form-dialog {
+  display: flex;
+  flex-direction: column;
+  max-width: 80vw;
+  max-height: 86vh;
+  padding: 0;
+}
+
+.note-template-form-dialog .el-dialog__header {
+  flex: 0 0 auto;
+  margin-right: 0;
+  padding: 8px 40px 8px 12px;
+}
+
+.note-template-form-dialog .el-dialog__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 16px;
+  overflow: auto;
+}
+
+.note-template-form-dialog .el-dialog__footer {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border-top: 1px solid rgb(120 120 120 / 18%);
+}
+
+@media (max-width: 700px) {
+  .note-template-form-dialog {
+    width: 96vw !important;
+  }
+}
+
+/* 移动到文件夹：对齐 vue2 CategoryDialog 的 70vw 分类树 */
+.move-note-dialog {
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  padding: 0;
+}
+
+.move-note-dialog .el-dialog__header {
+  flex: 0 0 auto;
+  min-height: 40px;
+  margin-right: 0;
+  padding: 8px 40px 8px 12px;
+}
+
+.move-note-dialog .el-dialog__body {
+  flex: 0 0 70vh;
+  height: 70vh;
+  padding: 0;
+  overflow: auto;
+}
+
+.move-note-body {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 100%;
+}
+
+@media (max-width: 900px) {
+  .move-note-dialog {
+    width: 96vw !important;
+  }
+}
+
+/* 离线笔记提示：对齐 vue2 syncOfflinePromptDialog 顶部蓝色卡片 */
+.offline-sync-dialog {
+  display: flex;
+  flex-direction: column;
+  max-width: 560px;
+  max-height: 70vh;
+  padding: 0;
+}
+
+.offline-sync-dialog .el-dialog__header {
+  flex: 0 0 auto;
+  margin-right: 0;
+  padding: 0;
+}
+
+.offline-sync-dialog .el-dialog__headerbtn {
+  top: 12px;
+  right: 12px;
+}
+
+.offline-sync-dialog .el-dialog__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0;
+  overflow-y: auto;
+}
+
+.offline-sync-dialog .el-dialog__footer {
+  flex: 0 0 auto;
+  padding: 12px 16px;
+}
+
+@media (max-width: 700px) {
+  .offline-sync-dialog {
+    width: 96vw !important;
+  }
+}
+
+/* 笔记导入：对齐 vue2 ImportDialog 的紧凑 q-uploader 卡片 */
+.note-import-dialog {
+  max-width: 440px;
+  padding: 0;
+}
+
+.note-import-dialog .el-dialog__header {
+  display: none;
+}
+
+.note-import-dialog .el-dialog__body {
+  padding: 0;
+}
+
+.note-import-dialog .el-dialog__footer {
+  padding: 6px 10px 10px;
+}
+
+@media (max-width: 700px) {
+  .note-import-dialog {
+    width: 96vw !important;
+  }
+}
+
+/* 微应用编辑：对齐 vue2 microAppEditDialog 的 60vw 紧凑卡片 */
+.micro-app-edit-dialog {
+  min-width: 460px;
+  max-width: 560px;
+  padding: 0;
+  border-radius: 8px;
+}
+
+.micro-app-edit-dialog .el-dialog__header {
+  display: none;
+}
+
+.micro-app-edit-dialog .el-dialog__body {
+  padding: 0;
+}
+
+.micro-app-edit-dialog .el-dialog__footer {
+  padding: 8px 12px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.micro-app-edit-dialog .el-form-item {
+  margin-bottom: 16px;
+}
+
+@media (max-width: 620px) {
+  .micro-app-edit-dialog {
+    width: 94vw !important;
+    min-width: 0;
+  }
 }
