@@ -56,6 +56,22 @@ export default {
   search: {
     placeholder: '搜索标题、正文或标签...',
   },
+  aiDoubao: {
+    title: '豆包 AI 助手',
+    missingBuild: '未找到豆包 WebApp 构建产物；请先构建 _plugins/doubao-input',
+  },
+  echoInstance: {
+    title: '回响实例',
+    unnamed: '回响',
+    id: '实例 ID',
+    value: '实例内容',
+    valuePlaceholder: '输入当前回响实例的内容',
+    inferred: '未声明字段',
+    help: '这里只更新当前笔记中这个回响实例的 props（含 value 与所有声明字段），不会修改回响定义源码。',
+    editDefinition: '编辑定义',
+    saveFailed: '回响实例写入失败，请重试',
+    definitionMissing: '找不到这个回响的定义，可能已被删除',
+  },
   notes: {
     title: '全部笔记',
     subtitle: 'SQLite 本地笔记 · 实时保存',

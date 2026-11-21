@@ -689,6 +689,22 @@ button {
   white-space: nowrap;
 }
 
+.editor-title-button,
+.editor-tags-button {
+  max-width: 36vw;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.editor-title-button:hover,
+.editor-tags-button:hover {
+  background: var(--coolma-hover);
+}
+
 .editor-meta-note {
   flex: 0 0 auto;
   color: var(--coolma-muted);

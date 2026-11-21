@@ -56,6 +56,22 @@ export default {
   search: {
     placeholder: 'Search title, body or tag...',
   },
+  aiDoubao: {
+    title: 'Doubao AI Assistant',
+    missingBuild: 'Doubao WebApp build not found. Build _plugins/doubao-input first.',
+  },
+  echoInstance: {
+    title: 'Echo instance',
+    unnamed: 'Echo',
+    id: 'Instance ID',
+    value: 'Instance value',
+    valuePlaceholder: 'Enter a value for this echo instance',
+    inferred: 'Undeclared fields',
+    help: 'Only this instance props (value and declared fields) are updated; the echo definition source is untouched.',
+    editDefinition: 'Edit definition',
+    saveFailed: 'Failed to write the echo instance. Please retry.',
+    definitionMissing: 'The echo definition was not found; it may have been deleted.',
+  },
   notes: {
     title: 'All notes',
     subtitle: 'SQLite local notes · autosaved',

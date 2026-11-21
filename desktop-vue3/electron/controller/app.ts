@@ -1,4 +1,7 @@
 import { BrowserWindow, app, dialog, shell } from 'electron';
+import { existsSync } from 'node:fs';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { isDev } from 'ee-core/ps';
 import { IPC_EVENTS } from '../shared/ipc/channels';
 import type { AppInfo, IpcResult } from '../shared/ipc/contract';
@@ -14,6 +17,22 @@ type UpdaterEvent =
   | { type: 'error'; message: string };
 
 let updaterBound = false;
+
+/**
+ * 豆包 WebApp 是独立构建的 wujie 子应用：
+ * - 打包后由 builder extraResources 放到 resources/doubao-input；
+ * - 开发态优先找仓库根目录的 `_plugins/doubao-input/dist`。
+ */
+function resolveDoubaoUrl(): string {
+  const candidates = [
+    path.join(process.resourcesPath, 'doubao-input', 'index.html'),
+    path.resolve(app.getAppPath(), '..', '_plugins', 'doubao-input', 'dist', 'index.html'),
+    path.resolve(process.cwd(), '_plugins', 'doubao-input', 'dist', 'index.html'),
+    path.resolve(process.cwd(), '..', '_plugins', 'doubao-input', 'dist', 'index.html'),
+  ];
+  const hit = candidates.find((candidate) => existsSync(candidate));
+  return hit ? pathToFileURL(hit).href : '';
+}
 
 /** 把 electron-updater 的事件推给所有窗口（对齐 vue2 memocast.js 的 updater-* 事件）。 */
 function bindUpdaterEvents(updater: typeof import('electron-updater').autoUpdater): void {
@@ -64,6 +83,7 @@ class AppController {
         platform: process.platform,
         arch: process.arch,
         isDev: isDev(),
+        doubaoUrl: resolveDoubaoUrl(),
       },
     };
   }
