@@ -3,43 +3,60 @@
     v-model="visible"
     :show-close="false"
     width="80vw"
-    top="6vh"
+    top="7vh"
     class="nav-dialog"
     append-to-body
     @closed="onClosed"
   >
     <template #header>
       <div class="nav-head">
-        <div class="nav-head-left">
-          <el-icon class="nav-head-icon"><Compass /></el-icon>
-          <span class="nav-head-title">{{ t('nav.title') }}</span>
-          <span v-if="!loading && !loadError && cards.length" class="nav-head-count">{{ t('nav.count', { count: cards.length }) }}</span>
-        </div>
-        <div class="nav-head-right">
-          <el-button text circle :loading="loading" :title="t('nav.retry')" @click="load(true)">
-            <el-icon><Refresh /></el-icon>
-          </el-button>
-          <el-button text circle :title="t('action.close')" @click="visible = false">
-            <el-icon><Close /></el-icon>
-          </el-button>
-        </div>
+        <el-icon class="nav-head-icon"><Compass /></el-icon>
+        <span class="nav-head-title">{{ t('nav.title') }}</span>
+        <span v-if="!loading && !loadError && cards.length" class="nav-head-count">
+          {{ t('nav.count', { count: cards.length }) }}
+        </span>
+        <span class="nav-head-spacer" />
+        <button
+          type="button"
+          class="nav-head-btn"
+          :class="{ 'is-loading': loading }"
+          :title="t('nav.retry')"
+          @click="load(true)"
+        >
+          <el-icon><Refresh /></el-icon>
+        </button>
+        <button type="button" class="nav-head-btn" :title="t('action.close')" @click="visible = false">
+          <el-icon><Close /></el-icon>
+        </button>
       </div>
     </template>
 
     <div class="nav-body">
-      <el-alert v-if="loadError" type="error" :closable="false" show-icon class="nav-error">
-        <template #title>
-          <span>{{ loadError.message }}</span>
-          <el-button v-if="loadError.code === 'NO_BASE_URL'" link type="primary" @click="emit('go-config')">{{ t('nav.goConfig') }}</el-button>
-        </template>
-      </el-alert>
+      <div v-if="loadError" class="nav-error">
+        <el-icon class="nav-error-icon"><WarningFilled /></el-icon>
+        <div class="nav-error-text">{{ loadError.message }}</div>
+        <div class="nav-error-actions">
+          <button type="button" class="nav-text-btn" @click="load(true)">{{ t('nav.retry') }}</button>
+          <button
+            v-if="loadError.code === 'NO_BASE_URL'"
+            type="button"
+            class="nav-text-btn"
+            @click="emit('go-config')"
+          >
+            {{ t('nav.goConfig') }}
+          </button>
+        </div>
+      </div>
 
       <div v-if="loading && cards.length === 0" class="nav-loading">
-        <el-icon class="is-loading"><Loading /></el-icon>
+        <el-icon class="is-loading nav-spinner"><Loading /></el-icon>
         <span>{{ t('nav.loading') }}</span>
       </div>
 
-      <el-empty v-else-if="!loadError && cards.length === 0" :description="t('nav.empty')" />
+      <div v-else-if="!loadError && cards.length === 0" class="nav-empty">
+        <el-icon class="nav-empty-icon"><Compass /></el-icon>
+        <span>{{ t('nav.empty') }}</span>
+      </div>
 
       <div v-else class="nav-grid">
         <article v-for="item in cards" :key="item.id" class="nav-card" @click="openTarget(item)">
@@ -80,7 +97,15 @@
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
-import { Close, Compass, Loading, Picture, Refresh, TopRight } from '@element-plus/icons-vue';
+import {
+  Close,
+  Compass,
+  Loading,
+  Picture,
+  Refresh,
+  TopRight,
+  WarningFilled,
+} from '@element-plus/icons-vue';
 import { listNavFiles, openExternal } from '@/services/cloudfn';
 import type { NavCard } from '@/services/cloudfn';
 
@@ -167,88 +192,247 @@ watch(
 .nav-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 10px 8px 10px 14px;
-  border-radius: 8px 8px 0 0;
+  gap: 8px;
+  min-height: 52px;
+  padding: 0 8px;
   background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
   color: #fff;
 }
 
-.nav-head-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.nav-head-icon { font-size: 20px; }
-.nav-head-title { font-weight: 600; }
-.nav-head-count { font-size: 12px; background: #ffffff2e; border-radius: 10px; padding: 2px 8px; }
-.nav-head-right { display: flex; align-items: center; color: #fff; }
-.nav-head-right :deep(.el-button) { color: #fff; }
+.nav-head-icon {
+  flex: 0 0 auto;
+  font-size: 21px;
+}
 
-.nav-body { min-height: 240px; max-height: 70vh; overflow-y: auto; padding: 4px 2px; }
+.nav-head-title {
+  flex: 0 0 auto;
+  font-size: 15px;
+  font-weight: 500;
+}
 
-.nav-error { margin-bottom: 12px; }
+.nav-head-spacer {
+  flex: 1 1 auto;
+}
 
-.nav-loading {
-  min-height: 220px;
+.nav-head-count {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #fff;
+  color: #00acc1;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.nav-head-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.nav-head-btn:hover {
+  background: rgb(255 255 255 / 18%);
+}
+
+.nav-head-btn.is-loading {
+  pointer-events: none;
+}
+
+.nav-head-btn.is-loading :deep(.el-icon) {
+  animation: nav-spin 1s linear infinite;
+}
+
+@keyframes nav-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.nav-body {
+  min-height: 260px;
+  max-height: calc(86vh - 52px);
+  padding: 14px;
+  overflow: auto;
+  background: #fafafa;
+}
+
+.nav-error {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid rgb(236 72 153 / 30%);
+  border-radius: 8px;
+  background: #e0f7fa;
+  color: #006064;
+}
+
+.nav-error-icon {
+  flex: 0 0 auto;
+  color: #00acc1;
+  font-size: 20px;
+}
+
+.nav-error-text {
+  flex: 1 1 240px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.nav-error-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nav-text-btn {
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #00838f;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.nav-text-btn:hover {
+  background: rgb(0 172 193 / 12%);
+}
+
+.nav-loading,
+.nav-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 16px;
+  padding: 64px 16px;
   color: var(--el-text-color-secondary);
+  font-size: 15px;
+  text-align: center;
+}
+
+.nav-spinner {
+  color: #26c6da;
+  font-size: 38px;
+}
+
+.nav-empty-icon {
+  color: #80deea;
+  font-size: 56px;
 }
 
 .nav-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
 }
 
 .nav-card {
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 10px;
   overflow: hidden;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  background: #fff;
   cursor: pointer;
-  background: var(--el-bg-color);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
 
-.nav-card:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12); }
+.nav-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgb(139 92 246 / 25%);
+}
 
 .nav-card-image {
   position: relative;
-  aspect-ratio: 16 / 10;
-  background: #0f172a0d;
+  width: 100%;
+  padding-top: 75%;
+  overflow: hidden;
+  background: linear-gradient(135deg, rgb(236 72 153 / 8%) 0%, rgb(139 92 246 / 12%) 100%);
 }
 
-.nav-card-image img { width: 100%; height: 100%; object-fit: cover; display: block; }
-
-.nav-card-placeholder {
+.nav-card-image img {
+  position: absolute;
+  inset: 0;
+  display: block;
   width: 100%;
   height: 100%;
+  object-fit: cover;
+}
+
+.nav-card-placeholder {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #93c5fd;
-  font-size: 28px;
+  color: #80deea;
+  font-size: 40px;
 }
 
 .nav-card-overlay {
   position: absolute;
-  right: 6px;
-  top: 6px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: #00000066;
-  color: #fff;
+  right: 8px;
+  bottom: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+  color: #fff;
+  font-size: 17px;
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.18s ease;
 }
 
-.nav-card:hover .nav-card-overlay { opacity: 1; }
+.nav-card:hover .nav-card-overlay {
+  opacity: 1;
+}
 
-.nav-card-text { padding: 8px 10px 10px; }
-.nav-card-title { font-size: 13px; font-weight: 600; line-height: 1.4; }
-.nav-card-desc { margin-top: 3px; font-size: 12px; color: var(--el-text-color-secondary); line-height: 1.45; }
+.nav-card-text {
+  padding: 8px 10px;
+}
+
+.nav-card-title {
+  overflow: hidden;
+  color: var(--el-text-color-primary);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-card-desc {
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .nav-dialog {
+    width: 96vw !important;
+    min-width: 0;
+  }
+
+  .nav-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+}
 </style>

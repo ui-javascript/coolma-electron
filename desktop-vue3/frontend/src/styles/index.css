@@ -1641,3 +1641,28 @@ html.dark .editor-action-bar {
     max-width: none;
   }
 }
+
+/* 导航中心：对齐 vue2 NavigationDialog 的 80vw / max1080 渐变卡片 */
+.nav-dialog {
+  min-width: 640px;
+  max-width: 1080px;
+  max-height: 86vh;
+  padding: 0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.nav-dialog .el-dialog__header {
+  padding: 0;
+  margin: 0;
+}
+
+.nav-dialog .el-dialog__body {
+  padding: 0;
+}
+
+@media (max-width: 700px) {
+  .nav-dialog {
+    min-width: 0;
+  }
+}
