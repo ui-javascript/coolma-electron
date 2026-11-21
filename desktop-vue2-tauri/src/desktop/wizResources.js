@@ -4,6 +4,11 @@ function resourceBase () {
   return convertFileSrc('', 'coolma-resource')
 }
 
+/** 运行形态前缀（读库后把正文里的规范地址换成它）。 */
+export function resourceUrlBase () {
+  return isTauri() ? resourceBase() : 'coolma://coolma.app/'
+}
+
 function resourcePath (kbGuid, docGuid, name) {
   return [kbGuid, docGuid, name].map(encodeURIComponent).join('/')
 }

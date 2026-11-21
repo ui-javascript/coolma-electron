@@ -7,6 +7,8 @@ import PreferenceStore from '../PreferenceStore'
 import { readApiKey, removeApiKey, storeApiKey } from '../credential'
 import { loadSnapshot, writeSnapshot } from './storage'
 import { fetchRemoteText } from './service/remote-fetch'
+import { toCanonicalResources, toRenderableResources } from '../noteResources'
+import { resourceUrlBase } from '../wizResources'
 
 const { DEFAULT_ROOT_CATEGORY } = require('./constants')
 const createRuneTemplateService = require('./service/rune-template-service')
@@ -181,28 +183,38 @@ async function testPortkeyModelConfig(modelConfig) {
 
 /**
  * sql.js 查询辅助函数：将 exec 结果转为对象数组
+ *
+ * 正文里的图片地址在库里是规范形态（`coolma://coolma.app/...`），
+ * 喂给编辑器前换成当前平台的运行形态，否则 WebView2 渲染不出图片。
  */
 function execToObjects(sql, params = []) {
   try {
+    let results
     if (params.length > 0) {
       const stmt = db.prepare(sql)
       stmt.bind(params)
-      const results = []
+      results = []
       while (stmt.step()) {
         results.push(stmt.getAsObject())
       }
       stmt.free()
-      return results
     } else {
-      const result = db.exec(sql)
-      if (result.length === 0) return []
-      const { columns, values } = result[0]
-      return values.map(row => {
+      const raw = db.exec(sql)
+      if (raw.length === 0) return []
+      const { columns, values } = raw[0]
+      results = values.map(row => {
         const obj = {}
         columns.forEach((col, i) => obj[col] = row[i])
         return obj
       })
     }
+    let base
+    return results.map(record => {
+      if (typeof record.content !== 'string') return record
+      if (record.content.indexOf('coolma') === -1) return record
+      if (base === undefined) base = resourceUrlBase()
+      return { ...record, content: toRenderableResources(record.content, base) }
+    })
   } catch (error) {
     console.error('[DB] execToObjects error:', sql, error)
     return []
@@ -1102,7 +1114,7 @@ function registerDatabaseHandlers() {
           docGuid,
           kbGuid,
           title,
-          toStr(note.content),
+          toCanonicalResources(toStr(note.content)),
           category,
           toStr(note.tags),
           toNum(note.data_modified),
@@ -1131,7 +1143,7 @@ function registerDatabaseHandlers() {
             finalDocGuid,
             kbGuid,
             finalTitle,
-            toStr(note.content),
+            toCanonicalResources(toStr(note.content)),
             category,
             toStr(note.tags),
             toNum(note.data_created),
@@ -1252,8 +1264,9 @@ function registerDatabaseHandlers() {
         newSyncValues.title = normForCompare(updates.title)
       }
       if (updates.content !== undefined) {
+        // 落库统一写规范形态（coolma://coolma.app/...），与 Electron 原版保持一致
         fields.push('content = ?')
-        values.push(toStr(updates.content))
+        values.push(toCanonicalResources(toStr(updates.content)))
         syncFieldKeys.push('content')
         newSyncValues.content = normForCompare(updates.content)
       }
