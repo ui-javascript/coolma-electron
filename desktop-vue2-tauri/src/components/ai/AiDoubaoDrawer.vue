@@ -42,6 +42,7 @@
 <script>
 import WujieVue from 'wujie-vue2'
 import { getAppPath } from 'src/ApiInvoker'
+import { localFileUrl } from 'src/desktop/wizResources'
 
 export default {
   name: 'AiDoubaoDrawer',
@@ -72,9 +73,10 @@ export default {
       if (process.env.DEV) {
         return 'http://localhost:3001'
       }
-      // 生产环境使用本地构建产物
+      // 生产环境使用本地构建产物。WebView2 不允许页面读 file://，
+      // 走 coolma-resource 的 local 路由（服务端只放行白名单根目录）。
       const basePath = this.appBasePath || ''
-      return `file://${basePath}_plugins/doubao-input/dist/index.html`
+      return localFileUrl(`${basePath}/_plugins/doubao-input/dist/index.html`)
     },
     wujieProps () {
       return {

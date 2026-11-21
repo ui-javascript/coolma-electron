@@ -18,6 +18,9 @@ use tauri::{
 
 pub const FILE_LIMIT: usize = 32 * 1024 * 1024;
 
+/// 本地文件路由前缀（见 `local_file`）。
+const LOCAL_ROUTE: &str = "local/abs/";
+
 #[derive(Default)]
 pub struct Sources(Mutex<HashMap<String, Url>>);
 
@@ -179,6 +182,115 @@ fn image_type(name: &str) -> Option<&'static str> {
     }
 }
 
+/// 本地文件路由（`local/abs/<percent-encoded 绝对路径>`）支持的其它类型。
+/// 图片之外的 html/js/css 单列，是为了让 `_plugins/<id>/dist/index.html`
+/// 这类内置微应用入口也能通过该协议加载。
+fn static_type(name: &str) -> Option<&'static str> {
+    if image_type(name).is_some() {
+        return image_type(name);
+    }
+    match name.rsplit_once('.')?.1.to_ascii_lowercase().as_str() {
+        "svg" => Some("image/svg+xml"),
+        "html" | "htm" => Some("text/html; charset=utf-8"),
+        "js" | "mjs" => Some("text/javascript; charset=utf-8"),
+        "css" => Some("text/css; charset=utf-8"),
+        "json" => Some("application/json; charset=utf-8"),
+        "txt" | "md" => Some("text/plain; charset=utf-8"),
+        "pdf" => Some("application/pdf"),
+        "woff" => Some("font/woff"),
+        "woff2" => Some("font/woff2"),
+        "ttf" => Some("font/ttf"),
+        _ => None,
+    }
+}
+
+/// 解析 `local/abs/<encoded>` 里的绝对路径。
+/// 整条路径按单个 percent-encoded token 传输，避免 Windows 反斜杠与
+/// 目录分隔符被通用 `segments()` 的"不许含斜杠"规则拒掉。
+fn local_request_path(path: &str) -> Option<String> {
+    let raw = path.strip_prefix(LOCAL_ROUTE)?;
+    let decoded = percent_decode_str(raw).decode_utf8().ok()?.into_owned();
+    if decoded.is_empty() || decoded.len() > 4096 {
+        return None;
+    }
+    if decoded.contains('\0') || decoded.chars().any(char::is_control) {
+        return None;
+    }
+    Some(decoded)
+}
+
+/// 允许通过协议读取的根目录。刻意不给任意路径透传：
+/// 原版 Electron 用 `interceptFileProtocol('file')` 放开了整个本地磁盘，
+/// 这里收窄到应用自己会写文件的那几个根。
+fn local_roots(app: &tauri::AppHandle) -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+    if let Ok(dir) = crate::data_dir(app) {
+        roots.push(dir);
+    }
+    roots.push(crate::app_root_dir());
+    roots.push(std::env::temp_dir());
+    roots
+}
+
+/// 规范化后判断是否落在白名单根内，并确保是个真实存在的文件。
+fn within_roots(target: &Path, roots: &[PathBuf]) -> Option<PathBuf> {
+    let canonical = target.canonicalize().ok()?;
+    if !canonical.is_file() {
+        return None;
+    }
+    roots
+        .iter()
+        .filter_map(|root| root.canonicalize().ok())
+        .find(|root| canonical.starts_with(root))
+        .map(|_| canonical)
+}
+
+fn local_file(
+    app: &tauri::AppHandle,
+    path: &str,
+) -> Result<Response<Vec<u8>>, StatusCode> {
+    let decoded = local_request_path(path).ok_or(StatusCode::FORBIDDEN)?;
+    let target = PathBuf::from(&decoded);
+    if !target.is_absolute() {
+        return Err(StatusCode::FORBIDDEN);
+    }
+    let file = within_roots(&target, &local_roots(app)).ok_or(StatusCode::FORBIDDEN)?;
+    let size = fs::metadata(&file)
+        .map_err(|_| StatusCode::NOT_FOUND)?
+        .len();
+    if size > FILE_LIMIT as u64 {
+        return Err(StatusCode::PAYLOAD_TOO_LARGE);
+    }
+    let bytes = fs::read(&file).map_err(|_| StatusCode::NOT_FOUND)?;
+    let name = file
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default();
+    let content_type = static_type(name);
+    let mut response = Response::builder()
+        .header(
+            "Content-Type",
+            content_type.unwrap_or("application/octet-stream"),
+        )
+        .header("X-Content-Type-Options", "nosniff")
+        // 该协议由 http://coolma-resource.localhost 提供，与应用页面不同源；
+        // 微应用入口需要跨源加载，故放开读取。
+        .header("Access-Control-Allow-Origin", "*");
+    // html/js/css 不加 sandbox CSP，否则微应用脚本会被拦住；
+    // 其余（图片、字体、文档）保持原版的沙箱策略。
+    if !matches!(
+        content_type,
+        Some("text/html; charset=utf-8")
+            | Some("text/javascript; charset=utf-8")
+            | Some("text/css; charset=utf-8")
+    ) {
+        response = response.header("Content-Security-Policy", "sandbox; default-src 'none'");
+    }
+    response
+        .body(bytes)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
+}
+
 async fn resource(
     app: &tauri::AppHandle,
     request: Request<Vec<u8>>,
@@ -187,6 +299,9 @@ async fn resource(
         return Err(StatusCode::METHOD_NOT_ALLOWED);
     }
     let path = request.uri().path().strip_prefix('/').unwrap_or_default();
+    if path.starts_with(LOCAL_ROUTE) {
+        return local_file(app, path);
+    }
     let path = segments(path, 3).ok_or(StatusCode::NOT_FOUND)?;
     let key = key(&path[0], &path[1], &path[2]);
     let cache = cache_path(app, &key).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -275,4 +390,74 @@ pub fn wiznote_export_resources(
         }
     }
     Ok(copied)
+}
+
+#[cfg(test)]
+mod local_tests {
+    use super::*;
+
+    #[test]
+    fn decodes_absolute_path_token() {
+        assert_eq!(
+            local_request_path("local/abs/C%3A%5CUsers%5Cx%5Ca.png").as_deref(),
+            Some(r"C:\Users\x\a.png")
+        );
+    }
+
+    #[test]
+    fn rejects_wrong_prefix_and_empty_path() {
+        assert!(local_request_path("kb/doc/name").is_none());
+        assert!(local_request_path("local/abs/").is_none());
+        assert!(local_request_path("local/abs/%00").is_none());
+    }
+
+    #[test]
+    fn accepts_file_inside_root() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let file = dir.path().join("a.png");
+        fs::write(&file, b"x").expect("write");
+        let roots = vec![dir.path().to_path_buf()];
+        assert!(within_roots(&file, &roots).is_some());
+    }
+
+    #[test]
+    fn rejects_file_outside_root() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let outside = tempfile::tempdir().expect("tempdir");
+        let file = outside.path().join("a.png");
+        fs::write(&file, b"x").expect("write");
+        let roots = vec![dir.path().to_path_buf()];
+        assert!(within_roots(&file, &roots).is_none());
+    }
+
+    #[test]
+    fn rejects_traversal_escaping_root() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let outside = tempfile::tempdir().expect("tempdir");
+        let name = outside
+            .path()
+            .file_name()
+            .expect("tempdir name")
+            .to_string_lossy()
+            .to_string();
+        fs::write(outside.path().join("a.png"), b"x").expect("write");
+        let traversal = dir.path().join("..").join(name).join("a.png");
+        let roots = vec![dir.path().to_path_buf()];
+        assert!(within_roots(&traversal, &roots).is_none());
+    }
+
+    #[test]
+    fn rejects_directory_itself() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let roots = vec![dir.path().to_path_buf()];
+        assert!(within_roots(dir.path(), &roots).is_none());
+    }
+
+    #[test]
+    fn static_type_covers_plugin_entries() {
+        assert_eq!(static_type("index.html"), Some("text/html; charset=utf-8"));
+        assert_eq!(static_type("app.js"), Some("text/javascript; charset=utf-8"));
+        assert_eq!(static_type("a.png"), Some("image/png"));
+        assert_eq!(static_type("mystery"), None);
+    }
 }
