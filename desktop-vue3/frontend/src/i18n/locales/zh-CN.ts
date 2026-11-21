@@ -644,6 +644,7 @@ export default {
     'aiHelper.title': 'AI 助手',
     'aiHelper.welcomeTitle': '和当前笔记对话',
     'aiHelper.welcomeDesc': '提问、续写、总结、改写都可以。回复来自设置页配置的默认模型。',
+    'aiHelper.intro': '这里会直接读取当前默认 AI 模型配置。配置好后，发送消息即可得到真实回复。',
     'aiHelper.contextOn': '已带上《{title}》的正文前 4000 字作上下文',
     'aiHelper.contextOff': '当前没有打开笔记，只做通用对话',
     'aiHelper.you': '你',

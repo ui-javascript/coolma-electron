@@ -644,6 +644,7 @@ export default {
     'aiHelper.title': 'AI assistant',
     'aiHelper.welcomeTitle': 'Chat with the current note',
     'aiHelper.welcomeDesc': 'Ask, continue, summarize or rewrite. Uses the default model from settings.',
+    'aiHelper.intro': 'This panel reads the current default AI model config directly. Once configured, send a message to get a real reply.',
     'aiHelper.contextOn': 'First 4000 chars of "{title}" are included as context',
     'aiHelper.contextOff': 'No note open — generic chat only',
     'aiHelper.you': 'You',
