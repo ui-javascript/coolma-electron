@@ -33,6 +33,7 @@ module.exports = function (/* ctx */) {
       'rune-deps',
       'hel-micro-renderer',
       'cdn-deps',
+      'tauri-clipboard',
       'tauri-desktop',
       'microapp-builtins'
     ],

@@ -1,6 +1,7 @@
 import { isTauri, openExternal, revealPath, openFolder } from 'src/desktop/nativeFs'
 import { refreshThemeFolder } from 'src/desktop/theme'
 import { installKeyboardShortcuts } from 'src/desktop/keyboard'
+import { readText as readClipboardText, writeText as writeClipboardText } from 'src/desktop/clipboard'
 import ClientFileStorage from 'src/utils/storage/ClientFileStorage'
 
 /**
@@ -16,7 +17,8 @@ function installElectronShell ($q) {
       openPath: path => { openFolder(path).catch(console.warn) }
     },
     clipboard: {
-      writeText: text => { navigator.clipboard.writeText(String(text)).catch(console.warn) }
+      writeText: text => { writeClipboardText(text) },
+      readText: () => readClipboardText()
     }
   }
 }
