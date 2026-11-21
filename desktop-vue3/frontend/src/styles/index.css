@@ -1078,12 +1078,17 @@ html.dark .editor-action-bar {
 /* ---------- settings ---------- */
 
 .settings-page {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
   align-items: center;
   justify-content: center;
+  overflow: auto;
   padding: 4vh 0;
-  background: rgb(15 18 22 / 32%);
+  /* 对齐 vue2 q-dialog backdrop：rgba(0,0,0,0.4)，保留底页可见 */
+  background: rgb(0 0 0 / 40%);
   color: var(--coolma-text);
 }
 
