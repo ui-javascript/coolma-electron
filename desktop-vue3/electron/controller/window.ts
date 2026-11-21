@@ -1,6 +1,7 @@
 import { getMainWindow } from 'ee-core/electron';
 import type { IpcResult } from '../shared/ipc/contract';
 import { emptyPayloadSchema } from '../shared/ipc/schemas';
+import { allowWindowClose, armWindowCloseGuard } from '../service/os/window-close-guard';
 
 class WindowController {
   minimize(args?: unknown): IpcResult<null> {
@@ -47,8 +48,17 @@ class WindowController {
     return { ok: true, data: win.isMaximized() };
   }
 
+  /** 渲染进程装好 close 事件监听后调用，主进程才开始拦系统关闭。 */
+  armCloseGuard(args?: unknown): IpcResult<null> {
+    emptyPayloadSchema.parse(args);
+    armWindowCloseGuard();
+    return { ok: true, data: null };
+  }
+
   close(args?: unknown): IpcResult<null> {
     emptyPayloadSchema.parse(args);
+    // 渲染进程已弹过确认框；置位放行，避免 close 事件再次触发确认。
+    allowWindowClose();
     getMainWindow()?.close();
     return { ok: true, data: null };
   }

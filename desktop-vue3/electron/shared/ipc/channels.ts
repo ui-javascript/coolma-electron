@@ -22,6 +22,7 @@ export const IPC_CHANNELS = {
     minimize: 'controller/window/minimize',
     state: 'controller/window/state',
     toggleMaximize: 'controller/window/toggleMaximize',
+    armCloseGuard: 'controller/window/armCloseGuard',
     close: 'controller/window/close',
     openDevTools: 'controller/window/openDevTools',
   },
@@ -156,6 +157,7 @@ export const INVOKE_CHANNELS = new Set<string>([
   IPC_CHANNELS.window.minimize,
   IPC_CHANNELS.window.state,
   IPC_CHANNELS.window.toggleMaximize,
+  IPC_CHANNELS.window.armCloseGuard,
   IPC_CHANNELS.window.close,
   IPC_CHANNELS.window.openDevTools,
   IPC_CHANNELS.notes.list,
@@ -242,6 +244,7 @@ export const IPC_EVENTS = {
   blogProgress: 'blog-deploy-progress',
   aiChatStream: 'ai-chat-stream',
   updater: 'updater-event',
+  windowCloseRequested: 'window-close-requested',
 } as const;
 
 export const EVENT_CHANNELS = new Set<string>(Object.values(IPC_EVENTS));

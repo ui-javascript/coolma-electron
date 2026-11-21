@@ -1,4 +1,5 @@
 import { app as electronApp, Menu, screen } from 'electron';
+import type { Event as ElectronEvent } from 'electron';
 import { getConfig } from 'ee-core/config';
 import { getMainWindow } from 'ee-core/electron';
 import { logger } from 'ee-core/log';
@@ -7,6 +8,12 @@ import {
   readWindowState,
   saveWindowState,
 } from '../service/os/window-state';
+import {
+  allowWindowClose,
+  isWindowCloseAllowed,
+  isWindowCloseArmed,
+} from '../service/os/window-close-guard';
+import { IPC_EVENTS } from '../shared/ipc/channels';
 
 class Lifecycle {
   async ready(): Promise<void> {
@@ -71,6 +78,24 @@ class Lifecycle {
     }
 
     let saveTimer: ReturnType<typeof setTimeout> | null = null;
+
+    // 系统关闭（Alt+F4 / 系统菜单 X）不经过标题栏按钮，必须在这里拦一次。
+    // 渲染进程装好监听后通过 armCloseGuard 武装；确认后走 controller/window/close 放行。
+    win.on('close', (event: ElectronEvent) => {
+      if (
+        isWindowCloseAllowed() ||
+        !isWindowCloseArmed() ||
+        win.webContents.isDestroyed() ||
+        win.webContents.isLoading()
+      ) {
+        return;
+      }
+      event.preventDefault();
+      logger.info('[lifecycle] system close intercepted, ask renderer');
+      win.show();
+      win.focus();
+      win.webContents.send(IPC_EVENTS.windowCloseRequested);
+    });
     const capture = (): void => {
       if (win.isDestroyed() || win.isMinimized()) {
         return;
@@ -107,6 +132,9 @@ class Lifecycle {
 
   async beforeClose(): Promise<void> {
     logger.info('[lifecycle] before-close');
+    // before-close 是 app.quit 的钩子（Cmd+Q / 更新安装 / 关窗后的退出），
+    // 与 vue2 一致直接退出，不再走系统关闭确认。
+    allowWindowClose();
   }
 }
 
