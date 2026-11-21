@@ -88,6 +88,7 @@ export default {
   editorParsingRuneTemplateDivMissing: '符文模板校验失败：当前设置要求 <template> 下必须包含 <div> 节点',
   update: '更新',
   checking: '检查更新中',
+  checkUpdateUnsupported: 'Tauri 版暂未接入自动更新，请手动下载新版本',
   noNewerVersion: '当前已是最新版本 !',
   updateError: '更新失败',
   theme: '主题',

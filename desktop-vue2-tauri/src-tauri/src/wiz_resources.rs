@@ -117,8 +117,7 @@ fn write_cache(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
 }
 
 #[tauri::command]
-pub fn wiznote_cache_file(app: tauri::AppHandle, request: IpcRequest<'_>) -> Result<(), String> {
-    let path = request
+pub fn wiznote_cache_file(app: tauri::AppHandle, request: IpcRequest<'_>) -> Result<(), String> {    let path = request
         .headers()
         .get("x-coolma-resource")
         .and_then(|value| value.to_str().ok())
@@ -232,4 +231,48 @@ pub async fn serve(app: tauri::AppHandle, request: Request<Vec<u8>>) -> Response
     resource(&app, request)
         .await
         .unwrap_or_else(|status| Response::builder().status(status).body(Vec::new()).unwrap())
+}
+
+fn valid_segment(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 512
+        && value != "."
+        && value != ".."
+        && !value.contains(['/', '\\'])
+        && !value.chars().any(char::is_control)
+}
+
+/// 导出笔记时把已缓存的图片复制到 Markdown 旁边的 `ExportImage/`。
+/// 只复制缓存里已有的文件，未加载过的图片保持占位，与原版 Electron 行为一致。
+#[tauri::command]
+pub fn wiznote_export_resources(
+    app: tauri::AppHandle,
+    kb_guid: String,
+    doc_guid: String,
+    names: Vec<String>,
+    target_dir: String,
+) -> Result<Vec<String>, String> {
+    if !valid_segment(&kb_guid) || !valid_segment(&doc_guid) {
+        return Err("无效的笔记标识".into());
+    }
+    let target = PathBuf::from(target_dir.trim());
+    if !target.is_absolute() {
+        return Err("导出目录必须是绝对路径".into());
+    }
+    let export = target.join("ExportImage");
+    fs::create_dir_all(&export).map_err(|_| "无法创建 ExportImage 目录".to_string())?;
+    let mut copied = Vec::new();
+    for name in names.into_iter().take(512) {
+        if !valid_segment(&name) {
+            continue;
+        }
+        let source = cache_path(&app, &key(&kb_guid, &doc_guid, &name))?;
+        if !source.is_file() {
+            continue;
+        }
+        if fs::copy(&source, export.join(&name)).is_ok() {
+            copied.push(name);
+        }
+    }
+    Ok(copied)
 }

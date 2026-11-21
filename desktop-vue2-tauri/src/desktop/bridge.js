@@ -72,6 +72,8 @@ async function invoke (channel, ...args) {
     case 'get-app-path': return isTauri() ? invokeNative('app_data_path') : ''
     case 'open-sqlite-file': return isTauri() ? invokeNative('open_database_folder') : undefined
     case 'check-update': return { supported: false }
+    case 'need-update': return undefined
+    case 'quit-and-install': return undefined
     case 'load-theme': return isTauri() ? loadTheme(payload) : ''
     case 'open-theme-folder': return isTauri() ? openThemeFolder() : undefined
     case 'refresh-theme-folder': return isTauri() ? refreshThemeFolder() : []

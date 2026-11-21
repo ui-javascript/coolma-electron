@@ -5,8 +5,16 @@ import { invoke, isTauri } from '@tauri-apps/api/core'
  */
 export { isTauri }
 
-export async function dataDir () {
+export function dataDir () {
   return invoke('app_data_path')
+}
+
+export function documentDir () {
+  return invoke('document_dir')
+}
+
+export function pictureDir () {
+  return invoke('picture_dir')
 }
 
 export function joinPath (...parts) {

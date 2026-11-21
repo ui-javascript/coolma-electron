@@ -89,6 +89,7 @@ export default {
   getNewerVersion: 'New version detected: {version} !',
   update: 'Update',
   checking: 'Checking',
+  checkUpdateUnsupported: 'Auto update is not available in the Tauri build. Please download the new version manually.',
   noNewerVersion: 'This is the latest version!',
   updateError: 'Fail to update',
   theme: 'Theme',

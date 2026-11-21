@@ -100,13 +100,16 @@ fn main() {
             files::create_dir,
             files::list_files,
             files::download_file,
+            files::document_dir,
+            files::picture_dir,
             files::picgo_upload,
             files::reveal_path,
             files::open_folder,
             files::open_external,
             wiznote::wiznote_request,
             wiznote::wiznote_upload,
-            wiz_resources::wiznote_cache_file
+            wiz_resources::wiznote_cache_file,
+            wiz_resources::wiznote_export_resources
         ])
         .run(tauri::generate_context!())
         .expect("Unable to start Coolma Tauri");

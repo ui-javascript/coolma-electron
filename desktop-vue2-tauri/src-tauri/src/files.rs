@@ -225,6 +225,22 @@ pub async fn picgo_upload(app: tauri::AppHandle, paths: Vec<String>) -> Result<V
 }
 
 #[tauri::command]
+pub fn document_dir(app: tauri::AppHandle) -> Result<String, String> {
+    app.path()
+        .document_dir()
+        .map(|path| path.to_string_lossy().into_owned())
+        .map_err(|error| format!("无法定位文档目录：{error}"))
+}
+
+#[tauri::command]
+pub fn picture_dir(app: tauri::AppHandle) -> Result<String, String> {
+    app.path()
+        .picture_dir()
+        .map(|path| path.to_string_lossy().into_owned())
+        .map_err(|error| format!("无法定位图片目录：{error}"))
+}
+
+#[tauri::command]
 pub fn reveal_path(app: tauri::AppHandle, path: String) -> Result<(), String> {
     let target = absolute(&path)?;
     // 目标不存在时退回所在目录，避免“打开日志/主题目录”这类入口直接失败。

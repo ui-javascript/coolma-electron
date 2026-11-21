@@ -514,7 +514,16 @@ export default {
       this.toggleChanged({ key: 'themes', value: themes })
     },
     checkUpdate () {
-      checkUpdate().then(() => {
+      checkUpdate().then((result) => {
+        // Tauri 版尚未接入自动更新，直接告知，避免转圈提示无限停留。
+        if (result && result.supported === false) {
+          this.$q.notify({
+            message: this.$t('checkUpdateUnsupported'),
+            type: 'warning',
+            position: 'top'
+          })
+          return
+        }
         this.checkingNotify = this.$q.notify({
           message: this.$t('checking'),
           timeout: 0,
