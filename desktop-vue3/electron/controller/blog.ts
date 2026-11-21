@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { IpcResult } from '../shared/ipc/contract';
-import { blogBuildSchema, blogDispatchSchema, blogExportSchema, blogSftpTestSchema, blogSftpUploadSchema } from '../shared/ipc/schemas';
+import { blogBuildSchema, blogDispatchSchema, blogExportCiSchema, blogExportSchema, blogSftpTestSchema, blogSftpUploadSchema } from '../shared/ipc/schemas';
 import { fail, ok } from '../shared/ipc/result';
 import { notesRepository } from '../service/db/notes-repository';
 import { exportCIWorkflows, ensureReadme, generateSidebarJson, writeBlogPosts } from '../service/blog/deploy';
@@ -69,6 +69,22 @@ class BlogController {
       });
     } catch (error) {
       return failFromError(error, 'BLOG_EXPORT_ERROR');
+    }
+  }
+
+  /** 只写内置 GitHub Actions workflow 到博客目录（对应 vue2 exportBlogCI）。 */
+  async exportCi(args?: unknown): Promise<IpcResult<{ targetDir: string; written: string[]; skipped: string[] }>> {
+    try {
+      const input = blogExportCiSchema.parse(args);
+      const blogDir = path.resolve(input.blogDir);
+      const info = await fs.stat(blogDir).catch(() => null);
+      if (!info?.isDirectory()) {
+        return fail('BLOG_DIR_INVALID', `blogDir is not a directory: ${blogDir}`);
+      }
+      const result = await exportCIWorkflows(blogDir);
+      return ok({ targetDir: blogDir, ...result });
+    } catch (error) {
+      return failFromError(error, 'BLOG_EXPORT_CI_ERROR');
     }
   }
 

@@ -64,6 +64,7 @@ const INVOKE_CHANNELS = new Set<string>([
   'controller/library/echoSaveMany',
   'controller/library/echoRemove',
   'controller/blog/export',
+  'controller/blog/exportCi',
   'controller/blog/build',
   'controller/blog/cancel',
   'controller/blog/dispatchGitHub',

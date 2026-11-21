@@ -20,6 +20,15 @@ export interface BlogExportOutput {
 export const exportBlog = (input: BlogExportInput): Promise<IpcResult<BlogExportOutput>> =>
   invoke<BlogExportOutput>(IPC_CHANNELS.blog.export, input);
 
+export interface BlogExportCiOutput {
+  targetDir: string;
+  written: string[];
+  skipped: string[];
+}
+
+export const exportBlogCi = (blogDir: string): Promise<IpcResult<BlogExportCiOutput>> =>
+  invoke<BlogExportCiOutput>(IPC_CHANNELS.blog.exportCi, { blogDir });
+
 export interface BlogBuildProgress {
   stage: 'config' | 'install' | 'build' | 'sftp' | 'done' | 'error' | 'cancelled';
   message: string;

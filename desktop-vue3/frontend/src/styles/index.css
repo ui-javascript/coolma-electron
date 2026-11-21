@@ -1859,3 +1859,31 @@ html.dark .remote-import-error {
   align-items: center;
   gap: 10px;
 }
+
+/* 博客部署：对齐 vue2 BlogDeployDialog 的 520px × 70vh 卡片 */
+.blog-deploy-dialog {
+  display: flex;
+  flex-direction: column;
+  height: 70vh;
+  max-width: 90vw;
+  padding: 0;
+  border-radius: 6px;
+}
+
+.blog-deploy-dialog .el-dialog__header {
+  display: none;
+}
+
+.blog-deploy-dialog .el-dialog__body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0;
+}
+
+.blog-deploy-dialog .el-dialog__footer {
+  flex: 0 0 auto;
+  padding: 0;
+  border-top: 1px solid var(--el-border-color-lighter);
+}

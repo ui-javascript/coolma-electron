@@ -87,6 +87,7 @@ export const IPC_CHANNELS = {
   },
   blog: {
     export: 'controller/blog/export',
+    exportCi: 'controller/blog/exportCi',
     build: 'controller/blog/build',
     cancel: 'controller/blog/cancel',
     dispatchGitHub: 'controller/blog/dispatchGitHub',
@@ -184,6 +185,7 @@ export const INVOKE_CHANNELS = new Set<string>([
   IPC_CHANNELS.library.runes,
   IPC_CHANNELS.library.echoes,
   IPC_CHANNELS.blog.export,
+  IPC_CHANNELS.blog.exportCi,
   IPC_CHANNELS.blog.build,
   IPC_CHANNELS.blog.cancel,
   IPC_CHANNELS.blog.dispatchGitHub,
