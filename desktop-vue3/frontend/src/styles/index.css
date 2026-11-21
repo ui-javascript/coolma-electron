@@ -1112,3 +1112,22 @@ button {
   padding: 4px 6px 6px;
   box-sizing: border-box;
 }
+
+/* 换肤提示配色（对齐 vue2 SKIN_NOTIFY_COLORS，设置页与顶栏下拉共用） */
+.skin-notify.skin-notify-baiyang {
+  background: rgba(64, 158, 255, 0.9) !important;
+  border-color: rgba(64, 158, 255, 0.9) !important;
+  color: #fff !important;
+}
+
+.skin-notify.skin-notify-nezha {
+  background: rgba(181, 129, 125, 0.95) !important;
+  border-color: rgba(181, 129, 125, 0.95) !important;
+  color: #fff !important;
+}
+
+.skin-notify.skin-notify-infp {
+  background: rgba(33, 181, 111, 0.9) !important;
+  border-color: rgba(33, 181, 111, 0.9) !important;
+  color: #fff !important;
+}

@@ -54,6 +54,7 @@
         <el-button circle plain :title="paneLayoutTitle" class="pane-layout-btn" @click="cyclePaneLayout">
           <el-icon><Operation /></el-icon>
         </el-button>
+        <SkinDropdown />
         <el-button circle plain :title="t('aiHelper.title')" @click="openAiAssistant">
           <el-icon><ChatDotRound /></el-icon>
         </el-button>
@@ -247,6 +248,7 @@ import type { EchoCard } from '@shared/types/domain';
 import type { EchoInstancePatch, EchoInstanceToken } from '@/utils/echoToken';
 import EditorPane from '@/components/EditorPane.vue';
 import SkinEffects from '@/components/SkinEffects.vue';
+import SkinDropdown from '@/components/SkinDropdown.vue';
 import MicroAppDrawer from '@/components/MicroAppDrawer.vue';
 import FullscreenOverlay from '@/components/FullscreenOverlay.vue';
 import SearchDialog from '@/components/SearchDialog.vue';
