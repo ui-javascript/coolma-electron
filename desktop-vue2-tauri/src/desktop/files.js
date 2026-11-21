@@ -4,6 +4,7 @@ import sanitize from 'sanitize-filename'
 import md5 from 'md5'
 import PreferenceStore from './PreferenceStore'
 import { CI_WORKFLOWS } from 'src/services/BlogDeployService'
+import { cancelBlogDeploy, sftpTestConnection, sftpUpload, startBlogDeploy } from './blog'
 import {
   isTauri,
   dataDir,
@@ -309,6 +310,10 @@ export async function handleDesktopChannel (channel, payload, emit) {
     case 'get-blog-deploy-config': return getBlogDeployConfig()
     case 'save-blog-deploy-config': return saveBlogDeployConfig(payload)
     case 'export-blog-ci': return exportBlogCI(payload)
+    case 'start-blog-deploy': return startBlogDeploy(payload, emit)
+    case 'cancel-blog-deploy': return cancelBlogDeploy(emit)
+    case 'sftp-test-connection': return sftpTestConnection(payload, emit)
+    case 'sftp-upload': return sftpUpload(payload, emit)
     default: return UNHANDLED
   }
 }

@@ -8,6 +8,7 @@ use tauri::{
 use tauri_plugin_opener::OpenerExt;
 
 mod files;
+mod sidecar;
 mod wiz_resources;
 mod wiznote;
 
@@ -73,6 +74,7 @@ fn main() {
     tauri::Builder::default()
         .manage(wiznote::client().expect("Unable to initialize WizNote HTTP client"))
         .manage(wiz_resources::Sources::default())
+        .manage(sidecar::Sidecar::default())
         .register_asynchronous_uri_scheme_protocol("coolma-resource", |ctx, request, responder| {
             let app = ctx.app_handle().clone();
             tauri::async_runtime::spawn(async move {
@@ -109,7 +111,10 @@ fn main() {
             wiznote::wiznote_request,
             wiznote::wiznote_upload,
             wiz_resources::wiznote_cache_file,
-            wiz_resources::wiznote_export_resources
+            wiz_resources::wiznote_export_resources,
+            sidecar::sidecar_send,
+            sidecar::sidecar_stop,
+            sidecar::sidecar_status
         ])
         .run(tauri::generate_context!())
         .expect("Unable to start Coolma Tauri");
