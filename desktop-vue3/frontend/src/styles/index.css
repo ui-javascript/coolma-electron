@@ -151,6 +151,15 @@ button {
   box-shadow: inset 0 0 0 1px var(--coolma-primary);
 }
 
+.sync-count-badge {
+  margin-right: 2px;
+}
+
+.sync-count-badge .el-badge__content {
+  transform: translate(55%, -45%);
+  font-size: 10px;
+}
+
 .topbar-actions {
   display: flex;
   min-width: 160px;

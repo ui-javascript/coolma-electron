@@ -56,6 +56,14 @@ export default {
   search: {
     placeholder: 'Search title, body or tag...',
   },
+  syncPanel: {
+    push: 'Push local changes',
+    pull: 'Pull to local',
+    failed: 'Sync failed. Please retry.',
+    syncing: 'Syncing…',
+    pushDone: 'Push finished: {pushed} updated, {created} created, {failed} failed',
+    pullDone: 'Pull finished: {imported} imported, {skipped} skipped, {backfilled} backfilled, {failed} failed',
+  },
   aiDoubao: {
     title: 'Doubao AI Assistant',
     missingBuild: 'Doubao WebApp build not found. Build _plugins/doubao-input first.',
@@ -215,6 +223,17 @@ export default {
     aiRewriteTruncated: 'The result was truncated; shorten the selection or retry',
     aiRewriteFailed: 'AI rewrite failed; try again later',
     docMeta: 'Markdown · {words} words',
+  },
+
+  aiLucky: {
+    noConfig: 'Please configure an AI provider in Settings before using @强运()',
+    configIncomplete: 'AI configuration is incomplete. Fill the missing fields in Settings.',
+    failed: 'AI proofreading failed',
+    empty: 'Current note is empty; nothing to proofread',
+    noChange: 'AI did not find anything to correct',
+    done: 'AI proofreading complete. Content replaced.',
+    truncated: 'Model output was truncated; content was not replaced. Shorten the note and retry.',
+    changed: 'Content changed while proofreading; nothing was replaced. Click @强运() again.',
   },
 
   aiTag: {

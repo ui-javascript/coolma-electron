@@ -56,6 +56,13 @@ import { cloudTagsToNames, localNamesToCloudTags, splitCloudTagString } from '..
 import { DEFAULT_LOGIN_BASE, isValidServerUrl, normalizeServerUrl, resolveSignupUrl } from '../frontend/src/utils/loginRules';
 import { readEchoInstance, rewriteEchoInstance } from '../frontend/src/utils/echoToken';
 import { resolveEchoSchema } from '../frontend/src/utils/echoSchema';
+import {
+  AUTO_UPLOAD_KICKOFF_DELAY,
+  AUTO_UPLOAD_POLL_INTERVAL,
+  AUTO_UPLOAD_RETRY_COOLDOWN,
+  shouldAutoUpload,
+} from '../frontend/src/utils/syncAuto';
+import { PROOFREAD_SYSTEM_PROMPT, buildProofreadMessages } from '../frontend/src/services/aiProofread';
 
 type Any = Record<string, any>;
 
@@ -326,6 +333,45 @@ async function main(): Promise<void> {
     );
     const growthSchema = resolveEchoSchema({ id: '__builtin_growth__' } as Any);
     assert('内置回响 schema 可解析', growthSchema.length === 3 && growthSchema[0]?.field === 'scope', String(growthSchema.length));
+  }
+
+  // ===== 自动上传闸门（P1-5）：常量与 vue2 一致，冷却/断网/无 pending 不推 =====
+  {
+    const baseline = {
+      loggedIn: true,
+      isSyncing: false,
+      pendingTotal: 2,
+      cooldownUntil: 0,
+      now: 1_000,
+      online: true,
+    };
+    assert(
+      '自动上传：30s 轮询 / 3s 首传 / 5min 冷却与 vue2 一致',
+      AUTO_UPLOAD_POLL_INTERVAL === 30_000 &&
+        AUTO_UPLOAD_KICKOFF_DELAY === 3_000 &&
+        AUTO_UPLOAD_RETRY_COOLDOWN === 300_000,
+      `${AUTO_UPLOAD_POLL_INTERVAL}/${AUTO_UPLOAD_KICKOFF_DELAY}/${AUTO_UPLOAD_RETRY_COOLDOWN}`,
+    );
+    assert('自动上传：有待同步且在线才放行', shouldAutoUpload(baseline) === true, 'true');
+    assert('自动上传：pending=0 不推', shouldAutoUpload({ ...baseline, pendingTotal: 0 }) === false, 'false');
+    assert('自动上传：冷却期内不推', shouldAutoUpload({ ...baseline, cooldownUntil: 2_000 }) === false, 'false');
+    assert('自动上传：离线不推', shouldAutoUpload({ ...baseline, online: false }) === false, 'false');
+    assert('自动上传：已在同步不重入', shouldAutoUpload({ ...baseline, isSyncing: true }) === false, 'false');
+    assert('自动上传：未登录不推', shouldAutoUpload({ ...baseline, loggedIn: false }) === false, 'false');
+  }
+
+  // ===== 强运校对提示词：保留结构与回响/符文语法，只做校对 =====
+  {
+    const source = '# 标题\n\n错别字 @nice{echoId: "e1", value: "x"}() 和 <div>符文</div>';
+    const messages = buildProofreadMessages(source);
+    assert(
+      '强运：system prompt 明确保留标题/列表/代码块/回响/符文结构',
+      PROOFREAD_SYSTEM_PROMPT.includes('保留所有原始结构') &&
+        PROOFREAD_SYSTEM_PROMPT.includes('回响 @xxx{...}(...)') &&
+        PROOFREAD_SYSTEM_PROMPT.includes('不做风格改写'),
+      PROOFREAD_SYSTEM_PROMPT.slice(0, 80),
+    );
+    assert('强运：user prompt 原样包住当前 Markdown', messages.length === 2 && messages[1]?.content.includes(source), String(messages[1]?.content.length));
   }
 
   // ===== 演示稿切片纯逻辑（L3 里再跑一遍，防止 vite/组件层改动悄悄破坏）=====

@@ -9,7 +9,7 @@
 
 旧 `gap-audit.md`（2026-11-18）与 `_todo/TODO-vue3-P0缺口-202611.md` 的 18 个 `[x]` 仅代表文件级覆盖。本轮按 vue2 页面、顶栏、对话框、右键菜单和 busDialog 逐块重走，新增以下 24 条。
 
-> 2026-11-21 批 A 已落地：P0-1 回响实例弹窗、P0-2 手动标签入口、P0-3 文件夹笔记导入、P0-4 豆包 provider。B/C 批仍待做。
+> 2026-11-21 批 A 已落地：P0-1 回响实例弹窗、P0-2 手动标签入口、P0-3 文件夹笔记导入、P0-4 豆包 provider。B1/B2 已落地：P1-5 自动上传与顶栏同步（App 级 3s 首传 + 30s 轮询 + 5min 冷却，顶栏 push/pull 与 pending 角标，Settings 手动同步共用同一把锁）；P1-6 强运 AI 校对（全局 handler 注册、当前 Markdown 校对、变化检测后整篇写回）。B3-B8、C 批仍待做。
 
 ## P0：流程断点
 
@@ -24,8 +24,8 @@
 
 | # | 缺口 | vue2 实际行为 | vue3 现状 |
 |---|---|---|---|
-| 5 | 自动上传与顶栏同步入口缺失 | 登录后顶栏 push/pull 按钮 + pending 角标；启动 3 秒首次补传，之后每 30 秒轮询，失败冷却 5 分钟 | 只有设置页里的推送/拉取；无自动上传定时器、pending 轮询、顶栏同步控件 |
-| 6 | “强运”回响点击无反应 | `window.__memocastEchoChantHandlers.lucky` 调 `AiProofreadService.proofread()` 并替换当前笔记 | 内置卡仍调用该全局 handler，但全仓无注册点，也无 AI 校对服务 |
+| 5 | 自动上传与顶栏同步入口缺失 | 登录后顶栏 push/pull 按钮 + pending 角标；启动 3 秒首次补传，之后每 30 秒轮询，失败冷却 5 分钟 | ✅ 已补：`stores/sync.ts` 统一调度，App 启动轮询、登录后立即补传，Home 顶栏 push/pull + pending 角标，Settings 手动同步共用同一 store 锁 |
+| 6 | “强运”回响点击无反应 | `window.__memocastEchoChantHandlers.lucky` 调 `AiProofreadService.proofread()` 并替换当前笔记 | ✅ 已补：`services/aiProofread.ts` 对齐 vue2 提示词，`EditorPane.vue` 注册/清理 lucky handler，校对成功且有变化才整篇写回；切笔记/改正文/截断时拒绝覆盖 |
 | 7 | 符文/回响 AI 代码生成缺失 | 表单 AI 生成入口把内置模板拼成 prompt，经 `codeGenMode` 生成并回调写回表单 | `LibraryFormDialog` 无 AI 入口；`AiHelperPanel` 不接收 codeGen 参数 |
 | 8 | 博客“一键构建”缺环境引导 | 自动检查/创建 `package.json`、`.vuepress/config.js`，软链或安装 `node_modules`，改 `base/theme` 后构建 | `build.ts` 只执行已有 build script，目录不能构建时直接失败 |
 | 9 | 博客部署 base 路径缺失 | 表单 `base` 字段，空值保留已有配置，非空改写 VuePress publicPath | 无 `base` 输入，也无 config writer |

@@ -20,6 +20,37 @@
 
       <div class="topbar-actions">
         <el-tag :type="statusType" effect="light" round>{{ statusLabel }}</el-tag>
+        <template v-if="syncLoggedIn">
+          <el-tooltip :content="syncPushTooltip" placement="bottom" :show-after="300">
+            <el-badge
+              :value="syncStore.pendingTotal"
+              :max="99"
+              :hidden="syncStore.pendingTotal <= 0"
+              class="sync-count-badge"
+            >
+              <el-button
+                circle
+                plain
+                :loading="syncStore.busyKind === 'push'"
+                :disabled="syncStore.isSyncing && syncStore.busyKind !== 'push'"
+                @click="handlePushSync"
+              >
+                <el-icon><Upload /></el-icon>
+              </el-button>
+            </el-badge>
+          </el-tooltip>
+          <el-tooltip :content="syncPullTooltip" placement="bottom" :show-after="300">
+            <el-button
+              circle
+              plain
+              :loading="syncStore.busyKind === 'pull'"
+              :disabled="syncStore.isSyncing && syncStore.busyKind !== 'pull'"
+              @click="handlePullSync"
+            >
+              <el-icon><Download /></el-icon>
+            </el-button>
+          </el-tooltip>
+        </template>
         <el-button circle plain :title="paneLayoutTitle" class="pane-layout-btn" @click="cyclePaneLayout">
           <el-icon><Operation /></el-icon>
         </el-button>
@@ -204,7 +235,7 @@
 </template>
 
 <script setup lang="ts">
-import { ChatDotRound, Document, Grid, Operation, Search, Setting, UserFilled } from '@element-plus/icons-vue';
+import { ChatDotRound, Document, Download, Grid, Operation, Search, Setting, Upload, UserFilled } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Pane, Splitpanes } from 'splitpanes';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
@@ -246,12 +277,13 @@ import { buildMuyaMenu } from '@/menus/muya';
 import { buildSideDrawerMenu } from '@/menus/sideDrawer';
 import type { ContextMenuItem } from '@/menus/types';
 import { exportCategoryMarkdown, getNote, listNotes } from '@/services/ipc';
-import { getSyncStatus, syncLogout } from '@/services/sync';
-import { loginDialogState, notifyLogout, openLoginDialog } from '@/services/loginDialog';
+import { syncLogout } from '@/services/sync';
+import { notifyLogout, openLoginDialog } from '@/services/loginDialog';
 import { useAppStore } from '@/stores/app';
 import { skinEffectBus } from '@/services/skinEffectBus';
 import { useNotesStore } from '@/stores/notes';
 import { useLibraryStore } from '@/stores/library';
+import { useSyncStore } from '@/stores/sync';
 import { createMuyaPlugins } from '@/muyaPlugins';
 import { deriveTitle, folderName, noteDateKey, noteTags, noteTimeGroup } from '@/utils/note';
 import { buildFolderMarkdown, type FolderMarkdownNote } from '@/utils/folderMarkdown';
@@ -263,6 +295,7 @@ const router = useRouter();
 const appStore = useAppStore();
 const notesStore = useNotesStore();
 const libraryStore = useLibraryStore();
+const syncStore = useSyncStore();
 
 // 符文/回响卡片只来自库；空库时插件就装成空卡片，库加载完成会触发重装。
 const muyaPlugins = computed(() => createMuyaPlugins({
@@ -582,7 +615,18 @@ const folderMenuX = ref(0);
 const folderMenuY = ref(0);
 const folderMenuCategory = ref('');
 const folderMenuIsRoot = ref(false);
-const syncLoggedIn = ref(false);
+const syncLoggedIn = computed(() => syncStore.loggedIn);
+const syncPushTooltip = computed(() => {
+  if (syncStore.busyKind === 'push') {
+    return t('syncPanel.syncing');
+  }
+  return syncStore.pendingTotal > 0
+    ? `${t('syncPanel.push')} (${syncStore.pendingTotal})`
+    : t('syncPanel.push');
+});
+const syncPullTooltip = computed(() => (
+  syncStore.busyKind === 'pull' ? t('syncPanel.syncing') : t('syncPanel.pull')
+));
 const folderMenuItems = computed<ContextMenuItem[]>(() =>
   buildSideDrawerMenu({
     category: folderMenuCategory.value,
@@ -635,11 +679,57 @@ function onEditorMenuCommand(command: string): void {
 }
 
 async function refreshSyncLoginState(): Promise<void> {
-  try {
-    const status = await getSyncStatus();
-    syncLoggedIn.value = status.ok && status.data.loggedIn;
-  } catch {
-    syncLoggedIn.value = false;
+  const loggedIn = await syncStore.refreshStatus();
+  if (loggedIn) {
+    await syncStore.refreshPending();
+  }
+}
+
+/** 顶栏 push：先落盘当前笔记，再走与自动上传同一把锁。 */
+async function handlePushSync(): Promise<void> {
+  if (!syncLoggedIn.value) {
+    openLoginDialog();
+    return;
+  }
+  await flushSave();
+  const result = await syncStore.push();
+  if (!result) {
+    ElMessage.error(syncStore.lastError || t('syncPanel.failed'));
+    return;
+  }
+  const message = t('syncPanel.pushDone', {
+    pushed: result.pushed,
+    created: result.created,
+    failed: result.failed,
+  });
+  if (result.failed > 0 || result.errors.length) {
+    ElMessage.warning(message);
+  } else {
+    ElMessage.success(message);
+  }
+}
+
+async function handlePullSync(): Promise<void> {
+  if (!syncLoggedIn.value) {
+    openLoginDialog();
+    return;
+  }
+  await flushSave();
+  const result = await syncStore.pull();
+  if (!result) {
+    ElMessage.error(syncStore.lastError || t('syncPanel.failed'));
+    return;
+  }
+  const message = t('syncPanel.pullDone', {
+    imported: result.imported,
+    skipped: result.skipped,
+    backfilled: result.backfilled,
+    failed: result.failed,
+  });
+  if (result.failed > 0) {
+    ElMessage.warning(message);
+  } else {
+    ElMessage.success(message);
   }
 }
 
@@ -668,7 +758,7 @@ async function confirmLogout(): Promise<void> {
     ElMessage.error(result.error.message);
     return;
   }
-  syncLoggedIn.value = false;
+  syncStore.setLoggedIn(false);
   await notesStore.loadAll();
   // 对齐 vue2 Header watch isLogin：登出后立即弹登录框，用户可跳过继续离线用。
   notifyLogout();
@@ -1178,18 +1268,4 @@ onMounted(async () => {
   applyEditorPrefs();
   void refreshSyncLoginState();
 });
-
-watch(
-  () => loginDialogState.successTick,
-  () => {
-    void refreshSyncLoginState();
-  },
-);
-
-watch(
-  () => loginDialogState.logoutTick,
-  () => {
-    syncLoggedIn.value = false;
-  },
-);
 </script>
