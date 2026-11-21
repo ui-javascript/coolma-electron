@@ -215,6 +215,9 @@ fn main() {
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {
                 restore_window_state(&window);
+                // 原版在非 PROD 下自动打开调试面板（detach），这里对应 debug 构建。
+                #[cfg(debug_assertions)]
+                window.open_devtools();
             }
             Ok(())
         })
