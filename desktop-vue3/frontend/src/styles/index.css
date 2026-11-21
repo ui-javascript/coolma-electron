@@ -1615,3 +1615,29 @@ html.dark .editor-action-bar {
     min-width: 0;
   }
 }
+
+/* 软件更新：对齐 vue2 UpdateDialog 的 500px 卡片与 35px 进度条 */
+.update-dialog {
+  max-width: 50vw;
+  padding: 0;
+  border-radius: 8px;
+}
+
+.update-dialog .el-dialog__header {
+  display: none;
+}
+
+.update-dialog .el-dialog__body {
+  padding: 0;
+}
+
+.update-dialog .el-dialog__footer {
+  padding: 4px 8px 8px;
+}
+
+@media (max-width: 700px) {
+  .update-dialog {
+    width: 92vw !important;
+    max-width: none;
+  }
+}
