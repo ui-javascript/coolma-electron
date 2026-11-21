@@ -25,7 +25,12 @@ class Lifecycle {
     }
 
     // Frameless window: remove the native menu entirely (File/Edit/View/...).
-    Menu.setApplicationMenu(null);
+    // macOS 例外：保留系统 appMenu 角色，否则 Cmd+H / Cmd+Alt+H / Cmd+Q 会全部失效。
+    if (process.platform === 'darwin') {
+      Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: 'appMenu' }]));
+    } else {
+      Menu.setApplicationMenu(null);
+    }
 
     electronApp.on('second-instance', () => {
       const win = getMainWindow();

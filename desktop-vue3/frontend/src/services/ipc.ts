@@ -154,6 +154,11 @@ export function closeWindow(): Promise<IpcResult<null>> {
   return invoke<null>(IPC_CHANNELS.window.close);
 }
 
+/** 打开独立窗口 DevTools（对齐 vue2 CmdOrCtrl+Shift+P）。 */
+export function openDevTools(): Promise<IpcResult<null>> {
+  return invoke<null>(IPC_CHANNELS.window.openDevTools);
+}
+
 export function listNotes(input: NoteListInput = {}): Promise<IpcResult<NoteListResult>> {
   return invoke<NoteListResult>(IPC_CHANNELS.notes.list, input);
 }

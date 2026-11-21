@@ -922,6 +922,248 @@ async function main(): Promise<void> {
     setWujieBus(null);
   }
 
+  // ── B8 键盘 accelerator 表 ──
+  {
+    const {
+      getShortcutBindings,
+      matchShortcut,
+      parseAccelerator,
+      isMacPlatform,
+    } = await import('../frontend/src/utils/shortcuts');
+    type KeyLike = {
+      code: string;
+      ctrlKey?: boolean;
+      metaKey?: boolean;
+      shiftKey?: boolean;
+      altKey?: boolean;
+      isComposing?: boolean;
+      keyCode?: number;
+    };
+    const key = (code: string, modifiers: Partial<KeyLike> = {}): KeyLike => ({
+      code,
+      ctrlKey: false,
+      metaKey: false,
+      shiftKey: false,
+      altKey: false,
+      ...modifiers,
+    });
+    const findBinding = (platform: string, id: string) =>
+      getShortcutBindings(platform, false).find((binding) => binding.id === id) ?? null;
+    const matchId = (platform: string, event: KeyLike): string | null =>
+      matchShortcut(event as KeyboardEvent, platform, false)?.id ?? null;
+
+    const linux = getShortcutBindings('linux', false);
+    const mac = getShortcutBindings('darwin', false);
+    const counts = (platform: string) => {
+      const list = getShortcutBindings(platform, false);
+      return Object.fromEntries(
+        (['mc', 'edit', 'paragraph', 'format', 'view', 'note'] as const).map((group) => [
+          group,
+          list.filter((binding) => binding.group === group).length,
+        ]),
+      ) as Record<string, number>;
+    };
+    assert(
+      '快捷键：Linux/Windows 表为 48 条（vue2 完整表去掉 macOS 应用菜单）',
+      linux.length === 48 && Object.values(counts('linux')).reduce((sum, value) => sum + value, 0) === 48,
+      JSON.stringify({ total: linux.length, groups: counts('linux') }),
+    );
+    assert(
+      '快捷键：分组数量与 vue2 一致（edit 11 / paragraph 20 / format 11 / view 4 / note 2）',
+      counts('linux').edit === 11 &&
+        counts('linux').paragraph === 20 &&
+        counts('linux').format === 11 &&
+        counts('linux').view === 4 &&
+        counts('linux').note === 2,
+      JSON.stringify(counts('linux')),
+    );
+    assert(
+      '快捷键：macOS 额外带 3 条应用菜单项',
+      mac.length === 51 && counts('darwin').mc === 3 && isMacPlatform('darwin') && !isMacPlatform('linux'),
+      JSON.stringify({ total: mac.length, mc: counts('darwin').mc }),
+    );
+    assert(
+      '快捷键：HTML 块按平台分支（mac J / linux H）',
+      findBinding('linux', 'paragraph.html-block')?.code === 'KeyH' &&
+        findBinding('darwin', 'paragraph.html-block')?.code === 'KeyJ',
+      JSON.stringify([
+        findBinding('linux', 'paragraph.html-block')?.accelerator,
+        findBinding('darwin', 'paragraph.html-block')?.accelerator,
+      ]),
+    );
+    assert(
+      '快捷键：accelerator 解析出物理键与修饰键',
+      (() => {
+        const parsed = parseAccelerator('CmdOrCtrl+Shift+,');
+        return parsed.code === 'Comma' && parsed.shift === true && parsed.alt === false && parsed.modifier === 'cmd-or-ctrl';
+      })(),
+      JSON.stringify(parseAccelerator('CmdOrCtrl+Shift+,')),
+    );
+
+    assert(
+      '快捷键：Ctrl+D 是删除线，Ctrl+Alt+D 是复制段落',
+      matchId('linux', key('KeyD', { ctrlKey: true })) === 'format.strike' &&
+        matchId('linux', key('KeyD', { ctrlKey: true, altKey: true })) === 'edit.duplicate',
+      JSON.stringify([
+        matchId('linux', key('KeyD', { ctrlKey: true })),
+        matchId('linux', key('KeyD', { ctrlKey: true, altKey: true })),
+      ]),
+    );
+    assert(
+      '快捷键：Shift 精确匹配（Ctrl+Shift+D 删段，Ctrl+Shift+Z 重做）',
+      matchId('linux', key('KeyD', { ctrlKey: true, shiftKey: true })) === 'edit.delete-paragraph' &&
+        matchId('linux', key('KeyZ', { ctrlKey: true, shiftKey: true })) === 'edit.redo' &&
+        matchId('linux', key('KeyZ', { ctrlKey: true })) === 'edit.undo',
+      'shift-exact',
+    );
+    assert(
+      '快捷键：Alt 精确匹配（Ctrl+Alt+D / Ctrl+Alt+- / Ctrl+= / Ctrl+-）',
+      matchId('linux', key('Minus', { ctrlKey: true, altKey: true })) === 'paragraph.horizontal-line' &&
+        matchId('linux', key('Minus', { ctrlKey: true })) === 'paragraph.degrade-heading' &&
+        matchId('linux', key('Equal', { ctrlKey: true })) === 'paragraph.upgrade-heading',
+      'alt-exact',
+    );
+    assert(
+      '快捷键：标题层级只认主键盘数字，Ctrl+Shift+1 不误触',
+      [1, 2, 3, 4, 5, 6, 0].every((digit) =>
+        matchId('linux', key(`Digit${digit}`, { ctrlKey: true })) ===
+          (digit === 0 ? 'paragraph.paragraph' : `paragraph.heading-${digit}`),
+      ) && matchId('linux', key('Digit1', { ctrlKey: true, shiftKey: true })) === null,
+      'headings',
+    );
+    assert(
+      '快捷键：标点键用物理 code 匹配（Ctrl+Shift+, / . / `）',
+      matchId('linux', key('Comma', { ctrlKey: true, shiftKey: true })) === 'view.switch-view' &&
+        matchId('linux', key('Period', { ctrlKey: true, shiftKey: true })) === 'view.source-mode' &&
+        matchId('linux', key('Backquote', { ctrlKey: true })) === 'format.inline-code',
+      'punctuation',
+    );
+    assert(
+      '快捷键：段落/格式命令参数与 vue2 菜单一致',
+      findBinding('linux', 'paragraph.code-fence')?.action.scope === 'editor' &&
+        findBinding('linux', 'paragraph.code-fence')?.action.command === 'paragraph' &&
+        (findBinding('linux', 'paragraph.code-fence')?.action as { value?: string }).value === 'pre' &&
+        (findBinding('linux', 'paragraph.order-list')?.action as { value?: string }).value === 'ol-order' &&
+        (findBinding('linux', 'format.italic')?.action as { value?: string }).value === 'em' &&
+        (findBinding('linux', 'format.highlight')?.action as { value?: string }).value === 'mark' &&
+        (findBinding('linux', 'format.clear-format')?.action as { value?: string }).value === 'clear',
+      'values',
+    );
+    assert(
+      '快捷键：Ctrl+Shift+I/R/P/V/C 不被 Chromium 默认动作抢占',
+      matchId('linux', key('KeyI', { ctrlKey: true, shiftKey: true })) === 'format.image' &&
+        matchId('linux', key('KeyR', { ctrlKey: true, shiftKey: true })) === 'format.clear-format' &&
+        matchId('linux', key('KeyP', { ctrlKey: true, shiftKey: true })) === 'view.devtool' &&
+        matchId('linux', key('KeyV', { ctrlKey: true, shiftKey: true })) === 'edit.paste-as-plaintext' &&
+        matchId('linux', key('KeyC', { ctrlKey: true, shiftKey: true })) === 'edit.copy-as-markdown',
+      'chromium-conflicts',
+    );
+    assert(
+      '快捷键：搜索是 Ctrl+Shift+F，Ctrl+F 只是 vue3 列表筛选别名',
+      matchId('linux', key('KeyF', { ctrlKey: true, shiftKey: true })) === 'note.search-note' &&
+        matchId('linux', key('KeyF', { ctrlKey: true })) === null,
+      'search',
+    );
+    {
+      const aliasBinding = matchShortcut(
+        key('KeyF', { ctrlKey: true }) as KeyboardEvent,
+        'linux',
+      );
+      assert(
+        '快捷键：Ctrl+F / Ctrl+N 作为 vue3 别名仍可用',
+        aliasBinding?.id === 'v3.note-filter' &&
+          aliasBinding?.source === 'vue3' &&
+          matchShortcut(key('KeyN', { ctrlKey: true }) as KeyboardEvent, 'linux')?.id === 'v3.note-new',
+        JSON.stringify(aliasBinding),
+      );
+    }
+    assert(
+      '快捷键：cut/copy/paste 标记 native，不拦截浏览器默认行为',
+      ['edit.cut', 'edit.copy', 'edit.paste'].every((id) => {
+        const binding = findBinding('linux', id);
+        return binding?.action.scope === 'native' && ['cut', 'copy', 'paste'].includes(binding.action.command);
+      }),
+      'native-clipboard',
+    );
+    assert(
+      '快捷键：macOS Cmd+H / Cmd+Alt+H / Cmd+Q 保留应用菜单语义',
+      (findBinding('darwin', 'mc.hide')?.action as { command?: string })?.command === 'hide' &&
+        (findBinding('darwin', 'mc.hide-others')?.action as { command?: string })?.command === 'hideOthers' &&
+        (findBinding('darwin', 'mc.quit')?.action as { command?: string })?.command === 'quit' &&
+        matchId('darwin', key('KeyQ', { metaKey: true })) === 'mc.quit',
+      'mac-menu',
+    );
+    assert(
+      '快捷键：macOS 用 Command 而不是 Ctrl；Windows/Linux 用 Ctrl',
+      matchId('darwin', key('KeyS', { ctrlKey: true })) !== 'note.save' &&
+        matchId('darwin', key('KeyS', { metaKey: true })) === 'note.save' &&
+        matchId('linux', key('KeyS', { metaKey: true })) === null &&
+        matchId('linux', key('KeyS', { ctrlKey: true })) === 'note.save',
+      'platform-modifier',
+    );
+    assert(
+      '快捷键：输入法组合态与 keyCode 229 不触发',
+      matchId('linux', key('KeyB', { ctrlKey: true, isComposing: true })) === null &&
+        matchId('linux', key('KeyB', { ctrlKey: true, keyCode: 229 })) === null &&
+        matchId('linux', key('KeyB', { ctrlKey: true })) === 'format.strong',
+      'ime',
+    );
+    assert(
+      '快捷键：同组 id 唯一，避免多个命令抢同一按键',
+      new Set(linux.map((binding) => binding.id)).size === linux.length &&
+        new Set(mac.map((binding) => binding.id)).size === mac.length,
+      `${linux.length}/${mac.length}`,
+    );
+
+    // 表里的命令值直接喂给真实引擎，确认不是「只对文案」
+    muya.setMarkdown('快捷键标题\n', { anchor: { line: 0, ch: 1 }, focus: { line: 0, ch: 1 } }, false);
+    const headingBinding = findBinding('linux', 'paragraph.heading-1');
+    muya.updateParagraph((headingBinding?.action as { value?: string })?.value ?? '');
+    assert(
+      '快捷键：Ctrl+1 的 heading 1 能被 Muya 消费',
+      muya.getMarkdown().trim() === '# 快捷键标题',
+      JSON.stringify(muya.getMarkdown()),
+    );
+    muya.setMarkdown('快捷键格式\n', undefined, false);
+    // format 读的是 DOM selection；在真实文本节点上选前两个字，模拟用户划词。
+    {
+      const textRoot = editorRoot();
+      const walker = document.createTreeWalker(textRoot, 4);
+      let textNode: Text | null = null;
+      while (walker.nextNode()) {
+        const node = walker.currentNode as Text;
+        if ((node.nodeValue || '').includes('快捷键格式')) {
+          textNode = node;
+          break;
+        }
+      }
+      assert('快捷键：找到格式测试文本节点', Boolean(textNode), 'text-node');
+      if (textNode) {
+        const range = document.createRange();
+        range.setStart(textNode, 0);
+        range.setEnd(textNode, 2);
+        const domSelection = window.getSelection();
+        domSelection?.removeAllRanges();
+        domSelection?.addRange(range);
+      }
+    }
+    const strongBinding = findBinding('linux', 'format.strong');
+    muya.format((strongBinding?.action as { value?: string })?.value ?? '');
+    assert(
+      '快捷键：Ctrl+B 的 strong 能被 Muya 消费',
+      /^\*\*快捷\*\*键格式/.test(muya.getMarkdown()),
+      JSON.stringify(muya.getMarkdown()),
+    );
+
+    const { IPC_CHANNELS, INVOKE_CHANNELS } = await import('@shared/ipc/channels');
+    assert(
+      '快捷键：DevTools 通道已登记并进入 preload 白名单',
+      IPC_CHANNELS.window.openDevTools === 'controller/window/openDevTools' &&
+        INVOKE_CHANNELS.has(IPC_CHANNELS.window.openDevTools),
+      IPC_CHANNELS.window.openDevTools,
+    );
+  }
+
   updater: {
     const { IPC_CHANNELS } = await import('@shared/ipc/channels');
     assert('更新：三个通道都在 IPC_CHANNELS', ['updateCheck', 'updateDownload', 'updateInstall'].every((k) => typeof (IPC_CHANNELS.app as Record<string, string>)[k] === 'string'), 'channels');

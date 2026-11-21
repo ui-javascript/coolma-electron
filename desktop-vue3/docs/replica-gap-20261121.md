@@ -9,7 +9,7 @@
 
 旧 `gap-audit.md`（2026-11-18）与 `_todo/TODO-vue3-P0缺口-202611.md` 的 18 个 `[x]` 仅代表文件级覆盖。本轮按 vue2 页面、顶栏、对话框、右键菜单和 busDialog 逐块重走，新增以下 24 条。
 
-> 2026-11-21 批 A 已落地：P0-1 回响实例弹窗、P0-2 手动标签入口、P0-3 文件夹笔记导入、P0-4 豆包 provider。B1/B2 已落地：P1-5 自动上传与顶栏同步（App 级 3s 首传 + 30s 轮询 + 5min 冷却，顶栏 push/pull 与 pending 角标，Settings 手动同步共用同一把锁）；P1-6 强运 AI 校对（全局 handler 注册、当前 Markdown 校对、变化检测后整篇写回）；B3 已落地：P1-7 符文/回响表单 AI 代码生成（`aiCodegen` 构建 prompt、表单 AI 按钮经 busDialog 带 callback、面板 codegen 模式预填/提取/回写源码）；B4 已落地：P1-8 博客构建环境引导（Node 检测与安装指引、package.json/config 自动生成或修复、sidebar/nav builders、缺依赖安装、清缓存后构建）；B5 已落地：P1-9 博客 base 输入与 VuePress base 规范化回写（已有 config 只改 base、保留其它字段，hope 的 config({...}) 也支持）。B6 已落地：P1-10 单条 GitHub `.vue` 符文导入（blob/raw/gist URL 归一、SSRF 白名单、302 逐跳校验、5MB/20s、前 20 行注释元数据、1MB 模板、入库后列表刷新）。B7 已落地：P1-11 微应用通用 IPC 桥 + `vue-sfc:parse` 特例桥（通用桥解包 IpcResult、白名单/越权/失败回包；`controller/microapp/parse` 复用 `@vue/compiler-sfc` 2.7.16，输出与 Vue2 playground 同形的 template/script/style/customBlocks）。B8、C 批仍待做。
+> 2026-11-21 批 A 已落地：P0-1 回响实例弹窗、P0-2 手动标签入口、P0-3 文件夹笔记导入、P0-4 豆包 provider。B1/B2 已落地：P1-5 自动上传与顶栏同步（App 级 3s 首传 + 30s 轮询 + 5min 冷却，顶栏 push/pull 与 pending 角标，Settings 手动同步共用同一把锁）；P1-6 强运 AI 校对（全局 handler 注册、当前 Markdown 校对、变化检测后整篇写回）；B3 已落地：P1-7 符文/回响表单 AI 代码生成（`aiCodegen` 构建 prompt、表单 AI 按钮经 busDialog 带 callback、面板 codegen 模式预填/提取/回写源码）；B4 已落地：P1-8 博客构建环境引导（Node 检测与安装指引、package.json/config 自动生成或修复、sidebar/nav builders、缺依赖安装、清缓存后构建）；B5 已落地：P1-9 博客 base 输入与 VuePress base 规范化回写（已有 config 只改 base、保留其它字段，hope 的 config({...}) 也支持）。B6 已落地：P1-10 单条 GitHub `.vue` 符文导入（blob/raw/gist URL 归一、SSRF 白名单、302 逐跳校验、5MB/20s、前 20 行注释元数据、1MB 模板、入库后列表刷新）。B7 已落地：P1-11 微应用通用 IPC 桥 + `vue-sfc:parse` 特例桥（通用桥解包 IpcResult、白名单/越权/失败回包；`controller/microapp/parse` 复用 `@vue/compiler-sfc` 2.7.16，输出与 Vue2 playground 同形的 template/script/style/customBlocks）。B8 已落地：P1-12 完整键盘 accelerator 表（`utils/shortcuts.ts` 对齐 vue2 KeyBindings，按物理键与精确修饰键匹配，Muya/Monaco 双编辑器命令和应用级视图/搜索/DevTools 已接）。C 批仍待做。
 
 ## P0：流程断点
 
@@ -31,7 +31,7 @@
 | 9 | 博客部署 base 路径缺失 | 表单 `base` 字段，空值保留已有配置，非空改写 VuePress publicPath | ✅ 已补：`BlogDeployDialog` 增 `base` 输入并持久化；`blogEnv.ts` 复刻 `normalizeBase`（`/foo///`→`/foo/`、`./` 保留）与 `applyBaseToConfig`，已有 config 只替换/插入 base 并保留其它字段，新建 config 直接写入规范化 base |
 | 10 | 符文单条 GitHub SFC 导入缺失 | 支持 github blob/raw、raw.githubusercontent、gist，导入单个 `.vue` 模板并可选分类 | ✅ 已补：`remote-fetch.ts` 做 URL 归一、SSRF 白名单与 302 逐跳重新校验；`shared/runeRemote.ts` 复刻前 20 行注释解析与 URL 文件名回退；`RuneRemoteImportDialog` 从符文分类工具栏进入，可选分类，1MB 模板直接入库并刷新列表。真实 GitHub blob 抓取+解析已过 smoke；未在 Electron 窗口内点击端到端 |
 | 11 | 微应用通用 IPC 桥未接 | `genericMicroAppIpcBridge` 监听 `microapp:ipc:request`，按白名单 invoke，另有 `vue-sfc:parse` 特例 | ✅ 已补：通用桥已接 `coolma.invoke` 并解包 `IpcResult`，白名单外返回 `CHANNEL_NOT_ALLOWED`；`microapp:parse:request` 经 `controller/microapp/parse` 编译 Vue2 SFC，前端桥默认实现已注册；runtime 覆盖成功、越权、失败、缺 requestId、卸载。未在 Electron 窗口内用 vue2-sfc-playground 真机点击 |
-| 12 | 键盘加速键只复刻 4 个 | 撤销/重做、复制为 Markdown/HTML、纯文本粘贴、标题层级、代码块/表格/公式、加粗/斜体/链接/图片、源码模式、锁定、搜索等 | 只处理 `Ctrl+N/F/S` 与 `Ctrl+Shift+L` |
+| 12 | 键盘加速键只复刻 4 个 | 撤销/重做、复制为 Markdown/HTML、纯文本粘贴、标题层级、代码块/表格/公式、加粗/斜体/链接/图片、源码模式、锁定、搜索等 | ✅ 已补：`utils/shortcuts.ts` 逐条对齐 vue2 KeyBindings（Linux/Windows 48 条、macOS 另加 3 条 appMenu），按 `event.code` 与精确修饰键匹配并挡输入法组合态；HomeView 分发布局/源码/锁定/保存/搜索/DevTools，Muya 接段落、格式、撤销、复制、纯文本粘贴与段落增删，Monaco 接撤销/重做/全选/复制/纯文本粘贴；`controller/window/openDevTools` 已进白名单。24 条 runtime 断言与 Muya 真命令过测；未在 Electron 窗口内逐键点击 |
 
 ## P2：细节与边界
 
@@ -63,5 +63,5 @@
 ## 建议批次
 
 1. 批 A（已完成）：P0-1 回响实例弹窗、P0-2 手动标签入口、P0-3 文件夹笔记导入、P0-4 豆包 provider。
-2. 批 B：P1-5 自动同步、P1-6 强运 AI 校对、P1-7 符文/回响 AI 代码生成、P1-8/9 博客环境与 base、P1-10 单条远程符文导入。
-3. 批 C：P1-11 微应用 IPC、P1-12 快捷键，以及 P2 的边界和入口对齐。
+2. 批 B（已完成）：P1-5 自动同步、P1-6 强运 AI 校对、P1-7 符文/回响 AI 代码生成、P1-8/9 博客环境与 base、P1-10 单条远程符文导入。
+3. 批 C（B7/B8 已提前完成）：P1-11 微应用 IPC、P1-12 完整快捷键已落地；剩余 P2 的边界和入口对齐（C1-C12）。

@@ -54,6 +54,13 @@ export default class Muya {
   copyAsHtml(): void;
   pasteAsPlainText(): void;
   insertParagraph(location: 'before' | 'after', text?: string, outMost?: boolean): void;
+  updateParagraph(type: string): void;
+  duplicate(): void;
+  deleteParagraph(): void;
+  format(type: string): void;
+  undo(): void;
+  redo(): void;
+  selectAll(): void;
   focus(): void;
   blur(isRemoveAllRange?: boolean, unSelect?: boolean): void;
   destroy(): void;

@@ -248,7 +248,84 @@ function replaceAllText(text: string): boolean {
   return true;
 }
 
-defineExpose({ getCursor, setCursor, appendText, captureSelection, replaceSelectionSnapshot, replaceAllText });
+/**
+ * 源码模式下的撤销/重做/全选/复制为 Markdown/纯文本粘贴。
+ * 语义对齐 vue2 Monaco.vue 的 editCopyPasteHandler，命令 ID 也用 'source'。
+ */
+function undo(): boolean {
+  if (!editor || props.readonly) {
+    return false;
+  }
+  editor.trigger('source', 'undo');
+  editor.focus();
+  return true;
+}
+
+function redo(): boolean {
+  if (!editor || props.readonly) {
+    return false;
+  }
+  editor.trigger('source', 'redo');
+  editor.focus();
+  return true;
+}
+
+function selectAll(): boolean {
+  const model = editor?.getModel();
+  if (!model) {
+    return false;
+  }
+  editor.setSelection(model.getFullModelRange());
+  editor.focus();
+  return true;
+}
+
+async function copyAsMarkdown(): Promise<boolean> {
+  const model = editor?.getModel();
+  const selection = editor?.getSelection();
+  if (!model || !selection) {
+    return false;
+  }
+  try {
+    await navigator.clipboard.writeText(model.getValueInRange(selection));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function pasteAsPlainText(): Promise<boolean> {
+  const model = editor?.getModel();
+  const selection = editor?.getSelection();
+  if (!model || !selection || props.readonly) {
+    return false;
+  }
+  try {
+    const text = await navigator.clipboard.readText();
+    if (!text) {
+      return false;
+    }
+    editor.executeEdits('pasteAsPlainText', [{ range: selection, text, forceMoveMarkers: true }]);
+    editor.focus();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+defineExpose({
+  getCursor,
+  setCursor,
+  appendText,
+  captureSelection,
+  replaceSelectionSnapshot,
+  replaceAllText,
+  undo,
+  redo,
+  selectAll,
+  copyAsMarkdown,
+  pasteAsPlainText,
+});
 </script>
 
 <style scoped>

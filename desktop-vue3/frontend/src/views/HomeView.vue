@@ -276,7 +276,12 @@ import { buildNoteListMenu } from '@/menus/noteList';
 import { buildMuyaMenu } from '@/menus/muya';
 import { buildSideDrawerMenu } from '@/menus/sideDrawer';
 import type { ContextMenuItem } from '@/menus/types';
-import { exportCategoryMarkdown, getNote, listNotes } from '@/services/ipc';
+import { exportCategoryMarkdown, getNote, listNotes, openDevTools } from '@/services/ipc';
+import {
+  matchShortcut,
+  type AppShortcutCommand,
+  type ShortcutAction,
+} from '@/utils/shortcuts';
 import { syncLogout } from '@/services/sync';
 import { notifyLogout, openLoginDialog } from '@/services/loginDialog';
 import { useAppStore } from '@/stores/app';
@@ -1179,36 +1184,82 @@ function openSettings(): void {
 }
 
 /**
- * 本地快捷键：与 vue2 的键盘习惯对齐。
- * Ctrl/Cmd+N 新建、Ctrl/Cmd+F 聚焦搜索、Ctrl/Cmd+S 立即保存、Ctrl/Cmd+Shift+L 锁定。
+ * 键盘 accelerator：匹配表在 `utils/shortcuts.ts` 里逐条对齐 vue2 KeyBindings。
+ * 文件菜单类快捷键（cut/copy/paste/mc.*）交给浏览器或 macOS appMenu；
+ * 其余命中后统一 preventDefault，避免 Chromium 把 Ctrl+Shift+I/R 等当成开发者工具或刷新。
  */
+function runAppShortcut(command: AppShortcutCommand): void {
+  switch (command) {
+    case 'save':
+      void flushSave();
+      return;
+    case 'createNote':
+      void createNote();
+      return;
+    case 'focusListSearch':
+      document.querySelector<HTMLInputElement>('.topbar-search input')?.focus();
+      return;
+    case 'searchNote':
+      // vue2 Header 的 searchDialog.toggle()：再按一次关闭。
+      searchVisible.value = !searchVisible.value;
+      return;
+    case 'switchView':
+      cyclePaneLayout();
+      return;
+    case 'toggleSourceMode':
+      if (activeSummary.value) {
+        editorPaneRef.value?.toggleSourceMode();
+      }
+      return;
+    case 'toggleLock':
+      if (activeSummary.value) {
+        editorPaneRef.value?.toggleLock();
+      }
+      return;
+    case 'openDevTools':
+      void openDevTools().then((result) => {
+        if (!result.ok) {
+          ElMessage.error(result.error.message);
+        }
+      });
+      return;
+    default:
+      return;
+  }
+}
+
+function dispatchEditorShortcut(action: Extract<ShortcutAction, { scope: 'editor' }>): void {
+  const result = editorPaneRef.value?.executeShortcut?.(action);
+  if (result && typeof (result as Promise<boolean>).then === 'function') {
+    void (result as Promise<boolean>).catch(() => false);
+  }
+}
+
 function handleShortcut(event: KeyboardEvent): void {
-  if (!(event.ctrlKey || event.metaKey) || event.altKey) {
+  const binding = matchShortcut(event, appStore.appInfo?.platform ?? '');
+  if (!binding) {
     return;
   }
 
-  const key = event.key.toLowerCase();
-  if (event.shiftKey && key === 'l' && activeSummary.value) {
-    event.preventDefault();
-    if (!event.repeat) {
-      editorPaneRef.value?.toggleLock();
-    }
+  // 原生菜单 / 剪贴板动作不抢默认行为。
+  if (binding.action.scope === 'native') {
     return;
   }
-  if (key === 'n') {
-    event.preventDefault();
-    void createNote();
+
+  // 捕获阶段先于 Muya/Monaco 的 keydown，挡掉 Chromium 与编辑器内置的同键动作
+  // （例如 Ctrl+Shift+P 在 Monaco 是命令面板，在 vue2 是 DevTools）。
+  event.preventDefault();
+  event.stopPropagation();
+  if (event.repeat) {
     return;
   }
-  if (key === 'f') {
-    event.preventDefault();
-    document.querySelector<HTMLInputElement>('.topbar-search input')?.focus();
+
+  if (binding.action.scope === 'app') {
+    runAppShortcut(binding.action.command);
     return;
   }
-  if (key === 's') {
-    event.preventDefault();
-    void flushSave();
-  }
+
+  dispatchEditorShortcut(binding.action);
 }
 
 const microDrawerVisible = ref(false);
@@ -1237,7 +1288,7 @@ onMounted(async () => {
     deleteEffectEntry.value = entry;
   });
   detachSkinEffect = skinEffectBus.on((skin) => skinEffectsRef.value?.play?.(skin));
-  window.addEventListener('keydown', handleShortcut);
+  window.addEventListener('keydown', handleShortcut, true);
   void appStore.init();
   const loaded = await notesStore.loadAll();
   if (!loaded) {
@@ -1247,7 +1298,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   detachSkinEffect?.();
-  window.removeEventListener('keydown', handleShortcut);
+  window.removeEventListener('keydown', handleShortcut, true);
   if (saveTimer) {
     clearTimeout(saveTimer);
     saveTimer = undefined;
