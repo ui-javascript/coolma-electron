@@ -9,7 +9,7 @@
 
 旧 `gap-audit.md`（2026-11-18）与 `_todo/TODO-vue3-P0缺口-202611.md` 的 18 个 `[x]` 仅代表文件级覆盖。本轮按 vue2 页面、顶栏、对话框、右键菜单和 busDialog 逐块重走，新增以下 24 条。
 
-> 2026-11-21 批 A 已落地：P0-1 回响实例弹窗、P0-2 手动标签入口、P0-3 文件夹笔记导入、P0-4 豆包 provider。B1/B2 已落地：P1-5 自动上传与顶栏同步（App 级 3s 首传 + 30s 轮询 + 5min 冷却，顶栏 push/pull 与 pending 角标，Settings 手动同步共用同一把锁）；P1-6 强运 AI 校对（全局 handler 注册、当前 Markdown 校对、变化检测后整篇写回）；B3 已落地：P1-7 符文/回响表单 AI 代码生成（`aiCodegen` 构建 prompt、表单 AI 按钮经 busDialog 带 callback、面板 codegen 模式预填/提取/回写源码）；B4 已落地：P1-8 博客构建环境引导（Node 检测与安装指引、package.json/config 自动生成或修复、sidebar/nav builders、缺依赖安装、清缓存后构建）；B5 已落地：P1-9 博客 base 输入与 VuePress base 规范化回写（已有 config 只改 base、保留其它字段，hope 的 config({...}) 也支持）。B6-B8、C 批仍待做。
+> 2026-11-21 批 A 已落地：P0-1 回响实例弹窗、P0-2 手动标签入口、P0-3 文件夹笔记导入、P0-4 豆包 provider。B1/B2 已落地：P1-5 自动上传与顶栏同步（App 级 3s 首传 + 30s 轮询 + 5min 冷却，顶栏 push/pull 与 pending 角标，Settings 手动同步共用同一把锁）；P1-6 强运 AI 校对（全局 handler 注册、当前 Markdown 校对、变化检测后整篇写回）；B3 已落地：P1-7 符文/回响表单 AI 代码生成（`aiCodegen` 构建 prompt、表单 AI 按钮经 busDialog 带 callback、面板 codegen 模式预填/提取/回写源码）；B4 已落地：P1-8 博客构建环境引导（Node 检测与安装指引、package.json/config 自动生成或修复、sidebar/nav builders、缺依赖安装、清缓存后构建）；B5 已落地：P1-9 博客 base 输入与 VuePress base 规范化回写（已有 config 只改 base、保留其它字段，hope 的 config({...}) 也支持）。B6 已落地：P1-10 单条 GitHub `.vue` 符文导入（blob/raw/gist URL 归一、SSRF 白名单、302 逐跳校验、5MB/20s、前 20 行注释元数据、1MB 模板、入库后列表刷新）。B7 已落地：P1-11 微应用通用 IPC 桥 + `vue-sfc:parse` 特例桥（通用桥解包 IpcResult、白名单/越权/失败回包；`controller/microapp/parse` 复用 `@vue/compiler-sfc` 2.7.16，输出与 Vue2 playground 同形的 template/script/style/customBlocks）。B8、C 批仍待做。
 
 ## P0：流程断点
 
@@ -29,8 +29,8 @@
 | 7 | 符文/回响 AI 代码生成缺失 | 表单 AI 生成入口把内置模板拼成 prompt，经 `codeGenMode` 生成并回调写回表单 | ✅ 已补：`utils/aiCodegen.ts` 按 vue2 拼符文/回响 prompt 并提取代码块；`LibraryFormDialog` 描述旁 AI 按钮经 `AiHelperBusDialog.open` 带 `codeGenPrompt/type/targetName/callback`；`AiHelperPanel` codegen 模式预填 prompt、隐藏笔记上下文、生成后回写源码框 |
 | 8 | 博客“一键构建”缺环境引导 | 自动检查/创建 `package.json`、`.vuepress/config.js`，软链或安装 `node_modules`，改 `base/theme` 后构建 | ✅ 已补 Node/theme/package/config/依赖部分：`blogEnv.ts` 生成四套主题模板与 sidebar/nav builders，`build.ts` 构建前检测 Node、修复/生成 package.json 与 config.js、缺依赖自动安装、清缓存再执行 build；缺 Node 时 UI 给安装指引。`base` 输入与 config 回写仍归 B5 |
 | 9 | 博客部署 base 路径缺失 | 表单 `base` 字段，空值保留已有配置，非空改写 VuePress publicPath | ✅ 已补：`BlogDeployDialog` 增 `base` 输入并持久化；`blogEnv.ts` 复刻 `normalizeBase`（`/foo///`→`/foo/`、`./` 保留）与 `applyBaseToConfig`，已有 config 只替换/插入 base 并保留其它字段，新建 config 直接写入规范化 base |
-| 10 | 符文单条 GitHub SFC 导入缺失 | 支持 github blob/raw、raw.githubusercontent、gist，导入单个 `.vue` 模板并可选分类 | 只有 pack JSON 远程导入，不能直接导入一张 `.vue` 符文卡 |
-| 11 | 微应用通用 IPC 桥未接 | `genericMicroAppIpcBridge` 监听 `microapp:ipc:request`，按白名单 invoke，另有 `vue-sfc:parse` 特例 | `microAppBridge.ts` 只有 parse 骨架，`setMicroAppParseImpl` 未调用，无通用 IPC 监听 |
+| 10 | 符文单条 GitHub SFC 导入缺失 | 支持 github blob/raw、raw.githubusercontent、gist，导入单个 `.vue` 模板并可选分类 | ✅ 已补：`remote-fetch.ts` 做 URL 归一、SSRF 白名单与 302 逐跳重新校验；`shared/runeRemote.ts` 复刻前 20 行注释解析与 URL 文件名回退；`RuneRemoteImportDialog` 从符文分类工具栏进入，可选分类，1MB 模板直接入库并刷新列表。真实 GitHub blob 抓取+解析已过 smoke；未在 Electron 窗口内点击端到端 |
+| 11 | 微应用通用 IPC 桥未接 | `genericMicroAppIpcBridge` 监听 `microapp:ipc:request`，按白名单 invoke，另有 `vue-sfc:parse` 特例 | ✅ 已补：通用桥已接 `coolma.invoke` 并解包 `IpcResult`，白名单外返回 `CHANNEL_NOT_ALLOWED`；`microapp:parse:request` 经 `controller/microapp/parse` 编译 Vue2 SFC，前端桥默认实现已注册；runtime 覆盖成功、越权、失败、缺 requestId、卸载。未在 Electron 窗口内用 vue2-sfc-playground 真机点击 |
 | 12 | 键盘加速键只复刻 4 个 | 撤销/重做、复制为 Markdown/HTML、纯文本粘贴、标题层级、代码块/表格/公式、加粗/斜体/链接/图片、源码模式、锁定、搜索等 | 只处理 `Ctrl+N/F/S` 与 `Ctrl+Shift+L` |
 
 ## P2：细节与边界

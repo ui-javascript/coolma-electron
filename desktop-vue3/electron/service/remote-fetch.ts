@@ -1,7 +1,7 @@
 /**
  * remote-fetch —— GitHub raw URL 抓取（复刻 vue2 remote-fetch.js）。
  * 只允许 github.com / raw.githubusercontent.com / gist.githubusercontent.com，防 SSRF。
- * 返回 { success, code, message, text?, finalUrl? }，不做 JSON 解析。
+ * 返回 { success, code, message, text?, finalUrl? }，不做 JSON/SFC 解析。
  */
 const MAX_REDIRECTS = 8;
 const MAX_BODY_BYTES = 5 * 1024 * 1024;
@@ -20,7 +20,8 @@ export interface RemoteFetchResult {
   finalUrl?: string;
 }
 
-function toRawGithubUrl(input: string): string | null {
+/** 只接受允许的 GitHub 主机；blob/raw 页面转成 raw，其它一律 null。 */
+export function toRawGithubUrl(input: string): string | null {
   if (typeof input !== 'string' || !input.trim()) {
     return null;
   }
@@ -38,7 +39,6 @@ function toRawGithubUrl(input: string): string | null {
     return url.toString();
   }
   if (host === 'github.com') {
-    // /<u>/<r>/blob|raw/<branch>/<path> → raw
     const match = url.pathname.match(/^\/([^/]+)\/([^/]+)\/(?:blob|raw)\/(.+)$/);
     if (match) {
       return `https://raw.githubusercontent.com/${match[1]}/${match[2]}/${match[3]}`;
@@ -48,7 +48,7 @@ function toRawGithubUrl(input: string): string | null {
   return null;
 }
 
-async function fetchOnce(url: string, redirectsLeft: number): Promise<Response> {
+async function fetchOnce(url: string, redirectsLeft: number): Promise<string> {
   if (redirectsLeft <= 0) {
     throw new Error('Too many redirects');
   }
@@ -63,16 +63,24 @@ async function fetchOnce(url: string, redirectsLeft: number): Promise<Response> 
         throw new Error('Redirect without location');
       }
       const next = new URL(location, url).toString();
-      return fetchOnce(next, redirectsLeft - 1);
+      const validated = toRawGithubUrl(next);
+      if (!validated) {
+        throw new Error(`Redirect to unsupported host: ${next}`);
+      }
+      return fetchOnce(validated, redirectsLeft - 1);
     }
     if (status !== 200) {
       throw new Error(`HTTP ${status}`);
+    }
+    const length = Number(response.headers.get('content-length') || 0);
+    if (Number.isFinite(length) && length > MAX_BODY_BYTES) {
+      throw new Error('Response body too large');
     }
     const buffer = await response.arrayBuffer();
     if (buffer.byteLength > MAX_BODY_BYTES) {
       throw new Error('Response body too large');
     }
-    return { ok: true, text: () => new TextDecoder().decode(buffer) } as unknown as Response;
+    return new TextDecoder().decode(buffer);
   } finally {
     clearTimeout(timer);
   }
@@ -89,8 +97,7 @@ export async function fetchRemoteText(input: string): Promise<RemoteFetchResult>
   }
   let body: string;
   try {
-    const response = await fetchOnce(raw, MAX_REDIRECTS);
-    body = await response.text();
+    body = await fetchOnce(raw, MAX_REDIRECTS);
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     let code = 'FETCH_FAILED';
@@ -98,6 +105,8 @@ export async function fetchRemoteText(input: string): Promise<RemoteFetchResult>
       code = 'REDIRECT_LOOP';
     } else if (/too large/i.test(msg)) {
       code = 'TOO_LARGE';
+    } else if (/unsupported host/i.test(msg)) {
+      code = 'UNSUPPORTED_HOST';
     }
     return { success: false, code, message: msg };
   }

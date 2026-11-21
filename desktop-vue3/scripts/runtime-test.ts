@@ -63,6 +63,8 @@ import {
   shouldAutoUpload,
 } from '../frontend/src/utils/syncAuto';
 import { buildEchoCodeGenPrompt, buildRuneCodeGenPrompt, extractGeneratedCode } from '../frontend/src/utils/aiCodegen';
+import { fetchRemoteText, toRawGithubUrl } from '../electron/service/remote-fetch';
+import { fallbackRuneName, inferRemoteRuneMeta, REMOTE_RUNE_MAX_BYTES } from '../electron/shared/runeRemote';
 import {
   applyBaseToConfig,
   buildBlogPackageJson,
@@ -753,6 +755,173 @@ async function main(): Promise<void> {
 
 
 
+  // ── 微应用 SFC 解析 / 通用 IPC 桥真链路 ──
+  {
+    const { default: MicroAppController } = await import('../electron/controller/microapp');
+    const controller = new MicroAppController();
+    const sfcSource =
+      '<template><div class="demo">{{ msg }}</div></template>\n' +
+      "<script>export default { data() { return { msg: 'hi' } } }</script>\n" +
+      '<style scoped>.demo { color: red; }</style>';
+    const compiled = await controller.parse({ source: sfcSource, options: { filename: 'demo.vue', scopeId: 'data-v-test' } });
+    const compiledData = compiled.ok ? compiled.data : null;
+    assert(
+      '微应用 SFC：主进程通道返回 Vue2 playground 四段结果',
+      Boolean(
+        compiledData &&
+          compiledData.template.includes('var render = function render()') &&
+          (compiledData.script as { content?: string })?.content?.includes('msg') &&
+          compiledData.style.includes('data-v-test') &&
+          Array.isArray(compiledData.customBlocks),
+      ),
+      JSON.stringify(compiled.ok ? Object.keys(compiled.data) : compiled.error),
+    );
+    const missingTemplate = await controller.parse({ source: '<script>export default {}</script>' });
+    assert(
+      '微应用 SFC：缺 template 返回 VUE_SFC_TEMPLATE_REQUIRED',
+      !missingTemplate.ok && missingTemplate.error.code === 'VUE_SFC_TEMPLATE_REQUIRED',
+      JSON.stringify(missingTemplate),
+    );
+    const nonString = await controller.parse({ source: 123 });
+    assert(
+      '微应用 SFC：非字符串源码保留 VUE_SFC_SOURCE_REQUIRED',
+      !nonString.ok && nonString.error.code === 'VUE_SFC_SOURCE_REQUIRED',
+      JSON.stringify(nonString),
+    );
+    const { IPC_CHANNELS, INVOKE_CHANNELS } = await import('@shared/ipc/channels');
+    assert(
+      '微应用 SFC：解析通道已登记进 preload 白名单',
+      IPC_CHANNELS.microapp.parse === 'controller/microapp/parse' &&
+        INVOKE_CHANNELS.has(IPC_CHANNELS.microapp.parse),
+      IPC_CHANNELS.microapp.parse,
+    );
+
+    const handlers = new Map<string, Set<(payload: Any) => unknown>>();
+    const outbox = new Map<string, Any[]>();
+    const fakeBus = {
+      $on(event: string, handler: (payload: Any) => unknown) {
+        const set = handlers.get(event) ?? new Set();
+        set.add(handler);
+        handlers.set(event, set);
+      },
+      $off(event: string, handler: (payload: Any) => unknown) {
+        handlers.get(event)?.delete(handler);
+      },
+      $emit(event: string, payload?: Any) {
+        if (event.endsWith(':response')) {
+          const list = outbox.get(event) ?? [];
+          list.push(payload);
+          outbox.set(event, list);
+          return;
+        }
+        for (const handler of handlers.get(event) ?? []) {
+          void handler(payload);
+        }
+      },
+    };
+    const { setWujieBus } = await import('@/services/wujieBus');
+    setWujieBus(fakeBus);
+    const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+    const calls: Array<{ channel: string; payload: unknown }> = [];
+    const originalCoolma = (window as Any).coolma;
+    (window as Any).coolma = {
+      invoke: async (channel: string, payload: unknown) => {
+        calls.push({ channel, payload });
+        if (channel === IPC_CHANNELS.microapp.parse) {
+          return { ok: true, data: { template: 'var render = function render() {}', script: {}, style: '', customBlocks: [] } };
+        }
+        if (channel === IPC_CHANNELS.app.info) {
+          return { ok: true, data: { name: 'Coolma Vue3' } };
+        }
+        return { ok: true, data: null };
+      },
+    };
+
+    try {
+      const { installGenericMicroAppIpcBridge } = await import('@/services/genericMicroAppBridge');
+      const genericUninstall = installGenericMicroAppIpcBridge();
+      fakeBus.$emit('microapp:ipc:request', { requestId: 'g1', channel: IPC_CHANNELS.app.info, args: {} });
+      await tick();
+      const genericOk = (outbox.get('microapp:ipc:response') ?? []).find((item: Any) => item.requestId === 'g1');
+      assert('通用桥：白名单通道成功 invoke 并回包', genericOk?.ok === true && genericOk.result?.name === 'Coolma Vue3', JSON.stringify(genericOk));
+      fakeBus.$emit('microapp:ipc:request', { requestId: 'g2', channel: IPC_CHANNELS.notes.remove, args: { id: 1 } });
+      await tick();
+      const denied = (outbox.get('microapp:ipc:response') ?? []).find((item: Any) => item.requestId === 'g2');
+      assert(
+        '通用桥：非白名单通道被拒且不触发 invoke',
+        denied?.ok === false && denied.error?.code === 'CHANNEL_NOT_ALLOWED' && calls.length === 1,
+        JSON.stringify({ denied, calls: calls.length }),
+      );
+      (window as Any).coolma = {
+        invoke: async (channel: string) => {
+          calls.push({ channel, payload: null });
+          return { ok: false, error: { code: 'TEST_IPC_FAIL', message: 'ipc boom' } };
+        },
+      };
+      fakeBus.$emit('microapp:ipc:request', { requestId: 'g3', channel: IPC_CHANNELS.app.info, args: {} });
+      await tick();
+      const failed = (outbox.get('microapp:ipc:response') ?? []).find((item: Any) => item.requestId === 'g3');
+      assert(
+        '通用桥：主进程 IpcResult 失败时解包为 ok=false',
+        failed?.ok === false && failed.error?.code === 'TEST_IPC_FAIL',
+        JSON.stringify(failed),
+      );
+      genericUninstall();
+    } finally {
+      (window as Any).coolma = originalCoolma;
+    }
+
+    const { installMicroAppParseBridge, setMicroAppParseImpl, isMicroAppParseBridgeInstalled } = await import(
+      '@/services/microAppBridge'
+    );
+    const originalParseCoolma = (window as Any).coolma;
+    const parseCalls: Array<{ channel: string; payload: Any }> = [];
+    (window as Any).coolma = {
+      invoke: async (channel: string, payload: Any) => {
+        parseCalls.push({ channel, payload });
+        return { ok: true, data: { template: 'var render = function render() {}', script: {}, style: '', customBlocks: [] } };
+      },
+    };
+    try {
+      setMicroAppParseImpl(null);
+      const parseUninstall = installMicroAppParseBridge();
+      fakeBus.$emit('microapp:parse:request', {
+        requestId: 'p1',
+        payload: { source: sfcSource, filename: 'card.vue', sourceMap: false, options: {} },
+      });
+      await tick();
+      const parseResp = (outbox.get('microapp:parse:response') ?? []).find((item: Any) => item.requestId === 'p1');
+      assert(
+        '解析桥：bus 请求转 controller/microapp/parse 并回包',
+        parseResp?.ok === true &&
+          parseResp.result?.template?.includes('var render') &&
+          parseCalls[0]?.channel === IPC_CHANNELS.microapp.parse &&
+          parseCalls[0]?.payload?.options?.filename === 'card.vue',
+        JSON.stringify({ parseResp, call: parseCalls[0] }),
+      );
+      const beforeMissing = (outbox.get('microapp:parse:response') ?? []).length;
+      fakeBus.$emit('microapp:parse:request', { payload: { source: '<template/>' } });
+      await tick();
+      assert(
+        '解析桥：缺 requestId 的请求被忽略',
+        (outbox.get('microapp:parse:response') ?? []).length === beforeMissing,
+        String((outbox.get('microapp:parse:response') ?? []).length),
+      );
+      setMicroAppParseImpl(() => {
+        throw Object.assign(new Error('parse boom'), { code: 'TEST_PARSE_FAIL' });
+      });
+      fakeBus.$emit('microapp:parse:request', { requestId: 'p2', payload: { source: '<template/>' } });
+      await tick();
+      const parseFail = (outbox.get('microapp:parse:response') ?? []).find((item: Any) => item.requestId === 'p2');
+      assert('解析桥：实现抛错时回 ok=false 与错误码', parseFail?.ok === false && parseFail.error?.code === 'TEST_PARSE_FAIL', JSON.stringify(parseFail));
+      parseUninstall();
+      assert('解析桥：卸载后不再标记已装', isMicroAppParseBridgeInstalled() === false, 'installed');
+    } finally {
+      (window as Any).coolma = originalParseCoolma;
+    }
+    setWujieBus(null);
+  }
+
   updater: {
     const { IPC_CHANNELS } = await import('@shared/ipc/channels');
     assert('更新：三个通道都在 IPC_CHANNELS', ['updateCheck', 'updateDownload', 'updateInstall'].every((k) => typeof (IPC_CHANNELS.app as Record<string, string>)[k] === 'string'), 'channels');
@@ -978,6 +1147,116 @@ async function main(): Promise<void> {
       JSON.stringify(nav),
     );
     await fs.rm(tmp, { recursive: true, force: true });
+  }
+
+  runeRemote: {
+    assert(
+      '符文远程：blob/raw 转 raw，raw/gist 原样，非 GitHub 拒绝',
+      toRawGithubUrl('https://github.com/o/r/blob/main/foo.vue') === 'https://raw.githubusercontent.com/o/r/main/foo.vue' &&
+        toRawGithubUrl('https://github.com/o/r/raw/main/foo.vue') === 'https://raw.githubusercontent.com/o/r/main/foo.vue' &&
+        toRawGithubUrl('https://raw.githubusercontent.com/o/r/main/foo.vue') === 'https://raw.githubusercontent.com/o/r/main/foo.vue' &&
+        toRawGithubUrl('https://gist.githubusercontent.com/u/1/raw/foo.vue') === 'https://gist.githubusercontent.com/u/1/raw/foo.vue' &&
+        toRawGithubUrl('http://127.0.0.1/foo.vue') === null &&
+        toRawGithubUrl('file:///tmp/foo.vue') === null,
+      'url',
+    );
+    const single = inferRemoteRuneMeta(
+      '<!-- name: 倒计时, desc: 剩余天数, category: education -->\n<template><p>x</p></template>',
+      'https://raw.githubusercontent.com/o/r/main/countdown.vue',
+    );
+    assert(
+      '符文远程：单行注释解析 name/desc/category',
+      single.name === '倒计时' && single.desc === '剩余天数' && single.category === 'education',
+      JSON.stringify(single),
+    );
+    const multi = inferRemoteRuneMeta(
+      '<!--\n  name: 高亮\n  desc: 标记文本\n  category: novel\n-->\n<template><p>x</p></template>',
+      'https://raw.githubusercontent.com/o/r/main/highlight.vue',
+    );
+    assert(
+      '符文远程：多行注释解析',
+      multi.name === '高亮' && multi.desc === '标记文本' && multi.category === 'novel',
+      JSON.stringify(multi),
+    );
+    const overridden = inferRemoteRuneMeta('<template/>', 'https://raw.githubusercontent.com/o/r/main/my-rune.vue', 'medical');
+    assert(
+      '符文远程：分类覆盖优先，名称回退 URL 文件名',
+      overridden.category === 'medical' && overridden.name === 'my-rune',
+      JSON.stringify(overridden),
+    );
+    const invalid = inferRemoteRuneMeta('<!-- name: X, category: nope -->', 'https://raw.githubusercontent.com/o/r/main/x.vue');
+    assert(
+      '符文远程：非法分类回退 general',
+      invalid.category === 'general' && fallbackRuneName('bad-url') === 'remote-template',
+      JSON.stringify(invalid),
+    );
+
+    const originalFetch = (globalThis as Any).fetch;
+    try {
+      let hop = 0;
+      (globalThis as Any).fetch = async () => {
+        hop += 1;
+        if (hop === 1) {
+          return new Response(null, {
+            status: 302,
+            headers: { location: 'https://raw.githubusercontent.com/o/r/main/next.vue' },
+          });
+        }
+        return new Response('<template><p>hop</p></template>', { status: 200 });
+      };
+      const redirected = await fetchRemoteText('https://raw.githubusercontent.com/o/r/main/start.vue');
+      assert(
+        '符文远程：跟随 302 且 finalUrl 取规范化 raw（对齐 vue2）',
+        redirected.success && redirected.text?.includes('hop') && redirected.finalUrl?.endsWith('/start.vue'),
+        JSON.stringify(redirected),
+      );
+
+      (globalThis as Any).fetch = async () =>
+        new Response(null, {
+          status: 302,
+          headers: { location: 'http://127.0.0.1:5984/secret.vue' },
+        });
+      const blocked = await fetchRemoteText('https://raw.githubusercontent.com/o/r/main/start.vue');
+      assert(
+        '符文远程：重定向到内网被 UNSUPPORTED_HOST 拒绝',
+        !blocked.success && blocked.code === 'UNSUPPORTED_HOST',
+        JSON.stringify(blocked),
+      );
+
+      (globalThis as Any).fetch = async () =>
+        new Response('ignored', {
+          status: 200,
+          headers: { 'content-length': String(6 * 1024 * 1024) },
+        });
+      const tooLarge = await fetchRemoteText('https://raw.githubusercontent.com/o/r/main/big.vue');
+      assert(
+        '符文远程：content-length 超 5MB 被 TOO_LARGE 拒绝',
+        !tooLarge.success && tooLarge.code === 'TOO_LARGE',
+        JSON.stringify(tooLarge),
+      );
+
+      (globalThis as Any).fetch = async () =>
+        new Response('<!-- name: 远程卡片 -->\n<template><p>ok</p></template>', { status: 200 });
+      const fetched = await fetchRemoteText('https://raw.githubusercontent.com/o/r/main/card.vue');
+      assert(
+        '符文远程：抓取成功返回文本与 finalUrl',
+        fetched.success && fetched.text?.includes('<template>') && fetched.finalUrl?.endsWith('/card.vue'),
+        JSON.stringify(fetched),
+      );
+    } finally {
+      (globalThis as Any).fetch = originalFetch;
+    }
+
+    const { runeSaveSchema } = await import('@shared/ipc/schemas');
+    const baseRune = { id: 'remote-tpl-test', name: '远程模板' };
+    const maxTemplate = 'x'.repeat(REMOTE_RUNE_MAX_BYTES);
+    assert(
+      '符文远程：保存 schema 接受 1MB 模板并拒绝超限',
+      REMOTE_RUNE_MAX_BYTES === 1024 * 1024
+        && runeSaveSchema.safeParse({ ...baseRune, template: maxTemplate }).success
+        && !runeSaveSchema.safeParse({ ...baseRune, template: `${maxTemplate}x` }).success,
+      String(REMOTE_RUNE_MAX_BYTES),
+    );
   }
 
   paneLayout: {

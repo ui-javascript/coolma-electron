@@ -15,6 +15,9 @@ export const IPC_CHANNELS = {
     pickDirectory: 'controller/app/pickDirectory',
     pickFile: 'controller/app/pickFile',
   },
+  microapp: {
+    parse: 'controller/microapp/parse',
+  },
   window: {
     minimize: 'controller/window/minimize',
     state: 'controller/window/state',
@@ -136,6 +139,7 @@ export const INVOKE_CHANNELS = new Set<string>([
   IPC_CHANNELS.app.openExternal,
   IPC_CHANNELS.app.pickDirectory,
   IPC_CHANNELS.app.pickFile,
+  IPC_CHANNELS.microapp.parse,
   IPC_CHANNELS.window.minimize,
   IPC_CHANNELS.window.state,
   IPC_CHANNELS.window.toggleMaximize,
