@@ -1559,3 +1559,27 @@ html.dark .editor-action-bar {
     width: 96vw !important;
   }
 }
+
+/* 笔记导入：对齐 vue2 ImportDialog 的紧凑 q-uploader 卡片 */
+.note-import-dialog {
+  max-width: 440px;
+  padding: 0;
+}
+
+.note-import-dialog .el-dialog__header {
+  display: none;
+}
+
+.note-import-dialog .el-dialog__body {
+  padding: 0;
+}
+
+.note-import-dialog .el-dialog__footer {
+  padding: 6px 10px 10px;
+}
+
+@media (max-width: 700px) {
+  .note-import-dialog {
+    width: 96vw !important;
+  }
+}
