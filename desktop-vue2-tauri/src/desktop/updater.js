@@ -1,4 +1,5 @@
 import { isTauri } from '@tauri-apps/api/core'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { check } from '@tauri-apps/plugin-updater'
 
 /**
@@ -10,6 +11,21 @@ import { check } from '@tauri-apps/plugin-updater'
 
 let pending = null
 let downloading = false
+
+/**
+ * 对齐原版 updater 的 win.setProgressBar：下载中把百分比打到任务栏，
+ * 结束（成功或失败）都清掉，避免失败后进度条一直停在半截。
+ */
+function setTaskbarProgress (progress) {
+  if (!isTauri()) return
+  getCurrentWindow()
+    .setProgressBar(progress === null ? { status: 'none' } : { status: 'normal', progress })
+    .catch(() => {})
+}
+
+function clearTaskbarProgress () {
+  setTaskbarProgress(null)
+}
 
 function errorMessage (error) {
   if (!error) return 'unknown'
@@ -79,6 +95,7 @@ export async function downloadUpdate (emit) {
         transferred = 0
         sampleAt = Date.now()
         sampleBytes = 0
+        setTaskbarProgress(0)
         return
       }
       if (event.event === 'Progress') {
@@ -89,8 +106,10 @@ export async function downloadUpdate (emit) {
           sampleAt = now
           sampleBytes = transferred
         }
+        const percent = total ? Math.min(99, (transferred / total) * 100) : 0
+        setTaskbarProgress(total ? Math.min(1, transferred / total) : 0)
         emit('updater-update-downloading', {
-          percent: total ? Math.min(99, (transferred / total) * 100) : 0,
+          percent,
           bytesPerSecond: speed,
           transferred,
           total
@@ -100,9 +119,12 @@ export async function downloadUpdate (emit) {
       emit('updater-update-downloading', { percent: 100, bytesPerSecond: 0, transferred: total, total })
     })
     downloading = false
+    // 原版在 update-downloaded 里 setProgressBar(1.0, mode:'none')，等于清掉任务栏进度。
+    clearTaskbarProgress()
     emit('updater-update-downloaded', infoOf(update))
   } catch (error) {
     downloading = false
+    clearTaskbarProgress()
     emit('updater-update-error', errorMessage(error))
   }
 }
