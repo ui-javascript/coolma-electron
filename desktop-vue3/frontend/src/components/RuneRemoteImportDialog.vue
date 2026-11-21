@@ -1,36 +1,67 @@
 <template>
   <el-dialog
     :model-value="modelValue"
-    :title="t('library.remoteRuneTitle')"
-    width="540px"
+    width="520px"
+    top="8vh"
     append-to-body
+    :show-close="false"
+    class="remote-import-dialog"
     @update:model-value="close"
   >
-    <el-form label-width="96px" class="remote-rune-form">
-      <el-form-item :label="t('library.remoteRuneUrlLabel')">
+    <div class="remote-import-toolbar">
+      <el-icon class="remote-import-toolbar-icon"><Download /></el-icon>
+      <span class="remote-import-toolbar-title">{{ t('library.remoteRuneTitle') }}</span>
+      <button type="button" class="remote-import-close" :title="t('action.close')" @click="close(false)">
+        <el-icon><Close /></el-icon>
+      </button>
+    </div>
+
+    <div class="remote-import-body">
+      <div class="remote-import-field">
+        <div class="remote-import-label">{{ t('library.remoteRuneUrlLabel') }}</div>
         <el-input
           v-model="sourceUrl"
+          size="small"
           :placeholder="t('library.remoteRuneUrlPlaceholder')"
           clearable
           spellcheck="false"
           @keyup.enter="submit"
         />
-        <div class="field-hint">{{ t('library.remoteRuneHint') }}</div>
-      </el-form-item>
-      <el-form-item :label="t('library.remoteRuneCategoryLabel')">
-        <el-select v-model="category" clearable :placeholder="t('library.remoteRuneAuto')" class="remote-rune-category">
+        <div class="remote-import-hint">{{ t('library.remoteRuneHint') }}</div>
+      </div>
+
+      <div class="remote-import-field">
+        <div class="remote-import-label">{{ t('library.remoteRuneCategoryLabel') }}</div>
+        <el-select
+          v-model="category"
+          size="small"
+          clearable
+          :placeholder="t('library.remoteRuneAuto')"
+          class="remote-import-select"
+        >
           <el-option v-for="item in categoryItems" :key="item.value" :label="t(item.label)" :value="item.value" />
         </el-select>
-      </el-form-item>
-    </el-form>
+      </div>
 
-    <el-alert v-if="error" type="error" :title="error" :closable="false" />
+      <div v-if="error" class="remote-import-error">
+        <el-icon><CircleCloseFilled /></el-icon>
+        <span>{{ error }}</span>
+      </div>
+    </div>
 
     <template #footer>
-      <el-button :disabled="importing" @click="close(false)">{{ t('action.cancel') }}</el-button>
-      <el-button type="primary" :loading="importing" :disabled="!sourceUrl.trim()" @click="submit">
-        {{ t('library.remoteRuneImport') }}
-      </el-button>
+      <div class="remote-import-actions">
+        <el-button text :disabled="importing" @click="close(false)">{{ t('action.cancel') }}</el-button>
+        <el-button
+          text
+          type="primary"
+          :loading="importing"
+          :disabled="!sourceUrl.trim()"
+          @click="submit"
+        >
+          {{ t('library.remoteRuneImport') }}
+        </el-button>
+      </div>
     </template>
   </el-dialog>
 </template>
@@ -39,6 +70,7 @@
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
+import { Close, CircleCloseFilled, Download } from '@element-plus/icons-vue';
 import { fetchRemotePack, saveRune } from '@/services/ipc';
 import { inferRemoteRuneMeta, REMOTE_RUNE_MAX_BYTES } from '@shared/runeRemote';
 import { RuneCategoryEnum, resolveLibraryCategory } from '@shared/enums/library';
@@ -134,10 +166,93 @@ async function submit(): Promise<void> {
 </script>
 
 <style scoped>
-.remote-rune-form {
-  margin-bottom: 4px;
+.remote-import-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 48px;
+  padding: 4px 8px 4px 12px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
 }
-.remote-rune-category {
+
+.remote-import-toolbar-icon {
+  color: var(--el-color-primary);
+  font-size: 21px;
+}
+
+.remote-import-toolbar-title {
+  flex: 1;
+  color: var(--el-text-color-primary);
+  font-size: 15px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remote-import-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--el-text-color-secondary);
+  cursor: pointer;
+}
+
+.remote-import-close:hover {
+  background: var(--el-fill-color);
+}
+
+.remote-import-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px;
+}
+
+.remote-import-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.remote-import-label {
+  margin-bottom: 4px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.remote-import-hint {
+  margin-top: 4px;
+  color: var(--el-text-color-placeholder);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.remote-import-select {
   width: 100%;
+}
+
+.remote-import-error {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 4px;
+  background: rgb(244 67 54 / 8%);
+  color: #c62828;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.remote-import-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
 }
 </style>
