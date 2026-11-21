@@ -1,0 +1,449 @@
+---
+name: 符文接入 melt-js 远程组件
+overview: 为符文增加 `type: 'melt-js'` 定义类型：卡片不再是本地 Vue SFC，而是按 hel-micro 远程组件加载；Markdown 占位符上的 `data-rune-prop-*` 属性按 props schema 强转后直接驱动远端组件 props，事件仍回写 `data-rune-value`。老 `vue-sfc` 机制原样保留，零迁移。
+todos: []
+isProject: false
+---
+
+# 符文接入 melt-js 远程组件 · 方案
+
+> 状态：**调研与方案沉淀，未动代码**。
+> 基线：`desktop-vue2`（Vue 2.7.16 + hel-micro 4.15.3）、`libs-muya-vue2`、`desktop-vue2-tauri`（同源复刻）。
+> 参考：Melt JS 文档 <https://melt-js.github.io/docs-all/dist/>（核心分层、加载策略、组件目录）。
+
+## 1. 一句话结论
+
+技术可行，且比想象中近：melt-js 的 Vue 2 适配层就是"`inheritAttrs: false` + 把 `$attrs` 同时当 `props` 传给远端组件"，而符文的 Markdown ABI 里**已经有** `data-rune-prop-*` → props 的手写通道。所以真正要做的是三件事：
+
+1. 符文的定义类型加一个 `melt-js` 分支（配置 JSON 替代 SFC 字符串），props 白名单从 SFC 声明改成配置里的 schema；
+2. 新增一个"壳组件"承接远端组件的加载 / 错误 / 重试 / 卸载，并做 props 类型强转；
+3. **先修掉一个现存缺陷**：现在每次 `$emit('input')` 回写都会重建 `<div>` 并丢掉自定义属性，不修的话用户写的 props 第一次输入就被抹平。
+
+## 2. melt-js 机制拆解
+
+### 2.1 分层职责（文档「核心分层」）
+
+| 层 | 职责 |
+| --- | --- |
+| `libs-core` | 框架无关：地址解析、加载、导出校验、错误规范、请求缓存与串行队列 |
+| `libs-core-vue2` / `vue3` / `react` | 薄适配：把远端组件包成"带加载提示 + 失败重试"的本地组件，负责生命周期与参数/事件/插槽透传 |
+| `comps-*` / 专题 `libs-*` | 真正的组件与领域能力 |
+| `tpl-*` / `demo-*` | 编排业务，选择版本与加载时机 |
+
+关键约束：适配层**不重复实现底层协议**；业务侧只装 npm 代理（类型 + 入口），真正实现由 `hel-meta.json` 指向的远程地址下载。
+
+### 2.2 地址协议与依赖声明
+
+```ts
+type HelLoadSpec = {
+  name: string            // 包名，如 comps-vue2-meme
+  host: string            // 完整入口：hel-meta.json 的 URL 或开发服务器入口
+  platform?: string       // 平台隔离，避免跨平台串包
+  appGroupName?: string
+  requiredExports?: string[]  // 加载后校验具名导出是否存在
+  custom?: Record<string, unknown>
+}
+type HelAddressOptions = { type?: 'unpkg' | 'github' | 'custom', base?: string }
+```
+
+- `unpkg`（默认）：`https://unpkg.com` + `/@scope/name@version/hel_dist/hel-meta.json`，**保留 npm 包名与版本**；
+- `github`：由 `@owner` 推导 `https://owner.github.io`，路径 `/包名[@版本]/hel_dist/hel-meta.json`，无 scope 时必须显式 `base`；
+- `custom`：接到自建静态站点 `base` 下（内网 / 私有部署可用）；
+- 显式 `host` 不再追加后缀；**同一 platform + 同一组名绑定了不同地址或版本 → 直接报配置错误**（不是静默覆盖）；
+- `resolveHelDep` 只解析、不发请求，可用它做"配置预览/校验"。
+
+> 落地含义：符文的远端依赖必须写成"包名 + 版本 + 来源类型（可带 host）"，并且版本要和 npm 代理、`hel_dist` 三者一致，否则加载到的是另一份实现。
+
+### 2.3 加载策略与缓存
+
+- `createHelLoader()`：单实例共享请求缓存 + 串行队列；`loadHelLib`（按需）/ `loadHelLibsSerial`（显式顺序）/ `preloadHelLibs({ deps, loading, loadApp })`（启动预加载，按 `libs-*` → `comps-*` → 其他分批阻塞）。
+- 失败请求会释放，允许显式重试；**没有内置自动重试、超时和取消**（文档明确）。
+- 预加载与按需加载共享同一份请求，所以"同一组件被 20 个符文实例引用"只下载一次。
+
+### 2.4 组件层 API
+
+```ts
+loadHelComponent({ dep | loader, exportName, onError }): Promise<component>
+createHelComponentResource(options, onChange): {
+  getState(): { status: 'loading'|'ready'|'error', component, error },
+  load(), retry(), fail(error), dispose()
+}
+defineHelComponent({ ...options, loadingComponent?, errorComponent? }): Component
+```
+
+### 2.5 Vue 2 适配层的真实语义（`@melt-js/libs-core-vue2@2026.11.16-1` 源码结构）
+
+```js
+Vue.extend({
+  inheritAttrs: false,
+  created () {
+    this.resource = createHelComponentResource(options, state => {
+      this.remoteState = state.status === 'ready' && typeof state.component === 'object'
+        ? { ...state, component: Vue.extend(state.component) }   // 远端导出是选项对象 → extend
+        : state
+    })
+    this.resource.load()          // 挂载即加载（懒加载的含义是"用到了才挂"，不是"点了才加载"）
+  },
+  beforeDestroy () { this.resource.dispose() },
+  errorCaptured (err) { if (this.remoteState.status !== 'ready') return this.resource.fail(err), false },
+  render (h) {
+    const s = this.remoteState
+    return s.status === 'ready'
+      ? h(s.component, {
+          attrs: this.$attrs,        // ★ HTML 属性
+          props: this.$attrs,        // ★ 同一份对象也当 props 传
+          on: this.$listeners,       // ★ 事件（含 v-model 的 input）
+          scopedSlots: this.$scopedSlots
+        }, slots)
+      : s.status === 'error'
+        ? h(options.errorComponent || HelError, { props: { error: s.error, retry: this.resource.retry } })
+        : h(options.loadingComponent || HelLoading)
+  }
+})
+```
+
+Vue 3 版结构等价（`setup` + `shallowRef` + `h(comp, attrs, slots)`，`onMounted` 加载、`onBeforeUnmount` 释放）。
+
+**这就是我们要的机制**：属性（`$attrs`）同时作为 props，事件透传，加载/错误/重试由壳接管，卸载自动 dispose。但直接用 `defineHelComponent` 有两个不够用的点：
+
+1. 它把所有 `$attrs` 无脑塞给远端（含 `class`、`data-*`），没有类型强转与白名单——HTML 属性值恒为字符串，`count="3"` 到期组件拿到 `"3"` 而不是 `3`；
+2. 加载态是通用 `<p>加载中</p>`，不符合符文卡片占位符的视觉与 `contenteditable=false` 约束。
+
+所以方案是：**复用 `createHelComponentResource`（底层），自己写壳组件**，不直接用 `defineHelComponent`。
+
+### 2.6 框架运行时绑定（必须做的一步）
+
+`hel-micro` 的 `bindVueRuntime({ Vue })` 实测就是：
+
+```js
+function bindVueRuntime (vueRuntimeObj) {
+  const vueMod = injectDefault(vueRuntimeObj.Vue)
+  bindExternals({ LEAH_Vue: vueMod, Vue: vueMod })   // 远程包声明的 Vue external 直接拿宿主实例
+}
+```
+
+（`hel-micro/es/index.js:2986`，4.15.3）
+
+不做这一步，远端 Vue 组件会用自己的 Vue 打包副本或直接报 `Vue 未定义` → 组件实例与宿主不是同一个 Vue，生命周期、`$attrs`、作用域样式全部错乱。当前项目的 boot（`src/boot/hel-micro-renderer.js`）只挂了 `Vue.prototype.$hel = helMicro`，**没有 bindVueRuntime**，这是 P0 必须补的。
+
+## 3. 当前符文机制拆解
+
+### 3.1 定义数据模型
+
+表 `rune_templates`（`src-electron/main-process/service/rune-template-service.js:123`）：
+
+```
+id, category_key, name, desc, color, icon, template TEXT NOT NULL,
+source_url, is_builtin, sort_order, created_at, updated_at
+```
+
+`template` 就是一段 Vue SFC 源码字符串。定义流向：DB → `RuneTemplateService.listFlat()` → store `runeCards` → Muya `options.runeCards` → `StateRender.getRuneMap()`（`libs-muya-vue2/lib/parser/render/index.js`）。
+
+### 3.2 渲染管线
+
+```
+Markdown: <div data-rune-name data-rune-id data-rune-node-id data-rune-value>名称</div>
+   ↓ Muya 当普通 HTML block 解析，全部属性原样进 host.dataset
+renderRunePlaceholderNodes()  → 生成占位卡片 + host.dataset.runeRenderKey
+   ↓
+mountRuneVueHosts()           → 每个 host 挂一个 RunePreviewRenderer 实例
+   ↓ propsData: { runeId, nodeId, rune, ...sfcProps, value, onValueChange }
+RunePreviewRenderer  → computed rendererCtor = createRuneRendererCtor(rune)
+   ↓
+createRuneRendererCtor（src/components/muya/runeSfcRendererFactory.js:148）
+   - 同步：vue-template-compiler.parseComponent + compileToFunctions + Vue.extend
+   - 注入 data-v-rune-<id> 作为 scopeId，<style> 挂到 document.head
+   - 自动补 runeId / nodeId / rune / value 四个 props（SFC 未声明时）
+   - 缓存 key = `${rune.id}:${template}`（同模板同 id 只编译一次）
+```
+
+### 3.3 属性 → props 的现有通道（比预想的好）
+
+`libs-muya-vue2/lib/parser/render/index.js` 里已经实现了：
+
+- `parseSfcPropsDef(template)`：从 SFC `<script>` 里正则解析 `props` 声明（含 `default`）；
+- `toRunePropAttr(name)`：`inheritFromPrevious` → `runePropInheritFromPrevious` → DOM 上就是 `data-rune-prop-inherit-from-previous`；
+- `collectRunePropsFromHost(host, propDefs)`：只收白名单内、用户显式写过的属性，`'1'/'0'/'true'/'false'` 归一成布尔，其余保留字符串；
+- 三优先级（quickInsert 注释声明的口径）：`data-rune-prop-*`（用户手写，最高）> 卡片级字段 > SFC `props.default`；实际挂载时执行的是"`data-rune-prop-*` 显式值 + SFC default 兜底"。
+
+也就是说，"HTML 属性驱动 Vue props"这件事在 `vue-sfc` 体系里已经跑通，只是**白名单来源是 SFC 声明**。melt-js 版本只需要把白名单换成配置里的 schema，再补类型强转。
+
+### 3.4 回写链路与一个必须修的缺陷
+
+```
+SFC 内 $emit('input', v)
+  → RunePreviewRenderer.onValueChange
+  → Muya.updateRunePlaceholderValue({ runeId, nodeId, value })
+  → rewriteRunePlaceholderByNodeId(markdown, nodeId, value)     // Muya.vue:96
+  → contentEditor.setMarkdown(...)                              // Muya 全量重渲
+```
+
+**缺陷（实测代码）**：`rewriteRunePlaceholderByNodeId` 是"整段重建 div"：
+
+```js
+return `<div data-rune-name="${...}" data-rune-id="${...}" data-rune-node-id="${...}" data-rune-value="${...}">${...}</div>`
+```
+
+只保留这 4 个系统属性 → 用户手写的 `data-rune-prop-*`、`data-rune-width/height` 全部被抹掉。对比之下 `rewriteRunePlaceholderSizeByNodeId` 用的是 in-place `setAttr`，属性保真。
+
+后果：只要熔断到"属性当 props"这一步，用户的 props 会在**第一次输入回写时消失**（直到再手写）。这是 P0 前置项，必须先修。
+
+### 3.5 其他现状约束
+
+| 约束 | 现状 | 对 melt-js 的影响 |
+| --- | --- | --- |
+| 重渲染粒度 | `setMarkdown` 全量重渲；`renderKey` 含 `innerText`，value 一变即重建 vm | 远端组件必须"无内部状态 / 状态由 props 驱动"，且加载结果必须全局缓存，否则每次输入都重新挂载 |
+| 两处 `mountRuneVueHosts` | `render/index.js` 639 与 813 两处同名方法，后者生效 | 改挂载逻辑必须改 813 那处，否则改了没反应 |
+| 现有 helmicro 用法 | 内置模板 `createHolyShieldTemplate` 用 `this.$hel.preFetchLib('hel-tpl-remote-lib','2.0.1')`（旧 API，裸调用、无错误态） | 说明渲染进程能加载远程脚本（`webSecurity:false`，无 CSP），但这条路径没有加载/错误/重试治理 |
+| Vue / hel 版本 | Vue 2.7.16、hel-micro 4.15.3 | 与 melt-js `libs-core` 依赖的 hel-micro 4.15.3、vue2 适配 `peer ^2.6.14` 完全兼容，不需要再装第二份 hel-micro |
+| 定义编辑 UI | `runeFormDialog` 字段：name/desc/category/icon/color/template（SFC）+ GitHub 远端导入 | 需要为 melt-js 增加"类型切换 + 配置编辑 + 依赖校验" |
+
+## 4. 方案设计
+
+### 4.1 定义形态：`type` 判定与配置 JSON
+
+**不新增数据库列**，用 `template` 列承载 JSON，类型由内容判定：
+
+```js
+// RuneTemplateService 归一化时派生，不落库
+function detectRuneType (template) {
+  const s = String(template || '').trim()
+  if (!s) return 'vue-sfc'
+  if (!s.startsWith('{')) return 'vue-sfc'
+  try {
+    const obj = JSON.parse(s)
+    return obj && obj.$type === 'melt-js' ? 'melt-js' : 'vue-sfc'
+  } catch (_) { return 'vue-sfc' }
+}
+```
+
+理由：`rune_templates` 在 sql.js（desktop-vue2）与 rusqlite（desktop-vue2-tauri）两套引擎里都要跑幂等 `ALTER`，改表成本与风险都高于"内容判定"；导出/导入（front matter + 代码块）也天然兼容——melt 定义的代码块用 ```` ```json ````，SFC 仍是 ```` ```html ````。
+
+若将来需要"按类型查询/统计"，再加 `type TEXT DEFAULT 'vue-sfc'` 列（P2 可选，单独一步做）。
+
+配置结构：
+
+```json
+{
+  "$type": "melt-js",
+  "version": 1,
+  "dep": {
+    "name": "comps-vue2-meme",
+    "type": "unpkg",
+    "version": "2026.11.17-1",
+    "platform": "meme",
+    "host": "",
+    "requiredExports": ["TierRanking"]
+  },
+  "exportName": "TierRanking",
+  "props": {
+    "title":     { "type": "string",  "default": "从夯到拉", "label": "标题" },
+    "tiers":     { "type": "json",    "default": [],        "label": "评级数据" },
+    "editable":  { "type": "boolean", "default": true,      "label": "可编辑" },
+    "maxHeight": { "type": "number",  "default": 320,       "label": "最大高度" }
+  },
+  "valueProp": "value",
+  "valueEvent": "input",
+  "style": { "width": "100%", "minHeight": "120px" }
+}
+```
+
+- `props` 的类型集合：`string | number | boolean | json`（`json` 走 `JSON.parse`，失败回落 `default`）；
+- `valueProp` / `valueEvent`：兼容 `value`+`input`（Vue 2 风格）与 `modelValue`+`update:modelValue`（若远端包是 vue3 风格包装）；
+- `style`：给壳组件容器用，避免远端组件没定尺寸时塌陷。
+
+### 4.2 渲染分支
+
+```
+createRuneRendererCtor(rune)
+  ├─ type === 'melt-js' → createMeltRuneRendererCtor(rune)     ← 新增
+  └─ 其它（默认）        → 现有 SFC 编译路径                    ← 原样保留
+```
+
+两个工厂各自独立缓存：
+
+- SFC：现有 `runeRendererCtorCache`，key = `${id}:${template}`；
+- melt：`meltRendererCtorCache`，key = `${id}:${stableStringify(config)}`（配置变了才重建壳）。
+
+`mountRuneVueHosts` 侧只改一处：白名单来源
+
+```js
+const propDefs = resolveRunePropDefs(rune)   // 新增：melt → config.props 展开；vue-sfc → parseSfcPropsDef
+const sfcProps = collectRunePropsFromHost(host, propDefs)   // 现有函数不动
+```
+
+`collectRunePropsFromHost` 的布尔归一已覆盖 `boolean`；`number`/`json` 的强转放到壳组件里做（因为需要 schema 的类型信息，libs 侧只做"取值"）。
+
+### 4.3 壳组件 `MeltRuneHost`（新增 `src/components/rune/meltRuneHost.js`）
+
+职责：**加载 / 状态 / 类型强转 / 事件回写 / 释放**，不碰 Muya。
+
+```js
+// 伪代码
+const resourcePool = new Map()   // key: platform|name@version|origin|exportName
+
+function acquire (key, options) {
+  let entry = resourcePool.get(key)
+  if (!entry) {
+    const resource = createHelComponentResource(options, state => entry.listeners.forEach(fn => fn(state)))
+    entry = { resource, refs: 0, state: resource.getState(), listeners: new Set() }
+    resourcePool.set(key, entry)
+  }
+  entry.refs++
+  return entry
+}
+function release (entry) { if (--entry.refs <= 0) { entry.resource.dispose(); resourcePool.delete(key) } }
+
+export function createMeltRuneComponent (config) {
+  return Vue.extend({
+    name: `MeltRune(${config.exportName})`,
+    props: ['runeId', 'nodeId', 'rune', 'value', 'onValueChange', ...schemaPropNames],
+    created () { this.entry = acquire(...); this.entry.listeners.add(s => { this.state = s }) },
+    beforeDestroy () { this.entry.listeners.delete(...); release(this.entry) },
+    methods: {
+      buildProps () {
+        const out = {}
+        for (const [name, def] of Object.entries(config.props)) {
+          out[name] = coerce(this[name], def)          // string/number/boolean/json + default
+        }
+        if (config.valueProp) out[config.valueProp] = this.value
+        return out
+      },
+      emitValue (v) { this.onValueChange && this.onValueChange({ runeId, nodeId, value: normalize(v) }) }
+    },
+    render (h) {
+      const s = this.state
+      if (s.status === 'loading') return h(MeltRuneSkeleton, { props: { title: this.rune?.name } })
+      if (s.status === 'error') return h(MeltRuneError, { props: { error: s.error, onRetry: () => this.entry.resource.retry() } })
+      return h(s.component, {
+        class: 'melt-rune-host',
+        style: config.style,
+        props: this.buildProps(),
+        on: { [config.valueEvent || 'input']: v => this.emitValue(v) }
+      })
+    }
+  })
+}
+```
+
+要点：
+
+1. **引用计数 + 资源池**：同一依赖的 N 个实例共享一次加载；全部卸载才 dispose，重进笔记时走 hel-micro 的模块缓存（不重复下载）；
+2. **加载骨架 / 错误卡**：都带 `contenteditable="false"`（宿主 `mountRuneVueHosts` 已设），错误卡有"重试"按钮，日志打 `[melt-rune] name@version phase=x`；
+3. **框架校验**：ready 时若导出既不是对象/函数，或检测到 Vue 3 特征（`__vccOpts` / `setup`）→ 直接进 error 态并提示"需要 Vue 2 组件包（comps-vue2-*）"；
+4. **不 state 化远端组件的内部状态**：依赖"value + props 驱动"，符合 3.5 的重渲约束。
+
+### 4.4 属性 ABI（两套，canonical 一套）
+
+| 方案 | 写法 | 可读性 | 风险 | 结论 |
+| --- | --- | --- | --- | --- |
+| **A. `data-rune-prop-*`（推荐 canonical）** | `<div data-rune-prop-title="从夯到拉" data-rune-prop-max-height="320">` | 一般（前缀长） | 无：已在现网跑通，`host.dataset` 直接可读，Muya 原样保留 | P0 |
+| B. 自然属性别名 | `<div title="从夯到拉" max-height="320">` | 好 | 需要 `getAttribute` 白名单读取；与 `name/value/id` 等系统键冲突要避让；空格/大小写规则要定 | P2 可选 |
+
+P0 只做 A，B 作为后续体验优化（配置里加 `"attrMode": "plain"` 才启用，默认 `dataset`）。
+
+### 4.5 回写修正（P0 前置，独立一步）
+
+新增/改造三个纯函数（目标位置：`src/components/muya/runePlaceholderAttrs.js`，从 `Muya.vue` 抽出，便于单测）：
+
+```js
+readRuneAttrs(markdown, nodeId)                  // { attrs: {name: value}, innerText }
+patchRuneAttrs(markdown, nodeId, patch)          // in-place setAttr/removeAttr，保留其它属性
+rewriteRunePlaceholderByNodeId(...)              // 改为：只 patch data-rune-value + innerText
+rewriteRunePlaceholderPropByNodeId(...)          // 新：按 schema 写 data-rune-prop-*
+```
+
+验收：手写 `data-rune-prop-*` 的 rune，触发一次 `$emit('input')` 后属性仍在（现有行为是消失）。
+
+### 4.6 作者与运维体验（P1）
+
+| 功能 | 落点 | 说明 |
+| --- | --- | --- |
+| 类型切换 | `runeFormDialog.vue` / `runeFormFields.vue` | `vue-sfc` / `melt-js` 单选；切换时保留两份配置，不互删 |
+| 配置编辑器 | `runeFormEditor.vue` | Monaco `json`；带 JSON Schema 校验（必填 `dep.name` / `exportName`） |
+| 依赖校验 | `resolveHelDep` 预览 | 保存前把"包名+版本+来源"解析成真实 URL 显示给用户，避免版本/来源写错 |
+| 组件选择 | 输入 `name@version` + 来源 → 拉 `hel-meta.json` → 列出 `exports` 便于选 `exportName` | 若 meta 里带 propsSchema（部分包有 `src/components/X/propsSchema.json`，hel_dist 是否导出待验）则自动填 schema；否则手填 |
+| 实例属性面板 | 新增 `runeInstancePropsDialog.vue` | 读定义 schema 生成表单 → 写回 `data-rune-prop-*`（调 4.5 的 helper），补齐"不手改 Markdown 也能调参" |
+| 预加载开关 | 设置项 + boot | `preloadHelLibs({ deps })` 列出高频 melt rune；默认关闭（懒加载），失败不阻塞启动 |
+| i18n | `zh-cn` / `en-us` 同步 | 类型名、错误文案、重试按钮 |
+
+### 4.7 双端同步
+
+| 位置 | desktop-vue2 | desktop-vue2-tauri | 说明 |
+| --- | --- | --- | --- |
+| `libs-muya-vue2/**` | 共用 workspace 包 | 同左 | **改一次**：`resolveRunePropDefs`、挂载逻辑（813 那处） |
+| `src/components/rune/**`、`src/components/muya/**` | 有一份 | 有一份（镜像） | 两份都要改，保持 diff 只含既有的平台适配项 |
+| `src-electron/.../rune-template-service.js` | 主进程服务 | `src/desktop/database/**` + service（rusqlite） | 类型归一化逻辑抽成纯函数放 `share/` 或 `src/utils`，两边引同一份 |
+| boot | `hel-micro-renderer.js` 加 `bindVueRuntime` | 有同名文件，同样要加 | 两侧行为一致 |
+| 测试 | `tests/unit/rune/*`（jsdom + vue2-jest） | `tests/*.test.js`（node 环境） | 组件用例只放 vue2；tauri 侧只放纯函数用例 |
+
+## 5. 分期与验收
+
+### P0 —— 机制打通（可独立提交 3 个单元）
+
+1. `fix(rune): 回写占位符时保留自定义属性`：4.5 的 helper + 单测；老 SFC 符文行为不变（回归 `yarn verify:rune`）。
+2. `feat(rune): 支持 type=melt-js 的定义解析与属性映射`：`detectRuneType` + `resolveRunePropDefs` + `meltRuneHost` + `createMeltRuneRendererCtor` + `createRuneRendererCtor` 分派；不接 UI，先用一条手写 JSON 定义验证。
+3. `feat(rune): 补 bindVueRuntime 与远端加载资源池`：boot 绑定 + 资源池/引用计数 + 错误可重试。
+
+**P0 验收（真机）**：
+
+- 内置演示 melt rune（建议 `MagneticButton`（体积小）或 `TierRanking`（真实低频场景））：插入后先骨架再出组件；
+- 改 Markdown 上的 `data-rune-prop-*`（如 `title` / `max-height`）→ 组件属性随之变化；
+- 触发组件 `input` → `data-rune-value` 回写，且**自定义属性仍在**；
+- 断网 → 错误卡 + 重试；重试成功；
+- 同一依赖插入 3 个实例 → 网络面板只有 1 次 `hel-meta.json` + 1 次实现脚本；
+- 关闭笔记 / 删除 rune → 实例销毁，无控制台报错，无泄漏（`resourcePool` 归零）。
+
+**单测**：配置解析（合法/非法/缺字段）、props 强转（string/number/boolean/json + default 回落）、三态渲染与 retry、引用计数 dispose、属性 round-trip。
+
+> 测试落点：组件级用例（挂 Vue 实例、jsdom、`@vue/vue2-jest`）只能放 `desktop-vue2/tests/unit/rune/`；`desktop-vue2-tauri` 的 `jest.tauri.config.js` 是 `testEnvironment: 'node'`，只适合放纯函数用例（类型判定、props 强转、属性 patch），不要在那儿挂组件。
+> 提交前按 `.agents/rules/rune-echo-test-moat.mdc`：`yarn verify:rune` + `yarn verify`。
+
+### P1 —— 作者与运维
+
+- 类型切换 + JSON 编辑器 + 依赖解析预览 + 实例属性面板 + 预加载开关 + i18n + 导出/导入（`type` 与代码块语言）。
+- 验收：在 UI 里建一个 melt rune、选组件、配 2 个 props、插入笔记、改属性、导出再导入后仍可渲染。
+
+### P2 —— 体验与边界
+
+- 自然属性别名（`attrMode: 'plain'`）；
+- propsSchema 自动发现（读 hel-meta / 包内 schema）；
+- 离线/内网 `custom` host 与本地缓存策略（是否落盘 JS、版本灰名单）；
+- 可选 DB 加 `type` 列 + 按类型筛选/统计。
+
+## 6. 风险与对策
+
+| 风险 | 后果 | 对策 |
+| --- | --- | --- |
+| 未 `bindVueRuntime` | 双 Vue 实例，`$attrs`/事件/样式全乱 | boot 里绑定一次（幂等）；ready 时做导出形态校验，Vue3 组件直接报"框架不匹配" |
+| 远端脚本执行 | 供应链风险（`webSecurity:false` + 无 CSP） | 只允许 `unpkg`（限定 `@melt-js` / 白名单 scope）与显式确认过的 `custom` host；`host` 手填需二次确认弹窗；记录来源到日志 |
+| unpkg 限流 / 内网无外网 | 卡片长期 loading | 版本固定 + 内置 `custom base` 支持内网静态站；错误卡可重试；可选本地缓存（P2） |
+| `setMarkdown` 全量重渲 + renderKey 含 innerText | 每次输入重建 vm，组件内部状态丢失 | 远端组件按"props 驱动 + 无内部状态"接入；加载结果进程级缓存；后续可评估把 melt 类型的 renderKey 去掉 innerText（需配合占位符不重刷，属 P2 优化） |
+| `rewriteRunePlaceholderByNodeId` 属性丢失 | props 第一次回写就没了 | P0-1 先修（in-place patch）+ 单测锁死 |
+| `mountRuneVueHosts` 有两处定义（639/813） | 改错位置、改了没效果 | P0 顺手去重（保留 813 的实现，删 639 旧版）并加注释 |
+| 远端组件体积大（TierRanking 含 html2canvas / IndexedDB） | 首屏变慢 | 默认懒加载 + 骨架；预加载列表只放高频小组件；`requiredExports` 精确到具名导出 |
+| 源码模式 / 打印导出时组件未就绪 | 导出内容缺失 | 导出走"占位文本兜底"（现有 placeholder 文本），不阻塞导出 |
+
+## 7. 需要拍板的三件事
+
+1. **属性 ABI**：P0 只做 `data-rune-prop-*`（稳），还是同时上"自然属性"（好看但要定冲突规则）。建议先 A，B 留 P2。
+2. **来源白名单**：只允许 `@melt-js/*` 的 unpkg/github，还是允许用户填任意 `host`（内网/私有）。建议"默认白名单 + 手填需确认"。
+3. **是否把 `@melt-js/libs-core-vue2` 作为正式依赖**（约 10 KB 级 + 复用现有 hel-micro）而不是自己写加载逻辑。建议引入：加载/重试/地址解析这些"坑最多"的部分交给上游，我们只写壳。
+
+## 8. 关键代码定位（便于落地时直接跳转）
+
+| 关注点 | 文件:行 |
+| --- | --- |
+| 符文 SFC 编译工厂与缓存 | `desktop-vue2/src/components/muya/runeSfcRendererFactory.js:148` |
+| `RunePreviewRenderer`（props/onValueChange） | `desktop-vue2/src/components/muya/Muya.vue:233` |
+| 回写（重建 div，丢属性） | `desktop-vue2/src/components/muya/Muya.vue:96` |
+| 尺寸回写（in-place，可参考） | `desktop-vue2/src/components/muya/Muya.vue` `rewriteRunePlaceholderSizeByNodeId` |
+| 挂载（生效实现） | `libs-muya-vue2/lib/parser/render/index.js:813`（639 为被覆盖的旧版） |
+| props 白名单与采集 | 同文件 `parseSfcPropsDef` / `toRunePropAttr` / `collectRunePropsFromHost` |
+| 占位符 ABI 生成 | `libs-muya-vue2/lib/ui/quickInsert/index.js:185` |
+| 符文定义表与落库 | `src-electron/main-process/service/rune-template-service.js:123` |
+| 定义读取与种子 | `desktop-vue2/src/services/RuneTemplateService.js`（`listFlat` / `fetchFromGithub` / `seedBuiltin`） |
+| 定义编辑 UI | `desktop-vue2/src/components/rune/runeFormDialog.vue` / `runeFormFields.vue` / `runeFormEditor.vue` |
+| hel 运行时现状 | `desktop-vue2/src/boot/hel-micro-renderer.js`（只有 `Vue.prototype.$hel`） |
+| 现有远程加载示例 | `desktop-vue2/src/components/rune/runeTemplates/runeTemplatesHolyShield.js` |
+| 测试护城河 | `.agents/rules/rune-echo-test-moat.mdc`、`tests/unit/rune/*.test.js` |
