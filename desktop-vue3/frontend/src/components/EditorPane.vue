@@ -1,5 +1,5 @@
 <template>
-  <main class="editor-pane">
+  <main class="editor-pane" @scroll.capture="hideSelectionHint">
     <template v-if="summary">
       <div class="editor-meta">
         <div class="editor-meta-left">
@@ -28,6 +28,10 @@
             <div>{{ t('editor.characters', { count: wordCount.character }) }}</div>
             <div>{{ t('editor.paragraphs', { count: wordCount.paragraph }) }}</div>
           </el-popover>
+          <el-button text size="small" :title="t('editor.aiTag')" :disabled="locked" @click="openTagDialog">
+            <el-icon><PriceTag /></el-icon>
+            <span>{{ t('editor.aiTag') }}</span>
+          </el-button>
           <el-button text size="small" :title="t('editor.mindMap')" @click="emit('mind-map')">
             <el-icon><Share /></el-icon>
             <span>{{ t('editor.mindMap') }}</span>
@@ -68,7 +72,13 @@
           </el-button>
         </div>
       </div>
-      <div v-show="!sourceMode" class="editor-context-host" @contextmenu.capture="onContextMenu">
+      <div
+        v-show="!sourceMode"
+        class="editor-context-host"
+        @contextmenu.capture="onContextMenu"
+        @mouseup="onMuyaDomSelection"
+        @keyup="onMuyaDomSelection"
+      >
         <MuyaEditor
           ref="muyaRef"
           v-model="contentProxy"
@@ -77,10 +87,19 @@
           :plugins="plugins"
           :options="editorOptions"
           class="muya-editor"
+          @selection-change="onMuyaSelectionChange"
         />
       </div>
       <!-- 双编辑器：源码模式用 Monaco，同一份内容，只有激活的视图回写 -->
-      <SourceEditor ref="monacoRef" v-if="sourceMode" v-model="contentProxy" :readonly="locked" :theme="theme" class="source-editor-host" />
+      <SourceEditor
+        ref="monacoRef"
+        v-if="sourceMode"
+        v-model="contentProxy"
+        :readonly="locked"
+        :theme="theme"
+        class="source-editor-host"
+        @selection-change="onMonacoSelectionChange"
+      />
     </template>
 
     <el-empty v-else :description="t('editor.emptyHint')">
@@ -99,12 +118,35 @@
         v{{ appInfo.version }} · Electron {{ appInfo.electron }} · {{ appInfo.platform }}/{{ appInfo.arch }}
       </span>
       <span v-else class="statusbar-right">{{ statusError || t('status.unavailable') }}</span>
+
     </footer>
+
+    <!-- 划词改写：mousedown.prevent 保住编辑器选区，点了才捕获快照 -->
+    <div
+      v-if="selectionHint && !selectionHint.empty && !locked && summary"
+      class="ai-selection-bar"
+      :style="selectionBarStyle"
+      @mousedown.prevent
+    >
+      <el-button type="primary" size="small" @mousedown.prevent @click="openRewriteDialog">
+        {{ t('editor.aiRewrite') }}
+      </el-button>
+    </div>
+    <AiRewriteDialog v-model="rewriteVisible" :text="rewriteText" @apply="applyRewrite" />
+    <AiTagDialog
+      v-model="tagVisible"
+      :note-id="summary?.id ?? null"
+      :title="summary?.title ?? ''"
+      :content="content"
+      :existing-tags="currentTags"
+      :known-tags="knownTags"
+      @apply="applyTags"
+    />
   </main>
 </template>
 
 <script setup lang="ts">
-import { DataAnalysis, Delete, Finished, Link, Lock, Monitor, Share, Switch, Unlock } from '@element-plus/icons-vue';
+import { DataAnalysis, Delete, Finished, Link, Lock, Monitor, PriceTag, Share, Switch, Unlock } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import {
@@ -127,7 +169,11 @@ import { getSyncStatus } from '@/services/sync';
 import { useAppStore } from '@/stores/app';
 import { useNotesStore } from '@/stores/notes';
 import SourceEditor from '@/components/SourceEditor.vue';
-import { onAiInsert } from '@/editor/aiInsert';
+import { onAiInsert, type AiInsertMode } from '@/editor/aiInsert';
+import type { EditorSelectionHint, EditorSelectionSnapshot } from '@/editor/selection';
+import AiRewriteDialog from '@/components/AiRewriteDialog.vue';
+import AiTagDialog from '@/components/AiTagDialog.vue';
+import { normalizeTagName } from '@/utils/autotag';
 import { formatDocumentByPangu } from '@/utils/pangu';
 
 const props = defineProps<{
@@ -243,6 +289,13 @@ function toggleSourceMode(): void {
 }
 
 const muyaRef = ref<InstanceType<typeof MuyaEditor> | null>(null);
+const selectionHint = ref<EditorSelectionHint | null>(null);
+const rewriteVisible = ref(false);
+const rewriteText = ref('');
+const rewriteTarget = ref<{ snapshot: EditorSelectionSnapshot; sourceMode: boolean; noteId: number } | null>(null);
+const tagVisible = ref(false);
+const currentTags = computed(() => (props.summary ? noteTags(props.summary) : []));
+const knownTags = computed(() => notesStore.tags.map((tag) => tag.name));
 const monacoRef = ref<InstanceType<typeof SourceEditor> | null>(null);
 const pendingCursor = ref<MonacoPosition | null>(null);
 const wordCount = computed(() => {
@@ -251,13 +304,24 @@ const wordCount = computed(() => {
 });
 
 /**
- * AI 回复追加到末尾（对齐 vue2 Muya/Monaco 的 INSERT_AI_TEXT 处理器）。
- * Muya 保留当前光标、把整段拼到文末；Monaco 在末行执行一次 insert 并把光标落到新增段尾。
+ * AI 回复落到当前编辑器。
+ * append 保持 vue2 行为：Muya 保留光标拼到文末，Monaco 在末行插入。
+ * replace 是新增强：整篇覆盖正文（AiHelperPanel 已做过二次确认）。
  */
-function appendAiText(text: string): boolean {
+function applyAiText(text: string, mode: AiInsertMode = 'append'): boolean {
   const clean = String(text ?? '').trim();
   if (!clean || !props.summary || locked.value) {
     return false;
+  }
+  if (mode === 'replace') {
+    if (sourceMode.value) {
+      return monacoRef.value?.replaceAllText?.(clean) === true;
+    }
+    if (!muyaRef.value) {
+      return false;
+    }
+    muyaRef.value.setMarkdown?.(clean);
+    return true;
   }
   if (sourceMode.value) {
     return monacoRef.value?.appendText?.(clean) === true;
@@ -273,7 +337,151 @@ function appendAiText(text: string): boolean {
   return true;
 }
 
-const stopAiInsert = onAiInsert(appendAiText);
+/** Muya 选区事件：有选中的 block 才亮悬浮条；坐标是视口坐标，可直接 fixed 定位。 */
+function onMuyaSelectionChange(payload: unknown): void {
+  const info = payload as {
+    start?: { key?: unknown; offset?: number };
+    end?: { key?: unknown; offset?: number };
+    cursorCoords?: { x?: number; y?: number };
+  } | null;
+  if (!info?.start || !info?.end) {
+    selectionHint.value = null;
+    return;
+  }
+  const empty = info.start.key === info.end.key &&
+    Number(info.start.offset ?? 0) === Number(info.end.offset ?? 0);
+  if (empty) {
+    selectionHint.value = null;
+    return;
+  }
+  const x = Number(info.cursorCoords?.x ?? 0);
+  const y = Number(info.cursorCoords?.y ?? 0);
+  selectionHint.value = x === 0 && y === 0 ? null : { empty: false, x, y };
+}
+
+function hideSelectionHint(): void {
+  selectionHint.value = null;
+}
+
+/** Muya 拖选/Shift 选择不一定派发引擎事件；这里直接读 DOM 选区补悬浮条。 */
+function onMuyaDomSelection(event: MouseEvent | KeyboardEvent): void {
+  const host = event.currentTarget as HTMLElement | null;
+  const selection = window.getSelection();
+  if (!host || !selection || selection.rangeCount === 0) {
+    selectionHint.value = null;
+    return;
+  }
+  if (selection.isCollapsed ||
+      !host.contains(selection.anchorNode) || !host.contains(selection.focusNode)) {
+    selectionHint.value = null;
+    return;
+  }
+  const rect = selection.getRangeAt(0).getBoundingClientRect();
+  selectionHint.value = { empty: false, x: rect.left, y: rect.top };
+}
+
+function onMonacoSelectionChange(payload: EditorSelectionHint): void {
+  selectionHint.value = payload.empty ? null : payload;
+}
+
+const selectionBarStyle = computed(() => {
+  const hint = selectionHint.value;
+  const x = Number(hint?.x ?? 0);
+  const y = Number(hint?.y ?? 0);
+  const width = 108;
+  const viewportWidth = typeof window === 'undefined' ? 1200 : window.innerWidth;
+  return {
+    left: `${Math.min(Math.max(8, x - width / 2), Math.max(8, viewportWidth - width - 8))}px`,
+    top: `${y > 64 ? y - 42 : y + 22}px`,
+  };
+});
+
+/** 点悬浮条：先抓稳定快照，再开弹窗；弹窗抢焦点也不影响替换。 */
+function openRewriteDialog(): void {
+  if (locked.value || !props.summary) {
+    return;
+  }
+  const snapshot = sourceMode.value
+    ? monacoRef.value?.captureSelection?.() ?? null
+    : muyaRef.value?.captureSelection?.() ?? null;
+  if (!snapshot || !String(snapshot.text ?? '').trim()) {
+    ElMessage.warning(t('editor.aiRewriteEmpty'));
+    return;
+  }
+  rewriteTarget.value = { snapshot, sourceMode: sourceMode.value, noteId: props.summary.id };
+  rewriteText.value = snapshot.text;
+  rewriteVisible.value = true;
+  selectionHint.value = null;
+}
+
+/** 弹窗里点“替换选区”：快照和当前编辑器都对得上才写回。 */
+function applyRewrite(value: string): void {
+  const target = rewriteTarget.value;
+  if (!target || target.noteId !== props.summary?.id) {
+    ElMessage.warning(t('editor.aiRewriteStale'));
+    return;
+  }
+  const ok = target.sourceMode
+    ? monacoRef.value?.replaceSelectionSnapshot?.(target.snapshot, value) === true
+    : muyaRef.value?.replaceSelectionSnapshot?.(target.snapshot, value) === true;
+  if (!ok) {
+    ElMessage.warning(t('editor.aiRewriteStale'));
+    return;
+  }
+  rewriteVisible.value = false;
+  rewriteTarget.value = null;
+  ElMessage.success(t('editor.aiRewriteApplied'));
+}
+
+watch(
+  [() => props.summary?.id, sourceMode, () => locked.value],
+  () => {
+    selectionHint.value = null;
+    if (rewriteVisible.value) {
+      rewriteVisible.value = false;
+      rewriteTarget.value = null;
+    }
+  },
+);
+
+function openTagDialog(): void {
+  if (locked.value || !props.summary) {
+    return;
+  }
+  tagVisible.value = true;
+}
+
+/** 单篇打标应用：旧标签保留，新标签按大小写不敏感去重，缺失的标签先建库。 */
+async function applyTags(names: string[]): Promise<void> {
+  if (!props.summary) {
+    return;
+  }
+  const noteId = props.summary.id;
+  const merged = [...currentTags.value];
+  const seen = new Set(merged.map((name) => name.toLowerCase()));
+  for (const raw of names) {
+    const name = normalizeTagName(raw);
+    if (name && !seen.has(name.toLowerCase())) {
+      merged.push(name);
+      seen.add(name.toLowerCase());
+    }
+  }
+  for (const name of merged) {
+    const exists = notesStore.tags.some((tag) => tag.name.toLowerCase() === name.toLowerCase());
+    if (!exists) {
+      await notesStore.createTag(name);
+    }
+  }
+  const saved = await notesStore.setTags(noteId, merged);
+  tagVisible.value = false;
+  if (saved) {
+    ElMessage.success(t('aiTag.applied'));
+  } else {
+    ElMessage.error(notesStore.error || t('aiTag.applyFailed'));
+  }
+}
+
+const stopAiInsert = onAiInsert(applyAiText);
 onBeforeUnmount(stopAiInsert);
 
 /** 盘古格式化当前文档；源码模式直接回抛 update，Muya 走 setMarkdown。 */

@@ -650,6 +650,17 @@ button {
   flex: 1;
 }
 
+/* 划词改写悬浮条：fixed 是相对视口的，不随编辑器滚动容器偏移。 */
+.ai-selection-bar {
+  position: fixed;
+  z-index: 2100;
+  padding: 3px;
+  border: 1px solid var(--coolma-border);
+  border-radius: 8px;
+  background: var(--coolma-panel);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 12%);
+}
+
 .editor-meta {
   display: flex;
   height: 42px;

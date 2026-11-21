@@ -4,7 +4,8 @@
  * 对齐 vue2 `appBus.INSERT_AI_TEXT`：AI 面板不直接拿编辑器实例，
  * 只广播文本；由当前挂载的 EditorPane 决定落到 Muya 还是 Monaco。
  */
-type Handler = (text: string) => boolean | void;
+export type AiInsertMode = 'append' | 'replace';
+type Handler = (text: string, mode: AiInsertMode) => boolean | void;
 
 const handlers = new Set<Handler>();
 
@@ -15,12 +16,12 @@ export function onAiInsert(handler: Handler): () => void {
   };
 }
 
-/** 返回是否有编辑器真正接住了这段文本。 */
-export function emitAiInsert(text: string): boolean {
+/** mode：append 保留 vue2 的末尾追加；replace 为整篇覆盖（调用方需先确认）。 */
+export function emitAiInsert(text: string, mode: AiInsertMode = 'append'): boolean {
   let handled = false;
   for (const handler of handlers) {
     try {
-      if (handler(text) === true) {
+      if (handler(text, mode) === true) {
         handled = true;
       }
     } catch (error) {

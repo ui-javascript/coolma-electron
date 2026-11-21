@@ -14,6 +14,13 @@ export interface MuyaChangePayload {
   toc?: unknown;
 }
 
+export interface MuyaSelectionSnapshot {
+  markdown: string;
+  start: number;
+  end: number;
+  text: string;
+}
+
 export interface MuyaOptions {
   markdown?: string;
   mode?: 'normal' | 'preview';
@@ -38,6 +45,8 @@ export default class Muya {
   getMarkdown(): string;
   setMarkdown(markdown: string, cursor?: unknown, isRenderCursor?: boolean): void;
   getCursor(): { anchor?: { line: number; ch: number }; focus?: { line: number; ch: number } } | null;
+  getSelectionInfo(): MuyaSelectionSnapshot | null;
+  replaceSelectionSnapshot(snapshot: MuyaSelectionSnapshot, replacement: string): boolean;
   setCursor(cursor: unknown): void;
   getWordCount(markdown: string): MuyaWordCount;
   hideAllFloatTools(): void;

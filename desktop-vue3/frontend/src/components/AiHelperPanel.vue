@@ -41,6 +41,15 @@
           >
             {{ t('aiHelper.applyToNote') }}
           </el-button>
+          <el-button
+            text
+            type="danger"
+            size="small"
+            :disabled="applyingMessageId !== null"
+            @click="overwriteNote(message)"
+          >
+            {{ t('aiHelper.overwriteNote') }}
+          </el-button>
         </div>
       </div>
       <div v-if="error" class="ai-error">{{ error }}</div>
@@ -73,7 +82,7 @@
  *  - vue2 有「选择模型 / 技能调用」等动作；「应用到当前笔记」已补，见 P5 11.58。
  */
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { useI18n } from 'vue-i18n';
 import { ChatDotRound } from '@element-plus/icons-vue';
 import { Welcome, XSender } from 'vue-element-plus-x';
@@ -224,7 +233,7 @@ function stopGenerating(): void {
   });
 }
 
-/** 对齐 vue2 applyToCurrentNote：把整段回复追加到当前编辑器末尾，不覆盖原文。 */
+/** 对齐 vue2 applyToCurrentNote：默认追加到编辑器末尾；整篇覆盖是单独按钮。 */
 function applyToNote(message: ChatMessage): void {
   if (message.role !== 'assistant') {
     return;
@@ -242,6 +251,44 @@ function applyToNote(message: ChatMessage): void {
   const handled = emitAiInsert(text);
   if (handled) {
     ElMessage.success(t('aiHelper.applyDone'));
+  } else {
+    ElMessage.warning(t('aiHelper.applyNoEditor'));
+  }
+  window.setTimeout(() => {
+    if (applyingMessageId.value === message.id) {
+      applyingMessageId.value = null;
+    }
+  }, 800);
+}
+
+/** 增强项：整篇覆盖。先二次确认，避免一条不完整的回复把正文清空。 */
+async function overwriteNote(message: ChatMessage): Promise<void> {
+  if (message.role !== 'assistant' || !hasNote.value) {
+    ElMessage.warning(t('aiHelper.applyNoNote'));
+    return;
+  }
+  const text = String(message.content ?? '').trim();
+  if (!text) {
+    ElMessage.warning(t('aiHelper.applyEmpty'));
+    return;
+  }
+  try {
+    await ElMessageBox.confirm(
+      t('aiHelper.overwriteConfirm', { title: noteTitle.value }),
+      t('aiHelper.overwriteTitle'),
+      {
+        type: 'warning',
+        confirmButtonText: t('aiHelper.overwriteConfirmButton'),
+        cancelButtonText: t('action.cancel'),
+      },
+    );
+  } catch {
+    return;
+  }
+  applyingMessageId.value = message.id;
+  const handled = emitAiInsert(text, 'replace');
+  if (handled) {
+    ElMessage.success(t('aiHelper.overwriteDone'));
   } else {
     ElMessage.warning(t('aiHelper.applyNoEditor'));
   }

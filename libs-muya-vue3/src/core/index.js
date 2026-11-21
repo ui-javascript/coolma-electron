@@ -248,6 +248,24 @@ class Muya {
     return this.contentState.selectionChange()
   }
 
+  /**
+   * 当前选区的 Markdown 快照（AI 划词改写用）。
+   * @returns {{markdown:string,start:number,end:number,text:string}|null}
+   */
+  getSelectionInfo () {
+    return this.contentState.getSelectionInfo()
+  }
+
+  /**
+   * 按快照替换选区。正文在快照后变化时返回 false。
+   * @param {{markdown:string,start:number,end:number}} snapshot
+   * @param {string} replacement
+   * @returns {boolean}
+   */
+  replaceSelectionSnapshot (snapshot, replacement) {
+    return this.contentState.replaceSelectionSnapshot(snapshot, replacement)
+  }
+
   setFocusMode (bool) {
     const { container } = this
     const { focusMode } = this.options

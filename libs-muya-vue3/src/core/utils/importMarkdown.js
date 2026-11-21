@@ -447,9 +447,9 @@ const importRegister = ContentState => {
     return this.markdownToState(markdown)
   }
 
-  ContentState.prototype.getCodeMirrorCursor = function () {
+  ContentState.prototype.getCodeMirrorCursor = function (includeMarkdown = false, cursorPos = this.cursor) {
     const blocks = this.getBlocks()
-    const { anchor, focus } = this.cursor
+    const { anchor, focus } = cursorPos
     const anchorBlock = this.getBlock(anchor.key)
     const focusBlock = this.getBlock(focus.key)
     const { text: anchorText } = anchorBlock
@@ -502,7 +502,8 @@ const importRegister = ContentState => {
     // remove CURSOR_FOCUS_DNA and CURSOR_ANCHOR_DNA
     anchorBlock.text = anchorText
     focusBlock.text = focusText
-    return cursor
+    // includeMarkdown 给 AI 选区快照用：返回带标记的 Markdown，调用方负责去标记。
+    return includeMarkdown ? { cursor, markdown } : cursor
   }
 
   ContentState.prototype.addCursorToMarkdown = function (markdown, cursor) {

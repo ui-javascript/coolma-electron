@@ -15,7 +15,7 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import Muya, { installDefaultUiPlugins } from './core/index.js';
-import type { MuyaChangePayload, MuyaOptions } from './core/index.js';
+import type { MuyaChangePayload, MuyaOptions, MuyaSelectionSnapshot } from './core/index.js';
 import type { MuyaPlugin } from './plugin';
 
 const props = withDefaults(
@@ -189,6 +189,10 @@ defineExpose({
   /** 光标读写（引擎 core 已有 getCursor/setCursor，这里只做对外暴露） */
   getCursor: () => editor?.getCursor() ?? null,
   setCursor: (cursor: unknown) => editor?.setCursor(cursor),
+  /** AI 划词改写：选区快照不依赖 DOM Selection，弹窗抢焦点后仍可替换。 */
+  captureSelection: () => editor?.getSelectionInfo() ?? null,
+  replaceSelectionSnapshot: (snapshot: MuyaSelectionSnapshot, replacement: string) =>
+    editor?.replaceSelectionSnapshot(snapshot, replacement) === true,
   /** 带光标的重载：切换笔记/源码模式时用 markdown + cursor 一次性落位 */
   setMarkdownWithCursor: (value: string, cursor: unknown) => editor?.setMarkdown(value, cursor, false),
 });

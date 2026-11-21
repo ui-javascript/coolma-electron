@@ -355,6 +355,80 @@ async function main(): Promise<void> {
       riskyThrew = true;
     }
     assert('光标：越界 cursor 不抛错', riskyThrew === false);
+
+    // AI 划词改写依赖的选区快照：不读 DOM Selection，按 Markdown 字符偏移定位
+    const selectionMd = '第一段文字\n\n第二段文字\n';
+    muya.setMarkdown(selectionMd, {
+      anchor: { line: 0, ch: 0 },
+      focus: { line: 0, ch: 3 },
+    }, false);
+    const snapshot = (muya as Any).getSelectionInfo?.();
+    assert(
+      'AI 选区：快照取到原文与偏移',
+      Boolean(snapshot) && snapshot.text === '第一段' && snapshot.start === 0 && snapshot.end === 3,
+      JSON.stringify(snapshot),
+    );
+    const replaced = (muya as Any).replaceSelectionSnapshot?.(snapshot, '开头');
+    assert(
+      'AI 选区：按快照替换选区内文字',
+      replaced === true && muya.getMarkdown() === '开头文字\n\n第二段文字\n',
+      JSON.stringify(muya.getMarkdown()),
+    );
+
+    // 跨块选区：从第一段中间选到第二段中间，替换后仍保持段落结构
+    muya.setMarkdown(selectionMd, {
+      anchor: { line: 0, ch: 2 },
+      focus: { line: 2, ch: 3 },
+    }, false);
+    const crossBlock = (muya as Any).getSelectionInfo?.();
+    assert(
+      'AI 选区：跨块快照包含段落分隔',
+      Boolean(crossBlock) && crossBlock.text === '段文字\n\n第二段',
+      JSON.stringify(crossBlock),
+    );
+    const crossReplaced = (muya as Any).replaceSelectionSnapshot?.(crossBlock, '替换');
+    assert(
+      'AI 选区：跨块替换保留段落结构',
+      crossReplaced === true && muya.getMarkdown() === '第一替换文字\n',
+      JSON.stringify(muya.getMarkdown()),
+    );
+
+    // 真实 DOM 选区路径：模拟鼠标拖选，快照应优先读 DOM 而不是旧 cursor
+    muya.setMarkdown(selectionMd, undefined, false);
+    const firstBlock = (muya as Any).contentState.getBlocks()[0];
+    const firstEl = document.getElementById(firstBlock?.key ?? '');
+    const walker = firstEl ? document.createTreeWalker(firstEl, 4) : null;
+    let textNode: Text | null = null;
+    while (walker && walker.nextNode()) {
+      const node = walker.currentNode as Text;
+      if ((node.nodeValue || '').includes('第一段文字')) {
+        textNode = node;
+        break;
+      }
+    }
+    let domSnapshot: Any = null;
+    if (textNode) {
+      const range = document.createRange();
+      range.setStart(textNode, 0);
+      range.setEnd(textNode, 3);
+      const nativeSelection = window.getSelection();
+      nativeSelection?.removeAllRanges();
+      nativeSelection?.addRange(range);
+      domSnapshot = (muya as Any).getSelectionInfo?.();
+    }
+    assert(
+      'AI 选区：优先读取真实 DOM 拖选',
+      Boolean(domSnapshot) && domSnapshot.text === '第一段' && domSnapshot.start === 0,
+      JSON.stringify(domSnapshot),
+    );
+
+    const stale = (muya as Any).getSelectionInfo?.();
+    muya.setMarkdown('正文已经被用户改掉', undefined, false);
+    assert(
+      'AI 选区：正文变化后拒绝覆盖',
+      (muya as Any).replaceSelectionSnapshot?.(stale, '不该写入') === false,
+      JSON.stringify(muya.getMarkdown()),
+    );
   }
 
   // ===== 光标口径换算：引擎 0-based ↔ Monaco 1-based =====
@@ -958,14 +1032,18 @@ async function main(): Promise<void> {
     );
 
     let received = '';
+    let mode = '';
     assert('AI 插入：没有编辑器时无人接住', emitAiInsert('hello') === false, 'false');
-    const stop = onAiInsert((text) => {
+    const stop = onAiInsert((text, insertMode) => {
       received = text;
+      mode = insertMode;
       return true;
     });
     assert('AI 插入：有编辑器时接住文本', emitAiInsert('hello') === true && received === 'hello', received);
+    assert('AI 插入：默认走追加，不误覆盖', mode === 'append', mode);
+    assert('AI 插入：显式覆盖模式能传到编辑器', emitAiInsert('overwrite', 'replace') === true && mode === 'replace', mode);
     stop();
-    assert('AI 插入：退订后不再接住', emitAiInsert('again') === false && received === 'hello', received);
+    assert('AI 插入：退订后不再接住', emitAiInsert('again') === false && received === 'overwrite', received);
 
     const folderMd = buildFolderMarkdown([
       { title: '第一篇.md', content: 'A' },

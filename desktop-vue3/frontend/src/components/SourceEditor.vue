@@ -5,6 +5,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { AppTheme } from '@shared/enums/app';
+import type { EditorSelectionHint, EditorSelectionSnapshot } from '@/editor/selection';
 
 /**
  * Monaco 源码编辑器（与 Muya 组成"双编辑器"）。
@@ -15,7 +16,10 @@ import type { AppTheme } from '@shared/enums/app';
  * - monaco 按需加载（动态 import），不进首屏包。
  */
 const props = defineProps<{ modelValue: string; theme: AppTheme; readonly?: boolean }>();
-const emit = defineEmits<{ (event: 'update:modelValue', value: string): void }>();
+const emit = defineEmits<{
+  (event: 'update:modelValue', value: string): void;
+  (event: 'selection-change', payload: EditorSelectionHint): void;
+}>();
 
 const host = ref<HTMLElement | null>(null);
 let editor: any = null;
@@ -55,6 +59,28 @@ onMounted(async () => {
       return;
     }
     emit('update:modelValue', editor.getValue());
+  });
+  // 划词悬浮条：把 Monaco 的选区坐标换成视口坐标，EditorPane 只管摆位置。
+  editor.onDidChangeCursorSelection(() => {
+    const selection = editor?.getSelection();
+    const model = editor?.getModel();
+    if (!selection || !model) {
+      emit('selection-change', { empty: true, x: 0, y: 0 });
+      return;
+    }
+    const empty = selection.isEmpty();
+    const position = selection.getStartPosition();
+    const visible = editor.getScrolledVisiblePosition(position);
+    if (!visible) {
+      emit('selection-change', { empty: true, x: 0, y: 0 });
+      return;
+    }
+    const rect = host.value?.getBoundingClientRect();
+    emit('selection-change', {
+      empty,
+      x: (rect?.left ?? 0) + visible.left,
+      y: (rect?.top ?? 0) + visible.top,
+    });
   });
 });
 
@@ -160,7 +186,69 @@ function appendText(text: string): boolean {
   return true;
 }
 
-defineExpose({ getCursor, setCursor, appendText });
+/** 捕获选区快照：整篇 Markdown + 字符偏移 + 原文，供 AI 改写弹窗使用。 */
+function captureSelection(): EditorSelectionSnapshot | null {
+  const model = editor?.getModel();
+  const selection = editor?.getSelection();
+  if (!model || !selection || selection.isEmpty()) {
+    return null;
+  }
+  const startPosition = selection.getStartPosition();
+  const endPosition = selection.getEndPosition();
+  return {
+    markdown: model.getValue(),
+    start: model.getOffsetAt(startPosition),
+    end: model.getOffsetAt(endPosition),
+    text: model.getValueInRange(selection),
+  };
+}
+
+/** 按快照替换选区；正文在快照后变了就拒绝，避免覆盖用户新输入。 */
+function replaceSelectionSnapshot(snapshot: EditorSelectionSnapshot, replacement: string): boolean {
+  const model = editor?.getModel();
+  if (!model || props.readonly || model.getValue() !== snapshot.markdown) {
+    return false;
+  }
+  const start = Math.max(0, Math.min(snapshot.start, model.getValueLength()));
+  const end = Math.max(start, Math.min(snapshot.end, model.getValueLength()));
+  const startPosition = model.getPositionAt(start);
+  const endPosition = model.getPositionAt(end);
+  editor.executeEdits('ai-rewrite-selection', [{
+    range: {
+      startLineNumber: startPosition.lineNumber,
+      startColumn: startPosition.column,
+      endLineNumber: endPosition.lineNumber,
+      endColumn: endPosition.column,
+    },
+    text: String(replacement ?? ''),
+    forceMoveMarkers: true,
+  }]);
+  const caret = model.getPositionAt(start + String(replacement ?? '').length);
+  editor.setPosition(caret);
+  editor.revealPositionInCenterIfOutsideViewport(caret);
+  editor.focus();
+  return true;
+}
+
+/** AI 整篇覆盖：保留 Monaco 的撤销栈，避免直接 setValue 抹掉历史。 */
+function replaceAllText(text: string): boolean {
+  const model = editor?.getModel();
+  if (!model || props.readonly) {
+    return false;
+  }
+  editor.executeEdits('ai-overwrite-note', [{
+    range: model.getFullModelRange(),
+    text: String(text ?? ''),
+    forceMoveMarkers: true,
+  }]);
+  const caret = model.getPositionAt(Math.min(String(text ?? '').length, model.getValueLength()));
+  editor.setPosition(caret);
+  editor.revealPositionInCenterIfOutsideViewport(caret);
+  editor.focus();
+  return true;
+}
+
+defineExpose({ getCursor, setCursor, appendText, captureSelection, replaceSelectionSnapshot, replaceAllText });
 </script>
 
 <style scoped>
