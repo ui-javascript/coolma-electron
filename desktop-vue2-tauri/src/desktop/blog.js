@@ -1,3 +1,4 @@
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { request, onSidecarEvent } from './sidecar'
 
 /**
@@ -14,11 +15,39 @@ const FORWARDED_EVENTS = [
 
 let forwarding = false
 
+/**
+ * 对齐原版 blog-deploy-handler.js:95/102 的 `win.setProgressBar`：
+ * 构建中把百分比打到任务栏，结束（成功或失败）清掉。
+ * 抽成纯函数，方便单测；返回 null 表示这次事件不改进度条。
+ */
+export function taskbarState (channel, data) {
+  if (channel === 'blog-deploy-progress') {
+    const percent = Number(data && data.percent)
+    if (!Number.isFinite(percent)) return null
+    return { status: 'normal', progress: Math.min(Math.max(percent / 100, 0), 1) }
+  }
+  if (channel === 'blog-deploy-done' || channel === 'blog-deploy-warn') {
+    return { status: 'none' }
+  }
+  return null
+}
+
+function updateTaskbar (channel, data) {
+  const state = taskbarState(channel, data)
+  if (!state) return
+  getCurrentWindow()
+    .setProgressBar(state)
+    .catch(error => console.warn('[blog] 任务栏进度设置失败', error))
+}
+
 function forwardEvents (emit) {
   if (forwarding || typeof emit !== 'function') return
   forwarding = true
   for (const channel of FORWARDED_EVENTS) {
-    onSidecarEvent(channel, data => emit(channel, data))
+    onSidecarEvent(channel, data => {
+      updateTaskbar(channel, data)
+      emit(channel, data)
+    })
   }
 }
 

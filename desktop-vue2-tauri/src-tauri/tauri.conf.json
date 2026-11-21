@@ -11,7 +11,7 @@
   },
   "app": {
     "windows": [
-      { "label": "main", "title": "Coolma Tauri", "width": 900, "height": 600, "minWidth": 600, "minHeight": 400, "decorations": false }
+      { "label": "main", "title": "Coolma Tauri", "width": 900, "height": 600, "minWidth": 600, "minHeight": 400, "decorations": false, "dragDropEnabled": false }
     ],
     "security": { "capabilities": ["main"] }
   },

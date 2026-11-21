@@ -138,8 +138,18 @@ fn open_dev_tools(window: WebviewWindow) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn open_database_folder(app: tauri::AppHandle) -> Result<(), String> {    let dir = data_dir(&app)?;
+fn open_database_folder(app: tauri::AppHandle) -> Result<(), String> {
+    let dir = data_dir(&app)?;
     fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+    // 对齐原版 api.js:329 的 `shell.showItemInFolder(userData/memocast.db)`：
+    // 库文件在就定位并选中它，不在才退化成打开目录。
+    let database = dir.join("memocast.db");
+    if database.exists() {
+        return app
+            .opener()
+            .reveal_item_in_dir(&database)
+            .map_err(|error| error.to_string());
+    }
     app.opener()
         .open_path(dir.to_string_lossy(), None::<&str>)
         .map_err(|error| error.to_string())

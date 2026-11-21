@@ -1,8 +1,8 @@
 /* eslint-env jest */
 import { SHORTCUTS, findShortcut } from '../src/desktop/shortcutTable'
 
-function keyEvent (key, { ctrl = false, shift = false, alt = false } = {}) {
-  return { key, ctrlKey: ctrl, metaKey: false, shiftKey: shift, altKey: alt }
+function keyEvent (key, { ctrl = false, shift = false, alt = false, code } = {}) {
+  return { key, code, ctrlKey: ctrl, metaKey: false, shiftKey: shift, altKey: alt }
 }
 
 describe('快捷键表对齐 Electron 原版', () => {
@@ -54,14 +54,21 @@ describe('快捷键表对齐 Electron 原版', () => {
     expect(findShortcut(keyEvent('s', { ctrl: true, shift: true }))).toBeNull()
   })
 
-  it('视图类短组合键可用', () => {
-    expect(findShortcut(keyEvent(',', { ctrl: true, shift: true }))).toMatchObject({
+  it('视图类短组合键按物理键位命中（Shift 会把 key 变成 < / >）', () => {
+    // 真机 Ctrl+Shift+, 报的是 key '<'、code 'Comma'，只按 key 比对会永远失配。
+    expect(findShortcut(keyEvent('<', { ctrl: true, shift: true, code: 'Comma' }))).toMatchObject({
       channel: 'view',
       event: 'switchView'
     })
-    expect(findShortcut(keyEvent('.', { ctrl: true, shift: true }))).toMatchObject({
+    expect(findShortcut(keyEvent('>', { ctrl: true, shift: true, code: 'Period' }))).toMatchObject({
       event: 'sourceMode'
     })
+    // 不带 code 的合成事件仍按 key 兼容
+    expect(findShortcut(keyEvent(',', { ctrl: true, shift: true }))).toMatchObject({
+      event: 'switchView'
+    })
+    // 光靠 code 不能把没按 Shift 的组合放进来
+    expect(findShortcut(keyEvent('.', { ctrl: true, code: 'Period' }))).toBeNull()
   })
 
   it('cut/copy/paste 登记为 passive，交给 WebView 原生处理', () => {

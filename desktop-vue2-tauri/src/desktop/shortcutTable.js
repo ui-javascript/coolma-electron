@@ -70,6 +70,25 @@ export const SHORTCUTS = [
   { acc: 'CmdOrCtrl+Shift+P', channel: 'view', event: 'devtool', arg: 'devtool' }
 ]
 
+/**
+ * 标点键的 `KeyboardEvent.key` 随 Shift 变形（Shift+, 报 `<`、Shift+. 报 `>`），
+ * 按 key 比对会让 `CmdOrCtrl+Shift+,` / `CmdOrCtrl+Shift+.` 永远命中不了。
+ * 这些键改用 `KeyboardEvent.code`（物理键位，不受 Shift 影响）比对。
+ */
+const KEY_CODES = {
+  ',': 'Comma',
+  '.': 'Period',
+  '=': 'Equal',
+  '-': 'Minus',
+  '`': 'Backquote',
+  '/': 'Slash',
+  ';': 'Semicolon',
+  "'": 'Quote',
+  '[': 'BracketLeft',
+  ']': 'BracketRight',
+  '\\': 'Backslash'
+}
+
 export function parseAccelerator (accelerator) {
   const parts = accelerator.split('+').map(part => part.trim())
   const key = parts.pop().toLowerCase()
@@ -82,12 +101,18 @@ export function parseAccelerator (accelerator) {
     else if (lower === 'shift') shift = true
     else if (['alt', 'option'].includes(lower)) alt = true
   }
-  return { key, mod, shift, alt }
+  return { key, mod, shift, alt, code: KEY_CODES[key] || null }
+}
+
+function matchesKey (binding, event) {
+  const key = (event.key || '').toLowerCase()
+  if (!binding.code) return binding.key === key
+  // 真实事件一定带 code；没有 code 的合成事件退回 key 比对，避免测试/老调用失效。
+  return event.code ? event.code === binding.code : binding.key === key
 }
 
 export function matches (binding, event) {
-  const key = (event.key || '').toLowerCase()
-  if (binding.key !== key) return false
+  if (!matchesKey(binding, event)) return false
   if (binding.shift !== event.shiftKey) return false
   if (binding.alt !== event.altKey) return false
   return binding.mod === (event.ctrlKey || event.metaKey)
