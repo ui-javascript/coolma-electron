@@ -121,7 +121,9 @@ export function buildDefaultMicroApps () {
       id: 'coolma',
       name: 'coolma',
       icon: 'el-icon-cloudy',
-      url: 'https://static-59728804-d890-4267-8e45-393e10b3c780.bspapp.com/',
+      // 占位地址：请在本条目的设置里填入自己的 uniCloud 静态托管地址
+      // （格式形如 https://static-<spaceId>.bspapp.com/），此处不得写入真实 spaceId
+      url: 'https://static-00000000-0000-0000-0000-000000000000.bspapp.com/',
       devUrl: '',
       isDefault: false,
       enabled: true,

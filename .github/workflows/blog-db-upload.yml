@@ -1,4 +1,10 @@
 # 由 `yarn blog:init-ci` 自动生成；可手工修改但下次 init-ci 会被覆盖。
+#
+# ⚠️ 安全说明（2026-11-21 审计后加固）：
+#   公开仓库的 workflow artifact 任何 GitHub 用户都可以下载，
+#   而本工作流上传的是个人笔记数据库 memocast.db。
+#   因此 job 加了仓库可见性守卫：仅私有仓库才允许执行，
+#   公开仓库下手动触发也会直接跳过，防止笔记库被公开下载。
 name: blog-db-upload
 
 on:
@@ -12,6 +18,8 @@ on:
 
 jobs:
   upload:
+    # 安全守卫：公开仓库一律不执行（artifact 会被任何人下载）
+    if: github.event.repository.private == true
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -20,13 +28,15 @@ jobs:
         with: { fetch-depth: 1 }
 
       - name: Decode db from base64 secret
+        env:
+          MEMOCAST_DB_BASE64: ${{ secrets.MEMOCAST_DB_BASE64 }}
         run: |
-          if [ -z "${{ secrets.MEMOCAST_DB_BASE64 }}" ]; then
+          if [ -z "$MEMOCAST_DB_BASE64" ]; then
             echo "::error::secrets.MEMOCAST_DB_BASE64 未配置"
             exit 1
           fi
           mkdir -p .cache
-          echo "${{ secrets.MEMOCAST_DB_BASE64 }}" | base64 -d > .cache/memocast.db
+          echo "$MEMOCAST_DB_BASE64" | base64 -d > .cache/memocast.db
           ls -la .cache/memocast.db
 
       - name: Sanity-check the db
