@@ -53,7 +53,7 @@
       >
         <MuyaEditor
           ref="muyaRef"
-          v-model="contentProxy"
+          v-model="muyaModel"
           :readonly="locked"
           :theme="theme"
           :plugins="plugins"
@@ -236,12 +236,35 @@ const contentProxy = computed({
 
 const sourceMode = ref(false);
 
+/** 源码模式下给 Muya 的"冻结"内容：隐藏的 Muya 不再接收 Monaco 的实时内容。 */
+const muyaFrozen = ref('');
+
+/**
+ * Muya 的 v-model。
+ *
+ * 源码模式必须冻结：Muya 是用 v-show 保活的，如果照常跟着 contentProxy 走，
+ * 在 Monaco 里每敲一个字符都会触发 Muya `setMarkdown` → 整篇重新解析渲染，
+ * 渲染结束再把 Muya 序列化的 markdown 当作用户输入 emit 回来（core.setMarkdown
+ * 的 change 派发在渲染之后异步发生，防回声标记挡不住）。这个回声回到 Monaco
+ * 就是外部整体写值：光标被重置到文首（回车换行必现）、或者第二次按键落到错位置。
+ */
+const muyaModel = computed({
+  get: () => (sourceMode.value ? muyaFrozen.value : props.content),
+  set: (value: string) => {
+    if (!sourceMode.value) {
+      contentProxy.value = value;
+    }
+  },
+});
+
 /** 双编辑器切换：不销毁 Muya（v-show），避免来回切换丢撤销栈与滚动位置。 */
 function toggleSourceMode(): void {
   // 光标同步（复刻 vue2 isSourceMode watcher）：切换前记下当前视图光标，切换后落到另一视图
   if (!sourceMode.value) {
     const cursor = muyaRef.value?.getCursor?.();
     pendingCursor.value = cursor ? muyaCursorToPosition(cursor) : { lineNumber: 1, column: 1 };
+    // 进源码模式前冻住 Muya 的内容，切回来时再按当时正文解冻。
+    muyaFrozen.value = props.content;
     sourceMode.value = true;
     // Monaco 是 v-if 新挂载且异步 import，等 SourceEditor 的 ready 事件再落位
     return;
