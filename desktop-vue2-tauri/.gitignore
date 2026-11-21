@@ -1,2 +1,4 @@
 /src-tauri/target/
 /src-tauri/gen/schemas/
+# prepare-sidecar.js 复制的 Node 运行时（体积大，不入库）
+/src-tauri/sidecar/node/

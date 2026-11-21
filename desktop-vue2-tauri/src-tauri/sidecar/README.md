@@ -37,9 +37,20 @@ node src-tauri/sidecar/sync-services.js           # 复制
 
 ## 运行时依赖
 
-- `fs-extra`、`ssh2`：开发态会借用 `desktop-vue2/node_modules`（Rust 端已把它塞进 `NODE_PATH`）；发布版需要放进本目录的 `node_modules`，或用 `COOLMA_SIDECAR_DEPS` 指定目录。
-- Node 本身：按顺序找 `COOLMA_NODE` → 资源目录 `node/node.exe` → 本目录 `node.exe` → PATH 里的 `node`。博客构建还要用系统上的 `npm`/`pnpm`，所以目标机器本来就需要 Node 环境。
+- `fs-extra`、`ssh2`：发布版由 `scripts/prepare-sidecar.js` 装进本目录的 `node_modules`（`sidecar/package.json` 已声明）；开发时如果没装，Rust 端会把 `desktop-vue2/node_modules` 塞进 `NODE_PATH` 借用。
+- Node 本身：按顺序找 `COOLMA_NODE` → 资源目录 `node/node.exe` → 本目录 `node/node.exe`（prepare 脚本复制的）→ 本目录 `node.exe` → PATH 里的 `node`。
+- 博客构建还要用系统上的 `npm`/`pnpm`（要装 vuepress 依赖），所以目标机器仍需 Node 环境；sidecar 自带 Node 只是保证桥接脚本一定能跑起来。
 - `COOLMA_SERVICE_DIR` 可以覆盖服务目录，便于调试。
+
+## 打包
+
+```powershell
+cd desktop-vue2-tauri
+pnpm run prepare:sidecar     # 复制 Node 到 src-tauri/sidecar/node，安装 fs-extra + ssh2
+pnpm run build               # 已串联 prepare:sidecar，再执行 tauri build
+```
+
+`src-tauri/sidecar/node` 与 `sidecar/node_modules` 不入库（见 `.gitignore`），`tauri.conf.json` 的 `sidecar/**` 资源规则会随打包一起收进安装包。
 
 ## 自检
 

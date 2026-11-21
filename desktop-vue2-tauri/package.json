@@ -13,7 +13,8 @@
   "scripts": {
     "lint": "eslint --ext .js,.vue ./",
     "dev": "tauri dev",
-    "build": "tauri build",
+    "build": "pnpm run prepare:sidecar && tauri build",
+    "prepare:sidecar": "node scripts/prepare-sidecar.js",
     "dev:frontend": "quasar dev -m spa",
     "build:frontend": "quasar build -m spa",
     "test": "jest --config jest.tauri.config.js --runInBand",

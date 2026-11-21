@@ -81,6 +81,9 @@ fn node_candidates(app: &AppHandle, script_dir: &Path) -> Vec<PathBuf> {
     // 开发态常见位置：sidecar 目录的上一级放了便携 node
     candidates.push(script_dir.join("node.exe"));
     candidates.push(script_dir.join("node"));
+    // 打包态：prepare-sidecar.js 把 Node 放进 sidecar/node
+    candidates.push(script_dir.join("node").join("node.exe"));
+    candidates.push(script_dir.join("node").join("node"));
     candidates
 }
 
