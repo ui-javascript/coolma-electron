@@ -201,7 +201,9 @@ Cannot find module '.../public/electron/service/db/backup'
 
 **修复位置**：`desktop-vue3/electron/preload/index.ts`、`desktop-vue3/electron/preload/lifecycle.ts`，给动态 import 补 `.js` 后缀。
 
-**状态**：截至 2026-11-19 该问题仍存在，属待修代码缺陷，不影响主界面。
+**状态**：已于 2026-11-21 修复（提交 `c6787791`）。修复后启动日志应出现 `[preload] auto backup: <路径>`，且不再有 `register coolma protocol failed`。
+
+**写新代码时注意**：主进程产物是 CJS，但相对路径的动态 `import()` 走 ESM 解析器，不补全扩展名，所以 `import('../service/xxx.js')` 必须带 `.js`。TS 侧 `moduleResolution: "node"` 能正常解析 `.js` 到对应 `.ts`，`tsc --noEmit` 通过。
 
 ---
 

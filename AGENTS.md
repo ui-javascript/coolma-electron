@@ -45,7 +45,7 @@ adjust
 2. **pnpm 12 `verifyDepsBeforeRun` 反复重装**：`pnpm dev` 前会全量重装（15–20 分钟）并重置 Electron / better-sqlite3 二进制。环境变量 `npm_config_verify_deps_before_run=false` 无效，需在 `.npmrc` 写 `verify-deps-before-run=false`，或绕开 pnpm 直接调 `node_modules/.bin/*`。
 3. **`better-sqlite3` ABI 不匹配**：报 `NODE_MODULE_VERSION 127` vs `140`。用 `cd desktop-vue3 && pnpm rebuild:sqlite`；该脚本在 Windows 上 `tar -xzf C:\...` 会因盘符冒号失败，需改成 `tar --force-local -xzf`。
 4. **沙箱 safe-delete 杀死 vite**：vite 删除 `frontend/node_modules/.vite/deps_temp_*`（>50 文件）被拦截抛 `SAFE_DELETE_BULK_CONFIRM_REQUIRED`。启动时加 `CODEBUDDY_SAFE_DELETE_ENABLED=0`。vite 崩溃后 Electron 必须重启，不会自动重连。
-5. **ESM 动态 import 缺 `.js`**（代码缺陷，待修）：`electron/preload/index.ts`、`electron/preload/lifecycle.ts` 里的 `import('../service/db/backup')`、`import('../service/coolma-protocol')` 需补 `.js`，否则报 `auto backup failed`、`register coolma protocol failed`。
+5. **ESM 动态 import 缺 `.js`**（已于 2026-11-21 修复，提交 `c6787791`）：`electron/preload/index.ts`、`electron/preload/lifecycle.ts` 里新写的相对 `import()` 必须带 `.js` 后缀，否则报 `auto backup failed`、`register coolma protocol failed`。主进程产物是 CJS，但动态 `import()` 走 ESM 解析器，不带扩展名不会补全。
 
 另需注意：`public/electron/**/*.js` 是运行时实际加载的产物，改 `electron/**/*.ts` 后必须重新编译（`ee-bin build --cmds=electron`），否则跑的是旧逻辑。
 
