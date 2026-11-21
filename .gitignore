@@ -24,6 +24,8 @@ node_modules
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+# 输入法等第三方进程往工作目录丢的调试日志（非本仓库产物）
+**/debug.log
 
 # Plugin projects
 # `_plugins` 下仅保留当前已纳入仓库的目录；后续新增目录默认忽略
