@@ -10,6 +10,7 @@ use tauri_plugin_opener::OpenerExt;
 
 mod credential;
 mod crash;
+mod db;
 mod files;
 mod logging;
 mod sidecar;
@@ -299,6 +300,9 @@ fn main() {
             logging::install(app.handle());
             // 上次残留的 run-marker 说明进程没正常走完，落一份报告给渲染层提示
             crash::begin(app.handle());
+            // 数据库连接延迟到第一次访问才打开，这里只登记路径，打开失败会变成命令错误。
+            let data_dir = data_dir(app.handle()).unwrap_or_else(|_| PathBuf::new());
+            app.manage(db::Database::new(db::database_path(&data_dir)));
             if let Some(window) = app.get_webview_window("main") {
                 restore_window_state(&window);
                 // 原版在非 PROD 下自动打开调试面板（detach），这里对应 debug 构建。
@@ -337,6 +341,8 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             database_read,
             database_write,
+            db::db_query,
+            db::db_run,
             app_data_path,
             app_root_path,
             open_database_folder,

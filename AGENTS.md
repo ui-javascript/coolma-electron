@@ -49,6 +49,13 @@ adjust
 
 另需注意：`public/electron/**/*.js` 是运行时实际加载的产物，改 `electron/**/*.ts` 后必须重新编译（`ee-bin build --cmds=electron`），否则跑的是旧逻辑。
 
+## desktop-vue2-tauri 编译：MSVC 环境（必读）
+
+`src-tauri` 里有需要编译 C 源码的依赖（`libsqlite3-sys` 的 bundled sqlite3），cc-rs 直接调 `cl.exe`、不会替你跑 vcvars。两个坑：
+
+1. **必须给 `INCLUDE` / `LIB`**：只把 MSVC 的 `bin` 加进 `PATH` 不够，缺 `INCLUDE` 会报 `stdarg.h: 不包括路径集`。需要 `MSVC/14.29.30133/include` + Windows Kits `Include/10.0.19041.0/{ucrt,um,shared}`，`LIB` 同理补 `lib/x64` 与 `Lib/10.0.19041.0/{ucrt,um}/x64`。
+2. **`CC` 不能指向 `.cmd` 包装脚本**：cc-rs 会因此把编译器族误判成 GNU，传入 `-o/-c`，cl 不认，最后 `lib.exe` 报 `LNK1181 无法打开输入文件 xxx.o`。`CC`/`CXX` 要指真实 `cl.exe` 的全路径。
+
 ## 代理技能与规则
 
 - 仓库内的所有代理技能包和规则统一在 `.agents/` 下维护。技能包放在 [`.agents/skills/`](.agents/skills/)，每个技能有独立的 `<技能名>/SKILL.md`，配套文件与技能放在同一目录。规则文件放在 [`.agents/rules/`](.agents/rules/)。

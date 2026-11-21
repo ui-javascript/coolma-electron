@@ -10,6 +10,9 @@ tauri-build = { version = "2", features = [] }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "native-tls"] }
 percent-encoding = "2"
+# 数据库改用 rusqlite 取代渲染层的 sql.js 全库快照：bundled 直接编译 SQLite 源码，
+# 不依赖系统里有没有 sqlite3.dll，安装包也不会带外部依赖。
+rusqlite = { version = "0.43", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.11"
