@@ -40,6 +40,8 @@ import { EVENTS as appEvents } from 'src/utils/const/eventsConst'
 import 'libs-muya-vue2/themes/default.css'
 import debugLogger from 'src/utils/debugLogger'
 import { attachThemeColor } from 'src/utils/theme'
+import { isTauri } from 'src/desktop/nativeFs'
+import { fileToDataUrl } from 'src/desktop/files'
 import { showContextMenu as showEditorContextMenu } from 'src/components/contextMenu/muya'
 import {
   EchoRegistry,
@@ -992,8 +994,14 @@ export default {
           return new Promise((resolve, reject) => {
             this.importImageFromLocal().then(paths => {
               debugLogger.Info(paths)
-              resolve(paths ? paths[0] : '')
-            }).catch(err => {
+              const path = paths ? paths[0] : ''
+              // WebView 不能直接渲染本地绝对路径，导入后转成 data URL 再插入。
+              if (!path || !isTauri()) return path
+              return fileToDataUrl(path).catch(err => {
+                debugLogger.Error(err)
+                return path
+              })
+            }).then(resolve).catch(err => {
               debugLogger.Error(err)
               reject(err)
             })

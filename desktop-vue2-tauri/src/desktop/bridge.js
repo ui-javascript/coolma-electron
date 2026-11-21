@@ -3,6 +3,8 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { LogicalPosition } from '@tauri-apps/api/dpi'
 import { Menu } from '@tauri-apps/api/menu'
 import axios from 'axios'
+import { handleDesktopChannel, UNHANDLED } from './files'
+import { loadTheme, openThemeFolder, refreshThemeFolder } from './theme'
 
 const subscriptions = new Map()
 const request = axios.create({ baseURL: 'https://ac.wiz.cn', timeout: 50000 })
@@ -48,6 +50,18 @@ async function invoke (channel, ...args) {
     return invokeDatabase(channel, ...args)
   }
   const payload = args[0]
+  try {
+    const handled = await handleDesktopChannel(channel, payload, emit)
+    if (handled !== UNHANDLED) return handled
+  } catch (error) {
+    // 对齐 Electron 主进程 handleApi 的约定：异常包成 { error } 返回，不向渲染层抛出。
+    return {
+      error: {
+        code: error?.code,
+        message: error?.message || String(error)
+      }
+    }
+  }
   switch (channel) {
     case 'window-is-maximized': return isTauri() && getCurrentWindow().isMaximized()
     case 'remote-request': return remoteRequest(payload)
@@ -58,6 +72,9 @@ async function invoke (channel, ...args) {
     case 'get-app-path': return isTauri() ? invokeNative('app_data_path') : ''
     case 'open-sqlite-file': return isTauri() ? invokeNative('open_database_folder') : undefined
     case 'check-update': return { supported: false }
+    case 'load-theme': return isTauri() ? loadTheme(payload) : ''
+    case 'open-theme-folder': return isTauri() ? openThemeFolder() : undefined
+    case 'refresh-theme-folder': return isTauri() ? refreshThemeFolder() : []
     default:
       return { success: false, error: { code: 'TAURI_UNSUPPORTED', message: 'Tauri 版暂未支持此桌面功能：' + channel } }
   }

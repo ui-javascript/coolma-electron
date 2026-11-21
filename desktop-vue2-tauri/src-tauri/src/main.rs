@@ -7,6 +7,7 @@ use tauri::{
 };
 use tauri_plugin_opener::OpenerExt;
 
+mod files;
 mod wiz_resources;
 mod wiznote;
 
@@ -84,12 +85,25 @@ fn main() {
                 let _ = window.set_focus();
             }
         }))
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             database_read,
             database_write,
             app_data_path,
             open_database_folder,
+            files::path_exists,
+            files::read_file_bytes,
+            files::read_file_text,
+            files::write_file_text,
+            files::write_file_bytes,
+            files::create_dir,
+            files::list_files,
+            files::download_file,
+            files::picgo_upload,
+            files::reveal_path,
+            files::open_folder,
+            files::open_external,
             wiznote::wiznote_request,
             wiznote::wiznote_upload,
             wiz_resources::wiznote_cache_file
