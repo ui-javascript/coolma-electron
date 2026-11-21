@@ -15,7 +15,7 @@ import type { EditorSelectionHint, EditorSelectionSnapshot } from '@/editor/sele
  * - 只有"当前激活"的那个视图会把内容写回 v-model，避免双写；
  * - monaco 按需加载（动态 import），不进首屏包。
  */
-const props = defineProps<{ modelValue: string; theme: AppTheme; readonly?: boolean }>();
+const props = defineProps<{ modelValue: string; theme: AppTheme; readonly?: boolean; language?: string }>();
 const emit = defineEmits<{
   (event: 'update:modelValue', value: string): void;
   (event: 'selection-change', payload: EditorSelectionHint): void;
@@ -42,7 +42,7 @@ onMounted(async () => {
 
   editor = monacoApi.editor.create(host.value, {
     value: props.modelValue,
-    language: 'markdown',
+    language: props.language || 'markdown',
     theme: themeName(props.theme),
     automaticLayout: true,
     minimap: { enabled: false },
@@ -100,6 +100,16 @@ watch(
     suppress = true;
     editor.setValue(value);
     suppress = false;
+  },
+);
+
+watch(
+  () => props.language,
+  (language) => {
+    const model = editor?.getModel();
+    if (model && monacoApi) {
+      monacoApi.editor.setModelLanguage(model, language || 'markdown');
+    }
   },
 );
 

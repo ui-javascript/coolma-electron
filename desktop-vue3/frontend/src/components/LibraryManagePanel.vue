@@ -130,39 +130,13 @@
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import {
-  ArrowDownBold,
-  Bell,
-  Calendar,
-  CircleCheck,
-  CircleClose,
-  Coin,
-  CopyDocument,
-  Cpu,
-  Document,
-  Download,
-  Edit,
-  EditPen,
-  Hide,
-  Lightning,
-  Link,
-  Lock,
-  MagicStick,
-  Pointer,
-  Plus,
-  Select,
-  Share,
-  Sort,
-  Sunny,
-  TrendCharts,
-  User,
-  View,
-} from '@element-plus/icons-vue';
+import { CircleCheck, Plus } from '@element-plus/icons-vue';
 import type { Component } from 'vue';
 import type { EchoCard, RuneCard } from '@shared/types/domain';
 import { isBuiltinLibraryCard } from '@shared/types/libraryCard';
 import { useLibraryStore } from '@/stores/library';
 import { EchoCategoryEnum, RuneCategoryEnum, resolveLibraryCategory } from '@shared/enums/library';
+import { libraryIconOf } from '@/utils/libraryIcons';
 import LibraryFormDialog from './LibraryFormDialog.vue';
 import PackImportDialog from './PackImportDialog.vue';
 import RuneRemoteImportDialog from './RuneRemoteImportDialog.vue';
@@ -204,37 +178,8 @@ function initialOf(name: string): string {
 }
 
 /** Material 图标名 → Element Plus 图标；未知的走首字兜底。 */
-const ICON_MAP: Record<string, Component> = {
-  auto_awesome: MagicStick,
-  block: CircleClose,
-  call_split: Share,
-  campaign: Bell,
-  casino: Coin,
-  check_box: Select,
-  difference: CopyDocument,
-  link: Link,
-  local_florist: Sunny,
-  park: Sunny,
-  psychology: Cpu,
-  shield: Lock,
-  thumb_up: Pointer,
-  thunderstorm: Lightning,
-  unfold_more: Sort,
-  visibility: View,
-  visibility_off: Hide,
-  description: Document,
-  preview: View,
-  edit: Edit,
-  cloud_download: Download,
-  show_chart: TrendCharts,
-  input: EditPen,
-  arrow_drop_down_circle: ArrowDownBold,
-  event: Calendar,
-  person: User,
-};
-
 function iconOf(item: RuneCard | EchoCard): Component | null {
-  return item.icon ? ICON_MAP[item.icon] ?? null : null;
+  return libraryIconOf(item.icon);
 }
 
 /** vue2 runeCard 的头部渐变：135deg，色值 dd → 88。 */

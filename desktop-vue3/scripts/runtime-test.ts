@@ -616,6 +616,19 @@ async function main(): Promise<void> {
     assert('皮肤：文案 key 指向根级 skin 节点', skinLabelKey('nezha') === 'skin.nezha' && skinLabelKey('infp') === 'skin.infp', skinLabelKey('nezha'));
   }
 
+  // ===== 库表单：符文/回响图标选项 =====
+  {
+    const { ECHO_ICON_OPTIONS, RUNE_ICON_OPTIONS, libraryIconOf } = await import('../frontend/src/utils/libraryIcons');
+    assert('库图标：符文 15 项、回响 8 项', RUNE_ICON_OPTIONS.length === 15 && ECHO_ICON_OPTIONS.length === 8, `${RUNE_ICON_OPTIONS.length}/${ECHO_ICON_OPTIONS.length}`);
+    assert(
+      '库图标：所有选项都能映射到 Element 图标',
+      [...RUNE_ICON_OPTIONS, ...ECHO_ICON_OPTIONS].every((option) => libraryIconOf(option.value) !== null),
+      JSON.stringify([...RUNE_ICON_OPTIONS, ...ECHO_ICON_OPTIONS].filter((option) => !libraryIconOf(option.value))),
+    );
+    assert('库图标：vue2 默认值与旧内置图标可渲染', libraryIconOf('whatshot') !== null && libraryIconOf('graphic_eq') !== null && libraryIconOf('auto_awesome') !== null, 'defaults');
+    assert('库图标：未知值返回 null', libraryIconOf('not_a_real_icon') === null && libraryIconOf('') === null, 'unknown');
+  }
+
   // ===== 新建笔记：默认标题与模板下拉 =====
   {
     const fakeT = (key: string, named?: Record<string, unknown>) => (

@@ -299,6 +299,7 @@ export default {
     remoteRuneTooLarge: 'The file is larger than 1MB and cannot be imported as a single rune template',
     remoteRuneDuplicate: 'A rune named “{name}” already exists. Rename it or choose another template.',
     color: 'Color',
+    icon: 'Icon',
     category: 'Category',
     source: 'Source',
     templatePreset: "Template",

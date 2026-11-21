@@ -299,6 +299,7 @@ export default {
     remoteRuneTooLarge: '文件超过 1MB，无法作为单个符文模板导入',
     remoteRuneDuplicate: '已有同名符文「{name}」，请先改名或选其它模板',
     color: '颜色',
+    icon: '图标',
     category: '分类',
     source: '源码',
     templatePreset: "内置模板",
