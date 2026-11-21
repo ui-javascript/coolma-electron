@@ -62,10 +62,15 @@ pub fn append_log(app: tauri::AppHandle, level: String, message: String) -> Resu
     write(&app, level, &message)
 }
 
+/// 当前月份的日志文件路径（open_log_file / 崩溃提示都用它）。
+pub fn log_file_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(log_dir(app)?.join("main.log"))
+}
+
 /// 原版 open-log-files 是 shell.showItemInFolder(日志文件)，这里同样定位到文件本身。
 #[tauri::command]
 pub fn open_log_file(app: tauri::AppHandle) -> Result<(), String> {
-    let path = log_dir(&app)?.join("main.log");
+    let path = log_file_path(&app)?;
     if let Some(dir) = path.parent() {
         fs::create_dir_all(dir).map_err(|error| format!("无法创建日志目录：{error}"))?;
     }

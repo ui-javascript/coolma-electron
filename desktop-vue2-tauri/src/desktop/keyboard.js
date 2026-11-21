@@ -1,5 +1,6 @@
 import bus from 'components/common/bus'
 import { EVENTS as events } from 'src/utils/const/eventsConst'
+import { invoke } from '@tauri-apps/api/core'
 import { isTauri } from './nativeFs'
 import { findShortcut } from './shortcutTable'
 
@@ -19,11 +20,34 @@ const CHANNELS = {
   view: events.VIEW_SHORTCUT_CALL
 }
 
+/** 原版走 Electron role / 主进程直接调用的键，自己处理后不走 bus */
+const NATIVE_ACTIONS = {
+  devtool: () => invoke('open_dev_tools')
+}
+
+async function runNativeAction (shortcut) {
+  const action = NATIVE_ACTIONS[shortcut.event]
+  if (!action) return false
+  try {
+    await action()
+  } catch (error) {
+    console.warn('[keyboard] 执行系统快捷键失败:', shortcut.event, error)
+  }
+  return true
+}
+
 function handleKeydown (event) {
   // 输入法组合中、已被处理的按键不重复触发。
   if (event.defaultPrevented || event.isComposing) return
   const shortcut = findShortcut(event)
   if (!shortcut) return
+  // 与原版 edit.cut/copy/paste 的 role 一致：交给 WebView 原生处理，不拦默认行为
+  if (shortcut.passive) return
+  if (NATIVE_ACTIONS[shortcut.event]) {
+    event.preventDefault()
+    runNativeAction(shortcut)
+    return
+  }
   const group = CHANNELS[shortcut.channel]
   const eventName = shortcut.channel === 'paragraph'
     ? group

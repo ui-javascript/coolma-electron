@@ -63,4 +63,25 @@ describe('快捷键表对齐 Electron 原版', () => {
       event: 'sourceMode'
     })
   })
+
+  it('cut/copy/paste 登记为 passive，交给 WebView 原生处理', () => {
+    for (const key of ['x', 'c', 'v']) {
+      expect(findShortcut(keyEvent(key, { ctrl: true }))).toMatchObject({
+        channel: 'native',
+        passive: true
+      })
+    }
+    // Ctrl+Shift+C 仍是「复制为 Markdown」，不能被 passive 那条盖掉
+    expect(findShortcut(keyEvent('c', { ctrl: true, shift: true }))).toMatchObject({
+      event: 'copyAsMarkdown'
+    })
+  })
+
+  it('view.devtool 与原版同为 CmdOrCtrl+Shift+P', () => {
+    expect(findShortcut(keyEvent('p', { ctrl: true, shift: true }))).toMatchObject({
+      channel: 'view',
+      event: 'devtool'
+    })
+    expect(findShortcut(keyEvent('p', { ctrl: true }))).toBeNull()
+  })
 })

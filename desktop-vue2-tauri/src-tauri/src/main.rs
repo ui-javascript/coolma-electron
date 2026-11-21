@@ -9,6 +9,7 @@ use tauri::{
 use tauri_plugin_opener::OpenerExt;
 
 mod credential;
+mod crash;
 mod files;
 mod logging;
 mod sidecar;
@@ -128,9 +129,16 @@ fn app_root_path() -> Result<String, String> {
     Ok(app_root_dir().to_string_lossy().to_string())
 }
 
+/// 原版 `view.devtool`（CmdOrCtrl+Shift+P）：打开独立窗口的开发者工具。
+/// 启用 tauri 的 `devtools` feature 后 release 构建同样可用，与原版一致。
 #[tauri::command]
-fn open_database_folder(app: tauri::AppHandle) -> Result<(), String> {
-    let dir = data_dir(&app)?;
+fn open_dev_tools(window: WebviewWindow) -> Result<(), String> {
+    window.open_devtools();
+    Ok(())
+}
+
+#[tauri::command]
+fn open_database_folder(app: tauri::AppHandle) -> Result<(), String> {    let dir = data_dir(&app)?;
     fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
     app.opener()
         .open_path(dir.to_string_lossy(), None::<&str>)
@@ -279,6 +287,8 @@ fn main() {
         .manage(sidecar::Sidecar::default())
         .setup(|app| {
             logging::install(app.handle());
+            // 上次残留的 run-marker 说明进程没正常走完，落一份报告给渲染层提示
+            crash::begin(app.handle());
             if let Some(window) = app.get_webview_window("main") {
                 restore_window_state(&window);
                 // 原版在非 PROD 下自动打开调试面板（detach），这里对应 debug 构建。
@@ -321,6 +331,7 @@ fn main() {
             app_root_path,
             open_database_folder,
             window_quit,
+            open_dev_tools,
             files::path_exists,
             files::read_file_bytes,
             files::read_file_text,
@@ -349,8 +360,15 @@ fn main() {
             credential::credential_delete,
             credential::legacy_data_dir,
             credential::legacy_key_secrets,
-            credential::dpapi_unprotect
+            credential::dpapi_unprotect,
+            crash::last_crash_report
         ])
-        .run(tauri::generate_context!())
-        .expect("Unable to start Coolma Tauri");
+        .build(tauri::generate_context!())
+        .expect("Unable to build Coolma Tauri")
+        .run(|app, event| {
+            // 正常退出时清掉运行标记，避免下次启动误报崩溃
+            if let tauri::RunEvent::Exit = event {
+                crash::end(app);
+            }
+        });
 }

@@ -7,6 +7,12 @@
  */
 
 export const SHORTCUTS = [
+  // 系统级编辑：原版菜单用 Electron role（cut/copy/paste）交给 WebView 原生处理。
+  // 这里只登记以保证与菜单表一致，passive 表示"不拦默认行为"。
+  { acc: 'CmdOrCtrl+X', channel: 'native', event: 'cut', arg: 'cut', passive: true },
+  { acc: 'CmdOrCtrl+C', channel: 'native', event: 'copy', arg: 'copy', passive: true },
+  { acc: 'CmdOrCtrl+V', channel: 'native', event: 'paste', arg: 'paste', passive: true },
+
   // 编辑
   { acc: 'CmdOrCtrl+Z', channel: 'edit', event: 'undo', arg: 'undo' },
   { acc: 'CmdOrCtrl+Shift+Z', channel: 'edit', event: 'redo', arg: 'redo' },
@@ -59,7 +65,9 @@ export const SHORTCUTS = [
   // 视图
   { acc: 'CmdOrCtrl+Shift+,', channel: 'view', event: 'switchView', arg: 'switchView' },
   { acc: 'CmdOrCtrl+Shift+.', channel: 'view', event: 'sourceMode', arg: 'sourceMode' },
-  { acc: 'CmdOrCtrl+Shift+L', channel: 'view', event: 'lockMode', arg: 'lockMode' }
+  { acc: 'CmdOrCtrl+Shift+L', channel: 'view', event: 'lockMode', arg: 'lockMode' },
+  // 原版 view.devtool = CmdOrCtrl+Shift+P，点开独立窗口的开发者工具
+  { acc: 'CmdOrCtrl+Shift+P', channel: 'view', event: 'devtool', arg: 'devtool' }
 ]
 
 export function parseAccelerator (accelerator) {
