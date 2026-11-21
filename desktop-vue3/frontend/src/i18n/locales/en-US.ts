@@ -68,7 +68,7 @@ export default {
     pullDone: 'Pull finished: {imported} imported, {skipped} skipped, {backfilled} backfilled, {failed} failed',
   },
   aiDoubao: {
-    title: 'Doubao AI Assistant',
+    title: 'AI assistant',
     missingBuild: 'Doubao WebApp build not found. Build _plugins/doubao-input first.',
   },
   echoInstance: {

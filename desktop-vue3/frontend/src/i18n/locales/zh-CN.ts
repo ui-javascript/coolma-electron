@@ -68,7 +68,7 @@ export default {
     pullDone: '拉取完成：导入 {imported} 篇，跳过 {skipped} 篇，回填 {backfilled} 篇，失败 {failed} 篇',
   },
   aiDoubao: {
-    title: '豆包 AI 助手',
+    title: 'AI 助手',
     missingBuild: '未找到豆包 WebApp 构建产物；请先构建 _plugins/doubao-input',
   },
   echoInstance: {
