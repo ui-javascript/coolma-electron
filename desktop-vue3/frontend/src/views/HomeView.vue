@@ -378,7 +378,7 @@ const readCalendarBasis = (): CalendarDateBasis => {
 const calendarDate = ref('');
 const calendarBasis = ref<CalendarDateBasis>(readCalendarBasis());
 
-const noteOrder = ref<string>(NoteOrderTypeEnum.ModifiedTimeDesc);
+const noteOrder = ref<string>(NoteOrderTypeEnum.TitleAsc);
 const denseMode = ref(false);
 
 /** 应用 @ 快捷面板列数（引擎读 --quick-insert-columns，4-8 限幅与 vue2 一致）。 */
@@ -392,7 +392,7 @@ function applyEditorPrefs(): void {
   const prefs = appStore.prefs;
   noteOrder.value = NoteOrderTypeEnum.has(prefs['editor.noteOrderType'])
     ? (prefs['editor.noteOrderType'] as string)
-    : NoteOrderTypeEnum.ModifiedTimeDesc;
+    : NoteOrderTypeEnum.TitleAsc;
   denseMode.value = prefs['editor.noteListDenseMode'] === true;
   applyQuickInsertColumns(prefs['editor.quickInsertColumns']);
 }
@@ -411,7 +411,7 @@ const filteredNotes = computed(() => {
   }).sort(compareByOrder(noteOrder.value));
 });
 
-/** 客户端排序（对齐 vue2 NoteOrderTypeEnum 语义），默认修改时间倒序。 */
+/** 客户端排序（对齐 vue2 NoteOrderTypeEnum 语义），默认标题升序。 */
 function compareByOrder(order: string) {
   return (a: NoteSummary, b: NoteSummary): number => {
     switch (order) {

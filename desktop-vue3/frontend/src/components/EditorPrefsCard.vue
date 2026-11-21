@@ -35,7 +35,7 @@ const appStore = useAppStore();
 
 const markdownOnly = ref(false);
 const denseMode = ref(false);
-const noteOrder = ref<string>(NoteOrderTypeEnum.ModifiedTimeDesc);
+const noteOrder = ref<string>(NoteOrderTypeEnum.TitleAsc);
 const quickColumns = ref(6);
 
 const orderItems = NoteOrderTypeEnum.items as Array<{ value: string; label: string }>;
