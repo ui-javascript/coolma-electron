@@ -3,7 +3,7 @@
     <div v-if="visible" class="tier-dialog" @click.self="close">
       <div class="tier-board" ref="boardRef">
         <div class="tier-modebar">
-          <span class="tier-mode">当前：{{ mode === 'note' ? t('ranking.noteMode') : t('ranking.categoryMode') }}</span>
+          <span class="tier-mode">当前: {{ mode === 'note' ? t('ranking.noteMode') : t('ranking.categoryMode') }}</span>
           <span v-if="contextKey" class="tier-context">{{ contextKey }}</span>
           <span class="tier-spacer" />
           <button v-if="mode === 'note' && contextKey" type="button" class="tier-fill" @click="fillToNote">💾 {{ t('ranking.fillToNote') }}</button>
@@ -15,7 +15,7 @@
             :key="tier.id"
             class="tier-row"
             :data-tier="tier.id"
-            :class="{ 'is-over': tierDragOver === tierIndex }"
+            :class="{ 'is-over': tierDragOver === tierIndex, 'is-fixed': fixedHeight }"
             @dragover.prevent="tierDragOver = tierIndex"
             @dragleave="tierDragOver = tierDragOver === tierIndex ? -1 : tierDragOver"
             @drop.prevent="onTierAreaDrop(tierIndex)"
@@ -50,7 +50,7 @@
                 v-for="img in tier.images"
                 :key="img.id"
                 class="tier-image"
-                :class="imageClass(tier)"
+                :class="[imageClass(tier), { 'is-selected': dragging?.image.id === img.id }]"
                 :style="imageStyle(tier)"
                 :data-image-id="img.id"
                 draggable="true"
@@ -77,6 +77,7 @@
               v-for="img in unassignedImages"
               :key="img.id"
               class="tier-image"
+              :class="{ 'is-selected': dragging?.image.id === img.id }"
               draggable="true"
               @dragstart="onImageDragStart($event, img, -1)"
               @dragend="onImageDragEnd"
@@ -692,170 +693,417 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeyDown));
   display: flex;
   flex-direction: column;
   background: #1a1a1a;
-  padding: 8px 10px 10px;
-  gap: 8px;
-  box-sizing: border-box;
+  min-height: 0;
 }
 
 .tier-modebar {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #2d2d2d;
+  border-bottom: 1px solid #404040;
+  flex: none;
   color: #cfcfcf;
-  font-size: 13px;
-  padding: 2px 4px;
+  font-size: 14px;
 }
 
-.tier-mode { color: #8fd3ff; }
-.tier-context { color: #8a8a8a; font-size: 12px; max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tier-mode {
+  color: #7dbece;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.tier-context {
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #999;
+  font-size: 12px;
+}
+
 .tier-spacer { flex: 1; }
 
 .tier-fill {
   border: 0;
-  border-radius: 6px;
-  padding: 4px 10px;
-  background: #3a6ea5;
+  border-radius: 4px;
+  padding: 6px 12px;
+  background: #4090f0;
   color: #fff;
+  font-size: 12px;
   cursor: pointer;
+  transition: background .2s;
 }
+
+.tier-fill:hover { background: #5090ff; }
 
 .tier-list {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0;
+  overflow-x: hidden;
   overflow-y: auto;
 }
 
 .tier-row {
   display: flex;
+  align-items: stretch;
   min-height: 100px;
-  background: #232323;
-  border: 1px solid #2f2f2f;
-  border-radius: 4px;
+  flex: none;
+  background: #1a1a1a;
+  border-bottom: 2px solid #404040;
+  transition: background-color .2s ease;
+  overflow-x: hidden;
+  overflow-y: visible;
 }
 
-.tier-row.is-over { border-color: #5aa9e6; background: #262d33; }
+.tier-row:hover { background: #2e2e2e; }
+.tier-row.is-over { background: #3a3a3a; }
+
+.tier-row.is-fixed {
+  height: 130px;
+  min-height: 130px;
+  max-height: 130px;
+}
 
 .tier-label {
-  width: 110px;
-  flex: none;
+  width: 172px;
+  min-width: 172px;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
   position: relative;
+  padding: 6px;
   color: #fff;
-  font-weight: 600;
-  border-radius: 3px 0 0 3px;
-  padding: 6px 4px;
+  font-size: 1.7em;
+  font-weight: 900;
+  text-align: center;
+  text-shadow:
+    -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000,
+    0 -1px 0 #000, 0 1px 0 #000, -1px 0 0 #000, 1px 0 0 #000;
+  cursor: pointer;
 }
 
-.tier-name { cursor: text; font-size: 15px; text-align: center; word-break: break-all; }
+.tier-name {
+  display: block;
+  font-weight: 900;
+  line-height: 1.25;
+  white-space: normal;
+  overflow: visible;
+  text-align: center;
+  outline: none;
+}
+
 .tier-name-input {
-  width: 92px;
-  border: 1px solid #ffffff66;
-  background: #00000033;
-  color: #fff;
+  width: 130px;
+  padding: 2px 5px;
+  border: 0;
   border-radius: 4px;
-  padding: 2px 4px;
-  font-size: 14px;
+  background: rgb(255 255 255 / 20%);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 900;
   text-align: center;
 }
 
-.tier-label-actions { display: flex; align-items: center; gap: 4px; }
-.tier-color { width: 18px; height: 18px; border: 0; padding: 0; background: transparent; cursor: pointer; }
-.tier-del { border: 0; background: #00000044; color: #fff; border-radius: 3px; width: 18px; height: 18px; cursor: pointer; line-height: 1; }
+.tier-label-actions {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .15s ease;
+  z-index: 101;
+}
+
+.tier-label:hover .tier-label-actions,
+.tier-label-actions:hover {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.tier-color {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.tier-color:hover { transform: scale(1.15); }
+
+.tier-del {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 2px solid #ff3742;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 90%);
+  color: #ff3742;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color .15s, color .15s, transform .15s;
+}
+
+.tier-del:hover {
+  background: #ff3742;
+  color: #fff;
+  transform: scale(1.1);
+}
 
 .tier-content {
   flex: 1;
   min-width: 0;
+  min-height: 100px;
   display: flex;
-  flex-wrap: wrap;
-  align-content: flex-start;
+  flex-wrap: nowrap;
+  align-items: center;
   gap: 5px;
-  padding: 6px;
+  padding: 5px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.tier-row.is-fixed .tier-content {
+  height: 120px;
+  min-height: 120px;
+  max-height: 120px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  overflow-x: auto;
   overflow-y: auto;
 }
 
 .tier-image {
   position: relative;
-  width: 72px;
-  height: 72px;
-  border-radius: 4px;
+  width: 100px;
+  height: 100px;
+  flex-shrink: 0;
   overflow: hidden;
   cursor: grab;
-  flex: none;
+  box-shadow: 0 4px 8px rgb(0 0 0 / 10%);
+  transition: all .3s ease;
+  user-select: none;
 }
+
+.tier-image:active { cursor: grabbing; }
+
+.tier-image.is-selected {
+  outline: 3px solid #007bff;
+  outline-offset: -3px;
+  transform: scale(.95);
+}
+
+.tier-image:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 12px rgb(0 0 0 / 20%);
+}
+
+.tier-image.is-selected:hover { transform: scale(.95); }
 
 .tier-image.single-row { width: 100px; height: 100px; }
 .tier-image.multi-row { width: 70px; height: 70px; }
 .tier-image.adaptive { min-width: 70px; min-height: 70px; max-width: 100px; max-height: 100px; }
 
-.tier-image img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tier-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+
 .tier-image-name {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  font-size: 10px;
+  z-index: 10;
+  padding: 3px 5px;
+  background: rgb(0 0 0 / 50%);
   color: #fff;
-  background: #000000aa;
-  padding: 1px 4px;
+  font-size: 11px;
+  font-weight: 500;
+  text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.tier-bottom { display: flex; gap: 8px; height: 116px; flex: none; }
+.tier-list::-webkit-scrollbar,
+.tier-content::-webkit-scrollbar,
+.tier-gallery::-webkit-scrollbar { width: 8px; height: 8px; }
 
-.tier-gallery {
-  flex: 1;
-  min-width: 0;
+.tier-list::-webkit-scrollbar-track { background: #2d2d2d; }
+.tier-list::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+.tier-list::-webkit-scrollbar-thumb:hover { background: #777; }
+
+.tier-content::-webkit-scrollbar { height: 6px; }
+.tier-content::-webkit-scrollbar-track { background: transparent; }
+.tier-content::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
+.tier-content::-webkit-scrollbar-thumb:hover { background: #777; }
+
+.tier-bottom {
   display: flex;
-  flex-wrap: wrap;
-  align-content: flex-start;
-  gap: 5px;
-  padding: 6px;
-  background: #202020;
-  border: 1px dashed #3a3a3a;
-  border-radius: 4px;
-  overflow-y: auto;
+  align-items: stretch;
+  gap: 8px;
+  flex: none;
+  padding: 8px 8px 8px 5px;
+  background: #2d2d2d;
 }
 
-.tier-gallery.is-over { border-color: #5aa9e6; }
-.tier-gallery-empty { color: #6f6f6f; font-size: 12px; align-self: center; margin: auto; }
+.tier-gallery {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100px;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 5px;
+  padding: 5px 5px 15px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-color: #777 #2d2d2d;
+}
+
+.tier-gallery.is-over {
+  background: #3a4a3a;
+  outline: 2px dashed #5a8f5a;
+}
+
+.tier-gallery::-webkit-scrollbar { height: 10px; }
+.tier-gallery::-webkit-scrollbar-track { background: #2d2d2d; border-radius: 5px; }
+.tier-gallery::-webkit-scrollbar-thumb { background: #666; border-radius: 5px; }
+.tier-gallery::-webkit-scrollbar-thumb:hover { background: #888; }
+.tier-gallery-empty { color: #6f6f6f; font-size: 12px; margin: auto; }
 
 .tier-tools {
-  width: 132px;
-  flex: none;
+  flex: 0 0 auto;
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
 }
 
 .tier-tool-row { display: flex; gap: 4px; }
-.tier-tool {
-  flex: 1;
-  min-height: 30px;
-  border: 1px solid #3a3a3a;
-  background: #292929;
-  color: #d8d8d8;
-  border-radius: 4px;
-  cursor: pointer;
+.tier-tool-row:nth-child(1) { flex-direction: column; justify-content: center; }
+.tier-tool-row:nth-child(2) { flex-direction: row; gap: 6px; }
+.tier-tool-row:nth-child(3) { flex-direction: column; justify-content: center; gap: 4px; }
+
+.tier-tool-row:nth-child(1) .tier-tool {
+  flex: none;
+  padding: 4px 10px;
+  border: 2px dashed #666;
+  border-radius: 6px;
+  background: #444;
+  color: #ccc;
   font-size: 12px;
+  white-space: nowrap;
+  transition: all .3s;
 }
 
-.tier-tool.is-over { border-color: #e74d5a; color: #fff; background: #3a2222; }
-.tier-upload.is-over { border-color: #5aa9e6; background: #22303a; }
-.tier-save { border: 0; border-radius: 6px; padding: 6px 12px; background: #3a6ea5; color: #fff; cursor: pointer; }
+.tier-tool-row:nth-child(1) .tier-tool:hover {
+  background: #555;
+  border-color: #888;
+  color: #fff;
+}
+
+.tier-tool-row:nth-child(1) .tier-tool:nth-child(2) {
+  border: 2px solid #c82333;
+  background: #dc3545;
+  color: #fff;
+}
+
+.tier-tool-row:nth-child(1) .tier-tool:nth-child(2):hover {
+  background: #c82333;
+  border-color: #bd2130;
+}
+
+.tier-upload,
+.tier-delete {
+  flex: none;
+  width: 60px;
+  height: 60px;
+  min-height: 60px;
+  padding: 0;
+  border: 2px dashed #666;
+  border-radius: 0;
+  background: #404040;
+  color: #ccc;
+  font-size: 2em;
+  line-height: 1;
+  transition: all .3s;
+}
+
+.tier-upload:hover,
+.tier-upload.is-over {
+  border-color: #007bff;
+  background: #4a4a4a;
+  color: #007bff;
+}
+
+.tier-delete {
+  border-color: #dc3545;
+  background: #4a3a3a;
+  color: #dc3545;
+  cursor: default;
+}
+
+.tier-delete.is-over {
+  background: #dc3545;
+  color: #fff;
+}
+
+.tier-tool-row:nth-child(3) .tier-tool {
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #65a6bc;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  transition: all .3s ease;
+}
+
+.tier-tool-row:nth-child(3) .tier-tool:hover {
+  background: #7dbece;
+  transform: scale(1.1);
+}
+
+.tier-tool-row:nth-child(3) .tier-tool:nth-child(2) {
+  border: 2px solid rgb(255 255 255 / 20%);
+  background: rgb(80 80 80 / 80%);
+  color: #fff;
+  font-size: 16px;
+}
+
+.tier-tool-row:nth-child(3) .tier-tool:nth-child(2):hover {
+  background: rgb(220 53 69 / 90%);
+  border-color: #dc3545;
+}
 
 .tier-modal {
   position: fixed;
   inset: 0;
-  background: #000000aa;
+  background: rgb(0 0 0 / 80%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -864,24 +1112,131 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeyDown));
 
 .tier-modal-body {
   position: relative;
-  width: 420px;
+  width: 500px;
   max-width: 90vw;
-  background: #242424;
-  color: #e8e8e8;
-  border-radius: 8px;
-  padding: 18px 20px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 30px;
+  border-radius: 10px;
+  background: #2d2d2d;
+  color: #fff;
 }
 
-.tier-modal-close { position: absolute; right: 8px; top: 6px; border: 0; background: transparent; color: #aaa; font-size: 18px; cursor: pointer; }
-.tier-modal-body h2, .tier-modal-body h3 { margin: 0 0 10px; font-size: 16px; }
-.tier-modal-body ul { margin: 0 0 12px; padding-left: 18px; font-size: 12px; line-height: 1.8; color: #bdbdbd; }
-.tier-check { display: flex; align-items: center; gap: 6px; font-size: 13px; margin-bottom: 12px; }
-.tier-modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.tier-modal-close {
+  position: absolute;
+  top: 8px;
+  right: 14px;
+  border: 0;
+  background: none;
+  color: #999;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.tier-modal-close:hover { color: #fff; }
+
+.tier-modal-body h2,
+.tier-modal-body h3 {
+  margin: 0 0 20px;
+  color: #7dbece;
+  font-size: 20px;
+  text-align: center;
+}
+
+.tier-modal-body ul {
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.tier-modal-body li {
+  position: relative;
+  margin-bottom: 12px;
+  padding-left: 18px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.tier-modal-body li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: #7dbece;
+  font-weight: 700;
+}
+
+.tier-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 16px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.tier-save {
+  display: block;
+  margin: 16px auto 0;
+  padding: 10px 20px;
+  border: 2px solid #666;
+  border-radius: 8px;
+  background: #444;
+  color: #ccc;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all .3s ease;
+}
+
+.tier-save:hover {
+  border-color: #007bff;
+  background: #555;
+  color: #007bff;
+}
+
+.tier-modal-body h3 { color: #dc3545; }
+
+.tier-modal-body p {
+  margin: 0 0 20px;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.tier-modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.tier-modal-actions .tier-save {
+  display: inline-block;
+  margin: 0;
+  padding: 9px 20px;
+  border: 0;
+  border-radius: 5px;
+  background: #dc3545;
+  color: #fff;
+  font-size: 14px;
+}
+
+.tier-modal-actions .tier-save:hover { background: #c82333; color: #fff; }
+
+.tier-modal-actions .tier-tool {
+  padding: 9px 20px;
+  border: 0;
+  border-radius: 5px;
+  background: #6c757d;
+  color: #fff;
+  font-size: 14px;
+}
+
+.tier-modal-actions .tier-tool:hover { background: #5a6268; }
 
 .tier-preview {
   position: fixed;
   inset: 0;
-  background: #000000cc;
+  background: rgb(0 0 0 / 90%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -889,7 +1244,13 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeyDown));
   cursor: zoom-out;
 }
 
-.tier-preview img { max-width: 92vw; max-height: 92vh; object-fit: contain; }
+.tier-preview img {
+  min-width: 600px;
+  min-height: 400px;
+  max-width: 80vw;
+  max-height: 80vh;
+  object-fit: contain;
+}
 
 .tier-file { display: none; }
 </style>

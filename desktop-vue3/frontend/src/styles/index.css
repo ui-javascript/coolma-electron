@@ -1754,3 +1754,103 @@ html.dark .pack-import-error {
   background: rgb(244 67 54 / 16%);
   color: #ef9a9a;
 }
+
+/* 远端导入符文：对齐 vue2 runeRemoteImportDialog 的 520px 卡片 */
+.remote-import-dialog {
+  min-width: 460px;
+  max-width: 92vw;
+  padding: 0;
+  border-radius: 8px;
+}
+
+.remote-import-dialog .el-dialog__header {
+  display: none;
+}
+
+.remote-import-dialog .el-dialog__body {
+  padding: 0;
+}
+
+.remote-import-dialog .el-dialog__footer {
+  padding: 10px 18px;
+  border-top: 1px solid var(--el-border-color-lighter);
+  background: var(--el-fill-color-lighter);
+}
+
+html.dark .remote-import-error {
+  background: rgb(244 67 54 / 16%);
+  color: #ef9a9a;
+}
+
+/* 图片上传服务：对齐 vue2 500px base-dialog */
+.image-service-dialog {
+  max-width: 50vw;
+  padding: 0;
+  border-radius: 8px;
+}
+
+.image-service-dialog .el-dialog__header,
+.image-service-dialog .el-dialog__body {
+  padding: 0;
+}
+
+.image-service-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 4px 8px 4px 14px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.image-service-icon {
+  color: var(--el-color-primary);
+  font-size: 22px;
+}
+
+.image-service-title {
+  flex: 1;
+  color: var(--el-text-color-primary);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.image-service-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--el-text-color-secondary);
+  cursor: pointer;
+}
+
+.image-service-close:hover {
+  background: var(--el-fill-color);
+}
+
+.image-service-body {
+  padding: 0 18px 16px;
+}
+
+.image-service-form .el-form-item {
+  margin-bottom: 16px;
+}
+
+.image-service-form .el-form-item__label {
+  margin-bottom: 4px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.image-service-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}

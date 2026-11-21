@@ -1,26 +1,43 @@
 <template>
-  <el-dialog v-model="visible" :title="t('settings.imageUploadService')" width="520px" append-to-body>
-    <el-form label-width="110px">
-      <el-form-item :label="t('settings.apiServerUrl')">
-        <el-input v-model="form.apiServerUrl" placeholder="http://127.0.0.1:36677/upload" spellcheck="false" />
-      </el-form-item>
-      <el-form-item :label="t('settings.postParam')">
-        <el-input v-model="form.postParam" placeholder="list" spellcheck="false" />
-      </el-form-item>
-      <el-form-item :label="t('settings.jsonPath')">
-        <el-input v-model="form.jsonPath" placeholder="result" spellcheck="false" />
-      </el-form-item>
-      <el-form-item :label="t('settings.customHeader')">
-        <el-input v-model="form.customHeader" placeholder="{}" spellcheck="false" />
-      </el-form-item>
-      <el-form-item :label="t('settings.customBody')">
-        <el-input v-model="form.customBody" placeholder="{}" spellcheck="false" />
-      </el-form-item>
-    </el-form>
-    <template #footer>
-      <el-button @click="visible = false">{{ t('action.cancel') }}</el-button>
-      <el-button type="primary" @click="submit">{{ t('action.ok') }}</el-button>
-    </template>
+  <el-dialog
+    v-model="visible"
+    width="500px"
+    top="10vh"
+    append-to-body
+    :show-close="false"
+    class="image-service-dialog"
+  >
+    <div class="image-service-toolbar">
+      <el-icon class="image-service-icon"><Picture /></el-icon>
+      <span class="image-service-title">{{ t('settings.imageUploadService') }}</span>
+      <button type="button" class="image-service-close" :title="t('action.close')" @click="visible = false">
+        <el-icon><Close /></el-icon>
+      </button>
+    </div>
+
+    <div class="image-service-body">
+      <el-form label-position="top" class="image-service-form" @submit.prevent>
+        <el-form-item :label="t('settings.apiServerUrl')">
+          <el-input v-model="form.apiServerUrl" clearable spellcheck="false" />
+        </el-form-item>
+        <el-form-item :label="t('settings.postParam')">
+          <el-input v-model="form.postParam" clearable spellcheck="false" />
+        </el-form-item>
+        <el-form-item :label="t('settings.jsonPath')">
+          <el-input v-model="form.jsonPath" clearable spellcheck="false" />
+        </el-form-item>
+        <el-form-item :label="t('settings.customHeader')">
+          <el-input v-model="form.customHeader" clearable spellcheck="false" />
+        </el-form-item>
+        <el-form-item :label="t('settings.customBody')">
+          <el-input v-model="form.customBody" clearable spellcheck="false" />
+        </el-form-item>
+      </el-form>
+      <div class="image-service-actions">
+        <el-button type="primary" @click="submit">{{ t('action.submit') }}</el-button>
+        <el-button text type="primary" @click="visible = false">{{ t('action.cancel') }}</el-button>
+      </div>
+    </div>
   </el-dialog>
 </template>
 
@@ -31,6 +48,7 @@
  * 存 `setting/image/*`。vue2 走 vuex client.updateStateAndStore。
  */
 import { onMounted, reactive } from 'vue';
+import { Close, Picture } from '@element-plus/icons-vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import { useAppStore } from '@/stores/app';
