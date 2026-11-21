@@ -26,7 +26,7 @@
         <main class="settings-dialog-panels">
           <NoteImportDialog v-model="noteImportVisible" />
 
-    <el-card v-show="groupTab === 'general'" class="settings-card" shadow="never">
+    <el-card v-if="tabMounted('general')" v-show="groupTab === 'general'" class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
           <span>{{ t('settings.appearance') }}</span>
@@ -56,7 +56,7 @@
       </el-form>
     </el-card>
 
-    <el-card v-show="groupTab === 'general'" class="settings-card" shadow="never">
+    <el-card v-if="tabMounted('general')" v-show="groupTab === 'general'" class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
           <span>{{ t('settings.skin') }}</span>
@@ -65,7 +65,7 @@
       <SkinPickerCard />
     </el-card>
 
-    <el-card v-show="groupTab === 'general'" class="settings-card" shadow="never">
+    <el-card v-if="tabMounted('general')" v-show="groupTab === 'general'" class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
           <span>{{ t('settings.cdnInjectTitle') }}</span>
@@ -74,7 +74,7 @@
       <SettingsCdnDepsCard />
     </el-card>
 
-    <el-card v-show="groupTab === 'general'" class="settings-card" shadow="never">
+    <el-card v-if="tabMounted('general')" v-show="groupTab === 'general'" class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
           <span>{{ t('settings.profile') }}</span>
@@ -83,7 +83,7 @@
       <SettingsProfileCard />
     </el-card>
 
-    <el-card v-show="groupTab === 'server'" class="settings-card" shadow="never">
+    <el-card v-if="tabMounted('server')" v-show="groupTab === 'server'" class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
           <span>{{ t('settings.cloudServer') }}</span>
@@ -92,7 +92,7 @@
       <SettingsServerPanel />
     </el-card>
 
-    <el-card v-show="groupTab === 'cloudFn'" class="settings-card" shadow="never">
+    <el-card v-if="tabMounted('cloudFn')" v-show="groupTab === 'cloudFn'" class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
           <span>{{ t('settings.cloudFnConfig') }}</span>
@@ -101,7 +101,7 @@
       <SettingsCloudFnPanel />
     </el-card>
 
-    <el-card v-show="groupTab === 'editor'" class="settings-card" shadow="never">
+    <el-card v-if="tabMounted('editor')" v-show="groupTab === 'editor'" class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
           <span>{{ t('settings.editorGroup') }}</span>
@@ -110,7 +110,7 @@
       <EditorPrefsCard />
     </el-card>
 
-    <el-card v-show="groupTab === 'editor'" class="settings-card" shadow="never">
+    <el-card v-if="tabMounted('editor')" v-show="groupTab === 'editor'" class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
           <span>{{ t('editorParsing') }}</span>
@@ -119,7 +119,7 @@
       <ParsingSettingsCard />
     </el-card>
 
-    <el-card v-show="groupTab === 'editor'" class="settings-card" shadow="never">
+    <el-card v-if="tabMounted('editor')" v-show="groupTab === 'editor'" class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
           <span>{{ t('noteTemplate') }}</span>
@@ -128,7 +128,7 @@
       <NoteTemplateCard />
     </el-card>
 
-    <el-card v-show="groupTab === 'database'" class="settings-card" shadow="never">
+    <el-card v-if="tabMounted('database')" v-show="groupTab === 'database'" class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
           <span>{{ t('settings.data') }}</span>
@@ -225,7 +225,7 @@
       </div>
     </el-card>
 
-    <el-card v-show="groupTab === 'database'" class="settings-card" shadow="never">
+    <el-card v-if="tabMounted('database')" v-show="groupTab === 'database'" class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
           <span>{{ t('settings.integrity') }}</span>
@@ -285,7 +285,7 @@
       </template>
     </el-card>
 
-    <el-card v-show="groupTab === 'library'" class="settings-card" shadow="never">
+    <el-card v-if="tabMounted('library')" v-show="groupTab === 'library'" class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
           <span>{{ t('library.management') }}</span>
@@ -302,7 +302,7 @@
       </el-tabs>
     </el-card>
 
-    <el-card v-show="groupTab === 'ai'" class="settings-card" shadow="never">
+    <el-card v-if="tabMounted('ai')" v-show="groupTab === 'ai'" class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
           <span>{{ t('aiEntry') }}</span>
@@ -319,7 +319,7 @@
       </el-form>
     </el-card>
 
-    <el-card v-show="groupTab === 'ai'" class="settings-card" shadow="never">
+    <el-card v-if="tabMounted('ai')" v-show="groupTab === 'ai'" class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
           <span>{{ t('aiModel') }}</span>
@@ -328,7 +328,7 @@
       <AiModelsCard />
     </el-card>
 
-    <el-card v-show="groupTab === 'ai'" class="settings-card" shadow="never">
+    <el-card v-if="tabMounted('ai')" v-show="groupTab === 'ai'" class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
           <span>{{ t('aiSkill') }}</span>
@@ -337,7 +337,7 @@
       <AiSkillsCard />
     </el-card>
 
-    <el-card v-show="groupTab === 'ai'" class="settings-card" shadow="never">
+    <el-card v-if="tabMounted('ai')" v-show="groupTab === 'ai'" class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
           <span>{{ t('aiTagTitle') }}</span>
@@ -346,7 +346,7 @@
       <TagsManageCard />
     </el-card>
 
-    <el-card v-show="groupTab === 'ai'" class="settings-card" shadow="never">
+    <el-card v-if="tabMounted('ai')" v-show="groupTab === 'ai'" class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
           <span>{{ t('aiAutoTagTitle') }}</span>
@@ -355,7 +355,7 @@
       <AutoTagCard />
     </el-card>
 
-    <el-card v-show="groupTab === 'apps'" class="settings-card" shadow="never">
+    <el-card v-if="tabMounted('apps')" v-show="groupTab === 'apps'" class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
           <span>{{ t('microApps.title') }}</span>
@@ -364,7 +364,7 @@
       <MicroAppsCard />
     </el-card>
 
-    <el-card v-show="groupTab === 'about'" class="settings-card" shadow="never">
+    <el-card v-if="tabMounted('about')" v-show="groupTab === 'about'" class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
           <span>{{ t('settings.about') }}</span>
@@ -429,7 +429,7 @@ import {
   Upload,
 } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { computed, markRaw, onMounted, ref } from 'vue';
+import { computed, markRaw, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { AppLocaleEnum, AppThemeEnum, BootStatusEnum } from '@shared/enums/app';
@@ -485,6 +485,12 @@ const noteImportVisible = ref(false);
 const updateVisible = ref(false);
 const updateChecking = ref(false);
 const groupTab = ref<'general' | 'editor' | 'database' | 'library' | 'ai' | 'apps' | 'server' | 'cloudFn' | 'about'>('general');
+const visitedTabs = ref(new Set<string>(['general']));
+const dbLoaded = ref(false);
+
+function tabMounted(tab: string): boolean {
+  return groupTab.value === tab || visitedTabs.value.has(tab);
+}
 
 const settingsGroups = [
   { value: 'general', label: 'settings.groupGeneral', icon: markRaw(Setting) },
@@ -537,7 +543,7 @@ const ipcStatusLabel = computed(() =>
 );
 
 function goBack(): void {
-  void router.push('/');
+  void router.replace('/');
 }
 
 function formatBytes(bytes: number): string {
@@ -704,13 +710,20 @@ async function handleOpenFolder(): Promise<void> {
   }
 }
 
+watch(groupTab, (tab) => {
+  visitedTabs.value.add(tab);
+  if (tab === 'database' && !dbLoaded.value) {
+    dbLoaded.value = true;
+    void loadBackups();
+    void loadDbStatus();
+  }
+});
+
 onMounted(() => {
   void appStore.init();
   if (!appStore.prefsLoaded) {
     void appStore.loadPrefs();
   }
-  void loadBackups();
-  void loadDbStatus();
 });
 
 </script>

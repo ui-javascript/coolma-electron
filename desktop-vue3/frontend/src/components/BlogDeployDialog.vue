@@ -1,148 +1,273 @@
 <template>
-  <el-dialog v-model="visible" :title="t('blog.title')" width="640px" append-to-body>
-    <el-alert type="info" :closable="false" show-icon class="blog-hint" :title="t('blog.scopeHint')" />
+  <el-dialog
+    v-model="visible"
+    width="520px"
+    top="15vh"
+    append-to-body
+    :show-close="false"
+    class="blog-deploy-dialog"
+  >
+    <div class="blog-deploy-toolbar">
+      <el-icon class="blog-deploy-toolbar-icon"><UploadFilled /></el-icon>
+      <span class="blog-deploy-toolbar-title">{{ t('blog.configTitle') }}</span>
+      <button class="blog-deploy-close" type="button" @click="visible = false">
+        <el-icon><Close /></el-icon>
+      </button>
+    </div>
 
-    <el-form label-width="110px" class="blog-form">
-      <el-form-item :label="t('blog.blogDir')">
+    <div class="blog-deploy-content">
+      <section class="config-section">
+        <div class="config-label">{{ t('blog.sourceDir') }} <span class="required">*</span></div>
         <div class="blog-dir-row">
-          <el-input v-model="form.blogDir" :placeholder="t('blog.blogDirPlaceholder')" spellcheck="false" />
-          <el-button @click="chooseDir">{{ t('blog.choose') }}</el-button>
+          <el-input
+            v-model="form.blogDir"
+            size="small"
+            :placeholder="t('blog.chooseDir')"
+            spellcheck="false"
+          />
+          <el-button type="primary" @click="chooseDir">
+            <el-icon><FolderOpened /></el-icon>
+            <span>{{ t('blog.chooseDir') }}</span>
+          </el-button>
         </div>
-        <div class="field-hint">{{ t('blog.blogDirHint') }}</div>
-      </el-form-item>
-      <el-form-item :label="t('blog.category')">
-        <el-input :model-value="category || t('blog.allNotes')" disabled />
-        <div class="field-hint">{{ t('blog.categoryHint') }}</div>
-      </el-form-item>
-      <el-form-item :label="t('blog.theme')">
-        <el-select v-model="form.theme" class="blog-theme">
-          <el-option value="default" label="default" />
-          <el-option value="vdoing" label="vdoing" />
-          <el-option value="hope" label="hope" />
-          <el-option value="reco" label="reco" />
-        </el-select>
-      </el-form-item>
-      <el-form-item :label="t('blog.base')">
-        <el-input v-model="form.base" :placeholder="t('blog.basePlaceholder')" spellcheck="false" />
-        <div class="field-hint">{{ t('blog.baseHint') }}</div>
-      </el-form-item>
-      <el-form-item :label="t('blog.includeCi')">
-        <el-checkbox v-model="form.includeCi">{{ t('blog.includeCiLabel') }}</el-checkbox>
-        <div class="field-hint">{{ t('blog.includeCiHint') }}</div>
-      </el-form-item>
-    </el-form>
+      </section>
 
-    <div class="blog-build-bar">
-      <el-select v-model="packageManager" class="blog-pm" :disabled="building">
-        <el-option value="npm" label="npm" />
-        <el-option value="pnpm" label="pnpm" />
-        <el-option value="yarn" label="yarn" />
-      </el-select>
-      <el-button type="primary" plain :loading="building" :disabled="!lastResult" @click="runBuild">{{ t('blog.build') }}</el-button>
-      <el-button v-if="building" type="danger" plain @click="stopBuild">{{ t('blog.cancelBuild') }}</el-button>
-      <span class="field-hint">{{ t('blog.buildHint') }}</span>
-    </div>
+      <section class="config-section">
+        <div class="config-label">{{ t('blog.themeLabel') }}</div>
+        <el-radio-group v-model="form.theme" size="small" class="segmented theme-toggle">
+          <el-radio-button value="default">{{ t('blog.themeDefault') }}</el-radio-button>
+          <el-radio-button value="vdoing">{{ t('blog.themeVdoing') }}</el-radio-button>
+          <el-radio-button value="hope">{{ t('blog.themeHope') }}</el-radio-button>
+          <el-radio-button value="reco">{{ t('blog.themeReco') }}</el-radio-button>
+        </el-radio-group>
+        <div class="field-hint">{{ t('blog.themeHint') }}</div>
+      </section>
 
-    <el-collapse class="blog-sftp">
-      <el-collapse-item name="sftp">
-        <template #title>
-          <span class="blog-github-title">{{ t('blog.sftpTitle') }}</span>
-        </template>
-        <div class="field-hint blog-github-hint">{{ t('blog.sftpHint') }}</div>
-        <el-form label-width="96px" class="github-form">
-          <el-form-item label="enable">
-            <el-checkbox v-model="sftp.enabled">{{ t('blog.sftpEnabled') }}</el-checkbox>
-          </el-form-item>
-        </el-form>
-        <el-form v-if="sftp.enabled" label-width="96px" class="github-form">
-          <el-form-item label="host"><el-input v-model="sftp.host" spellcheck="false" placeholder="example.com" /></el-form-item>
-          <el-form-item label="port"><el-input-number v-model="sftp.port" :min="1" :max="65535" controls-position="right" /></el-form-item>
-          <el-form-item label="username"><el-input v-model="sftp.username" spellcheck="false" /></el-form-item>
-          <el-form-item label="auth">
-            <el-radio-group v-model="sftp.authType">
-              <el-radio value="password">{{ t('blog.sftpAuthPassword') }}</el-radio>
-              <el-radio value="key">{{ t('blog.sftpAuthKey') }}</el-radio>
-            </el-radio-group>
-          </el-form-item>
-          <el-form-item v-if="sftp.authType === 'password'" label="password">
-            <el-input v-model="sftp.password" type="password" show-password spellcheck="false" />
-          </el-form-item>
-          <template v-else>
-            <el-form-item label="key">
-              <div class="blog-dir-row">
-                <el-input v-model="sftp.privateKeyPath" spellcheck="false" placeholder="~/.ssh/id_rsa" />
-                <el-button @click="chooseKeyFile">{{ t('blog.sftpChooseKey') }}</el-button>
-              </div>
-            </el-form-item>
-            <el-form-item label="passphrase">
-              <el-input v-model="sftp.passphrase" type="password" show-password spellcheck="false" />
-            </el-form-item>
+      <section class="config-section">
+        <div class="config-label">{{ t('blog.baseLabel') }}</div>
+        <el-input
+          v-model="form.base"
+          size="small"
+          :placeholder="t('blog.basePathPlaceholder')"
+          spellcheck="false"
+        />
+        <div class="field-hint">{{ t('blog.basePathHint') }}</div>
+      </section>
+
+      <section class="config-section">
+        <div class="config-label">{{ t('blog.packageLabel') }}</div>
+        <el-radio-group v-model="form.packageManager" size="small" class="segmented package-manager-toggle">
+          <el-radio-button value="npm">npm</el-radio-button>
+          <el-radio-button value="yarn">yarn</el-radio-button>
+          <el-radio-button value="pnpm">pnpm</el-radio-button>
+        </el-radio-group>
+        <div class="field-hint">{{ t('blog.packageHint') }}</div>
+      </section>
+
+      <section class="config-section">
+        <div class="config-label">{{ t('blog.commandLabel') }}</div>
+        <el-input
+          v-model="form.customBuildCommand"
+          size="small"
+          :placeholder="t('blog.commandPlaceholder')"
+          spellcheck="false"
+        />
+        <div class="field-hint">{{ t('blog.commandHint') }}</div>
+      </section>
+
+      <div class="deploy-separator" />
+
+      <el-tabs v-model="activeDeployTab" class="deploy-tabs">
+        <el-tab-pane name="github">
+          <template #label>
+            <span class="deploy-tab-label"><el-icon><Link /></el-icon>{{ t('blog.tabGithub') }}</span>
           </template>
-          <el-form-item label="remotePath">
-            <el-input v-model="sftp.remotePath" spellcheck="false" placeholder="/var/www/blog" />
-          </el-form-item>
-          <el-form-item label="backup">
-            <el-checkbox v-model="sftp.backupEnabled">{{ t('blog.sftpBackup') }}</el-checkbox>
-          </el-form-item>
-        </el-form>
-        <div v-if="sftp.enabled" class="blog-build-bar">
-          <el-button :loading="testing" @click="runSftpTest">{{ t('blog.sftpTest') }}</el-button>
-          <el-button v-if="uploading" type="danger" plain @click="stopSftp">{{ t('blog.sftpCancel') }}</el-button>
-          <span class="field-hint">{{ t('blog.sftpAutoUploadHint') }}</span>
+          <el-form label-position="top" size="small" class="deploy-form">
+            <el-form-item :label="t('blog.repoLabel')">
+              <el-input v-model="repoSlug" placeholder="owner/repo" spellcheck="false" />
+            </el-form-item>
+            <el-form-item :label="t('blog.workflowLabel')">
+              <el-input v-model="github.workflowId" placeholder="deploy.yml" spellcheck="false" />
+            </el-form-item>
+            <el-form-item :label="t('blog.branchLabel')">
+              <el-input v-model="github.branch" placeholder="main" spellcheck="false" />
+            </el-form-item>
+            <el-form-item :label="t('blog.tokenLabel')">
+              <el-input v-model="github.token" :type="showToken ? 'text' : 'password'" spellcheck="false">
+                <template #suffix>
+                  <el-icon class="password-eye" @click="showToken = !showToken">
+                    <View v-if="!showToken" />
+                    <Hide v-else />
+                  </el-icon>
+                </template>
+              </el-input>
+            </el-form-item>
+          </el-form>
+          <div class="field-hint token-hint">
+            {{ t('blog.tokenHint') }}
+            <button class="text-link" type="button" @click="openGithubTokenGuide">{{ t('blog.tokenGuide') }}</button>
+          </div>
+        </el-tab-pane>
+
+        <el-tab-pane name="ci">
+          <template #label>
+            <span class="deploy-tab-label"><el-icon><Tools /></el-icon>{{ t('blog.tabCi') }}</span>
+          </template>
+          <div class="field-hint ci-hint">{{ t('blog.ciHint') }}</div>
+          <el-button
+            text
+            type="primary"
+            :disabled="!form.blogDir.trim()"
+            :loading="exporting"
+            @click="exportCI"
+          >
+            <el-icon><Tools /></el-icon>
+            <span>{{ t('blog.ciButton') }}</span>
+          </el-button>
+        </el-tab-pane>
+
+        <el-tab-pane name="sftp">
+          <template #label>
+            <span class="deploy-tab-label"><el-icon><Cloudy /></el-icon>{{ t('blog.tabSftp') }}</span>
+          </template>
+          <div class="sftp-toggle-row">
+            <el-switch v-model="sftp.enabled" />
+            <span>{{ t('blog.sftpEnable') }}</span>
+          </div>
+
+          <template v-if="sftp.enabled">
+            <div class="sftp-host-row">
+              <div class="sftp-col">
+                <div class="sftp-mini-label">{{ t('blog.sftpHost') }}</div>
+                <el-input v-model="sftp.host" size="small" placeholder="example.com" spellcheck="false" />
+              </div>
+              <div class="sftp-col sftp-port-col">
+                <div class="sftp-mini-label">{{ t('blog.sftpPort') }}</div>
+                <el-input-number v-model="sftp.port" size="small" :min="1" :max="65535" controls-position="right" />
+              </div>
+            </div>
+
+            <div class="sftp-field">
+              <div class="sftp-mini-label">{{ t('blog.sftpUser') }}</div>
+              <el-input v-model="sftp.username" size="small" spellcheck="false" />
+            </div>
+
+            <div class="config-label sub-label">{{ t('blog.sftpAuth') }}</div>
+            <el-radio-group v-model="sftp.authType" size="small" class="segmented auth-toggle">
+              <el-radio-button value="password">{{ t('blog.sftpAuthPassword') }}</el-radio-button>
+              <el-radio-button value="key">{{ t('blog.sftpKey') }}</el-radio-button>
+            </el-radio-group>
+
+            <div v-if="sftp.authType === 'password'" class="sftp-field">
+              <div class="sftp-mini-label">{{ t('blog.sftpPassword') }}</div>
+              <el-input v-model="sftp.password" size="small" :type="showSftpPassword ? 'text' : 'password'" spellcheck="false">
+                <template #suffix>
+                  <el-icon class="password-eye" @click="showSftpPassword = !showSftpPassword">
+                    <View v-if="!showSftpPassword" />
+                    <Hide v-else />
+                  </el-icon>
+                </template>
+              </el-input>
+            </div>
+            <template v-else>
+              <div class="sftp-field">
+                <div class="sftp-mini-label">{{ t('blog.sftpKeyPath') }}</div>
+                <div class="blog-dir-row">
+                  <el-input
+                    v-model="sftp.privateKeyPath"
+                    size="small"
+                    readonly
+                    spellcheck="false"
+                  />
+                  <el-button type="primary" @click="chooseKeyFile">
+                    <el-icon><FolderOpened /></el-icon>
+                    <span>{{ t('blog.sftpKeyChoose') }}</span>
+                  </el-button>
+                </div>
+              </div>
+              <div class="sftp-field">
+                <div class="sftp-mini-label">{{ t('blog.sftpPassphrase') }}</div>
+                <el-input v-model="sftp.passphrase" size="small" type="password" show-password spellcheck="false" />
+              </div>
+            </template>
+
+            <div class="sftp-field">
+              <div class="sftp-mini-label">{{ t('blog.sftpRemote') }}</div>
+              <el-input v-model="sftp.remotePath" size="small" placeholder="/var/www/blog" spellcheck="false" />
+            </div>
+
+            <div class="sftp-toggle-row">
+              <el-switch v-model="sftp.backupEnabled" />
+              <span>{{ t('blog.sftpBackup') }}</span>
+            </div>
+
+            <el-button text type="primary" :loading="testing" @click="runSftpTest">
+              <el-icon><Connection /></el-icon>
+              <span>{{ t('blog.sftpTest') }}</span>
+            </el-button>
+          </template>
+        </el-tab-pane>
+      </el-tabs>
+
+      <div v-if="progress.length" class="blog-progress">
+        <div class="blog-progress-title">
+          <span>{{ t('blog.buildProgress') }}</span>
+          <el-button v-if="building" text type="danger" size="small" @click="stopBuild">{{ t('blog.cancelBuild') }}</el-button>
         </div>
-      </el-collapse-item>
-    </el-collapse>
+        <div
+          v-for="(line, index) in progress"
+          :key="index"
+          class="blog-progress-line"
+          :class="{ 'is-err': line.stream === 'stderr' }"
+        >{{ line.message }}</div>
+      </div>
 
-    <el-collapse class="blog-github">
-      <el-collapse-item name="github">
-        <template #title>
-          <span class="blog-github-title">{{ t('blog.githubTitle') }}</span>
-        </template>
-        <div class="field-hint blog-github-hint">{{ t('blog.githubHint') }}</div>
-        <el-form label-width="96px" class="github-form">
-          <el-form-item label="owner"><el-input v-model="github.owner" spellcheck="false" /></el-form-item>
-          <el-form-item label="repo"><el-input v-model="github.repo" spellcheck="false" /></el-form-item>
-          <el-form-item label="workflow"><el-input v-model="github.workflowId" spellcheck="false" placeholder="blog-build.yml" /></el-form-item>
-          <el-form-item label="branch"><el-input v-model="github.branch" spellcheck="false" placeholder="main" /></el-form-item>
-          <el-form-item label="token">
-            <el-input v-model="github.token" type="password" show-password spellcheck="false" />
-          </el-form-item>
-        </el-form>
-        <div class="blog-build-bar">
-          <el-button type="primary" plain :loading="dispatching" @click="runDispatch">{{ t('blog.githubDispatch') }}</el-button>
-          <span class="field-hint">{{ t('blog.githubTokenHint') }}</span>
-        </div>
-      </el-collapse-item>
-    </el-collapse>
+      <div v-if="buildEnv" class="blog-env">
+        <div class="blog-env-title">{{ t('blog.envTitle') }}</div>
+        <span>{{ t('blog.envNode', { version: buildEnv.nodeVersion }) }}</span>
+        <span>{{ t('blog.envTheme', { theme: buildEnv.theme }) }}</span>
+        <span>{{ t(`blog.envPackage${buildEnv.packageStatus === 'created' ? 'Created' : buildEnv.packageStatus === 'updated' ? 'Updated' : 'Kept'}`) }}</span>
+        <span>{{ t(`blog.envConfig${buildEnv.configStatus === 'created' ? 'Created' : buildEnv.configStatus === 'updated' ? 'Updated' : buildEnv.configStatus === 'base-updated' ? 'BaseUpdated' : 'Kept'}`) }}</span>
+        <span>{{ buildEnv.installed ? t('blog.envInstalled') : t('blog.envReused') }}</span>
+      </div>
 
-    <div v-if="progress.length" class="blog-progress">
-      <div v-for="(line, index) in progress" :key="index" class="blog-progress-line" :class="{ 'is-err': line.stream === 'stderr' }">{{ line.message }}</div>
-    </div>
-
-    <div v-if="buildEnv" class="blog-env">
-      <div class="blog-env-title">{{ t('blog.envTitle') }}</div>
-      <span>{{ t('blog.envNode', { version: buildEnv.nodeVersion }) }}</span>
-      <span>{{ t('blog.envTheme', { theme: buildEnv.theme }) }}</span>
-      <span>{{ t(`blog.envPackage${buildEnv.packageStatus === 'created' ? 'Created' : buildEnv.packageStatus === 'updated' ? 'Updated' : 'Kept'}`) }}</span>
-      <span>{{ t(`blog.envConfig${buildEnv.configStatus === 'created' ? 'Created' : buildEnv.configStatus === 'updated' ? 'Updated' : buildEnv.configStatus === 'base-updated' ? 'BaseUpdated' : 'Kept'}`) }}</span>
-      <span>{{ buildEnv.installed ? t('blog.envInstalled') : t('blog.envReused') }}</span>
-    </div>
-
-    <div v-if="lastResult" class="blog-result">
-      <div class="blog-result-title">{{ t('blog.resultTitle') }}</div>
-      <ul>
-        <li>{{ t('blog.resultFiles', { count: lastResult.writtenFiles }) }}</li>
-        <li>{{ t('blog.resultShortlinks', { count: lastResult.shortlinkCount }) }}</li>
-        <li v-if="lastResult.workflows.written.length">{{ t('blog.resultWorkflows', { names: lastResult.workflows.written.join(', ') }) }}</li>
-        <li v-if="lastResult.workflows.skipped.length">{{ t('blog.resultSkipped', { names: lastResult.workflows.skipped.join(', ') }) }}</li>
-        <li v-if="distDir" class="blog-result-dist">{{ t('blog.distDir', { dir: distDir }) }}</li>
-        <li class="blog-result-gap">{{ t('blog.buildGap') }}</li>
-      </ul>
+      <div v-if="lastResult" class="blog-result">
+        <div class="blog-result-title">{{ t('blog.resultTitle') }}</div>
+        <ul>
+          <li>{{ t('blog.resultFiles', { count: lastResult.writtenFiles }) }}</li>
+          <li>{{ t('blog.resultShortlinks', { count: lastResult.shortlinkCount }) }}</li>
+          <li v-if="lastResult.workflows.written.length">{{ t('blog.resultWorkflows', { names: lastResult.workflows.written.join(', ') }) }}</li>
+          <li v-if="lastResult.workflows.skipped.length">{{ t('blog.resultSkipped', { names: lastResult.workflows.skipped.join(', ') }) }}</li>
+          <li v-if="distDir" class="blog-result-dist">{{ t('blog.distDir', { dir: distDir }) }}</li>
+          <li class="blog-result-gap">{{ t('blog.buildGap') }}</li>
+        </ul>
+      </div>
     </div>
 
     <template #footer>
-      <el-button :disabled="exporting" @click="visible = false">{{ t('action.cancel') }}</el-button>
-      <el-button type="primary" :loading="exporting" @click="runExport">{{ t('blog.export') }}</el-button>
+      <div class="blog-deploy-actions">
+        <el-button text class="cancel-button" :disabled="deploying" @click="visible = false">
+          {{ t('blog.cancel') }}
+        </el-button>
+        <el-button
+          text
+          type="primary"
+          :disabled="!form.blogDir.trim() || deploying"
+          :loading="savingConfig"
+          @click="saveOnly"
+        >
+          {{ t('blog.save') }}
+        </el-button>
+        <el-button
+          type="primary"
+          :disabled="!form.blogDir.trim() || building || dispatching || exporting"
+          :loading="deploying"
+          @click="saveAndDeploy"
+        >
+          <el-icon><Promotion /></el-icon>
+          <span>{{ t('blog.saveDeploy') }}</span>
+        </el-button>
+      </div>
     </template>
   </el-dialog>
 </template>
@@ -158,22 +283,24 @@
  * 缺依赖时安装，再跑 build 脚本。GitHub workflow_dispatch 与 SFTP 上传也已接。
  */
 import { computed, reactive, ref, watch } from 'vue';
+import { Cloudy, Close, Connection, FolderOpened, Hide, Link, Promotion, Tools, UploadFilled, View } from '@element-plus/icons-vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { useAppStore } from '@/stores/app';
+import { openExternal } from '@/services/cloudfn';
 import {
   buildBlog,
   cancelBlogBuild,
-  cancelBlogSftp,
   dispatchBlogGithub,
   exportBlog,
+  exportBlogCi,
   onBlogProgress,
   pickDirectory,
   pickFile,
   testBlogSftp,
   uploadBlogSftp,
 } from '@/services/blog';
-import type { BlogBuildEnv, BlogBuildProgress, BlogExportOutput, BlogSftpConfig } from '@/services/blog';
+import type { BlogBuildEnv, BlogBuildProgress, BlogExportOutput, BlogSftpConfig, BlogTheme } from '@/services/blog';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -188,15 +315,28 @@ const { t } = useI18n();
 const appStore = useAppStore();
 const STORAGE_KEY = 'setting/blog/config';
 
-const form = reactive<{ blogDir: string; theme: 'default' | 'vdoing' | 'hope' | 'reco'; base: string; includeCi: boolean }>({
+type BlogPackageManager = 'npm' | 'pnpm' | 'yarn';
+
+const form = reactive<{
+  blogDir: string;
+  theme: BlogTheme;
+  base: string;
+  packageManager: BlogPackageManager;
+  customBuildCommand: string;
+}>({
   blogDir: '',
   theme: 'default',
-  base: '',
-  includeCi: false,
+  base: './',
+  packageManager: 'npm',
+  customBuildCommand: 'npm run build',
 });
+const activeDeployTab = ref<'github' | 'ci' | 'sftp'>('github');
 const exporting = ref(false);
 const building = ref(false);
-const packageManager = ref<'npm' | 'pnpm' | 'yarn'>('npm');
+const savingConfig = ref(false);
+const deploying = ref(false);
+const showToken = ref(false);
+const showSftpPassword = ref(false);
 const progress = ref<BlogBuildProgress[]>([]);
 const distDir = ref('');
 const buildEnv = ref<BlogBuildEnv | null>(null);
@@ -226,6 +366,13 @@ const visible = computed({
   set: (value: boolean) => emit('update:modelValue', value),
 });
 
+const repoSlug = ref('');
+watch(repoSlug, (value) => {
+  const [owner, ...rest] = value.split('/');
+  github.owner = (owner || '').trim();
+  github.repo = rest.join('/').trim();
+});
+
 watch(
   () => props.modelValue,
   (open) => {
@@ -252,23 +399,40 @@ watch(
   },
 );
 
+watch(
+  () => form.packageManager,
+  (packageManager, previous) => {
+    if (!previous || packageManager === previous) {
+      return;
+    }
+    const prefixes: BlogPackageManager[] = ['npm', 'yarn', 'pnpm'];
+    const currentPrefix = prefixes.find((item) => form.customBuildCommand.startsWith(`${item} run`));
+    if (currentPrefix && currentPrefix !== packageManager) {
+      form.customBuildCommand = `${packageManager}${form.customBuildCommand.slice(currentPrefix.length)}`;
+    }
+  },
+);
+
 async function loadConfig(): Promise<void> {
   await appStore.loadPrefs();
-  const saved = appStore.prefs[STORAGE_KEY] as { blogDir?: string; theme?: typeof form.theme; base?: string; includeCi?: boolean } | undefined;
-  if (saved?.blogDir) {
-    form.blogDir = saved.blogDir;
-  }
-  if (saved?.theme) {
-    form.theme = saved.theme;
-  }
-  if (typeof saved?.base === 'string') {
-    form.base = saved.base;
-  }
-  form.includeCi = Boolean(saved?.includeCi);
+  const saved = appStore.prefs[STORAGE_KEY] as {
+    blogDir?: string;
+    theme?: BlogTheme;
+    base?: string;
+    packageManager?: BlogPackageManager;
+    customBuildCommand?: string;
+    includeCi?: boolean;
+  } | undefined;
+  form.blogDir = saved?.blogDir || '';
+  form.theme = saved?.theme || 'default';
+  form.base = typeof saved?.base === 'string' ? saved.base : './';
+  form.packageManager = saved?.packageManager || 'npm';
+  form.customBuildCommand = saved?.customBuildCommand || `${form.packageManager} run build`;
   const savedGithub = appStore.prefs[GITHUB_KEY] as Partial<typeof github> | undefined;
   if (savedGithub) {
     Object.assign(github, savedGithub);
   }
+  repoSlug.value = github.owner && github.repo ? `${github.owner}/${github.repo}` : github.owner || github.repo;
   const savedSftp = appStore.prefs[SFTP_KEY] as Partial<typeof sftp> | undefined;
   if (savedSftp) {
     Object.assign(sftp, savedSftp);
@@ -281,6 +445,12 @@ async function saveConfig(): Promise<void> {
 
 async function saveSftpConfig(): Promise<void> {
   await appStore.setPref(SFTP_KEY, { ...sftp });
+}
+
+async function saveAllConfig(): Promise<void> {
+  await saveConfig();
+  await saveSftpConfig();
+  await appStore.setPref(GITHUB_KEY, { ...github });
 }
 
 function sftpPayload(): BlogSftpConfig {
@@ -309,7 +479,6 @@ async function chooseKeyFile(): Promise<void> {
   const result = await pickFile();
   if (result.ok && result.data) {
     sftp.privateKeyPath = result.data;
-    await saveSftpConfig();
   } else if (!result.ok) {
     ElMessage.error(result.error.message);
   }
@@ -362,14 +531,6 @@ async function runSftpUpload(): Promise<boolean> {
   }
 }
 
-async function stopSftp(): Promise<void> {
-  const result = await cancelBlogSftp();
-  if (!result.ok) {
-    ElMessage.error(result.error.message);
-  }
-  uploading.value = false;
-}
-
 async function showNodeGuide(): Promise<void> {
   const steps = [
     t('blog.nodeGuideStep1'),
@@ -386,10 +547,18 @@ async function chooseDir(): Promise<void> {
   const result = await pickDirectory();
   if (result.ok && result.data) {
     form.blogDir = result.data;
-    await saveConfig();
   } else if (!result.ok) {
     ElMessage.error(result.error.message);
   }
+}
+
+function buildScriptName(): string | undefined {
+  const command = form.customBuildCommand.trim();
+  if (!command) {
+    return undefined;
+  }
+  const matched = command.match(/^(?:npm|yarn|pnpm)(?:\s+run)?\s+([A-Za-z0-9:_-]+)/);
+  return matched?.[1] || command;
 }
 
 async function runBuild(): Promise<void> {
@@ -404,7 +573,8 @@ async function runBuild(): Promise<void> {
   try {
     const result = await buildBlog({
       blogDir: form.blogDir.trim(),
-      packageManager: packageManager.value,
+      packageManager: form.packageManager,
+      script: buildScriptName(),
       theme: form.theme,
       base: form.base.trim(),
     });
@@ -455,7 +625,7 @@ async function stopBuild(): Promise<void> {
   }
 }
 
-async function runExport(): Promise<void> {
+async function runExport(includeCi = true): Promise<void> {
   if (!form.blogDir.trim()) {
     ElMessage.warning(t('blog.needDir'));
     return;
@@ -468,7 +638,7 @@ async function runExport(): Promise<void> {
       blogDir: form.blogDir.trim(),
       category: props.category || '',
       theme: form.theme,
-      includeCi: form.includeCi,
+      includeCi,
     });
     if (!result.ok) {
       ElMessage.error(t('blog.exportFailed', { message: result.error.message }));
@@ -480,32 +650,473 @@ async function runExport(): Promise<void> {
     exporting.value = false;
   }
 }
+
+async function exportCI(): Promise<void> {
+  if (!form.blogDir.trim()) {
+    ElMessage.warning(t('blog.needDir'));
+    return;
+  }
+  exporting.value = true;
+  lastResult.value = null;
+  try {
+    await saveConfig();
+    const result = await exportBlogCi(form.blogDir.trim());
+    if (!result.ok) {
+      ElMessage.error(t('blog.ciFailed', { message: result.error.message }));
+      return;
+    }
+    ElMessage.success(t('blog.ciDone', { written: result.data.written.length, skipped: result.data.skipped.length }));
+  } finally {
+    exporting.value = false;
+  }
+}
+
+async function saveOnly(): Promise<void> {
+  if (!form.blogDir.trim()) {
+    ElMessage.warning(t('blog.needDir'));
+    return;
+  }
+  savingConfig.value = true;
+  try {
+    await saveAllConfig();
+    ElMessage.success(t('blog.saved'));
+    visible.value = false;
+  } catch (error) {
+    ElMessage.error(t('blog.saveFailed', { message: error instanceof Error ? error.message : String(error) }));
+  } finally {
+    savingConfig.value = false;
+  }
+}
+
+async function saveAndDeploy(): Promise<void> {
+  if (!form.blogDir.trim()) {
+    ElMessage.warning(t('blog.needDir'));
+    return;
+  }
+  deploying.value = true;
+  try {
+    await saveAllConfig();
+    if (activeDeployTab.value === 'github') {
+      await runDispatch();
+    } else if (activeDeployTab.value === 'ci') {
+      await runExport(true);
+    } else {
+      await runBuild();
+    }
+  } catch (error) {
+    ElMessage.error(t('blog.saveFailed', { message: error instanceof Error ? error.message : String(error) }));
+  } finally {
+    deploying.value = false;
+  }
+}
+
+async function openGithubTokenGuide(): Promise<void> {
+  const url = 'https://github.com/settings/tokens/new?scopes=workflow&description=Coolma%20Blog%20Deploy';
+  try {
+    const result = await openExternal(url);
+    if (result.ok) {
+      return;
+    }
+  } catch {
+    // Browser preview has no Electron bridge; fall through to a normal window.
+  }
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
 </script>
 
 <style scoped>
-.blog-hint { margin-bottom: 14px; }
-.blog-form { margin-bottom: 6px; }
-.blog-dir-row { display: flex; gap: 8px; width: 100%; }
-.blog-theme { width: 160px; }
-.field-hint { font-size: 12px; color: var(--el-text-color-secondary); line-height: 1.5; width: 100%; }
-.blog-build-bar { display: flex; align-items: center; gap: 8px; margin: 4px 0 10px; flex-wrap: wrap; }
-.blog-pm { width: 110px; }
-.blog-sftp,
-.blog-github { margin: 4px 0 10px; }
-.blog-github-title { font-size: 13px; font-weight: 600; }
-.blog-github-hint { margin-bottom: 8px; }
-.github-form :deep(.el-form-item) { margin-bottom: 8px; }
+.blog-deploy-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  min-height: 48px;
+  padding: 4px 8px 4px 12px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
 
-.blog-progress { max-height: 180px; overflow-y: auto; border: 1px solid var(--el-border-color-lighter); border-radius: 8px; background: #0f172a08; padding: 8px 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.5; }
-.blog-progress-line { white-space: pre-wrap; word-break: break-all; }
-.blog-progress-line.is-err { color: var(--el-color-danger); }
-.blog-env { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; padding: 8px 12px; border: 1px solid var(--el-border-color-lighter); border-radius: 8px; background: var(--el-fill-color-lighter); font-size: 12px; line-height: 1.6; }
-.blog-env-title { width: 100%; font-weight: 600; }
-.blog-env span { color: var(--el-text-color-regular); }
-.blog-result-dist { word-break: break-all; }
+.blog-deploy-toolbar-icon {
+  color: var(--el-color-primary);
+  font-size: 24px;
+}
 
-.blog-result { border: 1px solid var(--el-border-color-lighter); border-radius: 8px; padding: 10px 14px; background: var(--el-fill-color-lighter); }
-.blog-result-title { font-weight: 600; font-size: 13px; margin-bottom: 6px; }
-.blog-result ul { margin: 0; padding-left: 18px; font-size: 12px; line-height: 1.8; }
-.blog-result-gap { color: var(--el-text-color-secondary); }
+.blog-deploy-toolbar-title {
+  flex: 1;
+  overflow: hidden;
+  color: var(--el-text-color-primary);
+  font-size: 15px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.blog-deploy-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--el-text-color-secondary);
+  cursor: pointer;
+}
+
+.blog-deploy-close:hover {
+  background: var(--el-fill-color);
+}
+
+.blog-deploy-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.config-section {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 4px;
+}
+
+.config-section + .config-section {
+  margin-top: 16px;
+  margin-bottom: 0;
+}
+
+.config-label {
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+  color: var(--el-color-primary);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.config-label::before {
+  width: 3px;
+  height: 14px;
+  margin-right: 6px;
+  border-radius: 1px;
+  background: var(--el-color-primary);
+  content: '';
+}
+
+.config-label.sub-label {
+  margin-top: 10px;
+}
+
+.required {
+  margin-left: 2px;
+  color: inherit;
+}
+
+.blog-dir-row {
+  display: flex;
+  width: 100%;
+  gap: 8px;
+}
+
+.blog-dir-row .el-button {
+  flex: none;
+}
+
+.field-hint {
+  width: 100%;
+  margin-top: 4px;
+  color: var(--el-text-color-placeholder);
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+
+.segmented {
+  display: flex;
+  width: 100%;
+}
+
+.segmented :deep(.el-radio-button) {
+  flex: 1;
+}
+
+.segmented :deep(.el-radio-button__inner) {
+  width: 100%;
+  padding: 7px 10px;
+  font-size: 12px;
+}
+
+.segmented :deep(.el-radio-button:first-child .el-radio-button__inner) {
+  border-radius: 6px 0 0 6px;
+}
+
+.segmented :deep(.el-radio-button:last-child .el-radio-button__inner) {
+  border-radius: 0 6px 6px 0;
+}
+
+.package-manager-toggle {
+  width: 180px;
+}
+
+.deploy-separator {
+  height: 1px;
+  margin: 16px 0;
+  background: var(--el-border-color-lighter);
+}
+
+.deploy-tabs :deep(.el-tabs__header) {
+  margin: 0;
+}
+
+.deploy-tabs :deep(.el-tabs__nav-wrap::after) {
+  height: 1px;
+}
+
+.deploy-tabs :deep(.el-tabs__item) {
+  height: 36px;
+  padding: 0 12px;
+  font-size: 12px;
+  line-height: 36px;
+}
+
+.deploy-tabs :deep(.el-tabs__item:first-child) {
+  padding-left: 6px;
+}
+
+.deploy-tabs :deep(.el-tabs__active-bar) {
+  height: 2px;
+}
+
+.deploy-tabs :deep(.el-tabs__content) {
+  padding-top: 12px;
+  overflow: visible;
+}
+
+.deploy-tab-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.deploy-tab-label .el-icon {
+  font-size: 14px;
+}
+
+.deploy-form {
+  padding-top: 0;
+}
+
+.deploy-form :deep(.el-form-item) {
+  margin-bottom: 8px;
+}
+
+.deploy-form :deep(.el-form-item__label) {
+  margin-bottom: 2px;
+  color: var(--el-text-color-secondary);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.token-hint {
+  margin-top: 2px;
+}
+
+.password-eye {
+  color: var(--el-text-color-secondary);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.password-eye:hover {
+  color: var(--el-color-primary);
+}
+
+.token-hint code {
+  padding: 1px 3px;
+  border-radius: 2px;
+  background: rgb(0 0 0 / 6%);
+  font-size: 11px;
+}
+
+.text-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--el-color-primary);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.ci-hint {
+  margin: 0 0 8px;
+  line-height: 1.7;
+}
+
+.sftp-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+  color: var(--el-text-color-regular);
+  font-size: 13px;
+}
+
+.sftp-toggle-row:first-child {
+  margin-top: 0;
+}
+
+.sftp-host-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.sftp-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.sftp-port-col {
+  flex: 0 0 108px;
+  width: 108px;
+}
+
+.sftp-port-col :deep(.el-input__inner) {
+  text-align: left;
+}
+
+.sftp-mini-label {
+  margin-bottom: 2px;
+  color: var(--el-text-color-secondary);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.sftp-field {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.auth-toggle {
+  width: 220px;
+}
+
+.blog-progress {
+  max-height: 180px;
+  margin-top: 12px;
+  padding: 8px 10px;
+  overflow-y: auto;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+  background: rgb(15 23 42 / 3%);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.blog-progress-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  color: var(--el-text-color-secondary);
+  font-family: inherit;
+  font-weight: 600;
+}
+
+.blog-progress-line {
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.blog-progress-line.is-err {
+  color: var(--el-color-danger);
+}
+
+.blog-env {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+  background: var(--el-fill-color-lighter);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.blog-env-title {
+  width: 100%;
+  font-weight: 600;
+}
+
+.blog-env span {
+  color: var(--el-text-color-regular);
+}
+
+.blog-result {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
+  background: var(--el-fill-color-lighter);
+}
+
+.blog-result-title {
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.blog-result ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.blog-result-gap {
+  color: var(--el-text-color-secondary);
+}
+
+.blog-result-dist {
+  word-break: break-all;
+}
+
+.blog-deploy-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+}
+
+.blog-deploy-actions .el-button {
+  margin-left: 0;
+  font-size: 13px;
+}
+
+.blog-deploy-actions .cancel-button {
+  color: var(--el-text-color-regular);
+}
+
+html.dark .blog-progress {
+  background: rgb(255 255 255 / 4%);
+}
+
+html.dark .password-eye {
+  color: var(--el-text-color-secondary);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.password-eye:hover {
+  color: var(--el-color-primary);
+}
+
+.token-hint code {
+  background: rgb(255 255 255 / 8%);
+}
 </style>

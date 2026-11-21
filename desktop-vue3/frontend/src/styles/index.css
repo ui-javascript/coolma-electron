@@ -1078,12 +1078,17 @@ html.dark .editor-action-bar {
 /* ---------- settings ---------- */
 
 .settings-page {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
   align-items: center;
   justify-content: center;
+  overflow: auto;
   padding: 4vh 0;
-  background: rgb(15 18 22 / 32%);
+  /* 对齐 vue2 q-dialog backdrop：rgba(0,0,0,0.4)，保留底页可见 */
+  background: rgb(0 0 0 / 40%);
   color: var(--coolma-text);
 }
 
@@ -1853,4 +1858,32 @@ html.dark .remote-import-error {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+/* 博客部署：对齐 vue2 BlogDeployDialog 的 520px × 70vh 卡片 */
+.blog-deploy-dialog {
+  display: flex;
+  flex-direction: column;
+  height: 70vh;
+  max-width: 90vw;
+  padding: 0;
+  border-radius: 6px;
+}
+
+.blog-deploy-dialog .el-dialog__header {
+  display: none;
+}
+
+.blog-deploy-dialog .el-dialog__body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0;
+}
+
+.blog-deploy-dialog .el-dialog__footer {
+  flex: 0 0 auto;
+  padding: 0;
+  border-top: 1px solid var(--el-border-color-lighter);
 }

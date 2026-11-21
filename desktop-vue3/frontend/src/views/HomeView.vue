@@ -174,6 +174,7 @@
       :initial-template-id="newNoteTemplateId"
       @submit="submitCreateNote"
     />
+    <router-view />
   </div>
 </template>
 
@@ -1217,6 +1218,10 @@ let detachSkinEffect: (() => void) | null = null;
 onMounted(async () => {
   // 内置微应用条目只注册一次（幂等），再取「删除特效」当前配置给 overlay 用
   installMicroAppsBuiltins();
+  // 首页首屏稳定后预取设置页 chunk，避免第一次点齿轮时现下载现挂载
+  window.setTimeout(() => {
+    void import('@/views/SettingsView.vue');
+  }, 800);
   void findDeleteEffectEntry().then((entry) => {
     deleteEffectEntry.value = entry;
   });
