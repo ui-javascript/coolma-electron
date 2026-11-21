@@ -101,3 +101,36 @@ export function dateKeyOf(timestamp: number | null | undefined): string {
 export function noteDateKey(note: Pick<NoteSummary, 'updatedAt' | 'createdAt'>, basis: 'created' | 'modified'): string {
   return dateKeyOf(basis === 'created' ? note.createdAt : note.updatedAt || note.createdAt);
 }
+
+/**
+ * 新建笔记弹窗的默认标题（对齐 vue2 addNoteHandler）：
+ * 取当前分类最后一段 + 本地年月，如「【工作】新笔记-202611.md」。
+ */
+export function newNoteDefaults(category: string, t: Translate, now = new Date()): { title: string; categoryName: string; date: string } {
+  const categoryName = String(category ?? '').split('/').filter(Boolean).pop() || '';
+  const date = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+  return {
+    categoryName,
+    date,
+    title: t('notes.defaultTitle', { category: categoryName, date }),
+  };
+}
+
+/**
+ * 目录路径拼接（对齐 vue2 createCategory）：父路径 + 子目录名，统一成 `/a/b`。
+ * 子目录名允许含多级；传入父路径时不再把输入当绝对路径，避免生成 `/父/父/子`。
+ */
+export function joinFolderPath(parent: string, child: string): string {
+  const names = String(child ?? '')
+    .split('/')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (!names.length) {
+    return '';
+  }
+  const parentParts = String(parent ?? '')
+    .split('/')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return `/${[...parentParts, ...names].join('/')}`;
+}

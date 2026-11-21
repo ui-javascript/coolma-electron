@@ -135,7 +135,7 @@ import { IndexModeEnum, type CalendarDateBasis, type IndexMode } from '@shared/e
 import { useNotesStore } from '@/stores/notes';
 import { useAppStore } from '@/stores/app';
 import { buildCategoryTree, buildTagTreemapData, type CategoryTreeNode } from '@/utils/categoryTree';
-import { folderName, noteTags, noteTimeGroup } from '@/utils/note';
+import { folderName, joinFolderPath, noteTags, noteTimeGroup } from '@/utils/note';
 import CalendarPanel from './CalendarPanel.vue';
 
 use([TreemapChart, TooltipComponent, CanvasRenderer]);
@@ -167,7 +167,7 @@ const { t } = useI18n();
 const notesStore = useNotesStore();
 const appStore = useAppStore();
 
-defineExpose({ startCreateFolder: () => { void createFolder(); } });
+defineExpose({ startCreateFolder: (parentCategory = '') => { void createFolder(parentCategory); } });
 
 
 
@@ -436,14 +436,21 @@ function disposeTagTreemap(): void {
   tagChart = null;
 }
 
-async function createFolder(): Promise<void> {
+async function createFolder(parentCategory = ''): Promise<void> {
+  const parent = parentCategory.trim();
   let value = '';
   try {
-    const result = await ElMessageBox.prompt(t('folder.createPlaceholder'), t('folder.createTitle'), {
-      inputValidator: (input: string) => Boolean(input.trim()) || t('folder.createRequired'),
-      confirmButtonText: t('action.confirm'),
-      cancelButtonText: t('action.cancel'),
-    });
+    const result = await ElMessageBox.prompt(
+      parent
+        ? t('folder.createChildPlaceholder', { name: folderName(parent, t('notes.rootFolder')) })
+        : t('folder.createPlaceholder'),
+      parent ? t('folder.createChildTitle') : t('folder.createTitle'),
+      {
+        inputValidator: (input: string) => Boolean(input.trim()) || t('folder.createRequired'),
+        confirmButtonText: t('action.confirm'),
+        cancelButtonText: t('action.cancel'),
+      },
+    );
     value = result.value.trim();
   } catch {
     return;
@@ -452,7 +459,11 @@ async function createFolder(): Promise<void> {
     return;
   }
 
-  const category = value.startsWith('/') ? value : `/${value}`;
+  // 右键父节点时只输子目录名；父路径由这里拼，避免用户再手打 `/父/子`。
+  const category = joinFolderPath(parent, value);
+  if (!category) {
+    return;
+  }
   const created = await notesStore.createFolder(category);
   if (!created) {
     ElMessage.error(notesStore.error || t('folder.createFailed'));

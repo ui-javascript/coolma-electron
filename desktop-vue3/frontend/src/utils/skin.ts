@@ -77,7 +77,12 @@ export function applySkinThemeColor(skin: Skin): void {
   root.style.setProperty('--el-color-primary-dark-2', mixWithBlack(colors.main, 0.2));
 }
 
-/** 皮肤名 → i18n key（settings.skin.<name>）。 */
+/** 皮肤名 → i18n key（根级 `skin.<name>`，与设置页/顶栏共用）。 */
 export function skinLabelKey(skin: Skin): string {
-  return `settings.skin.${skin}`;
+  return `skin.${skin}`;
+}
+
+/** vue2 `handleSkinCommand`：不认识的 command 一律落回默认白羊。 */
+export function normalizeSkinSelection(value: unknown): Skin {
+  return SKIN_LIST.includes(value as Skin) ? (value as Skin) : DEFAULT_SKIN;
 }

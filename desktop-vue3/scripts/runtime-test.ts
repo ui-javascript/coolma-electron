@@ -24,7 +24,8 @@ import {
   pickDefaultApp,
   resolveActiveUrl,
 } from '../frontend/src/services/microApps';
-import { DEFAULT_SKIN, SKIN_LIST, applySkinThemeColor } from '../frontend/src/utils/skin';
+import { DEFAULT_SKIN, SKIN_LIST, applySkinThemeColor, normalizeSkinSelection, skinLabelKey } from '../frontend/src/utils/skin';
+import { joinFolderPath, newNoteDefaults } from '../frontend/src/utils/note';
 import {
   MAX_TAG_NAME_LENGTH,
   buildAutoTagMessages,
@@ -611,6 +612,22 @@ async function main(): Promise<void> {
     assert('皮肤：baiyang 清空主题色', root.style.getPropertyValue('--themeColor') === '', root.style.getPropertyValue('--themeColor'));
     assert('皮肤：baiyang 清空 Element 主色（回落自带蓝）', root.style.getPropertyValue('--el-color-primary') === '');
     assert('皮肤：三套皮枚举固定', SKIN_LIST.join('|') === 'baiyang|nezha|infp' && DEFAULT_SKIN === 'baiyang');
+    assert('皮肤：菜单 command 归一，未知值回落白羊', normalizeSkinSelection('nezha') === 'nezha' && normalizeSkinSelection('dark') === 'baiyang' && normalizeSkinSelection(1) === 'baiyang', String(normalizeSkinSelection('dark')));
+    assert('皮肤：文案 key 指向根级 skin 节点', skinLabelKey('nezha') === 'skin.nezha' && skinLabelKey('infp') === 'skin.infp', skinLabelKey('nezha'));
+  }
+
+  // ===== 新建笔记：默认标题与模板下拉 =====
+  {
+    const fakeT = (key: string, named?: Record<string, unknown>) => (
+      key === 'notes.defaultTitle' ? `【${named?.category ?? ''}】新笔记-${named?.date ?? ''}.md` : key
+    );
+    const nested = newNoteDefaults('/工作/项目A', fakeT, new Date(2026, 10, 21));
+    assert('新建笔记：默认标题取末级分类 + YYYYMM', nested.title === '【项目A】新笔记-202611.md' && nested.categoryName === '项目A' && nested.date === '202611', JSON.stringify(nested));
+    const root = newNoteDefaults('/', fakeT, new Date(2026, 0, 2));
+    assert('新建笔记：根目录标题分类留空、月份补零', root.title === '【】新笔记-202601.md' && root.categoryName === '', JSON.stringify(root));
+    assert('新建文件夹：右键父节点拼子目录、忽略多余斜杠', joinFolderPath('/工作/', '/项目A/') === '/工作/项目A', joinFolderPath('/工作/', '/项目A/'));
+    assert('新建文件夹：无父节点支持多级相对路径', joinFolderPath('', '技术/前端') === '/技术/前端', joinFolderPath('', '技术/前端'));
+    assert('新建文件夹：空名称拒绝', joinFolderPath('/工作', ' / ') === '', JSON.stringify(joinFolderPath('/工作', ' / ')));
   }
 
   // ===== 微应用数据层（归一化 / 默认选取 / 重建判定）=====
@@ -1185,6 +1202,8 @@ async function main(): Promise<void> {
     assert('i18n：扁平键提升后 search.title 可解析', typeof fixed.search?.title === 'string', JSON.stringify(fixed.search?.title));
     assert('i18n：library 只留卡片管理键', typeof fixed.library?.management === 'string' && fixed.library?.['search.title'] === undefined, JSON.stringify(fixed.library?.management));
     assert('i18n：settings.skin 归并进 settings 节点', typeof fixed.settings?.skin === 'string', JSON.stringify(fixed.settings?.skin));
+    assert('i18n：皮肤名在根级 skin 节点可解析', fixed.skin?.nezha === '哪吒' && fixed.skin?.baiyang === '白羊' && fixed.skin?.infp === 'INFP', JSON.stringify(fixed.skin));
+    assert('i18n：新建笔记标题模板可解析', fixed.notes?.defaultTitle === '【{category}】新笔记-{date}.md', JSON.stringify(fixed.notes?.defaultTitle));
     assert('i18n：aiHelper.title 回到根级', typeof fixed.aiHelper?.title === 'string', JSON.stringify(fixed.aiHelper?.title));
     assert('i18n：新面板键可在根级解析', typeof fixed.settings?.groupServer === 'string', JSON.stringify(fixed.settings?.groupServer));
   }

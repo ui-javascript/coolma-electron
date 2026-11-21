@@ -54,6 +54,7 @@
         <el-button circle plain :title="paneLayoutTitle" class="pane-layout-btn" @click="cyclePaneLayout">
           <el-icon><Operation /></el-icon>
         </el-button>
+        <SkinDropdown />
         <el-button circle plain :title="t('aiHelper.title')" @click="openAiAssistant">
           <el-icon><ChatDotRound /></el-icon>
         </el-button>
@@ -102,7 +103,7 @@
           :phase-label="phaseLabel"
           @update:mode="handleModeChange"
           @update:filter="handleFilterChange"
-          @create-note="createNote"
+          @create-note="openCreateNote"
           @export-folder="exportFolder"
           @request-delete-folder="requestDeleteFolder"
           @open-folder-menu="openFolderMenu"
@@ -125,7 +126,7 @@
           @update:selected="selectedIds = $event"
           @select="selectNote"
           @open-menu="openMenu"
-          @create-note="createNote"
+          @create-note="openCreateNote"
           @refresh="refreshNotes"
           @batch-move="openBatchMove"
           @batch-export="exportSelected"
@@ -231,6 +232,12 @@
     <NoteOutlineDrawer v-model="outlineVisible" :markdown="activeContent" @jump="jumpToHeading" />
     <FullscreenOverlay ref="fullscreenOverlayRef" :app-entry="deleteEffectEntry" />
     <MicroAppDrawer v-model="microDrawerVisible" />
+    <NewNoteDialog
+      v-model="newNoteVisible"
+      :category="activeFolder || '/'"
+      :initial-template-id="newNoteTemplateId"
+      @submit="submitCreateNote"
+    />
   </div>
 </template>
 
@@ -247,6 +254,8 @@ import type { EchoCard } from '@shared/types/domain';
 import type { EchoInstancePatch, EchoInstanceToken } from '@/utils/echoToken';
 import EditorPane from '@/components/EditorPane.vue';
 import SkinEffects from '@/components/SkinEffects.vue';
+import SkinDropdown from '@/components/SkinDropdown.vue';
+import NewNoteDialog from '@/components/NewNoteDialog.vue';
 import MicroAppDrawer from '@/components/MicroAppDrawer.vue';
 import FullscreenOverlay from '@/components/FullscreenOverlay.vue';
 import SearchDialog from '@/components/SearchDialog.vue';
@@ -317,6 +326,8 @@ const activeFolder = ref('');
 const activeTimeGroup = ref('');
 const activeContent = ref('');
 const creating = ref(false);
+const newNoteVisible = ref(false);
+const newNoteTemplateId = ref('');
 const refreshing = ref(false);
 const lastSavedAt = ref(0);
 const mindMapVisible = ref(false);
@@ -845,10 +856,10 @@ async function onFolderMenuCommand(command: string): Promise<void> {
   const category = folderMenuCategory.value;
   switch (command) {
     case 'createCategory':
-      sidebarRef.value?.startCreateFolder();
+      sidebarRef.value?.startCreateFolder(category || '');
       break;
     case 'createNote':
-      createNote();
+      openCreateNote();
       break;
     case 'importNotes':
       noteImportCategory.value = category || '';
@@ -1153,7 +1164,15 @@ async function refreshNotes(): Promise<void> {
   }
 }
 
-async function createNote(payload?: { templateId?: string }): Promise<void> {
+async function openCreateNote(payload?: { templateId?: string }): Promise<void> {
+  if (creating.value) {
+    return;
+  }
+  newNoteTemplateId.value = payload?.templateId || '';
+  newNoteVisible.value = true;
+}
+
+async function submitCreateNote(payload: { title: string; templateId?: string }): Promise<void> {
   if (creating.value) {
     return;
   }
@@ -1161,11 +1180,10 @@ async function createNote(payload?: { templateId?: string }): Promise<void> {
   try {
     keyword.value = '';
     searchResults.value = null;
-    const title = t('notes.untitled');
-    // 有模板时不传 content，由主进程按「# 标题 + 模板正文」拼接（对齐 vue2 createNote）
+    // 模板正文由主进程拼在 `# 标题` 之后；无模板时也由主进程补 H1，和 vue2 createNote 一致。
     const note = await notesStore.create({
-      title,
-      ...(payload?.templateId ? { templateId: payload.templateId } : { content: `# ${title}\n\n` }),
+      title: payload.title || t('notes.untitled'),
+      ...(payload.templateId ? { templateId: payload.templateId } : {}),
       category: activeFolder.value || '/',
       tags: activeTag.value || '',
     });
@@ -1194,7 +1212,7 @@ function runAppShortcut(command: AppShortcutCommand): void {
       void flushSave();
       return;
     case 'createNote':
-      void createNote();
+      void openCreateNote();
       return;
     case 'focusListSearch':
       document.querySelector<HTMLInputElement>('.topbar-search input')?.focus();
