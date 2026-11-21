@@ -46,6 +46,38 @@ mod window_state_tests {
     }
 }
 
+#[cfg(test)]
+mod app_root_tests {
+    use super::*;
+
+    #[test]
+    fn release_root_follows_executable_directory() {
+        let exe = PathBuf::from(r"C:\Program Files\Coolma\coolma-tauri.exe");
+        assert_eq!(
+            app_root_from_exe(Some(&exe), false),
+            PathBuf::from(r"C:\Program Files\Coolma")
+        );
+    }
+
+    #[test]
+    fn release_root_without_executable_is_empty() {
+        assert_eq!(app_root_from_exe(None, false), PathBuf::new());
+    }
+
+    #[test]
+    fn debug_root_points_at_bundle_dir() {
+        let root = app_root_from_exe(None, true);
+        assert!(root.ends_with("desktop-vue2-tauri"), "unexpected root: {root:?}");
+    }
+
+    #[test]
+    fn root_is_not_the_data_directory() {
+        // 回归点：曾把 get-app-path 误接到 app_data_path。
+        let root = app_root_dir();
+        assert!(!root.ends_with("dev"), "unexpected root: {root:?}");
+    }
+}
+
 fn data_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     app.path()
         .app_local_data_dir()
@@ -62,6 +94,38 @@ fn data_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 #[tauri::command]
 fn app_data_path(app: tauri::AppHandle) -> Result<PathBuf, String> {
     data_dir(&app)
+}
+
+/// 应用根目录（可执行文件所在目录）。
+///
+/// 与原版 `desktop-vue2/src-electron/main-process/api.js:332` 的 `app.getAppPath()`
+/// 语义对齐：渲染层拿它拼内置资源路径（`_plugins/<id>/dist/index.html`、
+/// microApp 资源根等），指向的是「应用装在哪」，不是「用户数据存哪」。
+/// 早期误接 `app_data_path`，导致这些路径落到 `%LOCALAPPDATA%\cn.coolma.tauri`。
+fn app_root_dir() -> PathBuf {
+    app_root_from_exe(std::env::current_exe().ok().as_deref(), cfg!(debug_assertions))
+}
+
+fn app_root_from_exe(
+    exe: Option<&std::path::Path>,
+    is_debug: bool,
+) -> PathBuf {
+    if is_debug {
+        // dev 下可执行文件在 target/<profile> 里，没有可比的应用根；
+        // 取打包目录（src-tauri 的上一级），与原版 dev 返回仓库根的行为对齐。
+        return PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")));
+    }
+    exe.and_then(std::path::Path::parent)
+        .map(PathBuf::from)
+        .unwrap_or_default()
+}
+
+#[tauri::command]
+fn app_root_path() -> Result<String, String> {
+    Ok(app_root_dir().to_string_lossy().to_string())
 }
 
 #[tauri::command]
@@ -254,6 +318,7 @@ fn main() {
             database_read,
             database_write,
             app_data_path,
+            app_root_path,
             open_database_folder,
             window_quit,
             files::path_exists,

@@ -70,7 +70,8 @@ async function invoke (channel, ...args) {
     case 'export-png': return download(payload.title + '.png', await (await fetch(payload.content)).blob(), 'image/png')
     case 'export-file': return download(payload.fileName, payload.content, 'application/octet-stream')
     case 'pop-context-menu': return popupContextMenu(payload)
-    case 'get-app-path': return isTauri() ? invokeNative('app_data_path') : ''
+    // 对齐原版 api.js:332 的 app.getAppPath()：应用根目录，不是用户数据目录
+    case 'get-app-path': return isTauri() ? invokeNative('app_root_path') : ''
     case 'open-sqlite-file': return isTauri() ? invokeNative('open_database_folder') : undefined
     case 'check-update': return checkUpdate(emit)
     case 'need-update': return payload ? downloadUpdate(emit) : undefined
