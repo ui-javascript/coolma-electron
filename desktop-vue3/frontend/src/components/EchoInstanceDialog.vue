@@ -9,7 +9,9 @@
   >
     <template #header>
       <div class="echo-instance-heading">
-        <el-icon class="echo-instance-heading__icon"><Histogram /></el-icon>
+        <el-icon class="echo-instance-heading__icon" :style="{ color: echo?.color || undefined }">
+          <component :is="echoIcon" />
+        </el-icon>
         <span>{{ echo?.name || token?.echoName || t('echoInstance.title') }}</span>
       </div>
     </template>
@@ -99,8 +101,9 @@
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { Histogram } from '@element-plus/icons-vue';
+import { DataLine } from '@element-plus/icons-vue';
 import type { EchoCard } from '@shared/types/domain';
+import { libraryIconOf } from '@/utils/libraryIcons';
 import { resolveEchoSchema, type EchoSchemaField } from '@/utils/echoSchema';
 import type { EchoInstancePatch, EchoInstanceToken } from '@/utils/echoToken';
 
@@ -119,6 +122,9 @@ const { t } = useI18n();
 
 const RESERVED_PROPS = new Set(['id', 'echoId', 'definitionId', 'value', 'inheritFromPrevious', 'type']);
 const form = reactive<Record<string, unknown>>({});
+
+/** 与 vue2 echoMeta.icon 一致：回响自定义图标，缺省退回 graphic_eq。 */
+const echoIcon = computed(() => libraryIconOf(props.echo?.icon) ?? DataLine);
 
 const fields = computed(() =>
   resolveEchoSchema(props.echo)

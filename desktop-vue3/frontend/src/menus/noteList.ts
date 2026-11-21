@@ -17,9 +17,9 @@ export function buildNoteListMenu(input: NoteListMenuInput) {
   return [
     { id: 'rename', label: '重命名' },
     { id: 'duplicate', label: '复制笔记' },
-    { id: 'copyMarkdown', label: '复制 Markdown 内容' },
+    { id: 'copyMarkdown', label: '复制完整内容' },
     { type: 'separator' as const, label: '' },
-    { id: 'move', label: '移动到…' },
+    { id: 'move', label: '移动' },
     {
       id: 'export',
       label: '导出',
