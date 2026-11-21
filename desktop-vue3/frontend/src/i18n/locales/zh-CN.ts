@@ -136,6 +136,8 @@ export default {
     copyMarkdown: '复制 Markdown',
     copySuccess: '已复制到剪贴板',
     copyFailed: '复制失败',
+    copyToCategoryTitle: '复制到文件夹',
+    copyToCategorySuccess: '已复制到「{folder}」',
     actions: '更多操作',
   },
   folder: {
