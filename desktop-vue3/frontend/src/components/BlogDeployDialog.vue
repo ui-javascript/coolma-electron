@@ -115,6 +115,15 @@
       <div v-for="(line, index) in progress" :key="index" class="blog-progress-line" :class="{ 'is-err': line.stream === 'stderr' }">{{ line.message }}</div>
     </div>
 
+    <div v-if="buildEnv" class="blog-env">
+      <div class="blog-env-title">{{ t('blog.envTitle') }}</div>
+      <span>{{ t('blog.envNode', { version: buildEnv.nodeVersion }) }}</span>
+      <span>{{ t('blog.envTheme', { theme: buildEnv.theme }) }}</span>
+      <span>{{ t(`blog.envPackage${buildEnv.packageStatus === 'created' ? 'Created' : buildEnv.packageStatus === 'updated' ? 'Updated' : 'Kept'}`) }}</span>
+      <span>{{ t(`blog.envConfig${buildEnv.configStatus === 'created' ? 'Created' : buildEnv.configStatus === 'updated' ? 'Updated' : 'Kept'}`) }}</span>
+      <span>{{ buildEnv.installed ? t('blog.envInstalled') : t('blog.envReused') }}</span>
+    </div>
+
     <div v-if="lastResult" class="blog-result">
       <div class="blog-result-title">{{ t('blog.resultTitle') }}</div>
       <ul>
@@ -140,14 +149,13 @@
  *
  * 已接：选 vuepress 源目录 → 把当前分类（或全部）笔记写成 `_posts/<shortlink>.md`、
  * sidebar.json、README、`.vuepress/{shortlink-map,id-mappings,seq-manifest}.json`、
- * 分类 README，可选写三份 GitHub Actions workflow。
- *
- * 没接：vue2 `blog-deploy-handler` 的 Node 探测、装依赖、vuepress build、
- * GitHub workflow_dispatch、SFTP 上传。界面上明说，不假装部署成功。
+ * 分类 README，可选写三份 GitHub Actions workflow；构建前自动检查 Node.js、
+ * 生成/修复 package.json 与 .vuepress/config.js、写 sidebar/nav builders、
+ * 缺依赖时安装，再跑 build 脚本。GitHub workflow_dispatch 与 SFTP 上传也已接。
  */
 import { computed, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { useAppStore } from '@/stores/app';
 import {
   buildBlog,
@@ -161,7 +169,7 @@ import {
   testBlogSftp,
   uploadBlogSftp,
 } from '@/services/blog';
-import type { BlogBuildProgress, BlogExportOutput, BlogSftpConfig } from '@/services/blog';
+import type { BlogBuildEnv, BlogBuildProgress, BlogExportOutput, BlogSftpConfig } from '@/services/blog';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -186,6 +194,7 @@ const building = ref(false);
 const packageManager = ref<'npm' | 'pnpm' | 'yarn'>('npm');
 const progress = ref<BlogBuildProgress[]>([]);
 const distDir = ref('');
+const buildEnv = ref<BlogBuildEnv | null>(null);
 let offProgress: (() => void) | null = null;
 const GITHUB_KEY = 'setting/blog/github';
 const SFTP_KEY = 'setting/blog/sftp';
@@ -353,6 +362,18 @@ async function stopSftp(): Promise<void> {
   uploading.value = false;
 }
 
+async function showNodeGuide(): Promise<void> {
+  const steps = [
+    t('blog.nodeGuideStep1'),
+    t('blog.nodeGuideStep2'),
+    t('blog.nodeGuideStep3'),
+  ];
+  await ElMessageBox.alert(steps.join('\n'), t('blog.nodeGuideTitle'), {
+    type: 'warning',
+    confirmButtonText: t('action.confirm'),
+  });
+}
+
 async function chooseDir(): Promise<void> {
   const result = await pickDirectory();
   if (result.ok && result.data) {
@@ -371,12 +392,22 @@ async function runBuild(): Promise<void> {
   building.value = true;
   progress.value = [];
   distDir.value = '';
+  buildEnv.value = null;
   try {
-    const result = await buildBlog({ blogDir: form.blogDir.trim(), packageManager: packageManager.value });
+    const result = await buildBlog({
+      blogDir: form.blogDir.trim(),
+      packageManager: packageManager.value,
+      theme: form.theme,
+    });
     if (!result.ok) {
-      ElMessage.error(t('blog.buildFailed', { message: result.error.message }));
+      if (result.error.code === 'NODE_NOT_FOUND') {
+        await showNodeGuide();
+      } else {
+        ElMessage.error(t('blog.buildFailed', { message: result.error.message }));
+      }
       return;
     }
+    buildEnv.value = result.data.env;
     if (result.data.distDir) {
       distDir.value = result.data.distDir;
     }
@@ -459,6 +490,9 @@ async function runExport(): Promise<void> {
 .blog-progress { max-height: 180px; overflow-y: auto; border: 1px solid var(--el-border-color-lighter); border-radius: 8px; background: #0f172a08; padding: 8px 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.5; }
 .blog-progress-line { white-space: pre-wrap; word-break: break-all; }
 .blog-progress-line.is-err { color: var(--el-color-danger); }
+.blog-env { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; padding: 8px 12px; border: 1px solid var(--el-border-color-lighter); border-radius: 8px; background: var(--el-fill-color-lighter); font-size: 12px; line-height: 1.6; }
+.blog-env-title { width: 100%; font-weight: 600; }
+.blog-env span { color: var(--el-text-color-regular); }
 .blog-result-dist { word-break: break-all; }
 
 .blog-result { border: 1px solid var(--el-border-color-lighter); border-radius: 8px; padding: 10px 14px; background: var(--el-fill-color-lighter); }

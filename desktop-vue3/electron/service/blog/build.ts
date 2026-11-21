@@ -3,22 +3,41 @@ import type { ChildProcess } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { BrowserWindow } from 'electron';
+import {
+  buildBlogPackageJson,
+  buildManagerCommand,
+  buildVuepressConfig,
+  detectBuildScript,
+  detectConfigTheme,
+  normalizeBlogTheme,
+  normalizePackageManager,
+  NAV_BUILDER_SOURCE,
+  SIDEBAR_BUILDER_SOURCE,
+  shouldRebuildPackage,
+  withBuildScript,
+} from './blogEnv';
+import type { BlogPackageJson, BlogPackageManager, BlogTheme } from './blogEnv';
 
 /**
- * vuepress 构建执行器（从 vue2 blog-deploy-handler.js 里挑核心那段）。
+ * vuepress 构建执行器（复刻 vue2 blog-deploy-handler.execBlogBuild 的环境准备段）。
  *
- * 只做：校验目录 → 找 build 脚本 → 在博客目录里跑 `npm/pnpm/yarn run <script>` →
- * 把 stdout/stderr 逐行推给渲染层 → 结束猜 dist 目录。
- *
- * 没搬：Node.js 安装引导、node_modules 软链、自动改 .vuepress/config.js 的 base/theme、
- * 自动生成 package.json、npm install、GitHub workflow_dispatch、SFTP 上传。
- * 构建脚本来自博客目录的 package.json —— 这就是执行用户指定目录里的代码，只在用户点「构建」时触发。
+ * 顺序与 vue2 一致：Node 检测 → 校验目录 → 生成/修复 package.json、config.js 与
+ * sidebar/nav builders → 缺 node_modules / vuepress 时安装 → 清缓存 → 跑 build 脚本。
+ * 构建脚本仍来自博客目录的 package.json，只在用户点「构建」时执行。
  */
 export type BlogProgress = {
-  stage: 'build' | 'sftp' | 'done' | 'error' | 'cancelled';
+  stage: 'config' | 'install' | 'build' | 'sftp' | 'done' | 'error' | 'cancelled';
   message: string;
   percent: number;
   stream?: 'stdout' | 'stderr';
+};
+
+export type BlogBuildEnv = {
+  theme: BlogTheme;
+  nodeVersion: string;
+  packageStatus: 'created' | 'updated' | 'kept';
+  configStatus: 'created' | 'updated' | 'kept';
+  installed: boolean;
 };
 
 let current: ChildProcess | null = null;
@@ -32,20 +51,192 @@ export function sendBlogProgress(payload: BlogProgress): void {
   });
 }
 
-const CANDIDATE_SCRIPTS = ['docs:build', 'blog:build', 'vuepress:build', 'build'];
 const CANDIDATE_DISTS = ['.vuepress/dist', '_docs/.vuepress/dist', 'docs/.vuepress/dist'];
 
-async function readBuildScript(blogDir: string): Promise<{ script: string; packageManager: string } | null> {
-  const packagePath = path.join(blogDir, 'package.json');
-  let scripts: Record<string, string> = {};
+async function pathExists(target: string): Promise<boolean> {
   try {
-    const pkg = JSON.parse(await fs.readFile(packagePath, 'utf-8')) as { scripts?: Record<string, string> };
-    scripts = pkg.scripts ?? {};
+    await fs.access(target);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function checkNodeVersion(): Promise<string | null> {
+  return new Promise((resolve) => {
+    const child = spawn('node', ['--version'], { windowsHide: true });
+    let output = '';
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        child.kill();
+        resolve(null);
+      }
+    }, 5000);
+    child.stdout?.on('data', (data: Buffer) => {
+      output += data.toString();
+    });
+    child.on('error', () => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        resolve(null);
+      }
+    });
+    child.on('close', (code) => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        resolve(code === 0 ? output.trim() : null);
+      }
+    });
+  });
+}
+
+async function readPackage(blogDir: string): Promise<BlogPackageJson | null> {
+  try {
+    return JSON.parse(await fs.readFile(path.join(blogDir, 'package.json'), 'utf-8')) as BlogPackageJson;
   } catch {
     return null;
   }
-  const script = CANDIDATE_SCRIPTS.find((name) => typeof scripts[name] === 'string');
-  return script ? { script, packageManager: 'npm' } : null;
+}
+
+async function ensurePackage(
+  blogDir: string,
+  theme: BlogTheme,
+): Promise<{ pkg: BlogPackageJson; status: BlogBuildEnv['packageStatus'] }> {
+  const packagePath = path.join(blogDir, 'package.json');
+  const existing = await readPackage(blogDir);
+  if (!existing) {
+    const pkg = buildBlogPackageJson(theme);
+    await fs.writeFile(packagePath, JSON.stringify(pkg, null, 2), 'utf-8');
+    return { pkg, status: 'created' };
+  }
+  if (shouldRebuildPackage(existing, theme)) {
+    const pkg = buildBlogPackageJson(theme);
+    await fs.writeFile(packagePath, JSON.stringify(pkg, null, 2), 'utf-8');
+    return { pkg, status: 'updated' };
+  }
+  const pkg = withBuildScript(existing);
+  if (!detectBuildScript(existing)) {
+    await fs.writeFile(packagePath, JSON.stringify(pkg, null, 2), 'utf-8');
+    return { pkg, status: 'updated' };
+  }
+  return { pkg, status: 'kept' };
+}
+
+async function ensureConfig(
+  blogDir: string,
+  theme: BlogTheme,
+): Promise<BlogBuildEnv['configStatus']> {
+  const vuepressDir = path.join(blogDir, '.vuepress');
+  const configPath = path.join(vuepressDir, 'config.js');
+  const configTsPath = path.join(vuepressDir, 'config.ts');
+  await fs.mkdir(vuepressDir, { recursive: true });
+  if (await pathExists(configTsPath) && !(await pathExists(configPath))) {
+    return 'kept';
+  }
+  if (!(await pathExists(configPath))) {
+    await fs.writeFile(configPath, buildVuepressConfig(theme), 'utf-8');
+    return 'created';
+  }
+  const source = await fs.readFile(configPath, 'utf-8');
+  const currentTheme = detectConfigTheme(source);
+  if (currentTheme && currentTheme !== theme) {
+    await fs.writeFile(configPath, buildVuepressConfig(theme), 'utf-8');
+    return 'updated';
+  }
+  return 'kept';
+}
+
+async function ensureBuilders(blogDir: string): Promise<void> {
+  const utilsDir = path.join(blogDir, '.vuepress', 'utils');
+  await fs.mkdir(utilsDir, { recursive: true });
+  await Promise.all([
+    fs.writeFile(path.join(utilsDir, 'sidebar-builder.js'), SIDEBAR_BUILDER_SOURCE, 'utf-8'),
+    fs.writeFile(path.join(utilsDir, 'nav-builder.js'), NAV_BUILDER_SOURCE, 'utf-8'),
+  ]);
+}
+
+async function hasVuepress(blogDir: string): Promise<boolean> {
+  const npmCli = path.join(blogDir, 'node_modules', 'vuepress', 'cli.js');
+  const bin = path.join(blogDir, 'node_modules', '.bin', process.platform === 'win32' ? 'vuepress.cmd' : 'vuepress');
+  return (await pathExists(npmCli)) || (await pathExists(bin));
+}
+
+type TaskResult = {
+  ok: boolean;
+  cancelled: boolean;
+  code: number | null;
+  stdout: string;
+  stderr: string;
+  error?: string;
+};
+
+function spawnTask(input: {
+  command: string;
+  args: string[];
+  cwd: string;
+  onLine?: (line: string, stream: 'stdout' | 'stderr') => void;
+}): Promise<TaskResult> {
+  return new Promise((resolve) => {
+    let settled = false;
+    let stdout = '';
+    let stderr = '';
+    const child = spawn(input.command, input.args, {
+      cwd: input.cwd,
+      env: { ...process.env },
+      windowsHide: true,
+    });
+    current = child;
+
+    const finish = (result: TaskResult): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      current = null;
+      resolve(result);
+    };
+
+    const push = (text: string, stream: 'stdout' | 'stderr'): void => {
+      text.split(/\r?\n/).filter(Boolean).slice(-8).forEach((line) => {
+        input.onLine?.(line.slice(0, 500), stream);
+      });
+    };
+
+    child.stdout?.on('data', (data: Buffer) => {
+      const text = data.toString();
+      stdout = `${stdout}${text}`.slice(-4000);
+      push(text, 'stdout');
+    });
+    child.stderr?.on('data', (data: Buffer) => {
+      const text = data.toString();
+      stderr = `${stderr}${text}`.slice(-4000);
+      push(text, 'stderr');
+    });
+    child.on('error', (error) => {
+      finish({
+        ok: false,
+        cancelled,
+        code: null,
+        stdout,
+        stderr,
+        error: error.message,
+      });
+    });
+    child.on('close', (code) => {
+      finish({
+        ok: !cancelled && code === 0,
+        cancelled,
+        code,
+        stdout,
+        stderr,
+        error: !cancelled && code !== 0 ? (stderr.trim() || `exit ${code}`) : undefined,
+      });
+    });
+  });
 }
 
 async function findDist(blogDir: string): Promise<string> {
@@ -63,18 +254,33 @@ async function findDist(blogDir: string): Promise<string> {
   return '';
 }
 
-function toShellCommand(packageManager: string, script: string): { command: string; args: string[] } {
-  if (process.platform === 'win32') {
-    return { command: 'cmd.exe', args: ['/c', `${packageManager} run ${script}`] };
+async function cleanBuildCaches(blogDir: string): Promise<void> {
+  const vuepressDir = path.join(blogDir, '.vuepress');
+  const cachePaths = [
+    path.join(vuepressDir, 'cache'),
+    path.join(vuepressDir, '.cache'),
+    path.join(vuepressDir, 'dist'),
+    path.join(blogDir, 'node_modules', '.cache'),
+    path.join(blogDir, '.cache'),
+  ];
+  for (const target of cachePaths) {
+    await fs.rm(target, { recursive: true, force: true });
   }
-  return { command: '/bin/sh', args: ['-c', `${packageManager} run ${script}`] };
 }
 
 export async function runBlogBuild(input: {
   blogDir: string;
-  packageManager?: string;
+  packageManager?: BlogPackageManager | string;
   script?: string;
-}): Promise<{ ok: boolean; distDir?: string; error?: string; script?: string }> {
+  theme?: BlogTheme | string;
+}): Promise<{
+  ok: boolean;
+  distDir?: string;
+  error?: string;
+  details?: unknown;
+  script?: string;
+  env?: BlogBuildEnv;
+}> {
   if (current) {
     return { ok: false, error: 'BLOG_BUILD_BUSY' };
   }
@@ -88,65 +294,123 @@ export async function runBlogBuild(input: {
     return { ok: false, error: 'BLOG_DIR_INVALID' };
   }
 
-  const detected = await readBuildScript(blogDir);
-  const script = input.script || detected?.script;
-  if (!script) {
-    return { ok: false, error: 'NO_BUILD_SCRIPT' };
-  }
-  const packageManager = input.packageManager || detected?.packageManager || 'npm';
-  const { command, args } = toShellCommand(packageManager, script);
-
   cancelled = false;
-  sendBlogProgress({ stage: 'build', message: `${packageManager} run ${script}`, percent: 10 });
-
-  return new Promise((resolve) => {
-    let stderr = '';
-    let stdoutTail = '';
-    const child = spawn(command, args, {
-      cwd: blogDir,
-      env: { ...process.env },
-      windowsHide: true,
-    });
-    current = child;
-
-    const push = (text: string, stream: 'stdout' | 'stderr') => {
-      text.split(/\r?\n/).filter(Boolean).slice(-8).forEach((line) => {
-        sendBlogProgress({ stage: 'build', message: line.slice(0, 500), percent: 50, stream });
-      });
+  sendBlogProgress({ stage: 'config', message: 'Checking Node.js...', percent: 1 });
+  const nodeVersion = await checkNodeVersion();
+  if (!nodeVersion) {
+    sendBlogProgress({ stage: 'error', message: 'Node.js not found', percent: 0 });
+    return {
+      ok: false,
+      error: 'NODE_NOT_FOUND',
+      details: { platform: process.platform },
     };
+  }
+  sendBlogProgress({ stage: 'config', message: `Node.js ${nodeVersion}`, percent: 2 });
 
-    child.stdout?.on('data', (data: Buffer) => {
-      const text = data.toString();
-      stdoutTail = `${stdoutTail}${text}`.slice(-2000);
-      push(text, 'stdout');
-    });
-    child.stderr?.on('data', (data: Buffer) => {
-      const text = data.toString();
-      stderr = `${stderr}${text}`.slice(-2000);
-      push(text, 'stderr');
-    });
-
-    const finish = async (code: number | null, error?: Error): Promise<void> => {
-      current = null;
-      if (cancelled) {
-        cancelled = false;
-        sendBlogProgress({ stage: 'cancelled', message: 'cancelled', percent: 0 });
-        resolve({ ok: false, error: 'BLOG_BUILD_CANCELLED', script });
-        return;
-      }
-      if (error || code !== 0) {
-        sendBlogProgress({ stage: 'error', message: stderr.trim() || error?.message || `exit ${code}`, percent: 0 });
-        resolve({ ok: false, error: stderr.trim() || error?.message || `exit ${code}`, script });
-        return;
-      }
-      const distDir = await findDist(blogDir);
-      sendBlogProgress({ stage: 'done', message: distDir || 'built', percent: 100 });
-      resolve({ ok: true, distDir, script });
-    };
-
-    child.on('error', (error) => void finish(null, error));
-    child.on('close', (code) => void finish(code));
+  const theme = normalizeBlogTheme(input.theme);
+  const packageManager = normalizePackageManager(input.packageManager);
+  const packageSetup = await ensurePackage(blogDir, theme);
+  sendBlogProgress({
+    stage: 'config',
+    message: `package.json ${packageSetup.status}`,
+    percent: 4,
   });
+  const configStatus = await ensureConfig(blogDir, theme);
+  sendBlogProgress({
+    stage: 'config',
+    message: `config.js ${configStatus}`,
+    percent: 5,
+  });
+  await ensureBuilders(blogDir);
+  sendBlogProgress({ stage: 'config', message: 'sidebar/nav builders ready', percent: 6 });
+
+  const needsInstall = packageSetup.status !== 'kept' || !(await hasVuepress(blogDir));
+  let installed = false;
+  if (needsInstall) {
+    sendBlogProgress({
+      stage: 'install',
+      message: `Installing dependencies (${packageManager})...`,
+      percent: 40,
+    });
+    const { command, args } = buildManagerCommand(packageManager, 'install');
+    const install = await spawnTask({
+      command,
+      args,
+      cwd: blogDir,
+      onLine: (line, stream) => sendBlogProgress({
+        stage: 'install',
+        message: line,
+        percent: 45,
+        stream,
+      }),
+    });
+    if (install.cancelled) {
+      sendBlogProgress({ stage: 'cancelled', message: 'cancelled', percent: 0 });
+      return { ok: false, error: 'BLOG_BUILD_CANCELLED' };
+    }
+    if (!install.ok) {
+      const message = install.error || 'install failed';
+      sendBlogProgress({ stage: 'error', message, percent: 0 });
+      return { ok: false, error: `BLOG_DEPENDENCY_INSTALL_FAILED: ${message}` };
+    }
+    installed = true;
+    if (!(await hasVuepress(blogDir))) {
+      const message = 'vuepress not found after install';
+      sendBlogProgress({ stage: 'error', message, percent: 0 });
+      return { ok: false, error: message };
+    }
+    sendBlogProgress({ stage: 'install', message: 'dependencies installed', percent: 48 });
+  } else {
+    sendBlogProgress({ stage: 'install', message: 'dependencies ready', percent: 48 });
+  }
+
+  const script = input.script || detectBuildScript(packageSetup.pkg) || 'build';
+  if (cancelled) {
+    sendBlogProgress({ stage: 'cancelled', message: 'cancelled', percent: 0 });
+    return { ok: false, error: 'BLOG_BUILD_CANCELLED', script };
+  }
+
+  sendBlogProgress({ stage: 'build', message: 'Cleaning build cache...', percent: 49 });
+  await cleanBuildCaches(blogDir);
+
+  const { command, args } = buildManagerCommand(packageManager, 'run', script);
+  sendBlogProgress({ stage: 'build', message: `${packageManager} run ${script}`, percent: 50 });
+  const build = await spawnTask({
+    command,
+    args,
+    cwd: blogDir,
+    onLine: (line, stream) => sendBlogProgress({
+      stage: 'build',
+      message: line,
+      percent: 60,
+      stream,
+    }),
+  });
+
+  if (build.cancelled) {
+    sendBlogProgress({ stage: 'cancelled', message: 'cancelled', percent: 0 });
+    return { ok: false, error: 'BLOG_BUILD_CANCELLED', script };
+  }
+  if (!build.ok) {
+    const message = build.error || 'build failed';
+    sendBlogProgress({ stage: 'error', message, percent: 0 });
+    return { ok: false, error: message, script };
+  }
+
+  const distDir = await findDist(blogDir);
+  sendBlogProgress({ stage: 'done', message: distDir || 'built', percent: 100 });
+  return {
+    ok: true,
+    distDir,
+    script,
+    env: {
+      theme,
+      nodeVersion,
+      packageStatus: packageSetup.status,
+      configStatus,
+      installed,
+    },
+  };
 }
 
 export function cancelBlogBuild(): boolean {

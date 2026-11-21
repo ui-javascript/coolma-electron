@@ -63,6 +63,16 @@ import {
   shouldAutoUpload,
 } from '../frontend/src/utils/syncAuto';
 import { buildEchoCodeGenPrompt, buildRuneCodeGenPrompt, extractGeneratedCode } from '../frontend/src/utils/aiCodegen';
+import {
+  buildBlogPackageJson,
+  buildManagerCommand,
+  buildVuepressConfig,
+  detectConfigTheme,
+  NAV_BUILDER_SOURCE,
+  normalizeBlogTheme,
+  SIDEBAR_BUILDER_SOURCE,
+  shouldRebuildPackage,
+} from '../electron/service/blog/blogEnv';
 import { PROOFREAD_SYSTEM_PROMPT, buildProofreadMessages } from '../frontend/src/services/aiProofread';
 
 type Any = Record<string, any>;
@@ -818,6 +828,102 @@ async function main(): Promise<void> {
     const ci1 = await exportCIWorkflows(tmp);
     const ci2 = await exportCIWorkflows(tmp);
     assert('博客：CI workflow 首次写三份、二次全跳过', ci1.written.length === 3 && ci2.skipped.length === 3, `${ci1.written.length}/${ci2.skipped.length}`);
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+
+  blogEnv: {
+    const fs = await import('node:fs/promises');
+    const os = await import('node:os');
+    const nodePath = await import('node:path');
+    const { execFileSync } = await import('node:child_process');
+    const tmp = await fs.mkdtemp(nodePath.join(os.tmpdir(), 'coolma-blog-env-'));
+
+    const defaultPkg = buildBlogPackageJson('default');
+    const vdoingPkg = buildBlogPackageJson('vdoing');
+    assert(
+      '博客环境：默认主题只带 vuepress/lodash/cross-env，构建脚本跨平台',
+      defaultPkg.dependencies?.vuepress === '^1.9.0' &&
+        defaultPkg.dependencies?.['cross-env'] === '^7.0.3' &&
+        !defaultPkg.dependencies?.['vuepress-theme-vdoing'] &&
+        String(defaultPkg.scripts?.build).includes('cross-env NODE_OPTIONS=--openssl-legacy-provider'),
+      JSON.stringify(defaultPkg),
+    );
+    assert(
+      '博客环境：vdoing 主题加对应依赖',
+      vdoingPkg.dependencies?.['vuepress-theme-vdoing'] === '^1.5.0',
+      JSON.stringify(vdoingPkg.dependencies),
+    );
+    assert(
+      '博客环境：vuepress v2 或主题不匹配时重建 package.json',
+      shouldRebuildPackage({ dependencies: { vuepress: '^2.0.0' } }, 'default') &&
+        shouldRebuildPackage({ dependencies: { vuepress: '^1.9.0' } }, 'vdoing') &&
+        !shouldRebuildPackage({ dependencies: { vuepress: '^1.9.0' } }, 'default'),
+      'rebuild',
+    );
+    assert(
+      '博客环境：主题检测覆盖 default/vdoing/hope/reco，非法值回落 default',
+      detectConfigTheme("module.exports = { theme: 'reco' }") === 'reco' &&
+        detectConfigTheme("module.exports = { theme: 'vdoing' }") === 'vdoing' &&
+        detectConfigTheme("const { config } = require('vuepress-theme-hope')") === 'hope' &&
+        detectConfigTheme('module.exports = {}') === null &&
+        normalizeBlogTheme('nope') === 'default',
+      'theme',
+    );
+    const installCmd = buildManagerCommand('npm', 'install');
+    assert(
+      '博客环境：安装命令按包管理器生成',
+      `${installCmd.command} ${installCmd.args.join(' ')}`.includes('npm') &&
+        `${installCmd.command} ${installCmd.args.join(' ')}`.includes('install'),
+      `${installCmd.command} ${installCmd.args.join(' ')}`,
+    );
+    const { blogBuildSchema } = await import('@shared/ipc/schemas');
+    assert(
+      '博客环境：build 脚本名拒绝空格与 shell 分隔符',
+      blogBuildSchema.safeParse({ blogDir: 'x', script: 'docs:build' }).success &&
+        !blogBuildSchema.safeParse({ blogDir: 'x', script: 'build && rm -rf /' }).success,
+      'schema',
+    );
+
+    const configDir = nodePath.join(tmp, '.vuepress');
+    const utilsDir = nodePath.join(configDir, 'utils');
+    await fs.mkdir(utilsDir, { recursive: true });
+    for (const theme of ['default', 'vdoing', 'hope', 'reco'] as const) {
+      const configPath = nodePath.join(configDir, `config-${theme}.js`);
+      await fs.writeFile(configPath, buildVuepressConfig(theme), 'utf-8');
+      execFileSync('node', ['--check', configPath], { stdio: 'pipe' });
+    }
+    assert('博客环境：四套主题 config.js 语法均通过 node --check', true, 'default/vdoing/hope/reco');
+
+    await fs.writeFile(nodePath.join(configDir, 'id-mappings.json'), JSON.stringify({
+      mappings: [
+        { id: 'b1', title: 'B', category: '技术', shortUrl: '/b1.html' },
+        { id: 'a1', title: 'A', category: '技术', shortUrl: '/a1.html' },
+        { id: 'u1', title: 'U', category: '', shortUrl: '/u1.html' },
+      ],
+    }), 'utf-8');
+    await fs.writeFile(nodePath.join(configDir, 'seq-manifest.json'), JSON.stringify({ b1: 2, a1: 1, u1: 3 }), 'utf-8');
+    await fs.writeFile(nodePath.join(utilsDir, 'sidebar-builder.js'), SIDEBAR_BUILDER_SOURCE, 'utf-8');
+    await fs.writeFile(nodePath.join(utilsDir, 'nav-builder.js'), NAV_BUILDER_SOURCE, 'utf-8');
+    execFileSync('node', [nodePath.join(utilsDir, 'sidebar-builder.js')], { stdio: 'pipe' });
+    execFileSync('node', [nodePath.join(utilsDir, 'nav-builder.js')], { stdio: 'pipe' });
+    const sidebar = JSON.parse(await fs.readFile(nodePath.join(configDir, 'sidebar.json'), 'utf-8'));
+    const nav = JSON.parse(await fs.readFile(nodePath.join(configDir, 'nav.json'), 'utf-8'));
+    assert(
+      '博客环境：sidebar 用 / 根键并按分类分组，空分类归未分类',
+      Array.isArray(sidebar['/']) &&
+        sidebar['/'].map((group: { title: string }) => group.title).join('|') === '技术|未分类',
+      JSON.stringify(sidebar),
+    );
+    assert(
+      '博客环境：sidebar 同分类按 seq 排序',
+      sidebar['/'].find((group: { title: string }) => group.title === '技术')?.children.map((item: { title: string }) => item.title).join('|') === 'A|B',
+      JSON.stringify(sidebar['/']),
+    );
+    assert(
+      '博客环境：nav 首页 + 分类组 + 空分类归文章（分类链接取映射首项，不按 seq）',
+      nav[0]?.text === '首页' && nav[1]?.text === '技术' && nav[1]?.link === '/b1.html' && nav.some((item: { text: string }) => item.text === '文章'),
+      JSON.stringify(nav),
+    );
     await fs.rm(tmp, { recursive: true, force: true });
   }
 
