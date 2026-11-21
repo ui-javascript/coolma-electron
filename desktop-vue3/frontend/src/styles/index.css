@@ -1887,3 +1887,11 @@ html.dark .remote-import-error {
   padding: 0;
   border-top: 1px solid var(--el-border-color-lighter);
 }
+
+
+/* 关闭应用确认：对齐 vue2 的负向红色退出按钮 */
+.quit-app-confirm {
+  border-color: var(--el-color-danger) !important;
+  background: var(--el-color-danger) !important;
+  color: #fff !important;
+}

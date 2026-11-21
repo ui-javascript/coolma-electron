@@ -999,6 +999,9 @@ export default {
     platform: '平台',
   },
   window: {
+    quitTitle: '关闭 coolma',
+    quitMessage: '关闭会退出程序，不会隐藏到后台继续运行。确定关闭吗？',
+    quit: '退出',
     minimize: '最小化',
     maximize: '最大化',
     restore: '还原',

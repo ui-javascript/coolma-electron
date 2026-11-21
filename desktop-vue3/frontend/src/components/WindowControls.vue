@@ -45,6 +45,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { ElMessageBox } from 'element-plus';
 import {
   closeWindow,
   getWindowState,
@@ -91,6 +92,16 @@ async function toggleMaximize(): Promise<void> {
 }
 
 async function close(): Promise<void> {
+  try {
+    await ElMessageBox.confirm(t('window.quitMessage'), t('window.quitTitle'), {
+      type: 'warning',
+      confirmButtonText: t('window.quit'),
+      cancelButtonText: t('action.cancel'),
+      confirmButtonClass: 'quit-app-confirm',
+    });
+  } catch {
+    return;
+  }
   await closeWindow();
 }
 

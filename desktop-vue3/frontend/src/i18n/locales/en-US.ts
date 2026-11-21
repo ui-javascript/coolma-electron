@@ -998,6 +998,9 @@ export default {
     platform: 'Platform',
   },
   window: {
+    quitTitle: 'Close coolma',
+    quitMessage: 'Closing will exit the app instead of keeping it running in the background. Close anyway?',
+    quit: 'Quit',
     minimize: 'Minimize',
     maximize: 'Maximize',
     restore: 'Restore',
