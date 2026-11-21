@@ -1487,3 +1487,37 @@ html.dark .editor-action-bar {
     width: 96vw !important;
   }
 }
+
+/* 移动到文件夹：对齐 vue2 CategoryDialog 的 70vw 分类树 */
+.move-note-dialog {
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  padding: 0;
+}
+
+.move-note-dialog .el-dialog__header {
+  flex: 0 0 auto;
+  min-height: 40px;
+  margin-right: 0;
+  padding: 8px 40px 8px 12px;
+}
+
+.move-note-dialog .el-dialog__body {
+  flex: 0 0 70vh;
+  height: 70vh;
+  padding: 0;
+  overflow: auto;
+}
+
+.move-note-body {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 100%;
+}
+
+@media (max-width: 900px) {
+  .move-note-dialog {
+    width: 96vw !important;
+  }
+}
