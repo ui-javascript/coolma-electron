@@ -77,7 +77,7 @@ function sidebarPathFor (dir, base) {
  *   blog-db-upload.yml 手动上传 memocast.db 到 artifact
  *   blog-preview.yml  PR 上自动跑 sidebar/config（不部署）
  */
-const CI_WORKFLOWS = {
+export const CI_WORKFLOWS = {
   'blog-build.yml': `name: blog-build
 
 on:

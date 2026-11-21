@@ -2,6 +2,8 @@ import { invoke } from '@tauri-apps/api/core'
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog'
 import sanitize from 'sanitize-filename'
 import md5 from 'md5'
+import PreferenceStore from './PreferenceStore'
+import { CI_WORKFLOWS } from 'src/services/BlogDeployService'
 import {
   isTauri,
   dataDir,
@@ -251,6 +253,39 @@ async function handleOpenExternal ({ url }) {
   await openExternal(url)
 }
 
+async function getBlogDeployConfig () {
+  const store = new PreferenceStore({ name: 'blog-deploy-config' })
+  return store.get('config', null)
+}
+
+async function saveBlogDeployConfig (config) {
+  const store = new PreferenceStore({ name: 'blog-deploy-config' })
+  store.set('config', config)
+  return { success: true }
+}
+
+/**
+ * 与原版主进程 export-blog-ci 同形：把内置的 blog-*.yml 写到
+ * <targetDir>/.github/workflows/，已存在的文件跳过，返回写入/跳过清单。
+ */
+async function exportBlogCI ({ targetDir } = {}) {
+  if (!targetDir) return { error: 'targetDirRequired', message: '需要指定目标目录' }
+  const workflowDir = joinPath(joinPath(targetDir, '.github'), 'workflows')
+  await makeDir(workflowDir)
+  const written = []
+  const skipped = []
+  for (const [name, content] of Object.entries(CI_WORKFLOWS)) {
+    const destination = joinPath(workflowDir, name)
+    if (await pathExists(destination)) {
+      skipped.push(name)
+      continue
+    }
+    await writeText(destination, content)
+    written.push(name)
+  }
+  return { success: true, written, skipped, targetDir: workflowDir }
+}
+
 /**
  * 处理从 Electron 主进程迁移过来的文件类通道。
  * 未命中的通道返回 UNHANDLED，由 bridge 继续走默认分支。
@@ -271,6 +306,9 @@ export async function handleDesktopChannel (channel, payload, emit) {
     case 'upload-images': return uploadImages(payload, emit)
     case 'open-log-files': return openLogFiles()
     case 'open-external': return handleOpenExternal(payload)
+    case 'get-blog-deploy-config': return getBlogDeployConfig()
+    case 'save-blog-deploy-config': return saveBlogDeployConfig(payload)
+    case 'export-blog-ci': return exportBlogCI(payload)
     default: return UNHANDLED
   }
 }
