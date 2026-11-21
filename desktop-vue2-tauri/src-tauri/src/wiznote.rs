@@ -3,6 +3,10 @@ use std::time::Duration;
 use reqwest::{Client, Method, RequestBuilder, Url};
 use serde::Deserialize;
 use serde_json::Value;
+use tauri::ipc::{InvokeBody, Request};
+
+use crate::wiz_resources::{self, Sources};
+
 const RESPONSE_LIMIT: usize = 32 * 1024 * 1024;
 
 pub fn client() -> Result<Client, reqwest::Error> {
@@ -40,6 +44,7 @@ fn endpoint(input: &str) -> Result<Url, String> {
 #[tauri::command]
 pub async fn wiznote_request(
     client: tauri::State<'_, Client>,
+    sources: tauri::State<'_, Sources>,
     request: WizRequest,
 ) -> Result<Value, String> {
     let url = endpoint(&request.url)?;
@@ -51,7 +56,7 @@ pub async fn wiznote_request(
         _ => return Err("不支持此为知笔记请求方法".into()),
     };
     let mut outgoing = client
-        .request(method.clone(), url)
+        .request(method.clone(), url.clone())
         .header("Accept", "application/json");
     if let Some(token) = request.token {
         outgoing = outgoing.header("X-Wiz-Token", token);
@@ -61,7 +66,45 @@ pub async fn wiznote_request(
             outgoing = outgoing.json(&body);
         }
     }
-    read_json(outgoing).await
+    let data = read_json(outgoing).await?;
+    if method == Method::GET {
+        sources.register_note(&url, &data);
+    }
+    Ok(data)
+}
+
+#[tauri::command]
+pub async fn wiznote_upload(
+    client: tauri::State<'_, Client>,
+    request: Request<'_>,
+) -> Result<Value, String> {
+    let header = |name| {
+        request
+            .headers()
+            .get(name)
+            .and_then(|value| value.to_str().ok())
+    };
+    let url = endpoint(header("x-coolma-url").ok_or("缺少为知笔记上传地址")?)?;
+    if wiz_resources::note_ids(&url, "/ks/resource/upload/").is_none() {
+        return Err("不支持此为知笔记上传地址".into());
+    }
+    let content_type = header("x-coolma-content-type")
+        .filter(|value| value.starts_with("multipart/form-data; boundary="))
+        .ok_or("为知笔记上传数据格式无效")?;
+    let InvokeBody::Raw(bytes) = request.body() else {
+        return Err("为知笔记上传需要二进制数据".into());
+    };
+    if bytes.len() > wiz_resources::FILE_LIMIT + 64 * 1024 {
+        return Err("为知笔记上传文件超过 32 MB".into());
+    }
+    let mut outgoing = client
+        .post(url)
+        .header("Accept", "application/json")
+        .header("Content-Type", content_type);
+    if let Some(token) = header("x-wiz-token") {
+        outgoing = outgoing.header("X-Wiz-Token", token);
+    }
+    read_json(outgoing.body(bytes.clone())).await
 }
 
 async fn read_json(outgoing: RequestBuilder) -> Result<Value, String> {

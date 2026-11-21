@@ -7,6 +7,7 @@ use tauri::{
 };
 use tauri_plugin_opener::OpenerExt;
 
+mod wiz_resources;
 mod wiznote;
 
 fn data_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -70,6 +71,13 @@ fn database_write(app: tauri::AppHandle, request: Request<'_>) -> Result<(), Str
 fn main() {
     tauri::Builder::default()
         .manage(wiznote::client().expect("Unable to initialize WizNote HTTP client"))
+        .manage(wiz_resources::Sources::default())
+        .register_asynchronous_uri_scheme_protocol("coolma-resource", |ctx, request, responder| {
+            let app = ctx.app_handle().clone();
+            tauri::async_runtime::spawn(async move {
+                responder.respond(wiz_resources::serve(app, request).await);
+            });
+        })
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.unminimize();
@@ -82,7 +90,9 @@ fn main() {
             database_write,
             app_data_path,
             open_database_folder,
-            wiznote::wiznote_request
+            wiznote::wiznote_request,
+            wiznote::wiznote_upload,
+            wiz_resources::wiznote_cache_file
         ])
         .run(tauri::generate_context!())
         .expect("Unable to start Coolma Tauri");

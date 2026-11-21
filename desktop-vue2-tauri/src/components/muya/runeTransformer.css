@@ -1,0 +1,28 @@
+.ag-rune-transformer .circle {
+  position: fixed;
+  z-index: 2147483000;
+  width: 14px;
+  height: 14px;
+  display: inline-block;
+  border-radius: 50%;
+  background: var(--themeColor);
+  border: 2px solid var(--editorBgColor);
+  box-sizing: border-box;
+  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.15);
+}
+
+.ag-rune-placeholder-host {
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.ag-rune-transformer .top-left,
+.ag-rune-transformer .bottom-right {
+  cursor: nwse-resize;
+}
+
+.ag-rune-transformer .top-right,
+.ag-rune-transformer .bottom-left {
+  cursor: nesw-resize;
+}

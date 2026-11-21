@@ -1,0 +1,66 @@
+/* Common CSS use by both light and dark themes */
+:root {
+  --titleBarHeight: 32px;
+  --editorAreaWidth: 90%;
+  --backgroundColor: #35373e;
+  /*editor*/
+  /*Theme color cluster - 默认为 Element-UI 蓝色 #409EFF */
+  --themeColor: rgba(64, 158, 255, 1);
+  --themeColor90: rgba(64, 158, 255, .9);
+  --themeColor80: rgba(64, 158, 255, .8);
+  --themeColor70: rgba(64, 158, 255, .7);
+  --themeColor60: rgba(64, 158, 255, .6);
+  --themeColor50: rgba(64, 158, 255, .5);
+  --themeColor40: rgba(64, 158, 255, .4);
+  --themeColor30: rgba(64, 158, 255, .3);
+  --themeColor20: rgba(64, 158, 255, .2);
+  --themeColor10: rgba(64, 158, 255, .1);
+
+  --highlightColor: rgba(64, 158, 255, .4);
+  --selectionColor: rgba(0, 0, 0, .1);
+  --editorColor: rgba(0, 0, 0, .7);
+  --editorColor80: rgba(0, 0, 0, .8);
+  --editorColor60: rgba(0, 0, 0, .6);
+  --editorColor50: rgba(0, 0, 0, .5);
+  --editorColor40: rgba(0, 0, 0, .4);
+  --editorColor30: rgba(0, 0, 0, .3);
+  --editorColor10: rgba(0, 0, 0, .1);
+  --editorColor04: rgba(0, 0, 0, .03);
+  --editorBgColor: rgba(255, 255, 255, 1);
+  --deleteColor: #ff6969;
+  --iconColor: #6B737B;
+  --codeBgColor: #d8d8d869;
+  --codeBlockBgColor: rgba(0, 0, 0, 0.03);
+  --inputBgColor: rgba(0, 0, 0, .06);
+  --buttonBgColor: #ffffff;
+  --buttonBorderColor: rgba(0, 0, 0, 0.2);
+  --buttonShadow: rgba(0, 0, 0, 0.12);
+  --buttonHover: #f2f2f2;
+  --buttonActive: #e5e5e5;
+
+  /*marktext*/
+  --sideBarColor: rgba(0, 0, 0, .6);
+  --sideBarTitleColor: rgba(0, 0, 0, 1);
+  --sideBarTextColor: rgba(0, 0, 0, .4);
+  --sideBarBgColor: rgba(242, 242, 242, 0.9);
+  --sideBarItemHoverBgColor: rgba(0, 0, 0, .03);
+  --itemBgColor: rgba(255, 255, 255, 0.6);
+  --floatBgColor: #fff;
+  --floatHoverColor: rgba(0, 0, 0, .04);
+  --floatBorderColor: rgba(0, 0, 0, .1);
+  --floatShadow: rgba(15, 15, 15, 0.03) 0px 0px 0px 1px, rgba(15, 15, 15, 0.04) 0px 3px 6px, rgba(15, 15, 15, 0.05) 0px 9px 24px;
+  --maskColor: rgba(255, 255, 255, .7);
+  --tableBorderColor: rgb(158, 158, 158);
+}
+
+/* Dark mode overrides */
+.body--dark {
+  --floatHoverColor: rgba(255, 255, 255, .08);
+  --floatBorderColor: rgba(255, 255, 255, .1);
+  --iconColor: #9ca3af;
+  --sideBarBgColor: rgba(40, 40, 40, 0.9);
+  --sideBarItemHoverBgColor: rgba(255, 255, 255, .04);
+  --itemBgColor: rgba(255, 255, 255, 0.08);
+  --inputBgColor: rgba(255, 255, 255, .1);
+  --codeBlockBgColor: rgba(255, 255, 255, 0.05);
+}

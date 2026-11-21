@@ -1,0 +1,25 @@
+export default function () {
+  return {
+    kbGuid: '',
+    kbServer: '',
+    lang: '',
+    email: '',
+    displayName: '',
+    userGuid: '',
+    isLogin: false,
+    currentNotes: [], // current notes summary information,
+    currentNote: {}, // current note which will be rendered on editor,
+    isCurrentNoteLoading: false, // current notes list loading state,
+    isCurrentNotesLoading: false, // current notes loading state,
+    categories: [],
+    allCategories: [],
+    categoriesPos: {},
+    currentCategory: '',
+    uploadImageUrl: '',
+    contentsList: [],
+    noteState: 'none',
+    tags: [],
+    tagNotesCount: {},   // { [tagGuid]: number }
+    calendarNoteDates: [], // string[] of 'YYYY-MM-DD' with notes in current month
+  }
+}

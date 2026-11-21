@@ -529,9 +529,11 @@ dependencies = [
 name = "coolma-tauri"
 version = "2026.11.4"
 dependencies = [
+ "percent-encoding",
  "reqwest",
  "serde",
  "serde_json",
+ "sha2 0.11.1",
  "tauri",
  "tauri-build",
  "tauri-plugin-opener",

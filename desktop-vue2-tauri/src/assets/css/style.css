@@ -1,0 +1,391 @@
+/*Import third part stylesheet*/
+
+/*Base CSS*/
+::-webkit-scrollbar {
+  width: 5px;
+  height: 1px;
+}
+
+/*滚动条滑块*/
+
+::-webkit-scrollbar-thumb {
+  border-radius: 10px;
+  /* -webkit-box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.2); */
+  background: var(--scrollBarBgColor);
+  margin: 3px;
+}
+
+/*滚动条轨道*/
+::-webkit-scrollbar-track {
+  -webkit-box-shadow: inset 0 0 1px rgba(0, 0, 0, 0);
+  border-radius: 10px;
+  background: transparent;
+}
+
+/* =========================================================
+ * Windows 无边框窗口：窗口边缘安全区
+ * frame:false + resizable 时，系统在窗口四周保留 ~8px 的 resize 热区
+ * （四角更大，随 DPI 缩放），它位于渲染层之上，CSS 无法覆盖。
+ * 这里统一让可交互内容从边缘退开，贴边的滚动条 / 抽屉关闭按钮
+ * 才不会被“拖窗口”抢走点击。最大化时窗口贴屏幕边，不需要让位。
+ * ========================================================= */
+:root {
+  --win-edge-safe: 0px;
+}
+body.win-frameless {
+  --win-edge-safe: 8px;
+}
+body.win-frameless.is-maximized {
+  --win-edge-safe: 0px;
+}
+
+/* 笔记内容区滚动条：从窗口右边缘退进安全区 */
+#muya.editor-component {
+  margin-right: calc(5px + var(--win-edge-safe)) !important;
+}
+/* 让位后的底色与编辑区保持一致，避免出现色缝 */
+.editor-stage {
+  background-color: var(--editorBgColor, transparent);
+}
+
+/* 右侧 Quasar 抽屉：整体内缩为悬浮面板 */
+body.win-frameless .ai-chat-container,
+body.win-frameless .im-drawer-container {
+  margin: var(--win-edge-safe) var(--win-edge-safe) var(--win-edge-safe) 0;
+  border-radius: 10px;
+}
+
+/* 自定义（Element UI）抽屉：右侧同样让位，右上角关闭离开窗口角落 */
+body.win-frameless .el-drawer.rtl {
+  margin-right: var(--win-edge-safe);
+  border-radius: 10px 0 0 10px;
+}
+
+/* =========================================================
+ * Quasar v1 的 QDrawer 在 no-swipe-open 未开启时，会在窗口右缘渲染一条
+ * 15px 宽、全高的隐形感应条 .q-drawer__opener（pointer-events: auto,
+ * z-index 2001），用于“从边缘滑动打开抽屉”。桌面端它正好压住笔记内容区
+ * 的滚动条，而且它继承了标题栏的 -webkit-app-region: drag，在边缘拖拽
+ * 会变成拖窗口。这里只在非触屏环境隐藏，触屏设备保留滑动手势。
+ * ========================================================= */
+body.no-touch .q-drawer__opener {
+  display: none !important;
+}
+/* =========================================================
+ * Quasar v1 的 .q-electron-drag 会被子元素继承（-webkit-app-region 可继承），
+ * 而 Quasar 只给 .q-btn-item 自动补 no-drag。于是抽屉/弹层里的自定义控件
+ * （Element UI 的关闭按钮、微应用的标签页等）会成为窗口拖拽区：
+ * 点关闭 / 切标签会变成拖窗口（最大化时还会把窗口“拉”回普通尺寸）。
+ * 这里统一把浮层排除出拖拽区，标题栏空白处的拖拽不受影响。
+ * ========================================================= */
+.q-drawer,
+.q-dialog,
+.el-drawer,
+.el-dialog,
+.el-drawer__wrapper,
+.el-dialog__wrapper,
+.v--modal-overlay {
+  -webkit-app-region: no-drag;
+}
+div {
+  outline-color: transparent;
+}
+
+.exclude-header {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  height: 93.5vh !important;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  /*background: #ffffff !important;*/
+  background: var(--backgroundColor);
+  font-family: HarmonyOS Sans SC, 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
+}
+
+body.body {
+  background: var(--backgroundColor) !important;
+}
+
+body.body--dark {
+  background: var(--backgroundColor) !important;
+}
+
+.text-h7 {
+  font-size: 15px;
+  font-weight: bold;
+}
+
+.bg-blur {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  z-index: 99;
+  background-color: #fafafa;
+  backdrop-filter: blur(8px);
+  opacity: 0.9;
+  box-shadow: 0px 1px 16px 0px rgba(0, 0, 0, 0.31);
+}
+
+.tooltip {
+  font-size: 17px;
+}
+
+.ag-image-toolbar li.item div.tooltip {
+  font-size: 14px;
+}
+
+div.ag-show-quick-insert-hint[contenteditable='false'] {
+  /*background: green;*/
+  mso-foreground: #1c1c1c;
+}
+
+/*Note Item CSS*/
+/* .note-item,
+.note-item-dark {
+  background-color: #ffffff;
+  font-family: 'Open Sans', 'JetBrains Mono', Helvetica, Arial, sans-serif, 黑体;
+  letter-spacing: 0.3px;
+}
+
+.note-item-dark {
+  background-color: #34383e;
+}
+
+.active-note-item,
+.active-note-item-dark {
+  color: #212121;
+  background-color: #e4e4e4;
+}
+
+.active-note-item-dark {
+  background-color: #1c232b;
+}
+
+.note-list {
+  background-color: #ffffff;
+}
+
+.note-list-dark {
+  background-color: #34383e;
+} */
+
+.active-note-item,
+.active-note-item-dark {
+  background-color: var(--activeItemBgColor);
+}
+
+.note-list,
+.note-list-dark {
+  font-weight: bold;
+}
+
+/*Note List CSS*/
+.note-card,
+.note-card-dark {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 0px;
+  user-select: none;
+}
+
+/*.note-card-dark {*/
+/*  border-bottom: 1px solid var(--backgroundColor);*/
+/*}*/
+
+.note-item-title,
+.note-item-title-dark {
+  color: #343a40;
+  font-size: 15px;
+  font-weight: bold;
+  margin-bottom: 3px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.note-item-title .note-file-icon,
+.note-item-title-dark .note-file-icon {
+  color: var(--iconColor);
+  flex-shrink: 0;
+}
+
+.note-item-title.dense,
+.note-item-title-dark.dense {
+  margin-bottom: 7px;
+}
+
+.note-item-summary,
+.note-item-summary-dark {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif, Consolas;
+  color: #acacac;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.note-item-summary,
+.note-item-summary-dark > span {
+  color: #8f8f8f;
+}
+
+.note-item-title > em,
+.note-item-title-dark > em,
+.note-item-summary > em,
+.note-item-summary-dark > em {
+  background-color: #f7c049;
+  color: #282828;
+}
+
+.note-item-title-dark {
+  color: #dadada;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.note-item-summary-dark {
+  color: #919191;
+}
+
+.note-info-tag {
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+}
+
+.note-info-tag > i {
+  padding-right: 2px;
+  font-size: 12px;
+}
+
+/*fab button*/
+.fab-btn {
+  margin: 10px;
+}
+
+.fab-icon {
+  margin: 40px;
+}
+
+/*base dialog*/
+.base-dialog {
+  width: 500px !important;
+  max-width: 50vw;
+  font-weight: bold;
+}
+
+.neeto-icon {
+  color: #000000;
+}
+
+.neeto-icon-dark {
+  color: #ffffff;
+}
+
+body
+  > div.q-dialog.fullscreen.no-pointer-events.q-dialog--modal
+  > div.q-dialog__inner.flex.no-pointer-events.q-dialog__inner--minimized.q-dialog__inner--standard.fixed-full.flex-center
+  > div
+  > div.q-uploader.column.no-wrap.q-uploader--flat.no-shadow
+  > div.q-uploader__header
+  > div
+  > div
+  > div.q-uploader__subtitle {
+  display: none;
+}
+
+body
+  > div.q-dialog.fullscreen.no-pointer-events.q-dialog--modal
+  > div.q-dialog__inner.flex.no-pointer-events.q-dialog__inner--minimized.q-dialog__inner--standard.fixed-full.flex-center
+  > div
+  > div.q-uploader.column.no-wrap.q-uploader--flat.no-shadow
+  > div.q-uploader__list.scroll
+  > div
+  > div
+  > div
+  > div.q-uploader__subtitle.row.items-center.no-wrap {
+  display: none;
+}
+
+.q-tree__node--selected {
+  background-color: var(--themeColor10)
+}
+
+.tag-tooltip {
+  max-width: 500px;
+  word-break: normal;
+}
+
+.save-dot {
+  margin-left: 3px;
+  width: 7px;
+  height: 7px;
+  display: inline-block;
+  border-radius: 50%;
+  background: var(--highlightThemeColor);
+  opacity: 0.7;
+  visibility: hidden;
+}
+.save-dot.show {
+  visibility: visible;
+}
+
+.bg-light {
+  background-color: #1976d2;
+}
+
+.bg-darkMode {
+  background-color: #f2c037;
+}
+
+.q-drawer--left {
+  background: transparent !important;
+}
+
+/* 多符文运行时样式（Echo 体系的 echo-chant 子分类，与 echoRuntime.js ECHO_CHANT_HANDLERS 配套） */
+@import './rune.css';
+
+/* ========== HEYUI IN QUASAR DIALOG Z-INDEX FIX ========== */
+/* 确保 heyui 组件在 q-dialog 内能正确显示下拉/弹出层 */
+.h-categorypicker-dropdown,
+.h-categorypicker-group,
+.h-dropdown-menu,
+.h-categorypicker-content,
+.h-categorypicker-mask,
+.h-categorypicker-panel,
+.h-select-dropdown,
+.h-tree-select-dropdown,
+.h-date-picker-dropdown,
+.v--modal,
+.v-modal {
+  position: fixed !important;
+  z-index: 99999 !important;
+}
+
+/* ========== ELEMENT-UI POPPER IN QUASAR DIALOG Z-INDEX FIX ========== */
+/* 确保 el-popover/el-popper 在 q-dialog 内能正确显示 */
+.el-popper,
+.el-popover,
+.el-select-dropdown,
+.el-autocomplete-suggestion {
+  position: fixed !important;
+  z-index: 99999 !important;
+}
+
+/* 覆盖 heyui 默认的 z-index */
+.h-categorypicker-mask {
+  z-index: 99998 !important;
+}
+
+.city-picker-dropdown {
+  left: -100px;
+}
+
+
+/* :root {
+  --window-left: 56px;
+} */

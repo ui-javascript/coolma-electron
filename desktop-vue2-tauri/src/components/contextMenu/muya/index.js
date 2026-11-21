@@ -1,0 +1,49 @@
+import {
+  CUT,
+  COPY,
+  PASTE,
+  COPY_AS_MARKDOWN,
+  COPY_AS_HTML,
+  PASTE_AS_PLAIN_TEXT,
+  SEPARATOR,
+  INSERT_BEFORE,
+  INSERT_AFTER,
+  FORMAT_DOCUMENT_BY_PANGU,
+  GENERATE_MINDMAP
+} from './menuItems.js'
+import { i18n } from 'boot/i18n'
+import { popContextMenu } from 'src/ApiInvoker'
+
+/**
+ * Show editor context menu.
+ *
+ * @param {MouseEvent} event The native mouse event.
+ * @param {*} selection The editor line with start and end offset.
+ */
+export const showContextMenu = (event, selection) => {
+  const {
+    start,
+    end
+  } = selection
+  const disableCutAndCopy = start.key === end.key && start.offset === end.offset
+  const CONTEXT_ITEMS = [INSERT_BEFORE, INSERT_AFTER, SEPARATOR, CUT, COPY, PASTE, SEPARATOR, COPY_AS_MARKDOWN, COPY_AS_HTML, SEPARATOR, PASTE_AS_PLAIN_TEXT, FORMAT_DOCUMENT_BY_PANGU, SEPARATOR, GENERATE_MINDMAP]
+
+  const editActions = [CUT, COPY, COPY_AS_HTML, COPY_AS_MARKDOWN]
+  editActions.forEach(item => {
+    item.enabled = !disableCutAndCopy
+  })
+
+  const MENU_ITEM = CONTEXT_ITEMS.map(item => {
+    if (item.type === 'separator') return item
+    return {
+      ...item,
+      label: i18n.t(item.label)
+    }
+  })
+
+  popContextMenu({
+    x: event.clientX,
+    y: event.clientY,
+    menuItems: MENU_ITEM
+  }).then(console.log)
+}
