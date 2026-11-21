@@ -856,7 +856,7 @@ async function onFolderMenuCommand(command: string): Promise<void> {
   const category = folderMenuCategory.value;
   switch (command) {
     case 'createCategory':
-      sidebarRef.value?.startCreateFolder();
+      sidebarRef.value?.startCreateFolder(category || '');
       break;
     case 'createNote':
       openCreateNote();

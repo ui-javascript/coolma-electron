@@ -136,7 +136,9 @@ export default {
   folder: {
     create: 'New folder',
     createTitle: 'New folder',
+    createChildTitle: 'New subfolder',
     createPlaceholder: 'Folder path, e.g. Tech/Frontend',
+    createChildPlaceholder: 'Subfolder name under "{name}"',
     createRequired: 'Folder name is required',
     createSuccess: 'Folder created',
     createFailed: 'Failed to create folder',

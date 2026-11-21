@@ -136,7 +136,9 @@ export default {
   folder: {
     create: '新建文件夹',
     createTitle: '新建文件夹',
+    createChildTitle: '新建子文件夹',
     createPlaceholder: '文件夹路径，例如：技术/前端',
+    createChildPlaceholder: '子文件夹名，将创建在「{name}」下',
     createRequired: '请输入文件夹名称',
     createSuccess: '文件夹已创建',
     createFailed: '创建文件夹失败',

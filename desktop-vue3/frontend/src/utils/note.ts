@@ -115,3 +115,22 @@ export function newNoteDefaults(category: string, t: Translate, now = new Date()
     title: t('notes.defaultTitle', { category: categoryName, date }),
   };
 }
+
+/**
+ * 目录路径拼接（对齐 vue2 createCategory）：父路径 + 子目录名，统一成 `/a/b`。
+ * 子目录名允许含多级；传入父路径时不再把输入当绝对路径，避免生成 `/父/父/子`。
+ */
+export function joinFolderPath(parent: string, child: string): string {
+  const names = String(child ?? '')
+    .split('/')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (!names.length) {
+    return '';
+  }
+  const parentParts = String(parent ?? '')
+    .split('/')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return `/${[...parentParts, ...names].join('/')}`;
+}

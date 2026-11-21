@@ -25,7 +25,7 @@ import {
   resolveActiveUrl,
 } from '../frontend/src/services/microApps';
 import { DEFAULT_SKIN, SKIN_LIST, applySkinThemeColor, normalizeSkinSelection, skinLabelKey } from '../frontend/src/utils/skin';
-import { newNoteDefaults } from '../frontend/src/utils/note';
+import { joinFolderPath, newNoteDefaults } from '../frontend/src/utils/note';
 import {
   MAX_TAG_NAME_LENGTH,
   buildAutoTagMessages,
@@ -625,6 +625,9 @@ async function main(): Promise<void> {
     assert('新建笔记：默认标题取末级分类 + YYYYMM', nested.title === '【项目A】新笔记-202611.md' && nested.categoryName === '项目A' && nested.date === '202611', JSON.stringify(nested));
     const root = newNoteDefaults('/', fakeT, new Date(2026, 0, 2));
     assert('新建笔记：根目录标题分类留空、月份补零', root.title === '【】新笔记-202601.md' && root.categoryName === '', JSON.stringify(root));
+    assert('新建文件夹：右键父节点拼子目录、忽略多余斜杠', joinFolderPath('/工作/', '/项目A/') === '/工作/项目A', joinFolderPath('/工作/', '/项目A/'));
+    assert('新建文件夹：无父节点支持多级相对路径', joinFolderPath('', '技术/前端') === '/技术/前端', joinFolderPath('', '技术/前端'));
+    assert('新建文件夹：空名称拒绝', joinFolderPath('/工作', ' / ') === '', JSON.stringify(joinFolderPath('/工作', ' / ')));
   }
 
   // ===== 微应用数据层（归一化 / 默认选取 / 重建判定）=====
