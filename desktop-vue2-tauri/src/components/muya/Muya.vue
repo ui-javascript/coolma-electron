@@ -41,6 +41,7 @@ import 'libs-muya-vue2/themes/default.css'
 import debugLogger from 'src/utils/debugLogger'
 import { attachThemeColor } from 'src/utils/theme'
 import { isTauri } from 'src/desktop/nativeFs'
+import { attachImageDrop, createImageDropHandler } from 'src/desktop/muyaImageDrop'
 import { fileToDataUrl } from 'src/desktop/files'
 import { showContextMenu as showEditorContextMenu } from 'src/components/contextMenu/muya'
 import {
@@ -56,6 +57,8 @@ import {
 import { CURRENT_ECHO_PLACEHOLDER_RE } from '../echo/echoBuiltinsShared.js'
 import AiProofreadService from 'src/services/AiProofreadService'
 import RuneTransformer from './runeTransformer.js'
+import { Notify } from 'quasar'
+import { i18n } from 'boot/i18n'
 
 const {
   mapGetters: mapServerGetters,
@@ -1014,6 +1017,24 @@ export default {
         onCommit: payload => this.contentEditor?.options?.onRuneResize?.(payload)
       })
 
+      // Tauri/WebView2 里 Muya 自带的拖拽插图依赖 Electron 的 File.path，拿不到路径就哑火。
+      // 这里接管 drop：直接把 File 交给 uploadImage（与「插入图片」对话框同一条上传链路），
+      // 上传完成后用 insertImage() 插到光标处。
+      if (isTauri() && container) {
+        this._imageDrop = attachImageDrop(container, createImageDropHandler({
+          uploadImage: file => this.uploadImage(file),
+          insertImage: info => this.contentEditor.insertImage(info),
+          onError: error => {
+            debugLogger.Error(error)
+            Notify.create({
+              message: i18n.t('failToUpload'),
+              type: 'negative',
+              icon: 'clear'
+            })
+          }
+        }))
+      }
+
       attachThemeColor(this.theme)
 
       const handleNonEchoClick = _.debounce((event) => {
@@ -1153,6 +1174,10 @@ this._echoDelegate = { container: document, handler: echoCaptureHandler }
     })
   },
   beforeDestroy () {
+    if (this._imageDrop) {
+      this._imageDrop()
+      this._imageDrop = null
+    }
     if (this.runeTransformer && typeof this.runeTransformer.destroy === 'function') {
       this.runeTransformer.destroy()
       this.runeTransformer = null
