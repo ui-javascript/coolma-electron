@@ -7,13 +7,18 @@
       @success="notifyLoginSuccess"
       @skip="closeLoginDialog"
     />
+    <UpdateDialog v-model="updateVisible" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, watch } from 'vue';
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import { useI18n } from 'vue-i18n';
+import { useRouter } from 'vue-router';
 import WindowControls from '@/components/WindowControls.vue';
 import LoginDialog from '@/components/LoginDialog.vue';
+import UpdateDialog from '@/components/UpdateDialog.vue';
 import { useAppStore } from '@/stores/app';
 import { useNotesStore } from '@/stores/notes';
 import { useSyncStore } from '@/stores/sync';
@@ -21,12 +26,68 @@ import { hasIpc } from '@/services/ipc';
 import { installBusDialogs } from '@/services/busDialogEntries';
 import { closeLoginDialog, loginDialogState, notifyLoginSuccess } from '@/services/loginDialog';
 import { getSyncStatus, syncAutoLogin } from '@/services/sync';
+import { checkUpdate, downloadUpdate, onUpdaterEvent } from '@/services/updater';
 import { loadCdnDeps } from '@/utils/cdnDeps';
 
 const hasControls = hasIpc();
 const appStore = useAppStore();
 const notesStore = useNotesStore();
 const syncStore = useSyncStore();
+const router = useRouter();
+const { t } = useI18n();
+const updateVisible = ref(false);
+let updatePrompted = false;
+
+function updaterVersion(info: unknown): string {
+  if (info && typeof info === 'object' && 'version' in info) {
+    return String((info as { version?: unknown }).version || '');
+  }
+  return '';
+}
+
+/**
+ * 启动自动检查（对齐 vue2 App.vue 的 checkUpdate）。
+ * 开发模式 / 未配 publish 源的错误不打扰用户；手动检查仍在设置页暴露原文。
+ */
+async function bootstrapUpdate(): Promise<void> {
+  await checkUpdate();
+}
+
+/** 发现新版本：先确认，再打开全局进度弹窗并开始下载；设置页手动检查不重复弹。 */
+async function promptUpdate(info: unknown): Promise<void> {
+  if (updatePrompted || router.currentRoute.value.path === '/settings') {
+    return;
+  }
+  updatePrompted = true;
+  const version = updaterVersion(info);
+  try {
+    await ElMessageBox.confirm(
+      version
+        ? t('update.autoPrompt', { version })
+        : t('update.autoPromptNoVersion'),
+      t('update.title'),
+      {
+        type: 'info',
+        confirmButtonText: t('update.download'),
+        cancelButtonText: t('update.later'),
+      },
+    );
+  } catch {
+    return;
+  }
+
+  updateVisible.value = true;
+  const result = await downloadUpdate();
+  if (result.ok === false) {
+    ElMessage.error(result.error.message);
+  }
+}
+
+const stopUpdater = onUpdaterEvent((event) => {
+  if (event.type === 'available') {
+    void promptUpdate(event.info);
+  }
+});
 
 /**
  * 对齐 vue2 Header mounted：只有「没开自动登录且未登录」才启动弹登录框。
@@ -60,11 +121,14 @@ onMounted(() => {
   if (hasIpc()) {
     syncStore.startAutoUpload();
     void bootstrapLogin();
+    // 对齐 vue2 App.vue mounted 的 checkUpdate()；只在有 preload 的桌面端触发。
+    void bootstrapUpdate();
   }
 });
 
 onBeforeUnmount(() => {
   syncStore.stopAutoUpload();
+  stopUpdater();
 });
 
 watch(
