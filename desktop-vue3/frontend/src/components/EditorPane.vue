@@ -70,6 +70,7 @@
         :readonly="locked"
         :theme="theme"
         class="source-editor-host"
+        @ready="onMonacoReady"
         @selection-change="onMonacoSelectionChange"
       />
     </template>
@@ -242,10 +243,7 @@ function toggleSourceMode(): void {
     const cursor = muyaRef.value?.getCursor?.();
     pendingCursor.value = cursor ? muyaCursorToPosition(cursor) : { lineNumber: 1, column: 1 };
     sourceMode.value = true;
-    // Monaco 是 v-if 新挂载，等它 onMounted 完成后落位
-    void nextTick(() => {
-      monacoRef.value?.setCursor?.(pendingCursor.value);
-    });
+    // Monaco 是 v-if 新挂载且异步 import，等 SourceEditor 的 ready 事件再落位
     return;
   }
   const position = monacoRef.value?.getCursor?.() ?? { lineNumber: 1, column: 1 };
@@ -255,6 +253,15 @@ function toggleSourceMode(): void {
     // 引擎收 0-based { line, ch }，与 Monaco 的 1-based 差 1，走 utils/cursor 统一换算
     muyaRef.value?.setCursor?.(positionToMuyaCursor(pendingCursor.value));
   });
+}
+
+/** Monaco 异步实例真正创建后再落光标；否则 nextTick 时 editor 还是 null。 */
+function onMonacoReady(): void {
+  if (!pendingCursor.value) {
+    return;
+  }
+  monacoRef.value?.setCursor?.(pendingCursor.value);
+  pendingCursor.value = null;
 }
 
 const muyaRef = ref<InstanceType<typeof MuyaEditor> | null>(null);

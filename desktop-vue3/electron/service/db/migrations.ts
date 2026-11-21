@@ -267,7 +267,7 @@ const migration2: Migration = {
   },
 };
 
-const BUILTIN_RUNE_TEMPLATE = `<template><button class="coolma-rune-counter" type="button" @click="increment">{{ value || 0 }}</button></template><script>export default { props: { value: { default: 0 }, onValueChange: { default: null } }, methods: { increment () { if (this.onValueChange) this.onValueChange({ value: Number(this.value || 0) + 1 }) } } }</script>`;
+export const BUILTIN_RUNE_TEMPLATE = `<template><button class="coolma-rune-counter" type="button" @click="increment">{{ value || 0 }}</button></template><script>export default { props: { value: { default: 0 }, onValueChange: { default: null } }, methods: { increment () { if (this.onValueChange) this.onValueChange({ value: Number(this.value || 0) + 1 }) } } }</script>`;
 
 const BUILTIN_ECHO_SOURCE = `export default { type: "echo", render (props = {}) { return "<span class=\\"coolma-echo-demo\\">" + String(props.value || props.prompt || "demo") + "</span>" } }`;
 

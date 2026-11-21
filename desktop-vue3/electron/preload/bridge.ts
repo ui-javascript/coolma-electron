@@ -97,6 +97,15 @@ const INVOKE_CHANNELS = new Set<string>([
   'controller/database/backups',
   'controller/database/restore',
   'controller/database/openFolder',
+  'controller/database/openLogFile',
+  'controller/database/openSqliteFile',
+  'controller/database/reset',
+  'controller/database/resetRunes',
+  'controller/database/resetEchoes',
+  'controller/theme/list',
+  'controller/theme/refresh',
+  'controller/theme/openFolder',
+  'controller/theme/load',
 ]);
 
 

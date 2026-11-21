@@ -19,6 +19,8 @@ const props = defineProps<{ modelValue: string; theme: AppTheme; readonly?: bool
 const emit = defineEmits<{
   (event: 'update:modelValue', value: string): void;
   (event: 'selection-change', payload: EditorSelectionHint): void;
+  /** Monaco 异步加载完成；调用方在这里补落切换前缓存的光标。 */
+  (event: 'ready'): void;
 }>();
 
 const host = ref<HTMLElement | null>(null);
@@ -82,6 +84,9 @@ onMounted(async () => {
       y: (rect?.top ?? 0) + visible.top,
     });
   });
+
+  // 动态 import 可能晚于父组件的 nextTick，父级要靠这个信号补 setCursor/focus。
+  emit('ready');
 });
 
 watch(

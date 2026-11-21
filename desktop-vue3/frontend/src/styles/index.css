@@ -1241,6 +1241,77 @@ html.dark .editor-action-bar {
   margin-top: 18px;
 }
 
+/* 本机文件 / 重置：左文案右操作，与 vue2 General 子页的 setting-item--row 对齐 */
+.maintenance-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.maintenance-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.maintenance-row:last-child {
+  border-bottom: none;
+}
+
+.maintenance-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.maintenance-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.maintenance-hint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--el-text-color-secondary);
+}
+
+.maintenance-row > .el-button {
+  flex: none;
+}
+
+.reset-action {
+  min-width: 116px;
+}
+
+.reset-danger {
+  --el-button-text-color: var(--el-color-danger);
+  --el-button-border-color: var(--el-color-danger-light-5);
+  --el-button-hover-text-color: #fff;
+  --el-button-hover-bg-color: var(--el-color-danger);
+  --el-button-hover-border-color: var(--el-color-danger);
+}
+
+.reset-runes {
+  --el-button-text-color: #7e57c2;
+  --el-button-border-color: #b39ddb;
+  --el-button-hover-text-color: #fff;
+  --el-button-hover-bg-color: #7e57c2;
+  --el-button-hover-border-color: #7e57c2;
+}
+
+.reset-echoes {
+  --el-button-text-color: #1e88e5;
+  --el-button-border-color: #90caf9;
+  --el-button-hover-text-color: #fff;
+  --el-button-hover-bg-color: #1e88e5;
+  --el-button-hover-border-color: #1e88e5;
+}
+
 .security-note {
   margin-top: 18px;
   border-radius: 9px;

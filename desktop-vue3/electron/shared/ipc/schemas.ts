@@ -12,6 +12,11 @@ export const openExternalSchema = z.object({
   }),
 });
 
+/** 自定义主题：只接受扫描出来的主题名，避免把任意路径传进主进程。 */
+export const themeLoadSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+});
+
 export const blogExportSchema = z.object({
   blogDir: z.string().min(1),
   category: z.string().optional(),

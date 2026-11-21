@@ -65,6 +65,8 @@
       <SkinPickerCard />
     </el-card>
 
+    <CustomThemeCard v-if="tabMounted('general')" v-show="groupTab === 'general'" />
+
     <el-card v-if="tabMounted('general')" v-show="groupTab === 'general'" class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
@@ -222,6 +224,74 @@
             })
           }}
         </p>
+      </div>
+    </el-card>
+
+    <el-card v-if="tabMounted('database')" v-show="groupTab === 'database'" class="settings-card" shadow="never">
+      <template #header>
+        <div class="card-heading">
+          <span>{{ t('settings.localFiles') }}</span>
+        </div>
+      </template>
+      <div class="maintenance-list">
+        <div class="maintenance-row">
+          <div class="maintenance-copy">
+            <span class="maintenance-title">{{ t('settings.openLogFiles') }}</span>
+            <span class="maintenance-hint">{{ t('settings.openLogHint') }}</span>
+          </div>
+          <el-button text circle :title="t('settings.openLogFiles')" @click="handleOpenLog">
+            <el-icon><Document /></el-icon>
+          </el-button>
+        </div>
+        <div class="maintenance-row">
+          <div class="maintenance-copy">
+            <span class="maintenance-title">{{ t('settings.openSqliteFile') }}</span>
+            <span class="maintenance-hint">{{ t('settings.openSqliteHint') }}</span>
+          </div>
+          <el-button text circle :title="t('settings.openSqliteFile')" @click="handleOpenSqlite">
+            <el-icon><Coin /></el-icon>
+          </el-button>
+        </div>
+      </div>
+    </el-card>
+
+    <el-card v-if="tabMounted('database')" v-show="groupTab === 'database'" class="settings-card" shadow="never">
+      <template #header>
+        <div class="card-heading">
+          <span>{{ t('settings.resetSection') }}</span>
+        </div>
+      </template>
+      <div class="maintenance-list">
+        <div class="maintenance-row">
+          <div class="maintenance-copy">
+            <span class="maintenance-title">{{ t('settings.resetSqlite') }}</span>
+            <span class="maintenance-hint">{{ t('settings.resetSqliteHint') }}</span>
+          </div>
+          <el-button class="reset-action reset-danger" plain :loading="resetBusy" @click="handleResetDatabase">
+            <el-icon><Delete /></el-icon>
+            {{ t('settings.resetSqlite') }}
+          </el-button>
+        </div>
+        <div class="maintenance-row">
+          <div class="maintenance-copy">
+            <span class="maintenance-title">{{ t('settings.resetRunes') }}</span>
+            <span class="maintenance-hint">{{ t('settings.resetRunesHint') }}</span>
+          </div>
+          <el-button class="reset-action reset-runes" plain :loading="resetBusy" @click="handleResetRunes">
+            <el-icon><MagicStick /></el-icon>
+            {{ t('settings.resetRunes') }}
+          </el-button>
+        </div>
+        <div class="maintenance-row">
+          <div class="maintenance-copy">
+            <span class="maintenance-title">{{ t('settings.resetEchoes') }}</span>
+            <span class="maintenance-hint">{{ t('settings.resetEchoesHint') }}</span>
+          </div>
+          <el-button class="reset-action reset-echoes" plain :loading="resetBusy" @click="handleResetEchoes">
+            <el-icon><Bell /></el-icon>
+            {{ t('settings.resetEchoes') }}
+          </el-button>
+        </div>
       </div>
     </el-card>
 
@@ -411,11 +481,14 @@
 
 <script setup lang="ts">
 import {
+  Bell,
   Close,
   Cloudy,
   Coin,
   Collection,
   Cpu,
+  Delete,
+  Document,
   DocumentAdd,
   EditPen,
   Grid,
@@ -447,8 +520,11 @@ import AiSkillsCard from '@/components/AiSkillsCard.vue';
 import TagsManageCard from '@/components/TagsManageCard.vue';
 import AutoTagCard from '@/components/AutoTagCard.vue';
 import SkinPickerCard from '@/components/SkinPickerCard.vue';
+import CustomThemeCard from '@/components/CustomThemeCard.vue';
 import MicroAppsCard from '@/components/MicroAppsCard.vue';
 import { useAppStore, type AppTheme } from '@/stores/app';
+import { useLibraryStore } from '@/stores/library';
+import { useNotesStore } from '@/stores/notes';
 import LibraryManagePanel from '@/components/LibraryManagePanel.vue';
 import SettingsCdnDepsCard from '@/components/settings/SettingsCdnDepsCard.vue';
 import SettingsProfileCard from '@/components/settings/SettingsProfileCard.vue';
@@ -463,6 +539,11 @@ import {
   importLegacyDatabase,
   getPendingSync,
   openDatabaseFolder,
+  openLogFile,
+  openSqliteFile,
+  resetBuiltinEchoes,
+  resetBuiltinRunes,
+  resetDatabase,
   runDiagnostics,
   syncTagIndex,
   listBackups,
@@ -472,6 +553,8 @@ import {
 const { t } = useI18n();
 const router = useRouter();
 const appStore = useAppStore();
+const notesStore = useNotesStore();
+const libraryStore = useLibraryStore();
 
 const aiProvider = ref<'builtin' | 'doubao'>(
   localStorage.getItem('coolma.aiProvider') === 'doubao' ? 'doubao' : 'builtin',
@@ -516,6 +599,7 @@ const localeOptions = AppLocaleEnum.items;
 const dbStatus = ref<DatabaseStatus | null>(null);
 const dbLoading = ref(false);
 const dbBusy = ref(false);
+const resetBusy = ref(false);
 
 const syncSummary = ref<PendingSyncSummary | null>(null);
 const integrity = ref<IntegrityReport | null>(null);
@@ -707,6 +791,83 @@ async function handleOpenFolder(): Promise<void> {
   const result = await openDatabaseFolder();
   if (!result.ok) {
     ElMessage.error(result.error.message);
+  }
+}
+
+async function handleOpenLog(): Promise<void> {
+  const result = await openLogFile();
+  if (!result.ok) {
+    ElMessage.error(result.error.message);
+  }
+}
+
+async function handleOpenSqlite(): Promise<void> {
+  const result = await openSqliteFile();
+  if (!result.ok) {
+    ElMessage.error(result.error.message);
+  }
+}
+
+/** 二次确认的公共壳，取消返回 false，避免每处写一遍 catch。 */
+async function confirmReset(message: string, title: string): Promise<boolean> {
+  try {
+    await ElMessageBox.confirm(message, title, {
+      confirmButtonText: t('action.confirm'),
+      cancelButtonText: t('action.cancel'),
+      type: 'warning',
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function handleResetDatabase(): Promise<void> {
+  if (!(await confirmReset(t('settings.resetSqliteConfirm'), t('settings.resetSqlite')))) {
+    return;
+  }
+  resetBusy.value = true;
+  const result = await resetDatabase();
+  resetBusy.value = false;
+  if (result.ok && result.data.success) {
+    ElMessage.success(t('settings.resetSqliteSuccess'));
+    await Promise.all([loadDbStatus(), notesStore.refresh(), libraryStore.load(true)]);
+  } else {
+    ElMessage.error(result.ok ? t('settings.resetSqliteFailed') : result.error.message);
+  }
+}
+
+async function handleResetRunes(): Promise<void> {
+  if (!(await confirmReset(t('settings.resetRunesConfirm'), t('settings.resetRunes')))) {
+    return;
+  }
+  resetBusy.value = true;
+  const result = await resetBuiltinRunes();
+  resetBusy.value = false;
+  if (result.ok && result.data.success) {
+    ElMessage.success(
+      t('settings.resetRunesSuccess', { count: result.data.count, custom: result.data.customKept }),
+    );
+    await libraryStore.load(true);
+  } else {
+    ElMessage.error(result.ok ? t('settings.resetRunesFailed') : result.error.message);
+  }
+}
+
+async function handleResetEchoes(): Promise<void> {
+  if (!(await confirmReset(t('settings.resetEchoesConfirm'), t('settings.resetEchoes')))) {
+    return;
+  }
+  resetBusy.value = true;
+  const result = await resetBuiltinEchoes();
+  resetBusy.value = false;
+  if (result.ok && result.data.success) {
+    ElMessage.success(
+      t('settings.resetEchoesSuccess', { count: result.data.count, custom: result.data.customKept }),
+    );
+    await libraryStore.load(true);
+  } else {
+    ElMessage.error(result.ok ? t('settings.resetEchoesFailed') : result.error.message);
   }
 }
 

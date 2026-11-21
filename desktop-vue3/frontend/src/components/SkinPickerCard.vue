@@ -5,14 +5,14 @@
         v-for="item in SKIN_LIST"
         :key="item"
         class="skin-item"
-        :class="{ active: currentSkin === item }"
+        :class="{ active: !customThemeActive && currentSkin === item }"
         type="button"
         @click="pickSkin(item)"
       >
         <span class="skin-swatch" :style="{ background: swatch(item) }" />
         <span class="skin-name">{{ skinName(item) }}</span>
         <span class="skin-desc">{{ t(`skin.${item}Desc`) }}</span>
-        <el-icon v-if="currentSkin === item" class="skin-check"><Select /></el-icon>
+        <el-icon v-if="!customThemeActive && currentSkin === item" class="skin-check"><Select /></el-icon>
       </button>
     </div>
     <p class="skin-hint">{{ t('settings.skinHint') }}</p>
@@ -20,10 +20,12 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Select } from '@element-plus/icons-vue';
 import { SKIN_COLORS, SKIN_LIST, type Skin } from '@/utils/skin';
 import { useSkinPick } from '@/composables/useSkinPick';
+import { useAppStore } from '@/stores/app';
 
 /**
  * 皮肤选择卡（复刻 vue2 HeaderRightGroup 的换肤菜单 + skinMixin）。
@@ -31,6 +33,8 @@ import { useSkinPick } from '@/composables/useSkinPick';
  */
 const { t } = useI18n();
 const { pickSkin, skinName, currentSkin } = useSkinPick();
+const appStore = useAppStore();
+const customThemeActive = computed(() => Boolean(appStore.customTheme));
 
 function swatch(skin: Skin): string {
   return SKIN_COLORS[skin]?.main ?? 'linear-gradient(135deg,#409eff,#ffffff)';

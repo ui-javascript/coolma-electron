@@ -293,6 +293,59 @@ export function openDatabaseFolder(): Promise<IpcResult<{ opened: boolean }>> {
   return invoke<{ opened: boolean }>(IPC_CHANNELS.database.openFolder);
 }
 
+export function openLogFile(): Promise<IpcResult<{ opened: boolean; path: string }>> {
+  return invoke<{ opened: boolean; path: string }>(IPC_CHANNELS.database.openLogFile);
+}
+
+export function openSqliteFile(): Promise<IpcResult<{ opened: boolean; path: string }>> {
+  return invoke<{ opened: boolean; path: string }>(IPC_CHANNELS.database.openSqliteFile);
+}
+
+export function resetDatabase(): Promise<IpcResult<{ success: boolean }>> {
+  return invoke<{ success: boolean }>(IPC_CHANNELS.database.reset);
+}
+
+export interface LibraryResetResult {
+  success: boolean;
+  count: number;
+  customKept: number;
+}
+
+export function resetBuiltinRunes(): Promise<IpcResult<LibraryResetResult>> {
+  return invoke<LibraryResetResult>(IPC_CHANNELS.database.resetRunes);
+}
+
+export function resetBuiltinEchoes(): Promise<IpcResult<LibraryResetResult>> {
+  return invoke<LibraryResetResult>(IPC_CHANNELS.database.resetEchoes);
+}
+
+export interface CustomThemeMeta {
+  name: string;
+  dark: boolean;
+  fileName: string;
+}
+
+export interface LoadedCustomTheme extends CustomThemeMeta {
+  css: string;
+}
+
+/** 主题目录列表（`userData/themes` 下的 `.light.css` / `.dark.css`）。 */
+export function listCustomThemes(): Promise<IpcResult<CustomThemeMeta[]>> {
+  return invoke<CustomThemeMeta[]>(IPC_CHANNELS.theme.list);
+}
+
+export function refreshCustomThemes(): Promise<IpcResult<CustomThemeMeta[]>> {
+  return invoke<CustomThemeMeta[]>(IPC_CHANNELS.theme.refresh);
+}
+
+export function openThemeFolder(): Promise<IpcResult<{ opened: boolean; path: string }>> {
+  return invoke<{ opened: boolean; path: string }>(IPC_CHANNELS.theme.openFolder);
+}
+
+export function loadCustomTheme(name: string): Promise<IpcResult<LoadedCustomTheme>> {
+  return invoke<LoadedCustomTheme>(IPC_CHANNELS.theme.load, { name });
+}
+
 /** settings 表全量键值。 */
 export function allSettings(): Promise<IpcResult<Record<string, unknown>>> {
   return invoke<Record<string, unknown>>(IPC_CHANNELS.settings.all);

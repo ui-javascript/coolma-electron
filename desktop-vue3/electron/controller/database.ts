@@ -1,11 +1,15 @@
 import { dialog, shell } from 'electron';
+import fs from 'node:fs';
+import path from 'node:path';
+import { getLogDir } from 'ee-core/ps';
 import type { BackupEntry, DatabaseStatus, ImportResult, RestoreResult } from '../shared/types/domain';
 import type { IpcResult } from '../shared/ipc/contract';
 import { ok } from '../shared/ipc/result';
-import { databaseImportSchema, databaseRestoreSchema } from '../shared/ipc/schemas';
-import { getDatabaseStatus } from '../service/db/database';
+import { databaseImportSchema, databaseRestoreSchema, emptyPayloadSchema } from '../shared/ipc/schemas';
+import { getDatabaseStatus, resolveDatabasePath } from '../service/db/database';
 import { importLegacyDatabase } from '../service/db/legacy-import';
 import { createBackup, listBackups, restoreDatabase } from '../service/db/backup';
+import { resetBuiltinEchoes, resetBuiltinRunes, resetDatabase } from '../service/db/maintenance';
 import { failFromError } from './controller-utils';
 
 class DatabaseController {
@@ -94,6 +98,80 @@ class DatabaseController {
       return ok({ opened: true });
     } catch (error) {
       return failFromError(error, 'DATABASE_OPEN_FOLDER_ERROR');
+    }
+  }
+
+  /** 打开日志文件（vue2 `open-log-files`：定位当天/最新日志）。 */
+  async openLogFile(): Promise<IpcResult<{ opened: boolean; path: string }>> {
+    try {
+      emptyPayloadSchema.parse(undefined);
+      const dir = getLogDir();
+      const logs = fs.existsSync(dir)
+        ? fs
+            .readdirSync(dir, { withFileTypes: true })
+            .filter((entry) => entry.isFile() && entry.name.endsWith('.log'))
+            .map((entry) => entry.name)
+        : [];
+      logs.sort((a, b) => {
+        const statA = fs.statSync(path.join(dir, a)).mtimeMs;
+        const statB = fs.statSync(path.join(dir, b)).mtimeMs;
+        return statB - statA;
+      });
+      const latest = logs[0];
+      if (latest) {
+        const filePath = path.join(dir, latest);
+        shell.showItemInFolder(filePath);
+        return ok({ opened: true, path: filePath });
+      }
+      if (fs.existsSync(dir)) {
+        await shell.openPath(dir);
+        return ok({ opened: true, path: dir });
+      }
+      throw new Error(`LOG_DIRECTORY_NOT_FOUND: ${dir}`);
+    } catch (error) {
+      return failFromError(error, 'DATABASE_OPEN_LOG_ERROR');
+    }
+  }
+
+  /** 打开 sqlite 文件（vue2 `open-sqlite-file`）。 */
+  async openSqliteFile(): Promise<IpcResult<{ opened: boolean; path: string }>> {
+    try {
+      emptyPayloadSchema.parse(undefined);
+      const filePath = resolveDatabasePath();
+      shell.showItemInFolder(filePath);
+      return ok({ opened: true, path: filePath });
+    } catch (error) {
+      return failFromError(error, 'DATABASE_OPEN_SQLITE_ERROR');
+    }
+  }
+
+  /** 清空本地缓存库（vue2 `db:resetDatabase`）。 */
+  async reset(): Promise<IpcResult<{ success: boolean }>> {
+    try {
+      emptyPayloadSchema.parse(undefined);
+      return ok({ success: resetDatabase() });
+    } catch (error) {
+      return failFromError(error, 'DATABASE_RESET_ERROR');
+    }
+  }
+
+  /** 重置内置符文，保留自定义符文。 */
+  async resetRunes(): Promise<IpcResult<{ success: boolean; count: number; customKept: number }>> {
+    try {
+      emptyPayloadSchema.parse(undefined);
+      return ok(resetBuiltinRunes());
+    } catch (error) {
+      return failFromError(error, 'DATABASE_RESET_RUNES_ERROR');
+    }
+  }
+
+  /** 重置内置回响，保留自定义回响。 */
+  async resetEchoes(): Promise<IpcResult<{ success: boolean; count: number; customKept: number }>> {
+    try {
+      emptyPayloadSchema.parse(undefined);
+      return ok(resetBuiltinEchoes());
+    } catch (error) {
+      return failFromError(error, 'DATABASE_RESET_ECHOES_ERROR');
     }
   }
 }
