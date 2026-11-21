@@ -8,6 +8,7 @@ use tauri::{
 };
 use tauri_plugin_opener::OpenerExt;
 
+mod credential;
 mod files;
 mod sidecar;
 mod wiz_resources;
@@ -269,7 +270,10 @@ fn main() {
             wiz_resources::wiznote_export_resources,
             sidecar::sidecar_send,
             sidecar::sidecar_stop,
-            sidecar::sidecar_status
+            sidecar::sidecar_status,
+            credential::credential_set,
+            credential::credential_get,
+            credential::credential_delete
         ])
         .run(tauri::generate_context!())
         .expect("Unable to start Coolma Tauri");

@@ -4,6 +4,7 @@ import initSqlJs from 'sql.js/dist/sql-wasm-browser.js'
 import wasmUrl from 'sql.js/dist/sql-wasm-browser.wasm'
 import Portkey from 'portkey-ai'
 import PreferenceStore from '../PreferenceStore'
+import { readApiKey, removeApiKey, storeApiKey } from '../credential'
 import { loadSnapshot, writeSnapshot } from './storage'
 import { fetchRemoteText } from './service/remote-fetch'
 
@@ -18,18 +19,19 @@ const ipcMain = { handle: (channel, handler) => handlers.set(channel, handler) }
 const MICRO_APPS_KEY = 'setting/microApps'
 const AI_MODEL_PROVIDER_OPENAI_COMPATIBLE = 'openai-compatible'
 const AI_MODEL_PROVIDER_PORTKEY = 'portkey'
-const AI_KEY_ENCRYPT_VERSION = 2
 let db, runeTemplateService, noteTemplateService
 let dirty = false
 let queue = Promise.resolve()
 
-// Electron ciphertext is specific to the original app. Never write keys
-// in plaintext while the Tauri credential store is being migrated.
-function encryptAiConfigApiKey (key) {
-  if (key) throw new Error('Tauri 版暂未支持保存 AI 密钥。')
-  return { encrypted: '', version: 0 }
+// 原版用 Electron safeStorage 把密钥交给系统钥匙串；Tauri 版改走系统凭据库，
+// 库里只存 `keyring:<账号>` 引用，读不出来（Electron 遗留密文）时返回空串，与原版一致。
+async function encryptAiConfigApiKey (key) {
+  return await storeApiKey(key)
 }
-function decryptAiConfigApiKey () { return '' }
+
+async function decryptAiConfigApiKey (encrypted, version) {
+  return await readApiKey(encrypted, version)
+}
 
 function maskAiConfigApiKey(apiKey) {
   if (!apiKey) return ''
@@ -37,11 +39,11 @@ function maskAiConfigApiKey(apiKey) {
   return `${apiKey.slice(0, 4)}***${apiKey.slice(-4)}`
 }
 
-function normalizeAiModelConfigRow(row, { includeApiKey = false } = {}) {
+async function normalizeAiModelConfigRow(row, { includeApiKey = false } = {}) {
   if (!row) return null
 
-  const decryptedApiKey = decryptAiConfigApiKey(row.api_key_encrypted, row.api_key_encrypted_version)
-  const decryptedVirtualKey = decryptAiConfigApiKey(row.virtual_key_encrypted || '', row.virtual_key_encrypted_version)
+  const decryptedApiKey = await decryptAiConfigApiKey(row.api_key_encrypted, row.api_key_encrypted_version)
+  const decryptedVirtualKey = await decryptAiConfigApiKey(row.virtual_key_encrypted || '', row.virtual_key_encrypted_version)
 
   return {
     ...row,
@@ -2062,7 +2064,7 @@ function registerDatabaseHandlers() {
   ipcMain.handle('db:getAiModelConfigs', async () => {
     try {
       const rows = execToObjects('SELECT * FROM ai_model_configs ORDER BY is_default DESC, updated_at DESC, id DESC')
-      return rows.map(row => normalizeAiModelConfigRow(row))
+      return await Promise.all(rows.map(row => normalizeAiModelConfigRow(row)))
     } catch (error) {
       log.error('[DB] getAiModelConfigs error:', error)
       return []
@@ -2073,7 +2075,7 @@ function registerDatabaseHandlers() {
     try {
       if (!id) return null
       const row = execOne('SELECT * FROM ai_model_configs WHERE id = ?', [id])
-      return normalizeAiModelConfigRow(row, { includeApiKey: true })
+      return await normalizeAiModelConfigRow(row, { includeApiKey: true })
     } catch (error) {
       log.error('[DB] getAiModelConfig error:', error)
       return null
@@ -2127,20 +2129,28 @@ function registerDatabaseHandlers() {
       let virtualKeyVersion = Number(existing?.virtual_key_encrypted_version) || 0
 
       if (clearApiKey) {
+        await removeApiKey(existing?.api_key_encrypted, apiKeyVersion)
         encryptedApiKey = ''
         apiKeyVersion = 0
       } else if (incomingApiKey) {
-        const enc = encryptAiConfigApiKey(incomingApiKey, AI_KEY_ENCRYPT_VERSION)
+        const enc = await encryptAiConfigApiKey(incomingApiKey)
+        if (existing?.api_key_encrypted && existing.api_key_encrypted !== enc.encrypted) {
+          await removeApiKey(existing.api_key_encrypted, existing.api_key_encrypted_version)
+        }
         encryptedApiKey = enc.encrypted
         apiKeyVersion = enc.version
       }
 
       let encryptedVirtualKey = existing?.virtual_key_encrypted || ''
       if (clearVirtualKey) {
+        await removeApiKey(existing?.virtual_key_encrypted, virtualKeyVersion)
         encryptedVirtualKey = ''
         virtualKeyVersion = 0
       } else if (incomingVirtualKey) {
-        const enc = encryptAiConfigApiKey(incomingVirtualKey, AI_KEY_ENCRYPT_VERSION)
+        const enc = await encryptAiConfigApiKey(incomingVirtualKey)
+        if (existing?.virtual_key_encrypted && existing.virtual_key_encrypted !== enc.encrypted) {
+          await removeApiKey(existing.virtual_key_encrypted, existing.virtual_key_encrypted_version)
+        }
         encryptedVirtualKey = enc.encrypted
         virtualKeyVersion = enc.version
       }
@@ -2170,7 +2180,7 @@ function registerDatabaseHandlers() {
           [name, providerType, baseUrl, encryptedApiKey, apiKeyVersion, encryptedVirtualKey, virtualKeyVersion, model, isDefault, enabled, headersJson, extraConfigJson, now, numericId]
         )
         saveDatabase()
-        return { success: true, data: normalizeAiModelConfigRow(execOne('SELECT * FROM ai_model_configs WHERE id = ?', [numericId]), { includeApiKey: true }) }
+        return { success: true, data: await normalizeAiModelConfigRow(execOne('SELECT * FROM ai_model_configs WHERE id = ?', [numericId]), { includeApiKey: true }) }
       }
 
       await db.run(
@@ -2179,7 +2189,7 @@ function registerDatabaseHandlers() {
         [name, providerType, baseUrl, encryptedApiKey, apiKeyVersion, encryptedVirtualKey, virtualKeyVersion, model, isDefault, enabled, headersJson, extraConfigJson, now, now]
       )
       saveDatabase()
-      return { success: true, data: normalizeAiModelConfigRow(execOne('SELECT * FROM ai_model_configs WHERE id = ?', [getLastInsertRowid()]), { includeApiKey: true }) }
+      return { success: true, data: await normalizeAiModelConfigRow(execOne('SELECT * FROM ai_model_configs WHERE id = ?', [getLastInsertRowid()]), { includeApiKey: true }) }
     } catch (error) {
       log.error('[DB] saveAiModelConfig error:', error)
       if (/UNIQUE constraint failed:\s*ai_model_configs\.name/i.test(String(error && error.message ? error.message : error))) {
@@ -2196,7 +2206,12 @@ function registerDatabaseHandlers() {
   ipcMain.handle('db:deleteAiModelConfig', async (event, id) => {
     try {
       if (!id) return false
+      const row = execOne('SELECT api_key_encrypted, api_key_encrypted_version, virtual_key_encrypted, virtual_key_encrypted_version FROM ai_model_configs WHERE id = ?', [id])
       await db.run('DELETE FROM ai_model_configs WHERE id = ?', [id])
+      if (row) {
+        await removeApiKey(row.api_key_encrypted, row.api_key_encrypted_version)
+        await removeApiKey(row.virtual_key_encrypted, row.virtual_key_encrypted_version)
+      }
       saveDatabase()
       return true
     } catch (error) {
@@ -2344,7 +2359,7 @@ function registerDatabaseHandlers() {
       }
 
       const row = execOne('SELECT * FROM ai_model_configs WHERE id = ?', [id])
-      const modelConfig = normalizeAiModelConfigRow(row, { includeApiKey: true })
+      const modelConfig = await normalizeAiModelConfigRow(row, { includeApiKey: true })
       if (!modelConfig) {
         return { success: false, code: 'AI_MODEL_NOT_FOUND' }
       }
