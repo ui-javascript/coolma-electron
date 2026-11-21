@@ -4,14 +4,14 @@
       <Welcome
         class="ai-welcome"
         variant="filled"
-        :title="t('aiHelper.welcomeTitle')"
-        :description="t('aiHelper.welcomeDesc')"
+        :title="welcomeTitle"
+        :description="welcomeDescription"
       >
         <template #image>
           <el-icon class="ai-welcome-icon"><ChatDotRound /></el-icon>
         </template>
       </Welcome>
-      <div class="ai-welcome-hint">
+      <div v-if="!codeGenMode" class="ai-welcome-hint">
         {{ hasNote ? t('aiHelper.contextOn', { title: noteTitle }) : t('aiHelper.contextOff') }}
       </div>
       <div
@@ -25,11 +25,11 @@
           <span v-if="message.status === 'pending' && !message.content" class="ai-thinking">{{ t('aiHelper.thinking') }}</span>
           <pre v-else class="ai-text">{{ message.content }}</pre>
         </div>
-        <div v-if="message.role === 'assistant' && message.status === 'stopped'" class="ai-message-status">
-          {{ t('aiHelper.stoppedStatus') }}
+        <div v-if="message.role === 'assistant' && message.status && message.status !== 'pending'" class="ai-message-status">
+          {{ statusText(message) }}
         </div>
         <div
-          v-if="message.role === 'assistant' && !message.status && message.content && hasNote"
+          v-if="message.role === 'assistant' && !message.status && message.content && hasNote && !codeGenMode"
           class="ai-message-actions"
         >
           <el-button
@@ -51,11 +51,31 @@
             {{ t('aiHelper.overwriteNote') }}
           </el-button>
         </div>
+        <div
+          v-if="message.role === 'assistant' && codeGenMode && !message.status && message.content"
+          class="ai-message-actions"
+        >
+          <el-button
+            type="primary"
+            plain
+            size="small"
+            :loading="applyingMessageId === message.id"
+            :disabled="applyingMessageId !== null && applyingMessageId !== message.id"
+            @click="applyCodeToEditor(message)"
+          >
+            {{ applyingMessageId === message.id
+              ? t('aiHelper.codeApplying')
+              : t('aiHelper.applyCodeTo', { type: codeGenTypeLabel }) }}
+          </el-button>
+        </div>
       </div>
       <div v-if="error" class="ai-error">{{ error }}</div>
     </div>
 
     <div class="ai-composer">
+      <div v-if="codeGenMode" class="ai-composer__hint">
+        {{ t('aiHelper.codegenComposerHint', { type: codeGenTypeLabel }) }}
+      </div>
       <div class="ai-composer-actions">
         <el-button text size="small" :disabled="busy" @click="clear">{{ t('aiHelper.clear') }}</el-button>
         <el-button v-if="busy" type="warning" plain size="small" @click="stopGenerating">
@@ -65,7 +85,8 @@
       <XSender
         ref="senderRef"
         :disabled="busy"
-        :placeholder="t('aiHelper.placeholder')"
+        :max-length="100000"
+        :placeholder="composerPlaceholder"
         @submit="send"
       />
     </div>
@@ -81,7 +102,7 @@
  *    事件负责逐字追加，invoke 结束再以完整结果兜底；停止生成已接主进程 abort。
  *  - vue2 有「选择模型 / 技能调用」等动作；「应用到当前笔记」已补，见 P5 11.58。
  */
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { useI18n } from 'vue-i18n';
 import { ChatDotRound } from '@element-plus/icons-vue';
@@ -89,21 +110,29 @@ import { Welcome, XSender } from 'vue-element-plus-x';
 import { emitAiInsert } from '@/editor/aiInsert';
 import { aiChatCancel, aiChatStream, onAiChatStream } from '@/services/ipc';
 import { useNotesStore } from '@/stores/notes';
+import { extractGeneratedCode } from '@/utils/aiCodegen';
 
 interface ChatMessage {
   id: number;
   role: 'user' | 'assistant';
   content: string;
-  status?: 'pending' | 'stopped';
+  status?: 'pending' | 'stopped' | 'truncated';
 }
 
-const props = defineProps<{ noteId?: number | null }>();
+const props = defineProps<{
+  noteId?: number | null;
+  codeGenPrompt?: string;
+  codeGenType?: 'rune' | 'echo' | null;
+  codeGenTargetName?: string;
+  codeGenCallback?: (code: string) => void;
+}>();
 const { t } = useI18n();
 const notesStore = useNotesStore();
 
 type SenderExposed = {
   getModelValue: () => { text: string };
   clear: () => void;
+  setText: (text: string) => void;
 };
 
 const messages = ref<ChatMessage[]>([]);
@@ -138,6 +167,28 @@ const stopStream = onAiChatStream((event) => {
 const activeNote = computed(() => notesStore.activeNote);
 const hasNote = computed(() => Boolean(activeNote.value && props.noteId !== null));
 const noteTitle = computed(() => activeNote.value?.title || t('aiHelper.untitled'));
+const codeGenMode = computed(() => Boolean(String(props.codeGenPrompt || '').trim()));
+const codeGenTypeLabel = computed(() => (
+  props.codeGenType === 'rune' ? t('library.runesTab') : t('library.echoesTab')
+));
+const welcomeTitle = computed(() => (
+  codeGenMode.value
+    ? t('aiHelper.codegenTitle', { type: codeGenTypeLabel.value })
+    : t('aiHelper.welcomeTitle')
+));
+const welcomeDescription = computed(() => (
+  codeGenMode.value
+    ? t('aiHelper.codegenDesc', {
+      type: codeGenTypeLabel.value,
+      name: props.codeGenTargetName || t('aiHelper.untitled'),
+    })
+    : t('aiHelper.welcomeDesc')
+));
+const composerPlaceholder = computed(() => (
+  codeGenMode.value
+    ? t('aiHelper.codegenPlaceholder', { type: codeGenTypeLabel.value })
+    : t('aiHelper.placeholder')
+));
 
 watch(
   () => messages.value.length,
@@ -145,6 +196,12 @@ watch(
 );
 
 function contextMessages(): Array<{ role: 'system' | 'user' | 'assistant'; content: string }> {
+  // 代码生成模式不注入当前笔记，prompt 里已经带描述、当前源码和全部内置模板。
+  if (codeGenMode.value) {
+    return messages.value
+      .filter((message) => message.content && !message.status)
+      .map((message) => ({ role: message.role, content: message.content }));
+  }
   const list: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
     {
       role: 'system',
@@ -200,7 +257,9 @@ async function send(): Promise<void> {
       return;
     }
     assistant.content = result.data.content || assistant.content;
-    assistant.status = result.data.stopped ? 'stopped' : undefined;
+    assistant.status = result.data.stopped
+      ? 'stopped'
+      : result.data.truncated ? 'truncated' : undefined;
     scrollToBottom();
   } finally {
     if (requestId === activeRequestId) {
@@ -231,6 +290,45 @@ function stopGenerating(): void {
       ElMessage.warning(t('aiHelper.stopFailed'));
     }
   });
+}
+
+/** 对齐 vue2 getMessageStatusText。 */
+function statusText(message: ChatMessage): string {
+  if (message.status === 'stopped') {
+    return t('aiHelper.stoppedStatus');
+  }
+  if (message.status === 'truncated') {
+    return t('aiHelper.truncatedStatus');
+  }
+  return '';
+}
+
+/** 代码生成模式：从回复提取代码块，回调到表单源码框。 */
+function applyCodeToEditor(message: ChatMessage): void {
+  if (message.role !== 'assistant' || !props.codeGenCallback) {
+    ElMessage.warning(t('aiHelper.codeCallbackMissing'));
+    return;
+  }
+  const code = extractGeneratedCode(message.content);
+  if (!code) {
+    ElMessage.warning(t('aiHelper.codeEmpty'));
+    return;
+  }
+  applyingMessageId.value = message.id;
+  try {
+    props.codeGenCallback(code);
+    ElMessage.success(t('aiHelper.codeApplied', { type: codeGenTypeLabel.value }));
+  } catch (error) {
+    ElMessage.error(t('aiHelper.codeApplyFailed', {
+      message: error instanceof Error ? error.message : String(error),
+    }));
+  } finally {
+    window.setTimeout(() => {
+      if (applyingMessageId.value === message.id) {
+        applyingMessageId.value = null;
+      }
+    }, 800);
+  }
 }
 
 /** 对齐 vue2 applyToCurrentNote：默认追加到编辑器末尾；整篇覆盖是单独按钮。 */
@@ -304,6 +402,14 @@ function clear(): void {
   error.value = '';
   applyingMessageId.value = null;
 }
+
+onMounted(() => {
+  if (!codeGenMode.value) {
+    return;
+  }
+  // XSender 没有 v-model，只能在挂载后把 vue2 的 draftMessage 写进输入框。
+  void nextTick(() => senderRef.value?.setText(String(props.codeGenPrompt || '')));
+});
 
 onBeforeUnmount(() => {
   if (activeRequestId) {
@@ -403,6 +509,12 @@ onBeforeUnmount(() => {
 .ai-composer {
   padding: 8px 12px 12px;
   border-top: 1px solid var(--el-border-color-lighter, rgba(0, 0, 0, 0.08));
+}
+
+.ai-composer__hint {
+  margin: 2px 0 8px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 
 .ai-composer-actions {

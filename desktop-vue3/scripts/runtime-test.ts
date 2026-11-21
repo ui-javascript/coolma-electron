@@ -62,6 +62,7 @@ import {
   AUTO_UPLOAD_RETRY_COOLDOWN,
   shouldAutoUpload,
 } from '../frontend/src/utils/syncAuto';
+import { buildEchoCodeGenPrompt, buildRuneCodeGenPrompt, extractGeneratedCode } from '../frontend/src/utils/aiCodegen';
 import { PROOFREAD_SYSTEM_PROMPT, buildProofreadMessages } from '../frontend/src/services/aiProofread';
 
 type Any = Record<string, any>;
@@ -372,6 +373,44 @@ async function main(): Promise<void> {
       PROOFREAD_SYSTEM_PROMPT.slice(0, 80),
     );
     assert('强运：user prompt 原样包住当前 Markdown', messages.length === 2 && messages[1]?.content.includes(source), String(messages[1]?.content.length));
+  }
+
+  // ===== 符文/回响 AI 代码生成：prompt 带入当前源码与内置模板，回包能提代码 =====
+  {
+    const runePrompt = buildRuneCodeGenPrompt({ desc: '做一个倒计时', current: '<template><p>old</p></template>' });
+    assert(
+      'CodeGen：符文 prompt 带描述/当前源码/内置模板/SFC 格式',
+      runePrompt.includes('做一个倒计时') &&
+        runePrompt.includes('<template><p>old</p></template>') &&
+        runePrompt.includes('所有内置符文模板') &&
+        runePrompt.includes('<template>') &&
+        runePrompt.includes('只输出最终的代码块'),
+      runePrompt.slice(0, 80),
+    );
+    const echoPrompt = buildEchoCodeGenPrompt({ desc: '高亮关键词', current: "export default { type: 'echo' }" });
+    assert(
+      'CodeGen：回响 prompt 带 anno_source 示例与内置回响',
+      echoPrompt.includes('高亮关键词') &&
+        echoPrompt.includes("export default { type: 'echo' }") &&
+        echoPrompt.includes('anno_source') &&
+        echoPrompt.includes('所有内置回响模板'),
+      echoPrompt.slice(0, 80),
+    );
+    assert(
+      'CodeGen：提取 html/vue 围栏',
+      extractGeneratedCode('说明\n```html\n<template><p>x</p></template>\n```\n结束') === '<template><p>x</p></template>',
+      extractGeneratedCode('```html\n<template><p>x</p></template>\n```'),
+    );
+    assert(
+      'CodeGen：提取 javascript 围栏',
+      extractGeneratedCode("```javascript\nexport default { type: 'echo' }\n```") === "export default { type: 'echo' }",
+      'js',
+    );
+    assert(
+      'CodeGen：无围栏时跳过 markdown 标题/列表',
+      extractGeneratedCode('# 标题\n**说明**\n- 列表\n<template><p>ok</p></template>') === '<template><p>ok</p></template>',
+      'fallback',
+    );
   }
 
   // ===== 演示稿切片纯逻辑（L3 里再跑一遍，防止 vite/组件层改动悄悄破坏）=====

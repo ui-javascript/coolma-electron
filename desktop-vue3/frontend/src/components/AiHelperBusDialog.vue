@@ -1,5 +1,12 @@
 <template>
-  <AiHelperPanel :note-id="noteId" class="ai-bus-panel" />
+  <AiHelperPanel
+    :note-id="noteId"
+    :code-gen-prompt="codeGenPrompt"
+    :code-gen-type="codeGenType"
+    :code-gen-target-name="codeGenTargetName"
+    :code-gen-callback="codeGenCallback"
+    class="ai-bus-panel"
+  />
 </template>
 
 <script setup lang="ts">
@@ -10,7 +17,13 @@
  */
 import AiHelperPanel from '@/components/AiHelperPanel.vue';
 
-defineProps<{ noteId?: number | null }>();
+defineProps<{
+  noteId?: number | null;
+  codeGenPrompt?: string;
+  codeGenType?: 'rune' | 'echo' | null;
+  codeGenTargetName?: string;
+  codeGenCallback?: (code: string) => void;
+}>();
 </script>
 
 <style scoped>

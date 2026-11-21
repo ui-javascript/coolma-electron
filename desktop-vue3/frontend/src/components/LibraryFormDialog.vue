@@ -11,6 +11,20 @@
         <el-input v-model="form.name" :readonly="readonly" :placeholder="t('library.namePlaceholder')" maxlength="100" />
       </el-form-item>
       <el-form-item :label="t('library.desc')">
+        <template #label>
+          <span class="label-with-ai">
+            {{ t('library.desc') }}
+            <el-tooltip
+              v-if="!readonly"
+              :content="kind === 'rune' ? t('library.aiGenerateRune') : t('library.aiGenerateEcho')"
+              placement="top"
+            >
+              <el-button text circle size="small" class="ai-gen-btn" @click="requestAiHelp">
+                <el-icon><MagicStick /></el-icon>
+              </el-button>
+            </el-tooltip>
+          </span>
+        </template>
         <el-input v-model="form.desc" :readonly="readonly" :placeholder="t('library.descPlaceholder')" maxlength="200" />
       </el-form-item>
       <el-form-item :label="t('library.color')">
@@ -73,8 +87,11 @@
 import { computed, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
+import { MagicStick } from '@element-plus/icons-vue';
 import { randomUUID } from '@/utils/id';
 import { useLibraryStore } from '@/stores/library';
+import { busDialogBus } from '@/services/busDialogBus';
+import { buildEchoCodeGenPrompt, buildRuneCodeGenPrompt } from '@/utils/aiCodegen';
 import { EchoCategoryEnum, RuneCategoryEnum, resolveLibraryCategory } from '@shared/enums/library';
 import { hasEchoParens, hasRuneTemplateDiv } from '@/utils/parsingRules';
 import { useAppStore } from '@/stores/app';
@@ -158,6 +175,25 @@ function applyPreset(id: string): void {
 function resetTemplate(): void {
   source.value = defaultRuneTemplate();
   presetId.value = '';
+}
+
+/**
+ * 对齐 vue2 runeFormDialog/echoFormDialog 的 handleRequestAiHelp：
+ * 通过 busDialog 打开 AI 助手，预填完整 prompt，生成后回调写入当前源码框。
+ */
+function requestAiHelp(): void {
+  const isRune = props.kind === 'rune';
+  const prompt = isRune
+    ? buildRuneCodeGenPrompt({ desc: form.desc, current: source.value })
+    : buildEchoCodeGenPrompt({ desc: form.desc, current: source.value });
+  busDialogBus.emit('AiHelperBusDialog.open', {
+    codeGenPrompt: prompt,
+    codeGenType: props.kind,
+    codeGenTargetName: form.name.trim() || t(isRune ? 'library.newRune' : 'library.newEcho'),
+    codeGenCallback: (code: string) => {
+      source.value = code;
+    },
+  });
 }
 
 watch(
@@ -291,5 +327,20 @@ async function submit(): Promise<void> {
   margin-left: 10px;
   font-size: 12px;
   color: var(--el-text-color-secondary);
+}
+
+.label-with-ai {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.ai-gen-btn {
+  color: #7c4dff;
+  padding: 2px;
+}
+
+.ai-gen-btn:hover {
+  background: rgba(124, 77, 255, 0.08);
 }
 </style>
