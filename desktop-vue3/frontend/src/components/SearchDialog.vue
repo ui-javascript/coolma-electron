@@ -2,8 +2,9 @@
   <el-dialog
     v-model="visible"
     :title="t('search.title')"
-    width="640px"
-    top="12vh"
+    width="60vw"
+    top="60vh"
+    :show-close="false"
     append-to-body
     class="search-dialog"
     @open="focusInput"
@@ -16,7 +17,7 @@
       reserve-keyword
       :remote-method="handleQuery"
       :loading="loading"
-      :placeholder="t('search.dialogPlaceholder')"
+      :placeholder="t('search.title')"
       class="search-dialog-select"
       popper-class="search-dialog-popper"
       @change="onSelect"
@@ -34,7 +35,6 @@
         <div class="search-empty">{{ query ? t('search.noResult') : t('search.emptyHint') }}</div>
       </template>
     </el-select>
-    <div class="search-dialog-tip">{{ t('search.tip') }}</div>
   </el-dialog>
 </template>
 
@@ -109,6 +109,11 @@ function focusInput(): void {
 </script>
 
 <style scoped>
+.search-dialog :deep(.el-dialog__body) {
+  padding: 16px;
+  border-radius: 4px;
+}
+
 .search-dialog-select {
   width: 100%;
 }
@@ -145,10 +150,10 @@ function focusInput(): void {
   font-size: 12px;
   color: var(--el-text-color-secondary);
 }
+</style>
 
-.search-dialog-tip {
-  margin-top: 8px;
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
+<style>
+.search-dialog .el-dialog__header {
+  display: none;
 }
 </style>

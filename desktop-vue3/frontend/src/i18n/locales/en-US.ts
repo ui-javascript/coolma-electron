@@ -87,6 +87,8 @@ export default {
     title: 'All notes',
     subtitle: 'SQLite local notes · autosaved',
     empty: 'No matching notes',
+    tag: 'Tag',
+    noTags: 'No tags yet',
     noNotes: 'No notes yet',
     count: '{count} notes',
     untitled: 'Untitled',

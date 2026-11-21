@@ -87,6 +87,8 @@ export default {
     title: '全部笔记',
     subtitle: 'SQLite 本地笔记 · 实时保存',
     empty: '没有匹配的笔记',
+    tag: '标签',
+    noTags: '暂无标签',
     noNotes: '暂无笔记',
     count: '{count} 篇笔记',
     untitled: '无标题',

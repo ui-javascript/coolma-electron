@@ -2,14 +2,19 @@
   <el-dialog
     v-model="visible"
     :title="t('notes.createTitle')"
-    width="420px"
+    width="500px"
     append-to-body
+    class="new-note-dialog"
     @opened="focusTitle"
   >
     <div class="new-note-form">
       <div class="new-note-field">
         <label class="new-note-label">{{ t('noteTemplate') }}</label>
-        <el-select v-model="templateId" class="new-note-control">
+        <el-select
+          v-model="templateId"
+          class="new-note-control"
+          :placeholder="t('noteTemplateEmptyOption')"
+        >
           <el-option :value="''" :label="t('noteTemplateEmptyOption')" />
           <el-option
             v-for="tpl in templateOptions"
@@ -128,5 +133,14 @@ function submit(): void {
 
 .new-note-control {
   width: 100%;
+}
+</style>
+
+<style>
+.new-note-dialog {
+  width: 500px !important;
+  max-width: 50vw;
+  border-radius: 4px;
+  font-weight: 600;
 }
 </style>
