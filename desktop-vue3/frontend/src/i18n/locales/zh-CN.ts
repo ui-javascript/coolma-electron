@@ -366,6 +366,7 @@ export default {
   echoCategoryMarker: '标记',
   echoCategoryTypography: '排版',
 
+  'calendar.filterLabel': '日期筛选',
   calendarBasisCreated: '按创建时间',
   calendarBasisModified: '按修改时间',
     editorGroup: '编辑器偏好',

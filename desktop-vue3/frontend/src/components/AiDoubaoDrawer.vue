@@ -4,6 +4,8 @@
     :title="t('aiDoubao.title')"
     direction="rtl"
     size="600px"
+    class="ai-chat-drawer"
+    :z-index="9999"
     append-to-body
     destroy-on-close
   >
@@ -53,6 +55,30 @@ const wujieProps = computed(() => ({
   onMessage: (data: unknown) => emit('message', data),
 }));
 </script>
+
+<style>
+.ai-chat-drawer {
+  overflow: hidden;
+  border-radius: 8px 0 0 8px;
+  background: var(--coolma-panel, #fff);
+  box-shadow: -4px 0 24px rgb(0 0 0 / 12%);
+}
+
+.ai-chat-drawer .el-drawer__header {
+  height: 44px;
+  margin: 0;
+  padding: 0 12px 0 16px;
+  border-bottom: 1px solid var(--coolma-border, #e8e8e8);
+  color: var(--coolma-text, #333);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ai-chat-drawer .el-drawer__body {
+  padding: 0;
+  overflow: hidden;
+}
+</style>
 
 <style scoped>
 .doubao-host {

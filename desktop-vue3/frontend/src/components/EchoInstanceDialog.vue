@@ -1,11 +1,18 @@
 <template>
   <el-dialog
     v-model="visible"
-    :title="t('echoInstance.title')"
-    width="600px"
+    width="680px"
+    top="5vh"
+    class="echo-instance-dialog"
     append-to-body
     destroy-on-close
   >
+    <template #header>
+      <div class="echo-instance-heading">
+        <el-icon class="echo-instance-heading__icon"><Histogram /></el-icon>
+        <span>{{ echo?.name || token?.echoName || t('echoInstance.title') }}</span>
+      </div>
+    </template>
     <div class="echo-instance-summary">
       <div class="echo-instance-heading">
         <span class="echo-instance-name">{{ echo?.name || token?.echoName || t('echoInstance.unnamed') }}</span>
@@ -78,9 +85,13 @@
     <div class="echo-instance-help">{{ t('echoInstance.help') }}</div>
 
     <template #footer>
-      <el-button text @click="openDefinition">{{ t('echoInstance.editDefinition') }}</el-button>
-      <el-button @click="visible = false">{{ t('action.cancel') }}</el-button>
-      <el-button type="primary" @click="submit">{{ t('action.confirm') }}</el-button>
+      <div class="echo-instance-footer">
+        <el-button text @click="openDefinition">{{ t('echoInstance.editDefinition') }}</el-button>
+        <div class="echo-instance-footer__actions">
+          <el-button @click="visible = false">{{ t('action.cancel') }}</el-button>
+          <el-button type="primary" @click="submit">{{ t('action.confirm') }}</el-button>
+        </div>
+      </div>
     </template>
   </el-dialog>
 </template>
@@ -88,6 +99,7 @@
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { Histogram } from '@element-plus/icons-vue';
 import type { EchoCard } from '@shared/types/domain';
 import { resolveEchoSchema, type EchoSchemaField } from '@/utils/echoSchema';
 import type { EchoInstancePatch, EchoInstanceToken } from '@/utils/echoToken';
@@ -207,7 +219,61 @@ function openDefinition(): void {
 }
 </script>
 
+<style>
+.echo-instance-dialog {
+  width: 680px !important;
+  max-width: 88vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 4px;
+}
+
+.echo-instance-dialog .el-dialog__header {
+  margin: 0;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--coolma-border, #ebeef5);
+}
+
+.echo-instance-dialog .el-dialog__body {
+  flex: 1;
+  min-height: 0;
+  padding: 14px 16px;
+  overflow-y: auto;
+}
+
+.echo-instance-dialog .el-dialog__footer {
+  padding: 10px 16px;
+  border-top: 1px solid var(--coolma-border, #ebeef5);
+}
+</style>
+
 <style scoped>
+.echo-instance-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--coolma-text, #303133);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.echo-instance-heading__icon {
+  color: var(--themeColor, #409eff);
+  font-size: 22px;
+}
+
+.echo-instance-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.echo-instance-footer__actions {
+  display: flex;
+  gap: 8px;
+}
+
 .echo-instance-summary {
   margin-bottom: 18px;
   padding: 12px 14px;

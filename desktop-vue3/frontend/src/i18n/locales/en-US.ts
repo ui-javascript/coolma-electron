@@ -366,6 +366,7 @@ export default {
   echoCategoryMarker: 'Marker',
   echoCategoryTypography: 'Typography',
 
+  'calendar.filterLabel': 'Date basis',
   calendarBasisCreated: 'By created time',
   calendarBasisModified: 'By modified time',
     editorGroup: 'Editor Preferences',

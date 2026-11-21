@@ -1,6 +1,12 @@
 <template>
   <aside class="sidebar">
-    <button type="button" class="index-row index-all" :class="{ active: isAllScope }" @click="clearFilters">
+    <button
+      v-if="mode === IndexModeEnum.Folder"
+      type="button"
+      class="index-row index-all"
+      :class="{ active: isAllScope }"
+      @click="clearFilters"
+    >
       <el-icon><Document /></el-icon>
       <span class="index-label">{{ t('index.all') }}</span>
       <span class="side-count">{{ total }}</span>
@@ -47,12 +53,6 @@
       </template>
 
       <template v-else-if="mode === IndexModeEnum.Tag">
-        <div class="index-toolbar">
-          <el-button text size="small" :title="t('tag.create')" @click="createTag">
-            <el-icon><Plus /></el-icon>
-            <span>{{ t('tag.create') }}</span>
-          </el-button>
-        </div>
         <div ref="tagChartRef" class="tag-treemap" />
         <p v-if="tags.length === 0" class="index-empty">{{ t('index.empty') }}</p>
       </template>
@@ -86,7 +86,7 @@
 </template>
 
 <script setup lang="ts">
-import { Clock, Delete, Document, Folder, FolderOpened, Plus } from '@element-plus/icons-vue';
+import { Clock, Delete, Document, Folder, FolderOpened } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox, ElTree } from 'element-plus';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -442,30 +442,6 @@ async function removeFolder(category: string): Promise<void> {
     emit('update:filter', { folder: '' });
   }
   ElMessage.success(t('folder.deleteSuccess'));
-}
-
-async function createTag(): Promise<void> {
-  let value = '';
-  try {
-    const result = await ElMessageBox.prompt(t('tag.createPlaceholder'), t('tag.createTitle'), {
-      inputValidator: (input: string) => Boolean(input.trim()),
-      confirmButtonText: t('action.confirm'),
-      cancelButtonText: t('action.cancel'),
-    });
-    value = result.value.trim();
-  } catch {
-    return;
-  }
-  if (!value) {
-    return;
-  }
-
-  const created = await notesStore.createTag(value);
-  if (!created) {
-    ElMessage.error(notesStore.error || t('tag.createFailed'));
-    return;
-  }
-  ElMessage.success(t('tag.createSuccess'));
 }
 
 async function removeTag(name: string, id: number | null): Promise<void> {
