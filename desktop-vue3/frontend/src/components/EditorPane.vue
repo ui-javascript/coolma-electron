@@ -187,6 +187,7 @@ import AiTagDialog from '@/components/AiTagDialog.vue';
 import { normalizeTagName } from '@/utils/autotag';
 import { formatDocumentByPangu } from '@/utils/pangu';
 import { readEchoInstance, rewriteEchoInstance, type EchoInstancePatch, type EchoInstanceToken } from '@/utils/echoToken';
+import { ProofreadError, proofreadMarkdown } from '@/services/aiProofread';
 
 const props = defineProps<{
   summary: NoteSummary | null;
@@ -498,6 +499,108 @@ async function applyTags(names: string[]): Promise<void> {
 const stopAiInsert = onAiInsert(applyAiText);
 onBeforeUnmount(stopAiInsert);
 
+interface LuckyChantPayload {
+  node?: HTMLElement;
+  props?: Record<string, unknown>;
+}
+
+interface EchoChantWindow {
+  __memocastEchoChantHandlers?: Record<string, (payload: LuckyChantPayload) => Promise<void>>;
+}
+
+/**
+ * 对齐 vue2 Muya.handleLuckyChantTrigger：
+ * 强运回调读当前 Markdown → AI 校对 → 内容有变化才整篇替换 → 触发自动保存。
+ */
+async function handleLuckyChantTrigger(payload: LuckyChantPayload = {}): Promise<void> {
+  if (locked.value || !props.summary) {
+    return;
+  }
+  const noteId = props.summary.id;
+  const source = sourceMode.value;
+  const before = source
+    ? String(props.content ?? '')
+    : String(muyaRef.value?.getMarkdown?.() ?? props.content ?? '');
+  if (!before.trim()) {
+    ElMessage.warning(t('aiLucky.empty'));
+    return;
+  }
+
+  const node = payload.node;
+  node?.classList.add('ag-rune-lucky-loading');
+  try {
+    const result = await proofreadMarkdown(before, {
+      model: typeof payload.props?.model === 'string' ? payload.props.model : '',
+    });
+    if (!result.corrected || result.corrected === before) {
+      ElMessage.info(t('aiLucky.noChange'));
+      return;
+    }
+    if (result.truncated) {
+      ElMessage.error(t('aiLucky.truncated'));
+      return;
+    }
+
+    // 请求期间切了笔记 / 切了源码模式 / 又改了正文，不能把旧结果盖上去。
+    const current = source
+      ? String(props.content ?? '')
+      : String(muyaRef.value?.getMarkdown?.() ?? props.content ?? '');
+    if (locked.value || props.summary?.id !== noteId || sourceMode.value !== source || current !== before) {
+      ElMessage.warning(t('aiLucky.changed'));
+      return;
+    }
+
+    if (source) {
+      emit('update:content', result.corrected);
+    } else {
+      const cursor = muyaRef.value?.getCursor?.() ?? null;
+      if (cursor && typeof muyaRef.value?.setMarkdownWithCursor === 'function') {
+        muyaRef.value.setMarkdownWithCursor(result.corrected, cursor);
+      } else {
+        muyaRef.value?.setMarkdown?.(result.corrected);
+      }
+      emit('update:content', result.corrected);
+    }
+    ElMessage.success(`${t('aiLucky.done')}（model=${result.model}）`);
+  } catch (error) {
+    const code = error instanceof ProofreadError ? error.code : '';
+    if (code.includes('NO_DEFAULT_CONFIG') || code.includes('AI_PROOFREAD_NO_MODEL')) {
+      ElMessage.error(t('aiLucky.noConfig'));
+    } else if (code.includes('CONFIG_INCOMPLETE') || code.includes('AI_MODEL_INCOMPLETE')) {
+      ElMessage.error(`${t('aiLucky.configIncomplete')}（${error instanceof Error ? error.message : ''}）`);
+    } else if (code === 'AI_PROOFREAD_EMPTY') {
+      ElMessage.warning(t('aiLucky.empty'));
+    } else {
+      const detail = error instanceof Error && error.message ? `：${error.message}` : '';
+      ElMessage.error(`${t('aiLucky.failed')}${detail}`);
+    }
+  } finally {
+    node?.classList.remove('ag-rune-lucky-loading');
+  }
+}
+
+function registerLuckyHandler(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  const host = window as unknown as EchoChantWindow;
+  host.__memocastEchoChantHandlers = Object.assign(host.__memocastEchoChantHandlers || {}, {
+    lucky: handleLuckyChantTrigger,
+  });
+}
+
+function unregisterLuckyHandler(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  const host = window as unknown as EchoChantWindow;
+  if (host.__memocastEchoChantHandlers?.lucky === handleLuckyChantTrigger) {
+    delete host.__memocastEchoChantHandlers.lucky;
+  }
+}
+
+onBeforeUnmount(unregisterLuckyHandler);
+
 /** 盘古格式化当前文档；源码模式直接回抛 update，Muya 走 setMarkdown。 */
 async function formatDocument(): Promise<boolean> {
   if (locked.value || !props.summary) {
@@ -621,6 +724,7 @@ const editorOptions = {
 };
 
 onMounted(() => {
+  registerLuckyHandler();
   void libraryStore.load();
   void appStore.loadPrefs();
 });

@@ -45,12 +45,23 @@
             <el-button text type="danger" :disabled="busy" @click="doLogout">{{ t('settings.syncLogout') }}</el-button>
           </div>
           <div class="sync-stats">
-            <span>{{ t('settings.getPendingSync') }}: {{ pending }}</span>
+            <span>{{ t('settings.getPendingSync') }}: {{ syncStore.pendingTotal }}</span>
             <span>{{ t('settings.syncLastTime') }}: {{ lastSyncText }}</span>
           </div>
           <div class="sync-actions">
-            <el-button type="primary" plain :loading="busy" @click="doPull">{{ t('settings.syncPull') }}</el-button>
-            <el-button type="primary" :loading="busy" @click="doPush">{{ t('settings.syncPush') }}</el-button>
+            <el-button
+              type="primary"
+              plain
+              :loading="syncStore.busyKind === 'pull'"
+              :disabled="busy && syncStore.busyKind !== 'pull'"
+              @click="doPull"
+            >{{ t('settings.syncPull') }}</el-button>
+            <el-button
+              type="primary"
+              :loading="syncStore.busyKind === 'push'"
+              :disabled="busy && syncStore.busyKind !== 'push'"
+              @click="doPush"
+            >{{ t('settings.syncPush') }}</el-button>
             <el-button :disabled="busy" @click="doCategories">{{ t('settings.syncCategories') }}</el-button>
           </div>
           <el-alert v-if="syncError" type="error" :closable="false" :title="syncError" class="sync-error" />
@@ -90,8 +101,8 @@ import { ElMessageBox } from 'element-plus';
 import { Cloudy } from '@element-plus/icons-vue';
 import { useAppStore } from '@/stores/app';
 import { useNotesStore } from '@/stores/notes';
-import { getPendingSync } from '@/services/ipc';
-import { getSyncCategories, getSyncStatus, syncLogout, syncPull, syncPush } from '@/services/sync';
+import { useSyncStore } from '@/stores/sync';
+import { getSyncCategories, getSyncStatus, syncLogout } from '@/services/sync';
 import { loginDialogState, notifyLogout, openLoginDialog } from '@/services/loginDialog';
 import type { SyncCategory, SyncStatus } from '@/services/sync';
 import ImageUploadServiceDialog from '@/components/ImageUploadServiceDialog.vue';
@@ -105,18 +116,19 @@ const KEYS = {
 const { t } = useI18n();
 const appStore = useAppStore();
 const notesStore = useNotesStore();
+const syncStore = useSyncStore();
 const subTab = ref<'sync' | 'image'>('sync');
 const cloudSyncStrategy = ref('onlineFirst');
 const cloudSyncProvider = ref('wiznote');
 const imageUploadService = ref('none');
-const pending = ref(0);
 const imageDialogVisible = ref(false);
 const status = ref<SyncStatus>({ baseUrl: '', kbGuid: '', kbServer: '', email: '', displayName: '', userGuid: '', loggedIn: false });
-const busy = ref(false);
+const actionBusy = ref(false);
 const syncError = ref('');
 const syncMessage = ref('');
 const categories = ref<SyncCategory[]>([]);
 const loaded = ref(false);
+const busy = computed(() => syncStore.isSyncing || actionBusy.value);
 
 function bindPrefs(): void {
   const prefs = appStore.prefs;
@@ -127,10 +139,7 @@ function bindPrefs(): void {
 }
 
 async function loadPending(): Promise<void> {
-  const result = await getPendingSync();
-  if (result.ok) {
-    pending.value = result.data.summary.total ?? 0;
-  }
+  await syncStore.refreshPending();
 }
 
 watch(cloudSyncStrategy, (value) => loaded.value && void appStore.setPref(KEYS.strategy, value));
@@ -148,6 +157,10 @@ async function refreshStatus(): Promise<void> {
   const result = await getSyncStatus();
   if (result.ok) {
     status.value = result.data;
+    syncStore.setLoggedIn(result.data.loggedIn);
+    syncStore.lastSyncAt = result.data.lastSyncAt;
+  } else {
+    syncStore.setLoggedIn(false);
   }
 }
 
@@ -174,7 +187,7 @@ async function doLogout(): Promise<void> {
   } catch {
     return;
   }
-  busy.value = true;
+  actionBusy.value = true;
   syncError.value = '';
   syncMessage.value = '';
   try {
@@ -182,61 +195,59 @@ async function doLogout(): Promise<void> {
     if (result.ok) {
       status.value = result.data;
       categories.value = [];
+      syncStore.setLoggedIn(false);
       // 照 vue2 登出：笔记仍在本地，只是解除账号归属；列表与待同步数要重读。
       await notesStore.loadAll?.();
       await loadPending();
       notifyLogout();
     }
   } finally {
-    busy.value = false;
+    actionBusy.value = false;
   }
 }
 
 async function doPull(): Promise<void> {
-  busy.value = true;
+  actionBusy.value = true;
   syncError.value = '';
   syncMessage.value = '';
   try {
-    const result = await syncPull();
-    if (!result.ok) {
-      syncError.value = result.error.message;
+    const result = await syncStore.pull();
+    if (!result) {
+      syncError.value = syncStore.lastError;
       return;
     }
-    syncMessage.value = t('settings.syncPullDone', { imported: result.data.imported, skipped: result.data.skipped, backfilled: result.data.backfilled, failed: result.data.failed });
-    if (result.data.errors.length) {
-      syncError.value = result.data.errors.join('\n');
+    syncMessage.value = t('settings.syncPullDone', { imported: result.imported, skipped: result.skipped, backfilled: result.backfilled, failed: result.failed });
+    if (result.errors.length) {
+      syncError.value = result.errors.join('\n');
     }
     await refreshStatus();
-    await loadPending();
-    await notesStore.loadAll?.();
   } finally {
-    busy.value = false;
+    actionBusy.value = false;
   }
 }
 
 async function doPush(): Promise<void> {
-  busy.value = true;
+  actionBusy.value = true;
   syncError.value = '';
   syncMessage.value = '';
   try {
-    const result = await syncPush({ limit: 50 });
-    if (!result.ok) {
-      syncError.value = result.error.message;
+    const result = await syncStore.push(50);
+    if (!result) {
+      syncError.value = syncStore.lastError;
       return;
     }
-    syncMessage.value = t('settings.syncPushDone', { pushed: result.data.pushed, created: result.data.created, failed: result.data.failed });
-    if (result.data.errors.length) {
-      syncError.value = result.data.errors.join('\n');
+    syncMessage.value = t('settings.syncPushDone', { pushed: result.pushed, created: result.created, failed: result.failed });
+    if (result.errors.length) {
+      syncError.value = result.errors.join('\n');
     }
     await refreshStatus();
-    await loadPending();
   } finally {
-    busy.value = false;
+    actionBusy.value = false;
   }
 }
 
 async function doCategories(): Promise<void> {
-  busy.value = true;
+  actionBusy.value = true;
   syncError.value = '';
   try {
     const result = await getSyncCategories();
@@ -246,15 +257,15 @@ async function doCategories(): Promise<void> {
       syncError.value = result.error.message;
     }
   } finally {
-    busy.value = false;
+    actionBusy.value = false;
   }
 }
 
 onMounted(async () => {
   await appStore.loadPrefs();
   bindPrefs();
-  await loadPending();
   await refreshStatus();
+  await loadPending();
 });
 </script>
 

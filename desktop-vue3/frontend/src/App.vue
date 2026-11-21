@@ -11,11 +11,12 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { onBeforeUnmount, onMounted, watch } from 'vue';
 import WindowControls from '@/components/WindowControls.vue';
 import LoginDialog from '@/components/LoginDialog.vue';
 import { useAppStore } from '@/stores/app';
 import { useNotesStore } from '@/stores/notes';
+import { useSyncStore } from '@/stores/sync';
 import { hasIpc } from '@/services/ipc';
 import { installBusDialogs } from '@/services/busDialogEntries';
 import { closeLoginDialog, loginDialogState, notifyLoginSuccess } from '@/services/loginDialog';
@@ -25,6 +26,7 @@ import { loadCdnDeps } from '@/utils/cdnDeps';
 const hasControls = hasIpc();
 const appStore = useAppStore();
 const notesStore = useNotesStore();
+const syncStore = useSyncStore();
 
 /**
  * 对齐 vue2 Header mounted：只有「没开自动登录且未登录」才启动弹登录框。
@@ -55,6 +57,26 @@ onMounted(() => {
   document.getElementById('loadingPage')?.remove();
   // 对齐 vue2 boot/cdn-deps.js：DOM 就绪后异步注入，不阻塞首屏。
   void loadCdnDeps();
-  void bootstrapLogin();
+  if (hasIpc()) {
+    syncStore.startAutoUpload();
+    void bootstrapLogin();
+  }
 });
+
+onBeforeUnmount(() => {
+  syncStore.stopAutoUpload();
+});
+
+watch(
+  () => loginDialogState.successTick,
+  () => {
+    syncStore.setLoggedIn(true);
+    void syncStore.autoUploadTick();
+  },
+);
+
+watch(
+  () => loginDialogState.logoutTick,
+  () => syncStore.setLoggedIn(false),
+);
 </script>

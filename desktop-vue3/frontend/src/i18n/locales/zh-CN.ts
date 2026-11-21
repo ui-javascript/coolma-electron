@@ -56,6 +56,14 @@ export default {
   search: {
     placeholder: '搜索标题、正文或标签...',
   },
+  syncPanel: {
+    push: '推送本地修改',
+    pull: '拉取到本地',
+    failed: '同步失败，请重试',
+    syncing: '同步中…',
+    pushDone: '推送完成：更新 {pushed} 篇，新建 {created} 篇，失败 {failed} 篇',
+    pullDone: '拉取完成：导入 {imported} 篇，跳过 {skipped} 篇，回填 {backfilled} 篇，失败 {failed} 篇',
+  },
   aiDoubao: {
     title: '豆包 AI 助手',
     missingBuild: '未找到豆包 WebApp 构建产物；请先构建 _plugins/doubao-input',
@@ -215,6 +223,17 @@ export default {
     aiRewriteTruncated: '生成结果被截断，缩小选区或重试后再替换',
     aiRewriteFailed: 'AI 改写失败，稍后再试',
     docMeta: 'Markdown · {words} 字',
+  },
+
+  aiLucky: {
+    noConfig: '请在设置中配置 AI provider 后再使用 @强运()',
+    configIncomplete: 'AI 配置不完整，请在设置中补齐必填项',
+    failed: 'AI 校对失败',
+    empty: '当前笔记为空，无可校对内容',
+    noChange: 'AI 未发现可校对的错别字',
+    done: 'AI 校对完成，内容已替换',
+    truncated: '模型输出被截断，未替换；请缩短笔记后重试',
+    changed: '请求期间正文已变化，未替换；请重新点击强运',
   },
 
   aiTag: {
