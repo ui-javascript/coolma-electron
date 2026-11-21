@@ -23,6 +23,16 @@
           flat
           round
           dense
+          icon='settings'
+          color='white'
+          @click='showConfig = !showConfig'
+        >
+          <q-tooltip>{{ $t('bspappDemoConfigTitle') }}</q-tooltip>
+        </q-btn>
+        <q-btn
+          flat
+          round
+          dense
           icon='play_arrow'
           color='white'
           :loading='loading'
@@ -36,6 +46,18 @@
 
       <q-card-section class='bspapp-demo-body'>
         <q-banner
+          v-if='!hasConfig'
+          class='bg-orange-1 text-orange-10 q-mb-sm'
+          rounded
+          dense
+        >
+          <template v-slot:avatar>
+            <q-icon name='vpn_key' color='orange-7' />
+          </template>
+          <div class='text-body2'>{{ $t('bspappDemoNeedConfig') }}</div>
+        </q-banner>
+
+        <q-banner
           v-if='errorMsg'
           class='bg-red-1 text-red-10 q-mb-sm'
           rounded
@@ -46,6 +68,57 @@
           </template>
           <div class='text-body2'>{{ errorMsg }}</div>
         </q-banner>
+
+        <q-card v-if='showConfig' flat bordered class='q-mb-sm'>
+          <q-card-section>
+            <div class='text-subtitle2 text-grey-8 q-mb-sm'>
+              {{ $t('bspappDemoConfigTitle') }}
+            </div>
+            <q-input
+              dense
+              outlined
+              v-model='configForm.spaceId'
+              :label='$t("bspappDemoSpaceId")'
+              class='q-mb-sm'
+            />
+            <q-input
+              dense
+              outlined
+              v-model='configForm.appToken'
+              :label='$t("bspappDemoAppToken")'
+              class='q-mb-sm'
+            />
+            <q-input
+              dense
+              outlined
+              v-model='configForm.uniIdToken'
+              :label='$t("bspappDemoUniIdToken")'
+              type='password'
+              class='q-mb-sm'
+            />
+            <div class='text-caption text-grey-6 q-mb-sm'>
+              {{ $t('bspappDemoConfigHint') }}
+            </div>
+            <div class='row justify-end q-gutter-sm'>
+              <q-btn
+                flat
+                dense
+                color='grey-7'
+                icon='delete_outline'
+                :label="$t('bspappDemoClearConfig')"
+                @click='clearConfig'
+              />
+              <q-btn
+                unelevated
+                dense
+                color='purple-7'
+                icon='save'
+                :label="$t('bspappDemoSaveConfig')"
+                @click='saveConfig'
+              />
+            </div>
+          </q-card-section>
+        </q-card>
 
         <div v-if='loading && !responseText' class='row items-center q-gutter-sm text-grey-7'>
           <q-spinner-puff color='purple-6' size='2em' />
@@ -81,7 +154,16 @@
 </template>
 
 <script>
-import { invokeDemo } from 'src/services/cloud/BspAppDemoService'
+import {
+  invokeDemo,
+  getDemoConfig,
+  setDemoConfig,
+  clearDemoConfig
+} from 'src/services/cloud/BspAppDemoService'
+
+function emptyForm () {
+  return { spaceId: '', appToken: '', uniIdToken: '' }
+}
 
 export default {
   name: 'cloudBspAppDemoDialog',
@@ -93,14 +175,41 @@ export default {
       loading: false,
       status: null,
       responseText: '',
-      errorMsg: ''
+      errorMsg: '',
+      showConfig: false,
+      hasConfig: false,
+      configForm: emptyForm()
     }
+  },
+  created () {
+    this.refreshConfig()
   },
   methods: {
     onInput (val) {
       this.$emit('input', val)
     },
+    refreshConfig () {
+      const cfg = getDemoConfig()
+      this.configForm = { ...emptyForm(), ...cfg }
+      this.hasConfig = !!(cfg.spaceId && cfg.appToken && cfg.uniIdToken)
+    },
+    saveConfig () {
+      setDemoConfig({ ...this.configForm })
+      this.refreshConfig()
+      this.$message && this.$message.success(this.$t('bspappDemoConfigSaved'))
+    },
+    clearConfig () {
+      clearDemoConfig()
+      this.configForm = emptyForm()
+      this.refreshConfig()
+      this.$message && this.$message.success(this.$t('bspappDemoConfigCleared'))
+    },
     async runDemo () {
+      if (!this.hasConfig) {
+        this.showConfig = true
+        this.errorMsg = this.$t('bspappDemoNeedConfig')
+        return
+      }
       this.loading = true
       this.errorMsg = ''
       this.status = null

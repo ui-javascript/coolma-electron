@@ -5,26 +5,65 @@
  *   - 请求体是 envelope：{ method, params, spaceId, timestamp, token }
  *     其中 params 本身是 JSON 字符串（functionTarget + functionArgs）
  *
- * ⚠️ 此服务内嵌了真实的 uniIdToken 和 spaceId / app token，仅用于本地
- *    设置面板的"测试 demo"按钮。**不要**在打包构建里混淆掉这块代码，
- *    **不要**把它挂到任何会被远程面板/公共用户触发的入口上。
- *    TODO(security): 后续把 token 拆到运行时配置 / 用户手动填。
+ * 🔒 安全约定：所有凭据（spaceId / appToken / uniIdToken）一律由用户在
+ *    demo 弹框里手动填入，经 setDemoConfig 保存在 localStorage 后由
+ *    buildEnvelope 运行时读取。源码与构建产物中不得出现任何真实凭据，
+ *    防止随仓库泄漏。凭据仅用于本地设置面板的"测试 demo"按钮，
+ *    不要挂到任何会被远程面板/公共用户触发的入口上。
  */
 
 import axios from 'axios'
 
 export const DEMO_ENDPOINT = 'https://api.bspapp.com/client'
-export const DEMO_SPACE_ID = '59728804-d890-4267-8e45-393e10b3c780'
-export const DEMO_APP_TOKEN = 'c4c7902f-e4ef-4262-a036-0afba47b3841'
 
 const DEMO_FUNCTION_TARGET = 'router'
 const DEMO_FUNCTION_URL = 'admin/vkfiles/pub/listFiles'
+const DEMO_CONFIG_KEY = 'cloudfn.bspapp.demo.config'
+
+function emptyConfig () {
+  return { spaceId: '', appToken: '', uniIdToken: '' }
+}
+
+/** 读取 demo 凭据配置（localStorage，运行时手动填入） */
+export function getDemoConfig () {
+  try {
+    const raw = localStorage.getItem(DEMO_CONFIG_KEY)
+    if (!raw) return emptyConfig()
+    const parsed = JSON.parse(raw) || {}
+    return {
+      spaceId: parsed.spaceId || '',
+      appToken: parsed.appToken || '',
+      uniIdToken: parsed.uniIdToken || ''
+    }
+  } catch (e) {
+    return emptyConfig()
+  }
+}
+
+/** 保存 demo 凭据配置到 localStorage（不落库、不进源码、不进构建产物） */
+export function setDemoConfig (config) {
+  const next = {
+    spaceId: (config && config.spaceId) || '',
+    appToken: (config && config.appToken) || '',
+    uniIdToken: (config && config.uniIdToken) || ''
+  }
+  localStorage.setItem(DEMO_CONFIG_KEY, JSON.stringify(next))
+  return next
+}
+
+export function clearDemoConfig () {
+  localStorage.removeItem(DEMO_CONFIG_KEY)
+}
 
 /**
  * 构造调用 envelope。timestamp / token 每次都重新生成（user-side 字段）。
- * 其它 token (uniIdToken) 维持 source 里写的那个，便于本地压住版本。
+ * spaceId / appToken / uniIdToken 从运行时配置读取，缺一则抛错提示。
  */
 export function buildEnvelope () {
+  const config = getDemoConfig()
+  if (!config.spaceId || !config.appToken || !config.uniIdToken) {
+    throw new Error('BspApp demo credentials not configured (spaceId / appToken / uniIdToken)')
+  }
   const functionArgs = {
     $url: DEMO_FUNCTION_URL,
     data: { categoryNo: '', title: '' },
@@ -73,7 +112,7 @@ export function buildEnvelope () {
       locale: 'zh-Hans',
       LOCALE: 'zh-Hans'
     },
-    uniIdToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiIwMDIiLCJyb2xlIjpbImFkbWluIl0sInBlcm1pc3Npb24iOltdLCJpYXQiOjE3NjM3NzAzODcsImV4cCI6MTc2NDM3NTE4N30.aWeY-Ao1NqV0O6jhUQRGEN8XchrOGod0W2bvgYiTnI8'
+    uniIdToken: config.uniIdToken
   }
   return {
     method: 'serverless.function.runtime.invoke',
@@ -81,9 +120,9 @@ export function buildEnvelope () {
       functionTarget: DEMO_FUNCTION_TARGET,
       functionArgs
     }),
-    spaceId: DEMO_SPACE_ID,
+    spaceId: config.spaceId,
     timestamp: Date.now(),
-    token: DEMO_APP_TOKEN
+    token: config.appToken
   }
 }
 
