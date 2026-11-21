@@ -22,4 +22,5 @@ Windows 安装包默认生成在 `src-tauri/target/release/bundle/nsis/`。如�
 - 剪贴板：原版 `src/boot/electron-clipboard.js` 注入同步的 `window.__electronClipboard`，这里由 `src/desktop/clipboard.js` 提供同形接口；写操作走 `navigator.clipboard` 并降级 `execCommand('copy')`，读操作在窗口获得焦点/重新可见时预热缓存，供同步 `readText()` 返回。
 - 博客部署：配置读写（`get/save-blog-deploy-config`，存在本地偏好存储，键名与原版 electron-store 的 `blog-deploy-config` 一致）、CI 模板导出（`export-blog-ci`）与真正的构建/SFTP（`start/cancel-blog-deploy`、`sftp-test-connection`、`sftp-upload`）都已可用。构建与上传跑在 Node sidecar 里（`src-tauri/sidecar/`，JSON-RPC over stdio），复用原版主进程的 `blog-deploy-handler` / `sftp-service`，进度与完成事件名和原版一致。打包前先跑 `pnpm run prepare:sidecar`（已串联进 `pnpm build`）：把 Node 放进 `src-tauri/sidecar/node`、把 `fs-extra`/`ssh2` 装进 `sidecar/node_modules`，发布版因此不依赖机器上已有的 Node；博客构建本身仍要系统有 `npm`/`pnpm` 才能安装 vuepress。
 - 微应用解析：`vue-sfc:parse` 也走 sidecar（`sfc.parse`），渲染层不引入 `@vue/compiler-sfc`，绕开 webpack 4 会把可选预处理器全部静态拉进来的问题；错误码沿用原版 `VUE_SFC_*`。
+- 窗口行为与原版一致：标题栏关闭只隐藏到后台（再次启动由单实例插件拉回前台），二次确认的「退出」才真正结束进程；窗口位置与大小记在应用数据目录的 `window-state.json`，还原时按原版 600×400 下限夹取并校验坐标是否还在屏幕内。
 - 仍需适配：自动更新（Tauri updater 需要签名与发布端点），系统钥匙串里的 AI 密钥。现有应用可继续使用 Electron 版的这些功能。

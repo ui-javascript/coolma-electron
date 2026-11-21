@@ -152,8 +152,9 @@ function send (channel) {
   switch (channel) {
     case 'window-minimize': action = window.minimize(); break
     case 'window-maximize': action = window.toggleMaximize(); break
-    case 'window-close':
-    case 'window-quit': action = window.close(); break
+    case 'window-close': action = window.close(); break
+    // 原版 window-quit 是"确认后真正退出"，Rust 侧要跳过关闭即隐藏的拦截。
+    case 'window-quit': invokeNative('window_quit').catch(console.error); return
     default: return
   }
   action.catch(console.error)
