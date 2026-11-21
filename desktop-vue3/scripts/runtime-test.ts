@@ -63,6 +63,8 @@ import {
   shouldAutoUpload,
 } from '../frontend/src/utils/syncAuto';
 import { buildEchoCodeGenPrompt, buildRuneCodeGenPrompt, extractGeneratedCode } from '../frontend/src/utils/aiCodegen';
+import { fetchRemoteText, toRawGithubUrl } from '../electron/service/remote-fetch';
+import { fallbackRuneName, inferRemoteRuneMeta, REMOTE_RUNE_MAX_BYTES } from '../electron/shared/runeRemote';
 import {
   applyBaseToConfig,
   buildBlogPackageJson,
@@ -978,6 +980,116 @@ async function main(): Promise<void> {
       JSON.stringify(nav),
     );
     await fs.rm(tmp, { recursive: true, force: true });
+  }
+
+  runeRemote: {
+    assert(
+      '符文远程：blob/raw 转 raw，raw/gist 原样，非 GitHub 拒绝',
+      toRawGithubUrl('https://github.com/o/r/blob/main/foo.vue') === 'https://raw.githubusercontent.com/o/r/main/foo.vue' &&
+        toRawGithubUrl('https://github.com/o/r/raw/main/foo.vue') === 'https://raw.githubusercontent.com/o/r/main/foo.vue' &&
+        toRawGithubUrl('https://raw.githubusercontent.com/o/r/main/foo.vue') === 'https://raw.githubusercontent.com/o/r/main/foo.vue' &&
+        toRawGithubUrl('https://gist.githubusercontent.com/u/1/raw/foo.vue') === 'https://gist.githubusercontent.com/u/1/raw/foo.vue' &&
+        toRawGithubUrl('http://127.0.0.1/foo.vue') === null &&
+        toRawGithubUrl('file:///tmp/foo.vue') === null,
+      'url',
+    );
+    const single = inferRemoteRuneMeta(
+      '<!-- name: 倒计时, desc: 剩余天数, category: education -->\n<template><p>x</p></template>',
+      'https://raw.githubusercontent.com/o/r/main/countdown.vue',
+    );
+    assert(
+      '符文远程：单行注释解析 name/desc/category',
+      single.name === '倒计时' && single.desc === '剩余天数' && single.category === 'education',
+      JSON.stringify(single),
+    );
+    const multi = inferRemoteRuneMeta(
+      '<!--\n  name: 高亮\n  desc: 标记文本\n  category: novel\n-->\n<template><p>x</p></template>',
+      'https://raw.githubusercontent.com/o/r/main/highlight.vue',
+    );
+    assert(
+      '符文远程：多行注释解析',
+      multi.name === '高亮' && multi.desc === '标记文本' && multi.category === 'novel',
+      JSON.stringify(multi),
+    );
+    const overridden = inferRemoteRuneMeta('<template/>', 'https://raw.githubusercontent.com/o/r/main/my-rune.vue', 'medical');
+    assert(
+      '符文远程：分类覆盖优先，名称回退 URL 文件名',
+      overridden.category === 'medical' && overridden.name === 'my-rune',
+      JSON.stringify(overridden),
+    );
+    const invalid = inferRemoteRuneMeta('<!-- name: X, category: nope -->', 'https://raw.githubusercontent.com/o/r/main/x.vue');
+    assert(
+      '符文远程：非法分类回退 general',
+      invalid.category === 'general' && fallbackRuneName('bad-url') === 'remote-template',
+      JSON.stringify(invalid),
+    );
+
+    const originalFetch = (globalThis as Any).fetch;
+    try {
+      let hop = 0;
+      (globalThis as Any).fetch = async () => {
+        hop += 1;
+        if (hop === 1) {
+          return new Response(null, {
+            status: 302,
+            headers: { location: 'https://raw.githubusercontent.com/o/r/main/next.vue' },
+          });
+        }
+        return new Response('<template><p>hop</p></template>', { status: 200 });
+      };
+      const redirected = await fetchRemoteText('https://raw.githubusercontent.com/o/r/main/start.vue');
+      assert(
+        '符文远程：跟随 302 且 finalUrl 取规范化 raw（对齐 vue2）',
+        redirected.success && redirected.text?.includes('hop') && redirected.finalUrl?.endsWith('/start.vue'),
+        JSON.stringify(redirected),
+      );
+
+      (globalThis as Any).fetch = async () =>
+        new Response(null, {
+          status: 302,
+          headers: { location: 'http://127.0.0.1:5984/secret.vue' },
+        });
+      const blocked = await fetchRemoteText('https://raw.githubusercontent.com/o/r/main/start.vue');
+      assert(
+        '符文远程：重定向到内网被 UNSUPPORTED_HOST 拒绝',
+        !blocked.success && blocked.code === 'UNSUPPORTED_HOST',
+        JSON.stringify(blocked),
+      );
+
+      (globalThis as Any).fetch = async () =>
+        new Response('ignored', {
+          status: 200,
+          headers: { 'content-length': String(6 * 1024 * 1024) },
+        });
+      const tooLarge = await fetchRemoteText('https://raw.githubusercontent.com/o/r/main/big.vue');
+      assert(
+        '符文远程：content-length 超 5MB 被 TOO_LARGE 拒绝',
+        !tooLarge.success && tooLarge.code === 'TOO_LARGE',
+        JSON.stringify(tooLarge),
+      );
+
+      (globalThis as Any).fetch = async () =>
+        new Response('<!-- name: 远程卡片 -->\n<template><p>ok</p></template>', { status: 200 });
+      const fetched = await fetchRemoteText('https://raw.githubusercontent.com/o/r/main/card.vue');
+      assert(
+        '符文远程：抓取成功返回文本与 finalUrl',
+        fetched.success && fetched.text?.includes('<template>') && fetched.finalUrl?.endsWith('/card.vue'),
+        JSON.stringify(fetched),
+      );
+    } finally {
+      (globalThis as Any).fetch = originalFetch;
+    }
+
+    const { runeSaveSchema } = await import('@shared/ipc/schemas');
+    const baseRune = { id: 'remote-tpl-test', name: '远程模板' };
+    const maxTemplate = 'x'.repeat(REMOTE_RUNE_MAX_BYTES);
+    assert(
+      '符文远程：保存 schema 接受 1MB 模板并拒绝超限',
+      REMOTE_RUNE_MAX_BYTES === 1024 * 1024
+        && runeSaveSchema.safeParse({ ...baseRune, template: maxTemplate }).success
+        && !runeSaveSchema.safeParse({ ...baseRune, template: `${maxTemplate}x` }).success,
+      String(REMOTE_RUNE_MAX_BYTES),
+    );
   }
 
   paneLayout: {

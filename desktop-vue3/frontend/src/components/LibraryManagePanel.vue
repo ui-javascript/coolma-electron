@@ -25,6 +25,9 @@
         </el-button>
       </div>
       <div v-else-if="!builtinCategory" class="library-actions">
+        <el-button v-if="kind === 'rune'" size="small" plain @click="runeRemoteVisible = true">
+          {{ t('library.githubImport') }}
+        </el-button>
         <el-button size="small" plain @click="importVisible = true">
           {{ t('pack.import') }}
         </el-button>
@@ -113,6 +116,12 @@
     />
 
     <PackImportDialog v-model="importVisible" :kind="packKind" :initial-category="activeCategory" @imported="onImported" />
+    <RuneRemoteImportDialog
+      v-if="kind === 'rune'"
+      v-model="runeRemoteVisible"
+      :initial-category="activeCategory"
+      @imported="onRuneRemoteImported"
+    />
     <packExportDialog v-model="exportVisible" :kind="packKind" :cards="customCards" />
   </div>
 </template>
@@ -156,6 +165,7 @@ import { useLibraryStore } from '@/stores/library';
 import { EchoCategoryEnum, RuneCategoryEnum, resolveLibraryCategory } from '@shared/enums/library';
 import LibraryFormDialog from './LibraryFormDialog.vue';
 import PackImportDialog from './PackImportDialog.vue';
+import RuneRemoteImportDialog from './RuneRemoteImportDialog.vue';
 import packExportDialog from './packExportDialog.vue';
 
 /**
@@ -178,6 +188,7 @@ const items = computed(() => (props.kind === 'rune' ? libraryStore.runes : libra
 /** 当前分类（默认 general / marker，与 vue2 面板一致）。 */
 const activeCategory = ref(resolveLibraryCategory(props.kind, ''));
 const importVisible = ref(false);
+const runeRemoteVisible = ref(false);
 const exportVisible = ref(false);
 const packKind = computed(() => props.kind === 'rune' ? 'runes' : 'echoes');
 const builtinCategory = computed(() => props.kind === 'echo' && activeCategory.value === EchoCategoryEnum.Builtin);
@@ -238,6 +249,11 @@ async function onImported(): Promise<void> {
   } else {
     ElMessage.error(libraryStore.error);
   }
+}
+
+async function onRuneRemoteImported(rune: RuneCard): Promise<void> {
+  activeCategory.value = resolveLibraryCategory('rune', rune.category);
+  await onImported();
 }
 
 const categoryEnum = computed(() => (props.kind === 'rune' ? RuneCategoryEnum : EchoCategoryEnum));

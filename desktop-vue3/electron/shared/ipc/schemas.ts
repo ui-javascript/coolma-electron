@@ -261,7 +261,7 @@ export const runeSaveSchema = z.object({
   desc: z.string().max(2000).optional(),
   color: z.string().trim().max(32).optional(),
   icon: z.string().trim().max(64).optional(),
-  template: z.string().max(200_000).optional(),
+  template: z.string().max(1_048_576).optional(),
   category: z.string().trim().max(64).optional(),
   sortOrder: z.number().int().optional(),
   inheritFromPrevious: z.union([z.number(), z.boolean()]).optional(),
