@@ -1,6 +1,14 @@
 <template>
   <el-dropdown class="skin-dropdown" trigger="click" @command="pickSkin">
-    <el-button circle plain :title="t('settings.skin')" :aria-label="t('settings.skin')">
+    <span
+      v-if="compact"
+      class="header-icon-btn skin-compact-trigger"
+      :title="t('settings.skin')"
+      :aria-label="t('settings.skin')"
+    >
+      <el-icon class="icon-custom"><Brush /></el-icon>
+    </span>
+    <el-button v-else circle plain :title="t('settings.skin')" :aria-label="t('settings.skin')">
       <el-icon><Brush /></el-icon>
     </el-button>
     <template #dropdown>
@@ -25,6 +33,36 @@ import type { Skin } from '@/utils/skin';
  */
 const SKIN_MENU_ORDER: Skin[] = ['nezha', 'baiyang', 'infp'];
 
+withDefaults(defineProps<{ compact?: boolean }>(), { compact: false });
+
 const { t } = useI18n();
 const { pickSkin, skinName } = useSkinPick();
 </script>
+
+<style scoped>
+.skin-compact-trigger {
+  display: flex;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  -webkit-app-region: no-drag;
+}
+
+.skin-compact-trigger:hover {
+  background: var(--coolma-hover, rgb(0 0 0 / 4%));
+}
+
+.skin-compact-trigger .icon-custom {
+  color: var(--coolma-muted, #6b737b);
+  font-size: 18px;
+  transition: all 0.2s ease;
+}
+
+.skin-compact-trigger:hover .icon-custom {
+  color: var(--themeColor, #409eff);
+}
+</style>

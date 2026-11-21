@@ -1,31 +1,5 @@
 <template>
   <section class="notes-pane">
-    <div class="notes-toolbar">
-      <div class="notes-toolbar-title">
-        <el-checkbox
-          class="select-all"
-          :model-value="allSelected"
-          :indeterminate="someSelected && !allSelected"
-          :disabled="notes.length === 0"
-          @change="toggleSelectAll"
-        />
-        <div>
-          <h1>{{ t('notes.title') }}</h1>
-          <p>{{ t('notes.count', { count: notes.length }) }} · {{ filterLabel }}</p>
-        </div>
-      </div>
-      <div class="notes-toolbar-actions">
-        <el-button size="small" plain :loading="refreshing" :title="t('notes.refresh')" @click="emit('refresh')">
-          <el-icon><Refresh /></el-icon>
-          {{ t('notes.refresh') }}
-        </el-button>
-        <el-button type="primary" size="small" :loading="creating" @click="emit('create-note')">
-          <el-icon><Plus /></el-icon>
-          {{ t('action.newNote') }}
-        </el-button>
-      </div>
-    </div>
-
     <div v-if="selectedIds.length > 0" class="batch-bar">
       <span class="batch-count">{{ t('board.selected', { count: selectedIds.length }) }}</span>
       <div class="batch-actions">
@@ -44,12 +18,6 @@
         <el-button size="small" text @click="clearSelection">{{ t('board.clear') }}</el-button>
       </div>
     </div>
-
-    <el-input v-model="keywordProxy" class="notes-search" :placeholder="t('search.placeholder')" clearable>
-      <template #prefix>
-        <el-icon><Search /></el-icon>
-      </template>
-    </el-input>
 
     <div
       v-loading="loading"
@@ -80,12 +48,6 @@
         @contextmenu.prevent="emit('open-menu', note, $event)"
       >
         <div class="note-item-head">
-          <el-checkbox
-            class="note-check"
-            :model-value="isSelected(note.id)"
-            @click.stop
-            @change="toggleSelect(note.id)"
-          />
           <el-icon class="note-file-icon"><component :is="fileIcon(note.title)" /></el-icon>
           <span class="note-title">{{ note.title }}</span>
           <el-icon
@@ -95,20 +57,11 @@
           >
             <Upload />
           </el-icon>
-          <button
-            type="button"
-            class="note-more"
-            :title="t('notes.actions')"
-            @click.stop="emit('open-menu', note, $event)"
-          >
-            <el-icon><MoreFilled /></el-icon>
-          </button>
         </div>
         <p v-if="!props.dense" class="note-excerpt">{{ note.excerpt }}</p>
         <div class="note-meta">
-          <span>{{ formatNoteDate(note, t) }}</span>
-          <el-tag size="small" effect="plain">{{ primaryTag(note, t) }}</el-tag>
-          <span v-if="extraTagCount(note) > 0" class="note-tag-extra">+{{ extraTagCount(note) }}</span>
+          <span class="note-info-tag"><el-icon><Folder /></el-icon>{{ noteCategory(note) }}</span>
+          <span class="note-info-tag"><el-icon><Timer /></el-icon>{{ formatNoteDate(note, t) }}</span>
         </div>
       </div>
 
@@ -118,6 +71,8 @@
         :image-size="72"
       />
     </div>
+
+    <div v-if="filterLabel" class="note-list-bottom">{{ filterLabel }}</div>
   </section>
 </template>
 
@@ -127,21 +82,19 @@ import {
   Document,
   Download,
   Files,
+  Folder,
   FolderOpened,
   Monitor,
-  MoreFilled,
   Notebook,
-  Plus,
-  Refresh,
-  Search,
+  Timer,
   Tickets,
   Upload,
 } from '@element-plus/icons-vue';
 import type { Component } from 'vue';
-import { computed, ref } from 'vue';
+import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { NoteSummary } from '@shared/types/domain';
-import { extraTagCount, formatNoteDate, primaryTag } from '@/utils/note';
+import { formatNoteDate, folderName } from '@/utils/note';
 
 const props = defineProps<{
   dense?: boolean;
@@ -150,15 +103,12 @@ const props = defineProps<{
   selectedIds: number[];
   loading: boolean;
   refreshing?: boolean;
-  creating: boolean;
-  keyword: string;
   filterLabel: string;
   total: number;
   batchPending: boolean;
 }>();
 
 const emit = defineEmits<{
-  (event: 'update:keyword', value: string): void;
   (event: 'update:selected', value: number[]): void;
   (event: 'batch-export'): void;
   (event: 'select', id: number): void;
@@ -173,16 +123,6 @@ const { t } = useI18n();
 
 /** Shift 连选的锚点只在本组件内维护，避免污染上层编排状态。 */
 const anchorId = ref<number | null>(null);
-
-const keywordProxy = computed({
-  get: () => props.keyword,
-  set: (value: string) => emit('update:keyword', value),
-});
-
-const allSelected = computed(
-  () => props.notes.length > 0 && props.selectedIds.length === props.notes.length,
-);
-const someSelected = computed(() => props.selectedIds.length > 0);
 
 function isSelected(id: number): boolean {
   return props.selectedIds.includes(id);
@@ -220,9 +160,10 @@ function handleItemClick(note: NoteSummary, event: MouseEvent): void {
   emit('select', note.id);
 }
 
-function toggleSelectAll(value: string | number | boolean): void {
-  anchorId.value = null;
-  commitSelection(value ? props.notes.map((note) => note.id) : []);
+/** 笔记分类的最后一级，对齐 vue2 NoteItem 的 category 展示。 */
+function noteCategory(note: NoteSummary): string {
+  const category = note.category || '/';
+  return category === '/' ? t('index.all') : folderName(category, t('index.all'));
 }
 
 /** 文件类型图标，对齐 vue2 NoteItem 的 fileIcon 映射。 */

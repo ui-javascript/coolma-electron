@@ -1,29 +1,30 @@
 <template>
-  <div class="settings-page">
-    <header class="settings-header">
-      <el-button text class="back-button" @click="goBack">
-        <el-icon><ArrowLeft /></el-icon>
-        {{ t('action.back') }}
-      </el-button>
-      <div>
-        <h1>{{ t('settings.title') }}</h1>
-        <p>{{ t('settings.subtitle') }}</p>
-      </div>
-    </header>
+  <div class="settings-page" @click.self="goBack">
+    <div class="settings-dialog" role="dialog" aria-modal="true" :aria-label="t('settings.title')">
+      <header class="settings-dialog-toolbar">
+        <span class="settings-dialog-title">{{ t('settings.title') }}</span>
+        <el-button text class="settings-dialog-close" :title="t('action.close')" @click="goBack">
+          <el-icon><Close /></el-icon>
+        </el-button>
+      </header>
 
-    <NoteImportDialog v-model="noteImportVisible" />
-
-    <el-tabs v-model="groupTab" class="settings-group-tabs">
-      <el-tab-pane :label="t('settings.groupGeneral')" name="general" />
-      <el-tab-pane :label="t('settings.groupEditor')" name="editor" />
-      <el-tab-pane :label="t('settings.groupDatabase')" name="database" />
-      <el-tab-pane :label="t('settings.groupLibrary')" name="library" />
-      <el-tab-pane :label="t('settings.groupAi')" name="ai" />
-      <el-tab-pane :label="t('settings.groupApps')" name="apps" />
-      <el-tab-pane :label="t('settings.groupServer')" name="server" />
-      <el-tab-pane :label="t('settings.groupCloudFn')" name="cloudFn" />
-      <el-tab-pane :label="t('settings.groupAbout')" name="about" />
-    </el-tabs>
+      <div class="settings-dialog-body">
+        <aside class="settings-nav">
+          <button
+            v-for="item in settingsGroups"
+            :key="item.value"
+            type="button"
+            class="settings-nav-btn"
+            :class="{ active: groupTab === item.value }"
+            @click="groupTab = item.value"
+          >
+            <el-icon><component :is="item.icon" /></el-icon>
+            <span>{{ t(item.label) }}</span>
+          </button>
+        </aside>
+        <div class="settings-dialog-sep" aria-hidden="true" />
+        <main class="settings-dialog-panels">
+          <NoteImportDialog v-model="noteImportVisible" />
 
     <el-card v-show="groupTab === 'general'" class="settings-card" shadow="never">
       <template #header>
@@ -402,13 +403,25 @@
     </el-card>
 
     <UpdateDialog v-model="updateVisible" />
+        </main>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import {
-  ArrowLeft,
+  Close,
+  Cloudy,
+  Coin,
+  Collection,
+  Cpu,
   DocumentAdd,
+  EditPen,
+  Grid,
+  InfoFilled,
+  MagicStick,
+  Setting,
   Download,
   FolderOpened,
   Refresh,
@@ -416,7 +429,7 @@ import {
   Upload,
 } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { computed, onMounted, ref } from 'vue';
+import { computed, markRaw, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { AppLocaleEnum, AppThemeEnum, BootStatusEnum } from '@shared/enums/app';
@@ -472,6 +485,18 @@ const noteImportVisible = ref(false);
 const updateVisible = ref(false);
 const updateChecking = ref(false);
 const groupTab = ref<'general' | 'editor' | 'database' | 'library' | 'ai' | 'apps' | 'server' | 'cloudFn' | 'about'>('general');
+
+const settingsGroups = [
+  { value: 'general', label: 'settings.groupGeneral', icon: markRaw(Setting) },
+  { value: 'editor', label: 'settings.groupEditor', icon: markRaw(EditPen) },
+  { value: 'database', label: 'settings.groupDatabase', icon: markRaw(Coin) },
+  { value: 'library', label: 'settings.groupLibrary', icon: markRaw(Collection) },
+  { value: 'ai', label: 'settings.groupAi', icon: markRaw(MagicStick) },
+  { value: 'apps', label: 'settings.groupApps', icon: markRaw(Grid) },
+  { value: 'server', label: 'settings.groupServer', icon: markRaw(Cloudy) },
+  { value: 'cloudFn', label: 'settings.groupCloudFn', icon: markRaw(Cpu) },
+  { value: 'about', label: 'settings.groupAbout', icon: markRaw(InfoFilled) },
+] as const;
 const libraryTab = ref<'runes' | 'echoes'>('runes');
 
 function onLibraryChanged(): void {

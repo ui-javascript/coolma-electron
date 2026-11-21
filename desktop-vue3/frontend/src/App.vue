@@ -1,7 +1,7 @@
 <template>
   <div class="app-frame" :class="{ 'has-window-controls': hasControls }">
     <router-view />
-    <WindowControls />
+    <WindowControls :skin="appStore.skin" />
     <LoginDialog
       v-model="loginDialogState.visible"
       @success="notifyLoginSuccess"

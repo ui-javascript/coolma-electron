@@ -1,86 +1,47 @@
 <template>
   <main class="editor-pane" @scroll.capture="hideSelectionHint">
     <template v-if="summary">
-      <div class="editor-meta">
-        <div class="editor-meta-left">
-          <el-tag type="success" effect="plain" size="small">{{ sourceMode ? 'Monaco' : 'Muya' }}</el-tag>
-          <el-button text size="small" class="mode-toggle" @click="toggleSourceMode">
-            <el-icon><Switch /></el-icon>
-            <span>{{ sourceMode ? t('editor.toWysiwyg') : t('editor.toSource') }}</span>
-          </el-button>
-          <el-button
-            text
-            size="small"
-            :title="t(locked ? 'editor.unlock' : 'editor.lock')"
-            :aria-label="t('editor.lock')"
-            :aria-pressed="locked"
-            @click="toggleLock"
-          >
-            <el-icon><component :is="locked ? Lock : Unlock" /></el-icon>
-          </el-button>
-          <el-popover trigger="click" placement="bottom">
-            <template #reference>
-              <el-button text size="small" :title="t('editor.statistics')" :aria-label="t('editor.statistics')">
-                <el-icon><DataAnalysis /></el-icon>
-              </el-button>
-            </template>
-            <div>{{ t('editor.words', { count: wordCount.word }) }}</div>
-            <div>{{ t('editor.characters', { count: wordCount.character }) }}</div>
-            <div>{{ t('editor.paragraphs', { count: wordCount.paragraph }) }}</div>
-          </el-popover>
-          <el-button text size="small" :title="t('editor.aiTag')" :disabled="locked" @click="openTagDialog">
-            <el-icon><PriceTag /></el-icon>
-            <span>{{ t('editor.aiTag') }}</span>
-          </el-button>
-          <el-button text size="small" :title="t('editor.mindMap')" @click="emit('mind-map')">
-            <el-icon><Share /></el-icon>
-            <span>{{ t('editor.mindMap') }}</span>
-          </el-button>
-          <el-button text size="small" :title="t('preview.pptPreview')" @click="emit('ppt-preview')">
-            <el-icon><Monitor /></el-icon>
-            <span>{{ t('preview.pptPreview') }}</span>
-          </el-button>
-          <button
-            type="button"
-            class="editor-meta-title editor-title-button"
-            :title="t('notes.tagsEdit')"
-            @click="emit('edit-tags')"
-          >{{ summary.title }}</button>
-        </div>
-        <div class="editor-meta-right">
-          <button
-            type="button"
-            class="editor-meta-note editor-tags-button"
-            :title="t('notes.tagsEdit')"
-            @click="emit('edit-tags')"
-          >
-            {{ noteTags(summary).join(' · ') || t('notes.untagged') }} · {{ formatNoteDate(summary, t) }}
-          </button>
-          <span v-if="saveHint" class="save-hint" :class="{ saving }">{{ saveHint }}</span>
-          <el-button
-            v-if="noteLink"
-            text
-            size="small"
-            :title="t('editor.copyNoteLink')"
-            :aria-label="t('editor.copyNoteLink')"
-            @click="copyNoteLink"
-          >
-            <el-icon><Link /></el-icon>
-          </el-button>
-          <el-button
-            text
-            size="small"
-            :title="t('editor.saveNow')"
-            :aria-label="t('editor.saveNow')"
-            :disabled="saving"
-            @click="emit('save')"
-          >
-            <el-icon><Finished /></el-icon>
-          </el-button>
-          <el-button text type="danger" size="small" :title="t('action.delete')" @click="emit('delete')">
-            <el-icon><Delete /></el-icon>
-          </el-button>
-        </div>
+      <div class="editor-action-bar">
+        <button type="button" class="fab-icon" :title="t('action.newNote')" @click="emit('create-note')">
+          <el-icon><Plus /></el-icon>
+        </button>
+        <button type="button" class="fab-icon" :title="sourceMode ? t('editor.toWysiwyg') : t('editor.toSource')" @click="toggleSourceMode">
+          <el-icon><Switch /></el-icon>
+        </button>
+        <button
+          type="button"
+          class="fab-icon"
+          :title="locked ? t('editor.unlock') : t('editor.lock')"
+          @click="toggleLock"
+        >
+          <el-icon><component :is="locked ? Lock : Unlock" /></el-icon>
+        </button>
+        <el-popover trigger="click" placement="top" :width="160">
+          <template #reference>
+            <button type="button" class="fab-icon" :title="t('editor.statistics')">
+              <el-icon><DataAnalysis /></el-icon>
+            </button>
+          </template>
+          <div>{{ t('editor.words', { count: wordCount.word }) }}</div>
+          <div>{{ t('editor.characters', { count: wordCount.character }) }}</div>
+          <div>{{ t('editor.paragraphs', { count: wordCount.paragraph }) }}</div>
+        </el-popover>
+        <button type="button" class="fab-icon" :title="t('outline.title')" @click="emit('outline')">
+          <el-icon><Tickets /></el-icon>
+        </button>
+        <button type="button" class="fab-icon" :title="t('editor.saveNow')" :disabled="saving" @click="emit('save')">
+          <el-icon><Finished /></el-icon>
+        </button>
+        <button type="button" class="fab-icon" :title="t('preview.pptPreview')" @click="emit('ppt-preview')">
+          <el-icon><Monitor /></el-icon>
+        </button>
+        <button v-if="noteLink" type="button" class="fab-icon" :title="t('editor.copyNoteLink')" @click="copyNoteLink">
+          <el-icon><Link /></el-icon>
+        </button>
+        <button type="button" class="fab-icon" :title="t('editor.aiTag')" :disabled="locked" @click="openTagDialog">
+          <el-icon><PriceTag /></el-icon>
+        </button>
+        <span v-if="saveHint" class="action-save-hint" :class="{ saving }">{{ saveHint }}</span>
       </div>
       <div
         v-show="!sourceMode"
@@ -113,24 +74,14 @@
       />
     </template>
 
-    <el-empty v-else :description="t('editor.emptyHint')">
-      <template #image>
-        <div class="empty-mark">C</div>
-      </template>
-      <p class="empty-title">{{ t('editor.emptyTitle') }}</p>
-    </el-empty>
-
-    <footer class="statusbar">
-      <span class="statusbar-left">
-        <span class="status-dot" :class="statusType" />
-        {{ statusLabel }}
-      </span>
-      <span v-if="appInfo" class="statusbar-right">
-        v{{ appInfo.version }} · Electron {{ appInfo.electron }} · {{ appInfo.platform }}/{{ appInfo.arch }}
-      </span>
-      <span v-else class="statusbar-right">{{ statusError || t('status.unavailable') }}</span>
-
-    </footer>
+    <div v-else class="editor-empty">
+      <svg class="editor-empty-icon" viewBox="0 0 1024 1024" aria-hidden="true">
+        <path
+          fill="currentColor"
+          d="M128 384v448h768V384zm-32-64h832a32 32 0 0 1 32 32v512a32 32 0 0 1-32 32H96a32 32 0 0 1-32-32V352a32 32 0 0 1 32-32m64-128h704v64H160zm96-128h512v64H256z"
+        />
+      </svg>
+    </div>
 
     <!-- 划词改写：mousedown.prevent 保住编辑器选区，点了才捕获快照 -->
     <div
@@ -157,7 +108,7 @@
 </template>
 
 <script setup lang="ts">
-import { DataAnalysis, Delete, Finished, Link, Lock, Monitor, PriceTag, Share, Switch, Unlock } from '@element-plus/icons-vue';
+import { DataAnalysis, Finished, Link, Lock, Monitor, Plus, PriceTag, Switch, Tickets, Unlock } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import {
@@ -170,7 +121,7 @@ import type { AppInfo } from '@shared/ipc/contract';
 import type { AppTheme } from '@shared/enums/app';
 import type { NoteSummary } from '@shared/types/domain';
 import { MuyaEditor } from 'libs-muya-vue3';
-import { formatNoteDate, noteTags } from '@/utils/note';
+import { noteTags } from '@/utils/note';
 import { createQuickInsertProvider } from '@/editor/quickInsert';
 import { quickInsertTypes } from '@/editor/insertHandlers';
 import { useLibraryStore } from '@/stores/library';
@@ -212,6 +163,8 @@ const emit = defineEmits<{
   (event: 'echo-instance', payload: EchoInstanceToken): void;
   (event: 'mind-map'): void;
   (event: 'ppt-preview'): void;
+  (event: 'create-note'): void;
+  (event: 'outline'): void;
   (event: 'context-menu', payload: { x: number; y: number; selectionEmpty: boolean; locked: boolean }): void;
 }>();
 
