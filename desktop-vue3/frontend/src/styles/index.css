@@ -1688,3 +1688,69 @@ html.dark .editor-action-bar {
   border-top: 1px solid var(--el-border-color-lighter);
   background: var(--el-fill-color-lighter);
 }
+
+/* 批量导入符文/回响：对齐 vue2 runeBatchImportDialog 的 760px 卡片 */
+.pack-import-dialog {
+  min-width: 640px;
+  max-width: 92vw;
+  padding: 0;
+  border-radius: 8px;
+}
+
+.pack-import-dialog .el-dialog__header {
+  display: none;
+}
+
+.pack-import-dialog .el-dialog__body {
+  padding: 0;
+}
+
+.pack-import-dialog .el-dialog__footer {
+  padding: 10px 18px;
+  border-top: 1px solid var(--el-border-color-lighter);
+  background: var(--el-fill-color-lighter);
+}
+
+
+/* 批量导入弹窗深色模式 */
+html.dark .pack-import-file {
+  border-color: rgb(126 87 194 / 45%);
+}
+
+html.dark .pack-import-preview {
+  background: rgb(126 87 194 / 10%);
+}
+
+html.dark .pack-import-side {
+  background: rgb(255 255 255 / 4%);
+  border-color: rgb(126 87 194 / 28%);
+}
+
+html.dark .pack-tile-group .el-checkbox {
+  background: rgb(255 255 255 / 6%);
+  border-color: rgb(255 255 255 / 12%);
+}
+
+html.dark .pack-tile-group .el-checkbox.is-checked {
+  background: rgb(126 87 194 / 20%);
+  border-color: #9575cd;
+}
+
+html.dark .pack-tile-group--conflict .el-checkbox {
+  border-color: rgb(255 193 7 / 55%);
+}
+
+html.dark .pack-tile-group--conflict .el-checkbox.is-checked {
+  background: rgb(255 193 7 / 18%);
+  border-color: #ffb74d;
+}
+
+html.dark .pack-import-all-conflict {
+  background: rgb(255 152 0 / 14%);
+  color: #ffb74d;
+}
+
+html.dark .pack-import-error {
+  background: rgb(244 67 54 / 16%);
+  color: #ef9a9a;
+}
