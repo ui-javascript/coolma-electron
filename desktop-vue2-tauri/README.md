@@ -21,4 +21,5 @@ Windows 安装包默认生成在 `src-tauri/target/release/bundle/nsis/`。如�
 - 快捷键：原版依赖 Electron 原生菜单转发 `editor-*` 事件，Tauri 没有原生菜单，改由 `src/desktop/keyboard.js` 在渲染层复刻同一组 accelerator（编辑、格式、段落、笔记、视图），发出完全相同的事件与参数；`Ctrl+C/X/V` 等系统剪切板快捷键仍交给 WebView 原生处理。
 - 剪贴板：原版 `src/boot/electron-clipboard.js` 注入同步的 `window.__electronClipboard`，这里由 `src/desktop/clipboard.js` 提供同形接口；写操作走 `navigator.clipboard` 并降级 `execCommand('copy')`，读操作在窗口获得焦点/重新可见时预热缓存，供同步 `readText()` 返回。
 - 博客部署：配置读写（`get/save-blog-deploy-config`，存在本地偏好存储，键名与原版 electron-store 的 `blog-deploy-config` 一致）、CI 模板导出（`export-blog-ci`）与真正的构建/SFTP（`start/cancel-blog-deploy`、`sftp-test-connection`、`sftp-upload`）都已可用。构建与上传跑在 Node sidecar 里（`src-tauri/sidecar/`，JSON-RPC over stdio），复用原版主进程的 `blog-deploy-handler` / `sftp-service`，进度与完成事件名和原版一致。打包前先跑 `pnpm run prepare:sidecar`（已串联进 `pnpm build`）：把 Node 放进 `src-tauri/sidecar/node`、把 `fs-extra`/`ssh2` 装进 `sidecar/node_modules`，发布版因此不依赖机器上已有的 Node；博客构建本身仍要系统有 `npm`/`pnpm` 才能安装 vuepress。
-- 仍需适配：自动更新（Tauri updater 需要签名与发布端点），系统钥匙串里的 AI 密钥，微应用 `vue-sfc:parse`（`@vue/compiler-sfc` 会静态引入大量可选预处理器，需要单独打包并屏蔽这些依赖，不能直接进主 bundle）。现有应用可继续使用 Electron 版的这些功能。
+- 微应用解析：`vue-sfc:parse` 也走 sidecar（`sfc.parse`），渲染层不引入 `@vue/compiler-sfc`，绕开 webpack 4 会把可选预处理器全部静态拉进来的问题；错误码沿用原版 `VUE_SFC_*`。
+- 仍需适配：自动更新（Tauri updater 需要签名与发布端点），系统钥匙串里的 AI 密钥。现有应用可继续使用 Electron 版的这些功能。

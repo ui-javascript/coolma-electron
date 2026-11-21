@@ -23,6 +23,7 @@ stdout 每行一条 JSON，Rust 把每行转成 `sidecar-line` 事件，前端�
 | `sftp.test` | 测试连接并验证远端可写 |
 | `sftp.upload` | 递归上传目录，逐文件发 `sftp-upload-progress` |
 | `sftp.cancel` | 断开当前 SFTP 连接 |
+| `sfc.parse` | 微应用 playground 的 `vue-sfc:parse`：用 `@vue/compiler-sfc` 解析 SFC，返回 template/script/style/customBlocks，错误码沿用原版（`VUE_SFC_*`） |
 
 ## services/ 为什么要内联
 
@@ -37,7 +38,7 @@ node src-tauri/sidecar/sync-services.js           # 复制
 
 ## 运行时依赖
 
-- `fs-extra`、`ssh2`：发布版由 `scripts/prepare-sidecar.js` 装进本目录的 `node_modules`（`sidecar/package.json` 已声明）；开发时如果没装，Rust 端会把 `desktop-vue2/node_modules` 塞进 `NODE_PATH` 借用。
+- `fs-extra`、`ssh2`、`@vue/compiler-sfc`：发布版由 `scripts/prepare-sidecar.js` 装进本目录的 `node_modules`（`sidecar/package.json` 已声明）；开发时如果没装，Rust 端会把 `desktop-vue2/node_modules` 塞进 `NODE_PATH` 借用。
 - Node 本身：按顺序找 `COOLMA_NODE` → 资源目录 `node/node.exe` → 本目录 `node/node.exe`（prepare 脚本复制的）→ 本目录 `node.exe` → PATH 里的 `node`。
 - 博客构建还要用系统上的 `npm`/`pnpm`（要装 vuepress 依赖），所以目标机器仍需 Node 环境；sidecar 自带 Node 只是保证桥接脚本一定能跑起来。
 - `COOLMA_SERVICE_DIR` 可以覆盖服务目录，便于调试。

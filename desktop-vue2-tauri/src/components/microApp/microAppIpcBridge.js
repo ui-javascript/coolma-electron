@@ -56,6 +56,12 @@ export function installMicroAppParseBridge () {
       const sourceMap = (payload && typeof payload === 'object' && payload.sourceMap) || false
 
       const result = await parseVueSfc(source, { ...options, filename, sourceMap })
+      // Tauri 下的桌面通道把异常包成 { error } 返回，这里还原成抛错，子应用才能收到 ok:false。
+      if (result && result.error) {
+        const error = new Error(result.error.message || 'Vue SFC 解析失败')
+        error.code = result.error.code || 'VUE_SFC_PARSE_FAILED'
+        throw error
+      }
       bus.$emit(PARSE_RESPONSE_EVENT, {
         requestId,
         ok: true,

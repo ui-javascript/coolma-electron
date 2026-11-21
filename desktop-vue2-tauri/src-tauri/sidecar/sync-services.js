@@ -13,7 +13,7 @@
 const fs = require('fs')
 const path = require('path')
 
-const FILES = ['blog-deploy-handler.js', 'sftp-service.js', 'blog-config-writer.js', 'github-api.js']
+const FILES = ['blog-deploy-handler.js', 'sftp-service.js', 'blog-config-writer.js', 'github-api.js', 'vueSfcCompilerService.js']
 const SOURCE = path.resolve(__dirname, '..', '..', '..', 'desktop-vue2', 'src-electron', 'main-process', 'service')
 const TARGET = path.join(__dirname, 'services')
 const checkOnly = process.argv.includes('--check')

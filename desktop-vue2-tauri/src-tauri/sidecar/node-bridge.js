@@ -74,7 +74,8 @@ function loadServices () {
   services = {
     dir,
     deploy: require(path.join(dir, 'blog-deploy-handler.js')),
-    sftp: require(path.join(dir, 'sftp-service.js'))
+    sftp: require(path.join(dir, 'sftp-service.js')),
+    sfc: require(path.join(dir, 'vueSfcCompilerService.js'))
   }
   return services
 }
@@ -135,6 +136,11 @@ const METHODS = {
     const { sftp } = loadServices()
     if (typeof sftp.cancelUpload === 'function') sftp.cancelUpload()
     return { success: true }
+  },
+
+  'sfc.parse' (params = {}) {
+    const { sfc } = loadServices()
+    return sfc.parseVueSfc(params.source, params.options || {})
   }
 }
 

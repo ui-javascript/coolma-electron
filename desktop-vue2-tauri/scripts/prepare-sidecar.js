@@ -24,7 +24,7 @@ const args = process.argv.slice(2)
 const checkOnly = args.includes('--check')
 const force = args.includes('--force')
 
-const REQUIRED_DEPS = ['fs-extra', 'ssh2']
+const REQUIRED_DEPS = ['@vue/compiler-sfc', 'fs-extra', 'ssh2']
 
 function log (message) {
   console.log('[prepare-sidecar] ' + message)

@@ -5,6 +5,7 @@ import md5 from 'md5'
 import PreferenceStore from './PreferenceStore'
 import { CI_WORKFLOWS } from 'src/services/BlogDeployService'
 import { cancelBlogDeploy, sftpTestConnection, sftpUpload, startBlogDeploy } from './blog'
+import { request } from './sidecar'
 import {
   isTauri,
   dataDir,
@@ -288,6 +289,20 @@ async function exportBlogCI ({ targetDir } = {}) {
 }
 
 /**
+ * 微应用 playground 的 vue-sfc:parse：原版在主进程用 @vue/compiler-sfc 解析，
+ * 这里交给 sidecar，渲染层不引入编译器，避免 webpack 4 拉进一堆可选预处理器。
+ */
+async function parseVueSfc ({ source, options } = {}) {
+  const result = await request('sfc.parse', { source, options })
+  if (result && result.error) {
+    const error = new Error(result.error.message || 'Vue SFC 解析失败')
+    error.code = result.error.code
+    throw error
+  }
+  return result
+}
+
+/**
  * 处理从 Electron 主进程迁移过来的文件类通道。
  * 未命中的通道返回 UNHANDLED，由 bridge 继续走默认分支。
  */
@@ -314,6 +329,7 @@ export async function handleDesktopChannel (channel, payload, emit) {
     case 'cancel-blog-deploy': return cancelBlogDeploy(emit)
     case 'sftp-test-connection': return sftpTestConnection(payload, emit)
     case 'sftp-upload': return sftpUpload(payload, emit)
+    case 'vue-sfc:parse': return parseVueSfc(payload)
     default: return UNHANDLED
   }
 }

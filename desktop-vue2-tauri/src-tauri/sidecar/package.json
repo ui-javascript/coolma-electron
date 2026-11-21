@@ -4,6 +4,7 @@
   "private": true,
   "description": "博客构建与 SFTP 的 Node sidecar 运行时依赖",
   "dependencies": {
+    "@vue/compiler-sfc": "2.7.16",
     "fs-extra": "^9.0.1",
     "ssh2": "^1.17.0"
   }
