@@ -1,6 +1,7 @@
 import { isTauri, openExternal, revealPath, openFolder } from 'src/desktop/nativeFs'
 import { refreshThemeFolder } from 'src/desktop/theme'
 import { installKeyboardShortcuts } from 'src/desktop/keyboard'
+import { installLogging } from 'src/desktop/logger'
 import { readText as readClipboardText, writeText as writeClipboardText } from 'src/desktop/clipboard'
 import ClientFileStorage from 'src/utils/storage/ClientFileStorage'
 
@@ -27,6 +28,7 @@ export default ({ Vue }) => {
   if (!isTauri()) return
   installElectronShell(Vue.prototype.$q)
   installKeyboardShortcuts()
+  installLogging()
   // 原版由主进程在建窗时把主题列表写进 electron-store。这里放到启动后台跑：
   // 主题列表只有打开「设置」时才用，没必要卡在 boot 链上等 IPC 扫描目录。
   refreshThemeFolder()

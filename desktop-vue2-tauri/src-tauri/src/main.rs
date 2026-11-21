@@ -10,6 +10,7 @@ use tauri_plugin_opener::OpenerExt;
 
 mod credential;
 mod files;
+mod logging;
 mod sidecar;
 mod wiz_resources;
 mod wiznote;
@@ -213,6 +214,7 @@ fn main() {
         .manage(wiz_resources::Sources::default())
         .manage(sidecar::Sidecar::default())
         .setup(|app| {
+            logging::install(app.handle());
             if let Some(window) = app.get_webview_window("main") {
                 restore_window_state(&window);
                 // 原版在非 PROD 下自动打开调试面板（detach），这里对应 debug 构建。
@@ -272,6 +274,8 @@ fn main() {
             wiznote::wiznote_upload,
             wiz_resources::wiznote_cache_file,
             wiz_resources::wiznote_export_resources,
+            logging::append_log,
+            logging::open_log_file,
             sidecar::sidecar_send,
             sidecar::sidecar_stop,
             sidecar::sidecar_status,

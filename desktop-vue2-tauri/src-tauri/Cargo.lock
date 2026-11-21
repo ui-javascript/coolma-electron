@@ -544,6 +544,7 @@ dependencies = [
 name = "coolma-tauri"
 version = "2026.11.4"
 dependencies = [
+ "chrono",
  "keyring",
  "percent-encoding",
  "reqwest",

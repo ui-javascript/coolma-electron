@@ -17,7 +17,6 @@ import {
   writeBytes,
   writeText,
   makeDir,
-  openFolder,
   openExternal,
   decodeBase64,
   dataUrlExtension
@@ -245,9 +244,8 @@ async function uploadImages ({ imagePaths = [], type } = {}, emit) {
 }
 
 async function openLogFiles () {
-  const folder = joinPath(await dataDir(), 'logs')
-  await makeDir(folder)
-  await openFolder(folder)
+  // 原版是 shell.showItemInFolder(当前日志文件)，这里由 Rust 定位到 logs/<年>/<月>/main.log。
+  await invoke('open_log_file')
 }
 
 async function handleOpenExternal ({ url }) {
