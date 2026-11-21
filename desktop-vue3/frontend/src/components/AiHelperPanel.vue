@@ -44,7 +44,7 @@
               {{ statusText(message) }}
             </div>
             <div
-              v-if="message.role === 'assistant' && !message.status && message.content && hasNote && !codeGenMode"
+              v-if="message.role === 'assistant' && message.id > 1 && !message.status && message.content && hasNote && !codeGenMode"
               class="ai-message-actions"
             >
               <button
@@ -217,6 +217,26 @@ const composerPlaceholder = computed(() => (
     ? t('aiHelper.codegenPlaceholder', { type: codeGenTypeLabel.value })
     : t('aiHelper.placeholder')
 ));
+
+/**
+ * 普通对话保留一条开场白（对齐 vue2 AiHelperDrawer 的 messages 初始值）；
+ * 代码生成模式不插开场白，避免污染生成上下文。
+ */
+function resetIntro(): void {
+  seq = 0;
+  if (codeGenMode.value) {
+    messages.value = [];
+    return;
+  }
+  seq = 1;
+  messages.value = [{
+    id: seq,
+    role: 'assistant',
+    content: t('aiHelper.intro'),
+  }];
+}
+
+resetIntro();
 
 watch(
   () => messages.value.length,
@@ -426,7 +446,7 @@ async function overwriteNote(message: ChatMessage): Promise<void> {
 }
 
 function clear(): void {
-  messages.value = [];
+  resetIntro();
   error.value = '';
   applyingMessageId.value = null;
 }

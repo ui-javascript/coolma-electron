@@ -821,6 +821,30 @@ button {
   font-size: 20px;
 }
 
+.editor-add-cluster,
+.editor-add-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.editor-add-actions .fab-icon {
+  width: 32px;
+  height: 32px;
+  background: rgb(38 166 154 / 8%);
+}
+
+.editor-add-enter-active,
+.editor-add-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.editor-add-enter-from,
+.editor-add-leave-to {
+  opacity: 0;
+  transform: translateX(-6px);
+}
+
 .action-save-hint {
   padding: 0 4px;
   color: var(--coolma-muted);

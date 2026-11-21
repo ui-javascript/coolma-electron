@@ -2,13 +2,56 @@
   <main class="editor-pane" @scroll.capture="hideSelectionHint">
     <template v-if="summary">
       <div class="editor-action-bar">
-        <button type="button" class="fab-icon" :title="t('action.newNote')" @click="emit('create-note')">
-          <el-icon><Plus /></el-icon>
-        </button>
-        <button type="button" class="fab-icon" :title="sourceMode ? t('editor.toWysiwyg') : t('editor.toSource')" @click="toggleSourceMode">
+        <div v-if="showAdd" class="editor-add-cluster">
+          <button
+            type="button"
+            class="fab-icon editor-add-trigger"
+            :title="addExpanded ? t('action.cancel') : addTitle"
+            :aria-label="addExpanded ? t('action.cancel') : addTitle"
+            @click="toggleAddActions"
+          >
+            <el-icon><component :is="addExpanded ? Close : Plus" /></el-icon>
+          </button>
+          <transition name="editor-add">
+            <div v-if="addExpanded" class="editor-add-actions">
+              <button
+                v-if="addRoot"
+                type="button"
+                class="fab-icon"
+                :title="t('folder.createTitle')"
+                :aria-label="t('folder.createTitle')"
+                @click="runAddAction('create-category')"
+              >
+                <el-icon><FolderAdd /></el-icon>
+              </button>
+              <template v-else>
+                <button
+                  type="button"
+                  class="fab-icon"
+                  :title="t('notes.createTitle')"
+                  :aria-label="t('notes.createTitle')"
+                  @click="runAddAction('create-note')"
+                >
+                  <el-icon><DocumentAdd /></el-icon>
+                </button>
+                <button
+                  type="button"
+                  class="fab-icon"
+                  :title="t('notes.importNotes')"
+                  :aria-label="t('notes.importNotes')"
+                  @click="runAddAction('import-notes')"
+                >
+                  <el-icon><Upload /></el-icon>
+                </button>
+              </template>
+            </div>
+          </transition>
+        </div>
+        <button v-show="!addExpanded" type="button" class="fab-icon" :title="sourceMode ? t('editor.toWysiwyg') : t('editor.toSource')" @click="toggleSourceMode">
           <el-icon><Switch /></el-icon>
         </button>
         <button
+          v-show="!addExpanded"
           type="button"
           class="fab-icon"
           :title="locked ? t('editor.unlock') : t('editor.lock')"
@@ -16,7 +59,7 @@
         >
           <el-icon><component :is="locked ? Lock : Unlock" /></el-icon>
         </button>
-        <el-popover trigger="click" placement="top" :width="160">
+        <el-popover v-if="!addExpanded" trigger="click" placement="top" :width="160">
           <template #reference>
             <button type="button" class="fab-icon" :title="t('editor.statistics')">
               <el-icon><DataAnalysis /></el-icon>
@@ -26,22 +69,22 @@
           <div>{{ t('editor.characters', { count: wordCount.character }) }}</div>
           <div>{{ t('editor.paragraphs', { count: wordCount.paragraph }) }}</div>
         </el-popover>
-        <button type="button" class="fab-icon" :title="t('outline.title')" @click="emit('outline')">
+        <button v-show="!addExpanded" type="button" class="fab-icon" :title="t('outline.title')" @click="emit('outline')">
           <el-icon><Tickets /></el-icon>
         </button>
-        <button type="button" class="fab-icon" :title="t('editor.saveNow')" :disabled="saving" @click="emit('save')">
+        <button v-show="!addExpanded" type="button" class="fab-icon" :title="t('editor.saveNow')" :disabled="saving" @click="emit('save')">
           <el-icon><Finished /></el-icon>
         </button>
-        <button type="button" class="fab-icon" :title="t('preview.pptPreview')" @click="emit('ppt-preview')">
+        <button v-show="!addExpanded" type="button" class="fab-icon" :title="t('preview.pptPreview')" @click="emit('ppt-preview')">
           <el-icon><Monitor /></el-icon>
         </button>
-        <button v-if="noteLink" type="button" class="fab-icon" :title="t('editor.copyNoteLink')" @click="copyNoteLink">
+        <button v-show="!addExpanded" v-if="noteLink" type="button" class="fab-icon" :title="t('editor.copyNoteLink')" @click="copyNoteLink">
           <el-icon><Link /></el-icon>
         </button>
-        <button type="button" class="fab-icon" :title="t('editor.aiTag')" :disabled="locked" @click="openTagDialog">
+        <button v-show="!addExpanded" type="button" class="fab-icon" :title="t('editor.aiTag')" :disabled="locked" @click="openTagDialog">
           <el-icon><PriceTag /></el-icon>
         </button>
-        <span v-if="saveHint" class="action-save-hint" :class="{ saving }">{{ saveHint }}</span>
+        <span v-if="saveHint && !addExpanded" class="action-save-hint" :class="{ saving }">{{ saveHint }}</span>
       </div>
       <div
         v-show="!sourceMode"
@@ -109,7 +152,7 @@
 </template>
 
 <script setup lang="ts">
-import { DataAnalysis, Finished, Link, Lock, Monitor, Plus, PriceTag, Switch, Tickets, Unlock } from '@element-plus/icons-vue';
+import { Close, DataAnalysis, DocumentAdd, Finished, FolderAdd, Link, Lock, Monitor, Plus, PriceTag, Switch, Tickets, Unlock, Upload } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import {
@@ -154,6 +197,8 @@ const props = defineProps<{
   statusType: string;
   statusError: string;
   appInfo: AppInfo | null;
+  showAdd?: boolean;
+  addRoot?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -165,6 +210,8 @@ const emit = defineEmits<{
   (event: 'mind-map'): void;
   (event: 'ppt-preview'): void;
   (event: 'create-note'): void;
+  (event: 'create-category'): void;
+  (event: 'import-notes'): void;
   (event: 'outline'): void;
   (event: 'context-menu', payload: { x: number; y: number; selectionEmpty: boolean; locked: boolean }): void;
 }>();
@@ -172,6 +219,35 @@ const emit = defineEmits<{
 const { t } = useI18n();
 const locked = ref(false);
 const noteLink = ref('');
+const addExpanded = ref(false);
+const showAdd = computed(() => props.showAdd !== false);
+const addTitle = computed(() => (
+  props.addRoot
+    ? t('folder.createTitle')
+    : `${t('notes.createTitle')} / ${t('notes.importNotes')}`
+));
+
+function toggleAddActions(): void {
+  addExpanded.value = !addExpanded.value;
+}
+
+function runAddAction(action: 'create-note' | 'create-category' | 'import-notes'): void {
+  addExpanded.value = false;
+  if (action === 'create-note') {
+    emit('create-note');
+  } else if (action === 'create-category') {
+    emit('create-category');
+  } else {
+    emit('import-notes');
+  }
+}
+
+watch(
+  () => [props.summary?.id, props.showAdd],
+  () => {
+    addExpanded.value = false;
+  },
+);
 
 watch(
   [() => props.summary?.docGuid, () => props.summary?.kbGuid],

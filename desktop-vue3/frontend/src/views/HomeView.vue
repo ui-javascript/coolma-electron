@@ -81,6 +81,8 @@
           :status-type="statusType"
           :status-error="appStore.error"
           :app-info="appStore.appInfo"
+          :show-add="indexMode === IndexModeEnum.Folder"
+          :add-root="!activeFolder"
           @delete="deleteActiveNote"
           @save="flushSave"
           @edit-tags="openActiveTags"
@@ -89,6 +91,8 @@
           @mind-map="mindMapVisible = true"
           @ppt-preview="pptPreviewVisible = true"
           @create-note="openCreateNote"
+          @create-category="createFolderFromEditor"
+          @import-notes="openImportFromEditor"
           @outline="outlineVisible = true"
         />
         <PreviewPptDialog v-model="pptPreviewVisible" :markdown="activeContent" />
@@ -780,6 +784,15 @@ function onEchoDefinitionSaved(): void {
 
 function closeFolderMenu(): void {
   folderMenuVisible.value = false;
+}
+
+function createFolderFromEditor(): void {
+  sidebarRef.value?.startCreateFolder(activeFolder.value || '');
+}
+
+function openImportFromEditor(): void {
+  noteImportCategory.value = activeFolder.value || '';
+  noteImportVisible.value = true;
 }
 
 async function onFolderMenuCommand(command: string): Promise<void> {
