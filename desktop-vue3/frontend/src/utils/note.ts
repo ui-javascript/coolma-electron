@@ -101,3 +101,17 @@ export function dateKeyOf(timestamp: number | null | undefined): string {
 export function noteDateKey(note: Pick<NoteSummary, 'updatedAt' | 'createdAt'>, basis: 'created' | 'modified'): string {
   return dateKeyOf(basis === 'created' ? note.createdAt : note.updatedAt || note.createdAt);
 }
+
+/**
+ * 新建笔记弹窗的默认标题（对齐 vue2 addNoteHandler）：
+ * 取当前分类最后一段 + 本地年月，如「【工作】新笔记-202611.md」。
+ */
+export function newNoteDefaults(category: string, t: Translate, now = new Date()): { title: string; categoryName: string; date: string } {
+  const categoryName = String(category ?? '').split('/').filter(Boolean).pop() || '';
+  const date = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+  return {
+    categoryName,
+    date,
+    title: t('notes.defaultTitle', { category: categoryName, date }),
+  };
+}

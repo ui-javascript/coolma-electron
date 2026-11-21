@@ -38,7 +38,7 @@
 | # | 缺口 | 说明 |
 |---|---|---|
 | 13 | 顶栏换肤下拉缺失 | vue2 顶栏可直接切 nezha/baiyang/infp；v3 只能进设置页 | ✅ 已补：`SkinDropdown` 插在 HomeView 布局键后，菜单固定哪吒/白羊/INFP；`useSkinPick` 与设置页共用同一动作，同皮只 info 提示、换皮落 store + 特效 bus + 配色 toast；皮肤名改读根级 `skin.*`，修掉设置页显示 key；typecheck/runtime/frontend build/build-electron 过；未在 Electron 窗口内点下拉验收 |
-| 14 | 新建笔记不询问标题 | vue2 弹“模板 + 标题”；v3 直接建“未命名笔记” |
+| 14 | 新建笔记不询问标题 | vue2 弹“模板 + 标题”；v3 直接建“未命名笔记” | ✅ 已补：`NewNoteDialog` 统一接列表新建、侧栏模板下拉、右键与 Ctrl+N；空模板置首、模板按 `sortOrder/createdAt` 排序，默认标题取末级分类 + `YYYYMM`，打开聚焦全选标题；无模板也交由主进程补 `# 标题`；typecheck/runtime/frontend build 过；未在 Electron 窗口内点弹窗 |
 | 15 | 右键新建子目录不挂当前节点 | v3 只能手输 `/父/子`；vue2 预置右键节点为 `parentCategory` |
 | 16 | 删除非空文件夹语义不同 | vue2 只删分类节点，笔记仍在；v3 返回 `CATEGORY_NOT_EMPTY` 拒绝删除 |
 | 17 | 笔记模板缺批量删除、拖拽排序 | v3 只有新增/编辑/单删 |
