@@ -21,6 +21,8 @@ export function createTauriEngine (invokeImpl) {
   return {
     query: (sql, params) => invokeImpl('db_query', { sql, params: normalizeParams(params) }),
     run: (sql, params) => invokeImpl('db_run', { sql, params: normalizeParams(params) }),
+    // rusqlite 每条语句已落到真实文件，无需整库导出
+    flush: async () => {},
     // 与 sql.js 一致：无参数时也能查询（PRAGMA、SELECT 常量等）
     dispose: () => {}
   }
@@ -43,7 +45,7 @@ function lastInsertRowid (database) {
 }
 
 /**
- * sql.js 后端。`persist` 在每次写之后被 await，浏览器预览靠它把整库快照塞进 IndexedDB。
+ * sql.js 后端。`persist` 由 `flush()` 调用，浏览器预览靠它把整库快照塞进 IndexedDB。
  */
 export function createSqlJsEngine (database, persist = () => undefined) {
   if (!database) throw new Error('缺少 sql.js 数据库实例')
@@ -63,9 +65,20 @@ export function createSqlJsEngine (database, persist = () => undefined) {
     },
     async run (sql, params) {
       await database.run(sql, normalizeParams(params))
-      const result = { changes: database.getRowsModified(), lastInsertRowid: lastInsertRowid(database) }
-      await persist()
-      return result
+      return { changes: database.getRowsModified(), lastInsertRowid: lastInsertRowid(database) }
+    },
+    /**
+     * 落盘。sql.js 后端只能整库导出，故由调用方在「命令边界」统一触发一次，
+     * 避免 initSchema 这种连续几十条写语句各导出一次。
+     */
+    async flush () {
+      try {
+        await persist()
+      } catch (error) {
+        // 打标：调用方据此区分「写盘失败」与「SQL 语法/约束错误」，命令整体要失败
+        if (error && typeof error === 'object') error.persistFailure = true
+        throw error
+      }
     },
     dispose () {
       database.close()

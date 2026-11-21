@@ -27,9 +27,9 @@ function createNoteTemplateService ({ db, execToObjects, execOne, saveDatabase, 
   if (typeof execOne !== 'function') throw new Error('[note-template-service] execOne is required')
   const logger = log || console
 
-  function ensureSchema () {
+  async function ensureSchema () {
     try {
-      db.run(`
+      await db.run(`
         CREATE TABLE IF NOT EXISTS note_templates (
           id          TEXT PRIMARY KEY,
           name        TEXT NOT NULL,
@@ -41,17 +41,17 @@ function createNoteTemplateService ({ db, execToObjects, execOne, saveDatabase, 
           updated_at  INTEGER NOT NULL
         )
       `)
-      db.run(`CREATE INDEX IF NOT EXISTS idx_note_tpl_name       ON note_templates(name)`)
-      db.run(`CREATE INDEX IF NOT EXISTS idx_note_tpl_sort_order ON note_templates(sort_order)`)
+      await db.run(`CREATE INDEX IF NOT EXISTS idx_note_tpl_name       ON note_templates(name)`)
+      await db.run(`CREATE INDEX IF NOT EXISTS idx_note_tpl_sort_order ON note_templates(sort_order)`)
       logger.info && logger.info('[DB] note_templates table ready')
     } catch (error) {
       logger.error && logger.error('[DB] ensureSchema(note_templates) error:', error)
     }
   }
 
-  function listAll () {
+  async function listAll () {
     try {
-      const rows = execToObjects(
+      const rows = await execToObjects(
         'SELECT * FROM note_templates ORDER BY is_builtin DESC, sort_order ASC, created_at ASC'
       ) || []
       return rows.map(normalizeRow).filter(Boolean)
@@ -61,7 +61,7 @@ function createNoteTemplateService ({ db, execToObjects, execOne, saveDatabase, 
     }
   }
 
-  function saveOne (row) {
+  async function saveOne (row) {
     if (!row || !row.id) {
       return { success: false, code: 'INVALID', message: 'id required' }
     }
@@ -71,7 +71,7 @@ function createNoteTemplateService ({ db, execToObjects, execOne, saveDatabase, 
     }
     try {
       const now = Date.now()
-      const existing = execOne('SELECT id FROM note_templates WHERE id = ?', [row.id])
+      const existing = await execOne('SELECT id FROM note_templates WHERE id = ?', [row.id])
       const params = [
         name,
         String(row.desc || ''),
@@ -81,7 +81,7 @@ function createNoteTemplateService ({ db, execToObjects, execOne, saveDatabase, 
         now
       ]
       if (existing) {
-        db.run(
+        await db.run(
           `UPDATE note_templates SET name = ?, "desc" = ?, content = ?, is_builtin = ?, sort_order = ?, updated_at = ? WHERE id = ?`,
           [...params, row.id]
         )
@@ -89,13 +89,13 @@ function createNoteTemplateService ({ db, execToObjects, execOne, saveDatabase, 
         // 表 8 列：id, name, "desc", content, is_builtin, sort_order, created_at, updated_at
         // params = [name, desc, content, is_builtin, sort_order, now(updated_at)]
         // created_at 也用 now；[row.id, ...params, now] = 1+6+1 = 8 个
-        db.run(
+        await db.run(
           `INSERT INTO note_templates (id, name, "desc", content, is_builtin, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           [row.id, ...params, now]
         )
       }
       if (typeof saveDatabase === 'function') saveDatabase()
-      return { success: true, data: normalizeRow(execOne('SELECT * FROM note_templates WHERE id = ?', [row.id])) }
+      return { success: true, data: normalizeRow(await execOne('SELECT * FROM note_templates WHERE id = ?', [row.id])) }
     } catch (error) {
       logger.error && logger.error('[note-template-service] saveOne error:', error)
       const message = error && error.message ? error.message : String(error)
@@ -103,7 +103,7 @@ function createNoteTemplateService ({ db, execToObjects, execOne, saveDatabase, 
     }
   }
 
-  function saveMany (rows) {
+  async function saveMany (rows) {
     const list = Array.isArray(rows) ? rows : []
     if (list.length === 0) return { success: true, count: 0 }
     let count = 0
@@ -114,10 +114,10 @@ function createNoteTemplateService ({ db, execToObjects, execOne, saveDatabase, 
     return { success: true, count }
   }
 
-  function remove (id) {
+  async function remove (id) {
     if (!id) return false
     try {
-      db.run('DELETE FROM note_templates WHERE id = ?', [id])
+      await db.run('DELETE FROM note_templates WHERE id = ?', [id])
       if (typeof saveDatabase === 'function') saveDatabase()
       return true
     } catch (error) {

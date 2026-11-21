@@ -6,6 +6,8 @@ import Portkey from 'portkey-ai'
 import PreferenceStore from '../PreferenceStore'
 import { readApiKey, removeApiKey, storeApiKey } from '../credential'
 import { loadSnapshot, writeSnapshot } from './storage'
+import { createSqlJsEngine, createTauriEngine } from './engine'
+import { invoke, isTauri } from '@tauri-apps/api/core'
 import { fetchRemoteText } from './service/remote-fetch'
 import { toCanonicalResources, toRenderableResources } from '../noteResources'
 import { resourceUrlBase } from '../wizResources'
@@ -21,7 +23,7 @@ const ipcMain = { handle: (channel, handler) => handlers.set(channel, handler) }
 const MICRO_APPS_KEY = 'setting/microApps'
 const AI_MODEL_PROVIDER_OPENAI_COMPATIBLE = 'openai-compatible'
 const AI_MODEL_PROVIDER_PORTKEY = 'portkey'
-let db, runeTemplateService, noteTemplateService
+let runeTemplateService, noteTemplateService
 let dirty = false
 let queue = Promise.resolve()
 
@@ -182,32 +184,33 @@ async function testPortkeyModelConfig(modelConfig) {
 }
 
 /**
- * sql.js 查询辅助函数：将 exec 结果转为对象数组
+ * 数据库引擎句柄。Tauri 走 Rust 的 rusqlite（单连接、增量写盘），
+ * 浏览器预览仍用 sql.js + IndexedDB 快照；两边对外都是 Promise 接口。
+ */
+let engine = null
+let sqlDatabase = null
+let lastRowid = null
+
+// 阶段二期间先保持 sql.js，等所有调用点迁移完再切成 isTauri() ? 'tauri' : 'sqljs'
+const DB_ENGINE = 'sqljs'
+
+/** sql.js 形状的单语句结果：[{ columns, values }]，照顾老代码对 result[0].values 的读法。 */
+async function execRaw (sql, params = []) {
+  const rows = await engine.query(sql, params)
+  if (!rows.length) return []
+  const columns = Object.keys(rows[0])
+  return [{ columns, values: rows.map(row => columns.map(column => row[column])) }]
+}
+
+/**
+ * 查询辅助函数：返回对象数组。
  *
  * 正文里的图片地址在库里是规范形态（`coolma://coolma.app/...`），
  * 喂给编辑器前换成当前平台的运行形态，否则 WebView2 渲染不出图片。
  */
-function execToObjects(sql, params = []) {
+async function execToObjects (sql, params = []) {
   try {
-    let results
-    if (params.length > 0) {
-      const stmt = db.prepare(sql)
-      stmt.bind(params)
-      results = []
-      while (stmt.step()) {
-        results.push(stmt.getAsObject())
-      }
-      stmt.free()
-    } else {
-      const raw = db.exec(sql)
-      if (raw.length === 0) return []
-      const { columns, values } = raw[0]
-      results = values.map(row => {
-        const obj = {}
-        columns.forEach((col, i) => obj[col] = row[i])
-        return obj
-      })
-    }
+    const results = await engine.query(sql, params)
     let base
     return results.map(record => {
       if (typeof record.content !== 'string') return record
@@ -221,53 +224,65 @@ function execToObjects(sql, params = []) {
   }
 }
 
-/**
- * sql.js 单行查询
- */
-function execOne(sql, params = []) {
-  const results = execToObjects(sql, params)
+/** 单行查询 */
+async function execOne (sql, params = []) {
+  const results = await execToObjects(sql, params)
   return results.length > 0 ? results[0] : null
 }
 
-/**
- * sql.js 执行语句
- */
-async function execRun(sql, params = []) {
+/** 执行语句：吞掉错误，返回 { changes, lastInsertRowid } */
+async function execRun (sql, params = []) {
   try {
-    await db.run(sql, params)
-    saveDatabase()
-    return { changes: db.getRowsModified(), lastInsertRowid: getLastInsertRowid() }
+    return await runSql(sql, params)
   } catch (error) {
     console.error('[DB] execRun error:', sql, error)
     return null
   }
 }
 
-/**
- * 获取最后插入的行ID
- */
-function getLastInsertRowid() {
-  const result = db.exec('SELECT last_insert_rowid() as id')
-  if (result.length > 0 && result[0].values.length > 0) {
-    return result[0].values[0][0]
-  }
-  return null
+/** 执行语句：错误向上抛（等价原来的 db.run） */
+async function runSql (sql, params = []) {
+  const result = await engine.run(sql, params)
+  lastRowid = result ? result.lastInsertRowid : null
+  dirty = true
+  return result
 }
 
+/** 最近一次写入的 rowid：引擎在 run 时更新，等价 sqlite 的 last_insert_rowid */
+function getLastInsertRowid () {
+  return lastRowid
+}
+
+/**
+ * 兼容门面：给子服务（rune/note 模板、内置迁移）传参时用。
+ * 它们历史上拿的是 sql.js 实例，这里换成等价的异步门面，`db.run` / `db.exec` 语义不变（返回 Promise）。
+ */
+const db = {
+  run: (sql, params) => runSql(sql, params),
+  exec: (sql, params) => execRaw(sql, params),
+  query: (sql, params) => engine.query(sql, params)
+}
+
+/** 持久化标记：命令边界统一 flush（sql.js 导出整库 / Tauri 已是增量写盘，flush 为空实现） */
 function saveDatabase () { dirty = true }
 
 async function ensureDatabase () {
-  if (db) return
-  const SQL = await initSqlJs({ locateFile: () => wasmUrl })
-  const snapshot = await loadSnapshot()
-  db = snapshot.length ? new SQL.Database(snapshot) : new SQL.Database()
+  if (engine) return
+  if (DB_ENGINE === 'tauri') {
+    engine = createTauriEngine(invoke)
+  } else {
+    const SQL = await initSqlJs({ locateFile: () => wasmUrl })
+    const snapshot = await loadSnapshot()
+    sqlDatabase = snapshot.length ? new SQL.Database(snapshot) : new SQL.Database()
+    engine = createSqlJsEngine(sqlDatabase, () => writeSnapshot(sqlDatabase.export()))
+  }
   try {
-    initSchema()
+    await initSchema()
     registerDatabaseHandlers()
-    saveDatabase()
   } catch (error) {
-    db.close()
-    db = null
+    if (engine && typeof engine.dispose === 'function') engine.dispose()
+    engine = null
+    sqlDatabase = null
     handlers.clear()
     throw error
   }
@@ -280,7 +295,8 @@ export function invokeDatabase (channel, ...args) {
     if (!handler) throw new Error("未知数据库命令：" + channel)
     const value = await handler(null, ...args)
     if (dirty) {
-      await writeSnapshot(db.export())
+      // 命令边界统一落盘：失败则命令 reject，dirty 保持为 true，下一条命令会重试
+      await engine.flush()
       dirty = false
     }
     return value
@@ -289,7 +305,7 @@ export function invokeDatabase (channel, ...args) {
   return result
 }
 
-function initSchema() {
+async function initSchema () {
   const BUILTIN_RUNE_IDS = new Set(['rune-1', 'rune-2', 'rune-3', 'rune-4', 'rune-5', 'rune-6'])
   const createDefaultRuneTemplate = () => `<template>
   <div class="blank-page">
@@ -354,7 +370,7 @@ export default {
   }`
 
   // Notes 表（本地优先架构：使用 dirty 字段跟踪同步状态）
-  db.run(`
+  await runSql(`
     CREATE TABLE IF NOT EXISTS notes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       doc_guid TEXT,
@@ -374,36 +390,36 @@ export default {
   `)
 
   // 索引
-  db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_notes_doc_guid ON notes(doc_guid) WHERE doc_guid IS NOT NULL AND doc_guid NOT LIKE 'local_%'`)
-  db.run(`CREATE INDEX IF NOT EXISTS idx_notes_kb_guid ON notes(kb_guid)`)
-  db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_notes_kb_doc_unique ON notes(kb_guid, doc_guid) WHERE kb_guid IS NOT NULL AND doc_guid IS NOT NULL AND doc_guid NOT LIKE 'local_%'`)
+  await runSql(`CREATE UNIQUE INDEX IF NOT EXISTS idx_notes_doc_guid ON notes(doc_guid) WHERE doc_guid IS NOT NULL AND doc_guid NOT LIKE 'local_%'`)
+  await runSql(`CREATE INDEX IF NOT EXISTS idx_notes_kb_guid ON notes(kb_guid)`)
+  await runSql(`CREATE UNIQUE INDEX IF NOT EXISTS idx_notes_kb_doc_unique ON notes(kb_guid, doc_guid) WHERE kb_guid IS NOT NULL AND doc_guid IS NOT NULL AND doc_guid NOT LIKE 'local_%'`)
   // ✅ 修复：移除 kb_guid IS NOT NULL 约束，让离线笔记（kb_guid 为空）也受唯一约束
-  db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_notes_category_title_kb ON notes(category, title, COALESCE(kb_guid, '')) WHERE category IS NOT NULL AND title IS NOT NULL AND title != 'Untitled'`)
-  db.run(`CREATE INDEX IF NOT EXISTS idx_notes_category ON notes(category)`)
-  db.run(`CREATE INDEX IF NOT EXISTS idx_notes_dirty ON notes(dirty)`)
+  await runSql(`CREATE UNIQUE INDEX IF NOT EXISTS idx_notes_category_title_kb ON notes(category, title, COALESCE(kb_guid, '')) WHERE category IS NOT NULL AND title IS NOT NULL AND title != 'Untitled'`)
+  await runSql(`CREATE INDEX IF NOT EXISTS idx_notes_category ON notes(category)`)
+  await runSql(`CREATE INDEX IF NOT EXISTS idx_notes_dirty ON notes(dirty)`)
 
   // 数据库迁移：检查并创建/重建唯一索引
   try {
-    const indexList = db.exec("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='notes'")
+    const indexList = await execRaw("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='notes'")
     const existingIndexes = indexList.length > 0 ? indexList[0].values.map(row => row[0]) : []
     const targetIndexName = 'idx_notes_category_title_kb'
 
     if (!existingIndexes.includes(targetIndexName)) {
       // 索引不存在 → 创建
       console.log('[DB] Migrating: creating unique index on (category, title, COALESCE(kb_guid, ""))')
-      db.run(`CREATE UNIQUE INDEX IF NOT EXISTS ${targetIndexName} ON notes(category, title, COALESCE(kb_guid, '')) WHERE category IS NOT NULL AND title IS NOT NULL AND title != 'Untitled'`)
+      await runSql(`CREATE UNIQUE INDEX IF NOT EXISTS ${targetIndexName} ON notes(category, title, COALESCE(kb_guid, '')) WHERE category IS NOT NULL AND title IS NOT NULL AND title != 'Untitled'`)
       saveDatabase()
     } else {
       // 索引存在 → 检查是否需要重建
-      const indexInfo = db.exec(`SELECT sql FROM sqlite_master WHERE type='index' AND name=?`, [targetIndexName])
+      const indexInfo = await execRaw(`SELECT sql FROM sqlite_master WHERE type='index' AND name=?`, [targetIndexName])
       if (indexInfo.length > 0 && indexInfo[0].values.length > 0) {
         const oldSql = (indexInfo[0].values[0][0] || '').toLowerCase()
         // 检查是否是旧版索引（包含 kb_guid is not null 或不包含 coalesce）
         const needsRebuild = oldSql.includes('kb_guid is not null') || !oldSql.includes('coalesce')
         if (needsRebuild) {
           console.log('[DB] Migrating: rebuilding index to use COALESCE(kb_guid, "") for offline notes support')
-          db.run(`DROP INDEX IF EXISTS ${targetIndexName}`)
-          db.run(`CREATE UNIQUE INDEX IF NOT EXISTS ${targetIndexName} ON notes(category, title, COALESCE(kb_guid, '')) WHERE category IS NOT NULL AND title IS NOT NULL AND title != 'Untitled'`)
+          await runSql(`DROP INDEX IF EXISTS ${targetIndexName}`)
+          await runSql(`CREATE UNIQUE INDEX IF NOT EXISTS ${targetIndexName} ON notes(category, title, COALESCE(kb_guid, '')) WHERE category IS NOT NULL AND title IS NOT NULL AND title != 'Untitled'`)
           saveDatabase()
         } else {
           console.log('[DB] Index idx_notes_category_title_kb is already up-to-date')
@@ -416,18 +432,18 @@ export default {
 
   // 数据库迁移：添加缺失的列
   try {
-    const tableInfo = db.exec("PRAGMA table_info(notes)")
+    const tableInfo = await execRaw("PRAGMA table_info(notes)")
     const columns = tableInfo[0].values.map(row => row[1])
 
     if (!columns.includes('kb_guid')) {
       console.log('[DB] Migrating: adding kb_guid column to notes table')
-      db.run("ALTER TABLE notes ADD COLUMN kb_guid TEXT")
+      await runSql("ALTER TABLE notes ADD COLUMN kb_guid TEXT")
       saveDatabase()
     }
 
     if (!columns.includes('dirty')) {
       console.log('[DB] Migrating: adding dirty column to notes table (local-first architecture)')
-      db.run("ALTER TABLE notes ADD COLUMN dirty INTEGER DEFAULT 0")
+      await runSql("ALTER TABLE notes ADD COLUMN dirty INTEGER DEFAULT 0")
       saveDatabase()
       console.log('[DB] ✅ dirty column added - local-first sync architecture enabled')
     }
@@ -438,7 +454,7 @@ export default {
 
       try {
         // 创建新表（不包含 sync_status）
-        db.run(`
+        await runSql(`
           CREATE TABLE notes_new (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             doc_guid TEXT,
@@ -458,7 +474,7 @@ export default {
         `)
 
         // 迁移数据（排除 sync_status 列）
-        db.run(`
+        await runSql(`
           INSERT INTO notes_new (
             id, doc_guid, kb_guid, title, content, category, tags,
             data_created, data_modified, local_modified,
@@ -473,15 +489,15 @@ export default {
         `)
 
         // 替换旧表
-        db.run('DROP TABLE notes')
-        db.run('ALTER TABLE notes_new RENAME TO notes')
+        await runSql('DROP TABLE notes')
+        await runSql('ALTER TABLE notes_new RENAME TO notes')
 
         // 重建索引
-        db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_notes_doc_guid ON notes(doc_guid) WHERE doc_guid IS NOT NULL AND doc_guid NOT LIKE 'local_%'`)
-        db.run(`CREATE INDEX IF NOT EXISTS idx_notes_kb_guid ON notes(kb_guid)`)
-        db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_notes_kb_doc_unique ON notes(kb_guid, doc_guid) WHERE kb_guid IS NOT NULL AND doc_guid IS NOT NULL AND doc_guid NOT LIKE 'local_%'`)
-        db.run(`CREATE INDEX IF NOT EXISTS idx_notes_category ON notes(category)`)
-        db.run(`CREATE INDEX IF NOT EXISTS idx_notes_dirty ON notes(dirty)`)
+        await runSql(`CREATE UNIQUE INDEX IF NOT EXISTS idx_notes_doc_guid ON notes(doc_guid) WHERE doc_guid IS NOT NULL AND doc_guid NOT LIKE 'local_%'`)
+        await runSql(`CREATE INDEX IF NOT EXISTS idx_notes_kb_guid ON notes(kb_guid)`)
+        await runSql(`CREATE UNIQUE INDEX IF NOT EXISTS idx_notes_kb_doc_unique ON notes(kb_guid, doc_guid) WHERE kb_guid IS NOT NULL AND doc_guid IS NOT NULL AND doc_guid NOT LIKE 'local_%'`)
+        await runSql(`CREATE INDEX IF NOT EXISTS idx_notes_category ON notes(category)`)
+        await runSql(`CREATE INDEX IF NOT EXISTS idx_notes_dirty ON notes(dirty)`)
 
         saveDatabase()
         console.log('[DB] ✅ Migration completed: sync_status removed, dirty architecture active')
@@ -494,7 +510,7 @@ export default {
   }
 
   // Tags 表
-  db.run(`
+  await runSql(`
     CREATE TABLE IF NOT EXISTS tags (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE,
@@ -504,7 +520,7 @@ export default {
   `)
 
   // Note-Tag 关联表
-  db.run(`
+  await runSql(`
     CREATE TABLE IF NOT EXISTS note_tags (
       note_id INTEGER NOT NULL,
       tag_id INTEGER NOT NULL,
@@ -515,7 +531,7 @@ export default {
   `)
 
   // 离线文件夹表（支持离线模式创建和管理文件夹）
-  db.run(`
+  await runSql(`
     CREATE TABLE IF NOT EXISTS local_categories (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       category TEXT NOT NULL UNIQUE,
@@ -526,10 +542,10 @@ export default {
       updated_at INTEGER
     )
   `)
-  db.run(`CREATE INDEX IF NOT EXISTS idx_local_categories_kb ON local_categories(kb_guid)`)
-  db.run(`CREATE INDEX IF NOT EXISTS idx_local_categories_parent ON local_categories(parent)`)
+  await runSql(`CREATE INDEX IF NOT EXISTS idx_local_categories_kb ON local_categories(kb_guid)`)
+  await runSql(`CREATE INDEX IF NOT EXISTS idx_local_categories_parent ON local_categories(parent)`)
 
-  db.run(`
+  await runSql(`
     CREATE TABLE IF NOT EXISTS app_state (
       key TEXT PRIMARY KEY,
       value TEXT,
@@ -538,7 +554,7 @@ export default {
   `)
 
   // 同步日志表
-  db.run(`
+  await runSql(`
     CREATE TABLE IF NOT EXISTS sync_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       note_id INTEGER,
@@ -553,22 +569,22 @@ export default {
   `)
 
   try {
-    db.run('ALTER TABLE sync_log ADD COLUMN doc_guid TEXT')
+    await runSql('ALTER TABLE sync_log ADD COLUMN doc_guid TEXT')
   } catch (error) {}
 
   try {
-    db.run('ALTER TABLE sync_log ADD COLUMN kb_guid TEXT')
+    await runSql('ALTER TABLE sync_log ADD COLUMN kb_guid TEXT')
   } catch (error) {}
 
   // runes / echoes 兼容:为已有行补 category / sort_order 默认值
   try {
-    db.run("UPDATE runes SET category = 'general' WHERE category IS NULL OR trim(category) = ''")
+    await runSql("UPDATE runes SET category = 'general' WHERE category IS NULL OR trim(category) = ''")
   } catch (error) {}
   try {
-    db.run('UPDATE runes SET sort_order = 0 WHERE sort_order IS NULL')
+    await runSql('UPDATE runes SET sort_order = 0 WHERE sort_order IS NULL')
   } catch (error) {}
   try {
-    db.run("UPDATE echoes SET category = 'builtin' WHERE (id LIKE '\\_\\_builtin\\_%' ESCAPE '\\') AND (category IS NULL OR trim(category) = '')")
+    await runSql("UPDATE echoes SET category = 'builtin' WHERE (id LIKE '\\_\\_builtin\\_%' ESCAPE '\\') AND (category IS NULL OR trim(category) = '')")
   } catch (error) {}
   // 注：原本这里有一段"启动期把内置回响 showy/marker 类纠正回正确 category"的迁移，
   // 依赖 main 镜像 `BUILTIN_ECHO_CARDS`。v2026-07-29 起 main 不再维护镜像，
@@ -576,14 +592,14 @@ export default {
   // DB 行的 category 永远是代码版默认值（template.category 来自 echoBuiltins 真相源）。
   // 历史脏数据（showy 类 echo 被错写成 builtin）会在用户首次打开 Settings 时自动修复。
   try {
-    db.run("UPDATE echoes SET category = 'marker' WHERE (id NOT LIKE '\\_\\_builtin\\_%' ESCAPE '\\') AND (category IS NULL OR trim(category) = '')")
+    await runSql("UPDATE echoes SET category = 'marker' WHERE (id NOT LIKE '\\_\\_builtin\\_%' ESCAPE '\\') AND (category IS NULL OR trim(category) = '')")
   } catch (error) {}
   try {
-    db.run('UPDATE echoes SET sort_order = 0 WHERE sort_order IS NULL')
+    await runSql('UPDATE echoes SET sort_order = 0 WHERE sort_order IS NULL')
   } catch (error) {}
 
   // GUID 映射表
-  db.run(`
+  await runSql(`
     CREATE TABLE IF NOT EXISTS guid_mapping (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       local_id INTEGER NOT NULL,
@@ -596,7 +612,7 @@ export default {
   `)
 
   // 用户配置表
-  db.run(`
+  await runSql(`
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
       value TEXT,
@@ -605,7 +621,7 @@ export default {
   `)
 
   // 符文卡片表
-  db.run(`
+  await runSql(`
     CREATE TABLE IF NOT EXISTS runes (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -623,19 +639,19 @@ export default {
 
   // 兼容旧库:为已存在的 runes 表补充 category / sort_order / inherit_from_previous 列
   try {
-    db.run('ALTER TABLE runes ADD COLUMN category TEXT DEFAULT \'general\'')
+    await runSql('ALTER TABLE runes ADD COLUMN category TEXT DEFAULT \'general\'')
   } catch (error) {}
   try {
-    db.run('ALTER TABLE runes ADD COLUMN sort_order INTEGER DEFAULT 0')
+    await runSql('ALTER TABLE runes ADD COLUMN sort_order INTEGER DEFAULT 0')
   } catch (error) {}
   try {
-    db.run('ALTER TABLE runes ADD COLUMN inherit_from_previous INTEGER DEFAULT 0')
+    await runSql('ALTER TABLE runes ADD COLUMN inherit_from_previous INTEGER DEFAULT 0')
   } catch (error) {}
   try {
-    const runeTableInfo = db.exec('PRAGMA table_info(runes)')
+    const runeTableInfo = await execRaw('PRAGMA table_info(runes)')
     const runeColumns = runeTableInfo.length > 0 ? runeTableInfo[0].values.map(row => row[1]) : []
     if (runeColumns.includes('power')) {
-      db.run('ALTER TABLE runes DROP COLUMN power')
+      await runSql('ALTER TABLE runes DROP COLUMN power')
       saveDatabase()
       log.info('[DB] Removed deprecated runes.power column')
     }
@@ -644,10 +660,10 @@ export default {
   }
 
   // 符文名称全局唯一（不区分大小写，去除首尾空白）
-  db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_runes_name_unique ON runes(LOWER(TRIM(name)))`)
+  await runSql(`CREATE UNIQUE INDEX IF NOT EXISTS idx_runes_name_unique ON runes(LOWER(TRIM(name)))`)
 
   // 回响卡片表
-  db.run(`
+  await runSql(`
     CREATE TABLE IF NOT EXISTS echoes (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -665,17 +681,17 @@ export default {
 
   // 兼容旧库:为已存在的 echoes 表补充 category / sort_order 列
   try {
-    db.run('ALTER TABLE echoes ADD COLUMN category TEXT DEFAULT \'marker\'')
+    await runSql('ALTER TABLE echoes ADD COLUMN category TEXT DEFAULT \'marker\'')
   } catch (error) {}
   try {
-    db.run('ALTER TABLE echoes ADD COLUMN sort_order INTEGER DEFAULT 0')
+    await runSql('ALTER TABLE echoes ADD COLUMN sort_order INTEGER DEFAULT 0')
   } catch (error) {}
 
   // 回响名称全局唯一（不区分大小写，去除首尾空白）
-  db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_echoes_name_unique ON echoes(LOWER(TRIM(name)))`)
+  await runSql(`CREATE UNIQUE INDEX IF NOT EXISTS idx_echoes_name_unique ON echoes(LOWER(TRIM(name)))`)
 
   // AI 模型配置表
-  db.run(`
+  await runSql(`
     CREATE TABLE IF NOT EXISTS ai_model_configs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
@@ -694,31 +710,31 @@ export default {
       updated_at INTEGER
     )
   `)
-  db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_model_configs_name ON ai_model_configs(name)`)
-  db.run(`CREATE INDEX IF NOT EXISTS idx_ai_model_configs_default ON ai_model_configs(is_default)`)
-  db.run(`CREATE INDEX IF NOT EXISTS idx_ai_model_configs_provider ON ai_model_configs(provider_type)`)
+  await runSql(`CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_model_configs_name ON ai_model_configs(name)`)
+  await runSql(`CREATE INDEX IF NOT EXISTS idx_ai_model_configs_default ON ai_model_configs(is_default)`)
+  await runSql(`CREATE INDEX IF NOT EXISTS idx_ai_model_configs_provider ON ai_model_configs(provider_type)`)
 
   try {
-    const aiModelColumnsResult = db.exec("PRAGMA table_info(ai_model_configs)")
+    const aiModelColumnsResult = await execRaw("PRAGMA table_info(ai_model_configs)")
     const aiModelColumns = aiModelColumnsResult.length > 0 ? aiModelColumnsResult[0].values.map(row => row[1]) : []
 
     if (!aiModelColumns.includes('virtual_key_encrypted')) {
-      db.run("ALTER TABLE ai_model_configs ADD COLUMN virtual_key_encrypted TEXT NOT NULL DEFAULT ''")
+      await runSql("ALTER TABLE ai_model_configs ADD COLUMN virtual_key_encrypted TEXT NOT NULL DEFAULT ''")
       saveDatabase()
     }
 
     if (!aiModelColumns.includes('headers_json')) {
-      db.run("ALTER TABLE ai_model_configs ADD COLUMN headers_json TEXT DEFAULT '{}'")
+      await runSql("ALTER TABLE ai_model_configs ADD COLUMN headers_json TEXT DEFAULT '{}'")
       saveDatabase()
     }
 
     if (!aiModelColumns.includes('extra_config_json')) {
-      db.run("ALTER TABLE ai_model_configs ADD COLUMN extra_config_json TEXT DEFAULT '{}'")
+      await runSql("ALTER TABLE ai_model_configs ADD COLUMN extra_config_json TEXT DEFAULT '{}'")
       saveDatabase()
     }
 
     if (!aiModelColumns.includes('enabled')) {
-      db.run('ALTER TABLE ai_model_configs ADD COLUMN enabled INTEGER DEFAULT 1')
+      await runSql('ALTER TABLE ai_model_configs ADD COLUMN enabled INTEGER DEFAULT 1')
       saveDatabase()
     }
 
@@ -727,11 +743,11 @@ export default {
     //   1 = CryptoJS AES（机器派生密钥，已不稳定，新写不再用）
     //   2 = safeStorage（OS 钥匙串，跨重启稳定）
     if (!aiModelColumns.includes('api_key_encrypted_version')) {
-      db.run('ALTER TABLE ai_model_configs ADD COLUMN api_key_encrypted_version INTEGER DEFAULT 0')
+      await runSql('ALTER TABLE ai_model_configs ADD COLUMN api_key_encrypted_version INTEGER DEFAULT 0')
       saveDatabase()
     }
     if (!aiModelColumns.includes('virtual_key_encrypted_version')) {
-      db.run('ALTER TABLE ai_model_configs ADD COLUMN virtual_key_encrypted_version INTEGER DEFAULT 0')
+      await runSql('ALTER TABLE ai_model_configs ADD COLUMN virtual_key_encrypted_version INTEGER DEFAULT 0')
       saveDatabase()
     }
   } catch (error) {
@@ -740,7 +756,7 @@ export default {
 
   // AI 技能表（用户管理 title + content，可在 AI 生成场景中选用）
   // 通过 builtin 字段区分内置与自定义：1 = 内置（用户不可见，仅供开发调试），0 = 自定义
-  db.run(`
+  await runSql(`
     CREATE TABLE IF NOT EXISTS ai_skills (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
@@ -753,12 +769,12 @@ export default {
       updated_at INTEGER
     )
   `)
-  db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_skills_name ON ai_skills(name)`)
-  db.run(`CREATE INDEX IF NOT EXISTS idx_ai_skills_builtin ON ai_skills(builtin)`)
-  db.run(`CREATE INDEX IF NOT EXISTS idx_ai_skills_sort ON ai_skills(sort_order)`)
+  await runSql(`CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_skills_name ON ai_skills(name)`)
+  await runSql(`CREATE INDEX IF NOT EXISTS idx_ai_skills_builtin ON ai_skills(builtin)`)
+  await runSql(`CREATE INDEX IF NOT EXISTS idx_ai_skills_sort ON ai_skills(sort_order)`)
 
   // 初始化内置技能（仅当没有任何内置技能时写入；用户不可见，仅供开发侧调试）
-  const builtinSkillCount = execOne('SELECT COUNT(*) as count FROM ai_skills WHERE builtin = 1')
+  const builtinSkillCount = await execOne('SELECT COUNT(*) as count FROM ai_skills WHERE builtin = 1')
   if (builtinSkillCount && builtinSkillCount.count === 0) {
     const now = Date.now()
     const builtinSkills = [
@@ -779,7 +795,7 @@ export default {
       }
     ]
     for (const skill of builtinSkills) {
-      db.run(
+      await runSql(
         `INSERT INTO ai_skills (name, title, content, builtin, enabled, sort_order, created_at, updated_at)
          VALUES (?, ?, ?, 1, 1, 0, ?, ?)`,
         [skill.name, skill.title, skill.content, now, now]
@@ -790,7 +806,7 @@ export default {
   }
 
   // 初始化默认符文数据（仅当表为空时）
-  const count = execOne('SELECT COUNT(*) as count FROM runes')
+  const count = await execOne('SELECT COUNT(*) as count FROM runes')
   if (count && count.count === 0) {
     const now = Date.now()
     const defaultRunes = [
@@ -802,14 +818,14 @@ export default {
       { id: 'rune-6', name: '圣光庇护', desc: '免疫一次负面效果并治疗', color: '#FFD54F', icon: 'wb_sunny' }
     ]
     for (const r of defaultRunes) {
-      db.run(`INSERT INTO runes (id, name, "desc", color, icon, template, category, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      await runSql(`INSERT INTO runes (id, name, "desc", color, icon, template, category, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [r.id, r.name, r.desc, r.color, r.icon, createDefaultRuneTemplate(r.name), 'general', now, now])
     }
     saveDatabase()
     log.info('[DB] Default runes seeded')
   }
 
-  const emptyTemplateRunes = execToObjects(`SELECT id, name FROM runes WHERE template IS NULL OR trim(template) = ''`)
+  const emptyTemplateRunes = await execToObjects(`SELECT id, name FROM runes WHERE template IS NULL OR trim(template) = ''`)
   if (emptyTemplateRunes.length > 0) {
     const now = Date.now()
     const newRuneIds = emptyTemplateRunes
@@ -817,7 +833,7 @@ export default {
       .map(rune => rune.id)
 
     for (const runeId of newRuneIds) {
-      db.run('UPDATE runes SET template = ?, updated_at = ? WHERE id = ?', [createDefaultRuneTemplate(), now, runeId])
+      await runSql('UPDATE runes SET template = ?, updated_at = ? WHERE id = ?', [createDefaultRuneTemplate(), now, runeId])
     }
 
     if (newRuneIds.length > 0) {
@@ -827,7 +843,7 @@ export default {
   }
 
   // 初始化默认回响数据（仅当表为空时）
-  const echoCount = execOne('SELECT COUNT(*) as count FROM echoes')
+  const echoCount = await execOne('SELECT COUNT(*) as count FROM echoes')
   if (echoCount && echoCount.count === 0) {
     const now = Date.now()
     const defaultEchoes = [
@@ -836,7 +852,7 @@ export default {
       // { id: 'echo-3', name: '边界低语', desc: '适合提示风险、注意事项与旁白信息', color: '#EC407A', icon: 'campaign', anno_source: createDefaultEchoAnnoSource('边界低语') }
     ]
     for (const echo of defaultEchoes) {
-      db.run(`INSERT INTO echoes (id, name, "desc", color, icon, anno_source, render_type, category, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      await runSql(`INSERT INTO echoes (id, name, "desc", color, icon, anno_source, render_type, category, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [echo.id, echo.name, echo.desc, echo.color, echo.icon, echo.anno_source, 'anno', 'marker', now, now])
     }
     saveDatabase()
@@ -844,21 +860,21 @@ export default {
   }
 
   try {
-    const echoTableInfo = db.exec("PRAGMA table_info(echoes)")
+    const echoTableInfo = await execRaw("PRAGMA table_info(echoes)")
     const echoColumns = echoTableInfo.length > 0 ? echoTableInfo[0].values.map(row => row[1]) : []
 
     if (!echoColumns.includes('anno_source')) {
-      db.run("ALTER TABLE echoes ADD COLUMN anno_source TEXT")
+      await runSql("ALTER TABLE echoes ADD COLUMN anno_source TEXT")
     }
     if (!echoColumns.includes('render_type')) {
-      db.run("ALTER TABLE echoes ADD COLUMN render_type TEXT DEFAULT 'anno'")
+      await runSql("ALTER TABLE echoes ADD COLUMN render_type TEXT DEFAULT 'anno'")
     }
     if (echoColumns.includes('template')) {
-      const legacyEchoes = execToObjects(`SELECT id, name, template, anno_source FROM echoes`)
+      const legacyEchoes = await execToObjects(`SELECT id, name, template, anno_source FROM echoes`)
       const now = Date.now()
       for (const echo of legacyEchoes) {
         const annoSource = echo.anno_source || echo.template || createDefaultEchoAnnoSource(echo.name)
-        db.run('UPDATE echoes SET anno_source = COALESCE(anno_source, ?), render_type = COALESCE(render_type, ?), updated_at = ? WHERE id = ?', [annoSource, 'anno', now, echo.id])
+        await runSql('UPDATE echoes SET anno_source = COALESCE(anno_source, ?), render_type = COALESCE(render_type, ?), updated_at = ? WHERE id = ?', [annoSource, 'anno', now, echo.id])
       }
     }
     saveDatabase()
@@ -866,11 +882,11 @@ export default {
     console.warn('[DB] Echo schema migration failed:', echoMigrationError.message)
   }
 
-  const emptyAnnoSourceEchoes = execToObjects(`SELECT id, name FROM echoes WHERE anno_source IS NULL OR trim(anno_source) = ''`)
+  const emptyAnnoSourceEchoes = await execToObjects(`SELECT id, name FROM echoes WHERE anno_source IS NULL OR trim(anno_source) = ''`)
   if (emptyAnnoSourceEchoes.length > 0) {
     const now = Date.now()
     for (const echo of emptyAnnoSourceEchoes) {
-      db.run('UPDATE echoes SET anno_source = ?, updated_at = ?, render_type = COALESCE(render_type, ?) WHERE id = ?', [createDefaultEchoAnnoSource(echo.name), now, 'anno', echo.id])
+      await runSql('UPDATE echoes SET anno_source = ?, updated_at = ?, render_type = COALESCE(render_type, ?) WHERE id = ?', [createDefaultEchoAnnoSource(echo.name), now, 'anno', echo.id])
     }
     saveDatabase()
     log.info(`[DB] Backfilled default anno sources for ${emptyAnnoSourceEchoes.length} echo(es)`)
@@ -888,7 +904,7 @@ export default {
   // 单独的服务（service/rune-template-service.js）只负责 schema + CRUD。
   // 用 module 级变量保存实例，供后续 registerDatabaseHandlers 复用，避免重复建闭包。
   runeTemplateService = createRuneTemplateService({ db, execToObjects, execOne, saveDatabase, log })
-  runeTemplateService.ensureSchema()
+  await runeTemplateService.ensureSchema()
   // === 内置符文模板（rune_templates）seed 策略（v2026-07-29 full-push） ===
   // 真相源：renderer 端 `src/components/rune/runeTemplates/runeTemplates.js` 的
   //   `BUILTIN_RUNE_TEMPLATE_META` 导出（14 个元数据 + factory 引用）。
@@ -901,7 +917,7 @@ export default {
   // 与 rune_templates 结构一致；只承担"笔记新建模板下拉 / 内容填充"职责，不内置 seed。
   // 用户新增的第一份模板走表单保存路径。
   noteTemplateService = createNoteTemplateService({ db, execToObjects, execOne, saveDatabase, log })
-  noteTemplateService.ensureSchema()
+  await noteTemplateService.ensureSchema()
 
   log.info('[Main] Database schema initialized')
 }
@@ -940,7 +956,7 @@ function registerDatabaseHandlers() {
         params.push(options.offset)
       }
 
-      return execToObjects(query, params)
+      return await execToObjects(query, params)
     } catch (error) {
       log.error('[DB] getNotes error:', error)
       return []
@@ -977,7 +993,7 @@ function registerDatabaseHandlers() {
         params.push(options.offset)
       }
 
-      return execToObjects(query, params)
+      return await execToObjects(query, params)
     } catch (error) {
       log.error('[DB] getNotesLite error:', error)
       return []
@@ -987,7 +1003,7 @@ function registerDatabaseHandlers() {
   // ✅ 获取所有笔记的基本信息（用于同步去重检查）
   ipcMain.handle('db:getAllNotesBasic', async () => {
     try {
-      return execToObjects(`
+      return await execToObjects(`
         SELECT title, category, kb_guid
         FROM notes
         WHERE title IS NOT NULL AND title != ''
@@ -1002,7 +1018,7 @@ function registerDatabaseHandlers() {
   // 获取单个笔记
   ipcMain.handle('db:getNote', async (event, id) => {
     try {
-      return execOne('SELECT * FROM notes WHERE id = ?', [id])
+      return await execOne('SELECT * FROM notes WHERE id = ?', [id])
     } catch (error) {
       log.error('[DB] getNote error:', error)
       return null
@@ -1012,7 +1028,7 @@ function registerDatabaseHandlers() {
   // 根据 doc_guid 获取单个笔记
   ipcMain.handle('db:getNoteByDocGuid', async (event, docGuid) => {
     try {
-      return execOne('SELECT * FROM notes WHERE doc_guid = ?', [docGuid])
+      return await execOne('SELECT * FROM notes WHERE doc_guid = ?', [docGuid])
     } catch (error) {
       log.error('[DB] getNoteByDocGuid error:', error)
       return null
@@ -1023,7 +1039,7 @@ function registerDatabaseHandlers() {
   ipcMain.handle('db:getNoteByDocGuidWithPriority', async (event, docGuid) => {
     try {
       // ✅ 核心原则：local_modified 最大的 = 用户最后操作的 = 应该显示的
-      return execOne(`
+      return await execOne(`
         SELECT * FROM notes
         WHERE doc_guid = ?
         ORDER BY
@@ -1062,12 +1078,12 @@ function registerDatabaseHandlers() {
 
       // ✅ 优先级 1：按 doc_guid 精确匹配（最强）
       if (docGuid && !docGuid.startsWith('local_')) {
-        existingNote = execOne(`SELECT * FROM notes WHERE doc_guid = ? LIMIT 1`, [docGuid])
+        existingNote = await execOne(`SELECT * FROM notes WHERE doc_guid = ? LIMIT 1`, [docGuid])
       }
 
       // ✅ 优先级 2：按 (category, title, kb_guid) 匹配（标准去重）
       if (!existingNote && kbGuid && title && title !== 'Untitled') {
-        existingNote = execOne(`
+        existingNote = await execOne(`
           SELECT * FROM notes
           WHERE category = ? AND title = ? AND kb_guid = ?
           ORDER BY local_modified DESC, id DESC
@@ -1081,7 +1097,7 @@ function registerDatabaseHandlers() {
 
       // ✅ 优先级 3：按 (category, title) 匹配（kbGuid 为空时的兜底）
       if (!existingNote && title && title !== 'Untitled') {
-        existingNote = execOne(`
+        existingNote = await execOne(`
           SELECT * FROM notes
           WHERE category = ? AND title = ?
           ORDER BY local_modified DESC, id DESC
@@ -1097,7 +1113,7 @@ function registerDatabaseHandlers() {
       if (existingNote && existingNote.id) {
         console.log(`[DB] createNote: ✅ Updating EXISTING note id=${existingNote.id} instead of creating new`)
 
-        await db.run(`
+        await runSql(`
           UPDATE notes
           SET doc_guid = COALESCE(?, doc_guid),
               kb_guid = COALESCE(?, kb_guid),
@@ -1124,7 +1140,7 @@ function registerDatabaseHandlers() {
         ])
 
         saveDatabase()
-        return execOne('SELECT * FROM notes WHERE id = ?', [existingNote.id])
+        return await execOne('SELECT * FROM notes WHERE id = ?', [existingNote.id])
       }
 
       // ✅ 没有找到 → 才 INSERT 新记录
@@ -1136,7 +1152,7 @@ function registerDatabaseHandlers() {
 
       while (insertAttempts < 10 && !insertSuccess) {
         try {
-          await db.run(`
+          await runSql(`
             INSERT INTO notes (doc_guid, kb_guid, title, content, category, tags, data_created, data_modified, local_modified, created_at, updated_at, dirty)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `, [
@@ -1195,12 +1211,12 @@ function registerDatabaseHandlers() {
 
       // 优先用 doc_guid 查询（如果存在）
       if (finalDocGuid) {
-        createdNote = execOne('SELECT * FROM notes WHERE doc_guid = ?', [finalDocGuid])
+        createdNote = await execOne('SELECT * FROM notes WHERE doc_guid = ?', [finalDocGuid])
       }
 
       // 如果 doc_guid 查询失败或不唯一，用 (category, title) 查询
       if (!createdNote) {
-        createdNote = execOne(`
+        createdNote = await execOne(`
           SELECT * FROM notes
           WHERE category = ? AND title = ?
           ORDER BY id DESC
@@ -1235,7 +1251,7 @@ function registerDatabaseHandlers() {
   //   - isSystemUpdate=true 表示来自同步完成回写，强制 dirty=0
   ipcMain.handle('db:updateNote', async (event, { id, updates, isSystemUpdate = false }) => {
     try {
-      const current = execOne('SELECT * FROM notes WHERE id = ?', [id])
+      const current = await execOne('SELECT * FROM notes WHERE id = ?', [id])
       if (!current) {
         console.warn(`[DB] updateNote: note ${id} not found`)
         return null
@@ -1332,10 +1348,10 @@ function registerDatabaseHandlers() {
 
       values.push(id)
       const query = `UPDATE notes SET ${fields.join(', ')} WHERE id = ?`
-      await db.run(query, values)
+      await runSql(query, values)
       saveDatabase()
 
-      const updatedNote = execOne('SELECT * FROM notes WHERE id = ?', [id])
+      const updatedNote = await execOne('SELECT * FROM notes WHERE id = ?', [id])
 
       if (updatedNote) {
         console.log(`[DB] ✅ Update verified: id=${updatedNote.id}, dirty=${updatedNote.dirty}, local_modified=${updatedNote.local_modified}`)
@@ -1355,8 +1371,8 @@ function registerDatabaseHandlers() {
   ipcMain.handle('db:diag:counts', async () => {
     try {
       const currentKbGuid = ClientStorage.get('kbGuid')
-      const total = execOne('SELECT COUNT(*) as count FROM notes')
-      const all = execToObjects(`
+      const total = await execOne('SELECT COUNT(*) as count FROM notes')
+      const all = await execToObjects(`
         SELECT
           COALESCE(kb_guid, '<null>') AS kb_guid,
           COUNT(*) AS total,
@@ -1366,8 +1382,8 @@ function registerDatabaseHandlers() {
         GROUP BY kb_guid
       `)
       const currentAccountDirty = currentKbGuid
-        ? execOne('SELECT COUNT(*) as count FROM notes WHERE dirty = 1 AND kb_guid = ?', [currentKbGuid])
-        : execOne('SELECT COUNT(*) as count FROM notes WHERE dirty = 1 AND (kb_guid IS NULL OR kb_guid = "")')
+        ? await execOne('SELECT COUNT(*) as count FROM notes WHERE dirty = 1 AND kb_guid = ?', [currentKbGuid])
+        : await execOne('SELECT COUNT(*) as count FROM notes WHERE dirty = 1 AND (kb_guid IS NULL OR kb_guid = "")')
       return {
         currentKbGuid,
         totalNotes: total?.count || 0,
@@ -1384,7 +1400,7 @@ function registerDatabaseHandlers() {
     try {
       const currentKbGuid = ClientStorage.get('kbGuid')
       if (!currentKbGuid) return { error: 'no_kb_guid_logged_in' }
-      const notes = execToObjects(`
+      const notes = await execToObjects(`
         SELECT
           id,
           title,
@@ -1413,17 +1429,17 @@ function registerDatabaseHandlers() {
   // 全表 kb_guid / doc_guid / server_modified 覆盖统计：诊断"是否真同步过"
   ipcMain.handle('db:diag:kb-coverage', async () => {
     try {
-      const k1 = execOne('SELECT COUNT(*) AS c FROM notes')
-      const k2 = execOne(`SELECT COUNT(*) AS c FROM notes WHERE kb_guid IS NOT NULL AND kb_guid != ''`)
-      const k3 = execOne(`SELECT COUNT(*) AS c FROM notes WHERE doc_guid IS NOT NULL AND doc_guid != ''`)
-      const k4 = execOne(`SELECT COUNT(*) AS c FROM notes WHERE server_modified IS NOT NULL AND server_modified > 0`)
-      const k5 = execOne(`SELECT COUNT(*) AS c FROM notes WHERE data_modified IS NOT NULL AND data_modified > 0`)
-      const sRange = execOne(`SELECT
+      const k1 = await execOne('SELECT COUNT(*) AS c FROM notes')
+      const k2 = await execOne(`SELECT COUNT(*) AS c FROM notes WHERE kb_guid IS NOT NULL AND kb_guid != ''`)
+      const k3 = await execOne(`SELECT COUNT(*) AS c FROM notes WHERE doc_guid IS NOT NULL AND doc_guid != ''`)
+      const k4 = await execOne(`SELECT COUNT(*) AS c FROM notes WHERE server_modified IS NOT NULL AND server_modified > 0`)
+      const k5 = await execOne(`SELECT COUNT(*) AS c FROM notes WHERE data_modified IS NOT NULL AND data_modified > 0`)
+      const sRange = await execOne(`SELECT
         MIN(server_modified) AS min_s,
         MAX(server_modified) AS max_s,
         AVG(server_modified) AS avg_s
         FROM notes`)
-      const dist = execToObjects(`
+      const dist = await execToObjects(`
         SELECT
           COALESCE(kb_guid, '<null>') AS kb_guid,
           COUNT(*) AS total,
@@ -1454,7 +1470,7 @@ function registerDatabaseHandlers() {
   // 不依赖 kbGuid 的脏调查：dump 所有 dirty=1（不管归属）
   ipcMain.handle('db:diag:dirty-all', async () => {
     try {
-      const notes = execToObjects(`
+      const notes = await execToObjects(`
         SELECT
           id,
           title,
@@ -1471,7 +1487,7 @@ function registerDatabaseHandlers() {
         ORDER BY local_modified ASC
         LIMIT 200
       `)
-      const group = execToObjects(`
+      const group = await execToObjects(`
         SELECT
           COALESCE(kb_guid, '<null>') AS kb_guid,
           COUNT(*) AS c,
@@ -1491,7 +1507,7 @@ function registerDatabaseHandlers() {
   // 全表 dump 不干净笔记：dirty=0 但 local_modified != server_modified 的（说明之前推过但回写没对齐）
   ipcMain.handle('db:diag:modified-but-clean', async () => {
     try {
-      const notes = execToObjects(`
+      const notes = await execToObjects(`
         SELECT
           id,
           title,
@@ -1520,7 +1536,7 @@ function registerDatabaseHandlers() {
   // 紧急止血：把所有 dirty=1 重置为 0（防止错误地把它们再推到 server）
   ipcMain.handle('db:diag:clear-all-dirty', async () => {
     try {
-      const result = execRun(`
+      const result = await execRun(`
         UPDATE notes SET dirty = 0, local_modified = COALESCE(server_modified, local_modified)
         WHERE dirty = 1
       `)
@@ -1565,7 +1581,7 @@ function registerDatabaseHandlers() {
   ipcMain.handle('db:diag:kbguid-bytes', async () => {
     try {
       const currentKbGuid = ClientStorage.get('kbGuid')
-      const sample = execOne(`
+      const sample = await execOne(`
         SELECT
           kb_guid,
           LENGTH(kb_guid) AS len,
@@ -1578,7 +1594,7 @@ function registerDatabaseHandlers() {
         FROM notes
         LIMIT 1
       `, [currentKbGuid, currentKbGuid, currentKbGuid, currentKbGuid, currentKbGuid, currentKbGuid])
-      const grouped = execToObjects(`
+      const grouped = await execToObjects(`
         SELECT kb_guid, LENGTH(kb_guid) AS len, HEX(kb_guid) AS hex, COUNT(*) AS n
         FROM notes
         GROUP BY kb_guid
@@ -1600,7 +1616,7 @@ function registerDatabaseHandlers() {
   // 模拟一次相同的 update，看 dirty 会不会被错置 1
   ipcMain.handle('db:diag:simulate-noop-write', async (event, noteId) => {
     try {
-      const before = execOne('SELECT * FROM notes WHERE id = ?', [noteId])
+      const before = await execOne('SELECT * FROM notes WHERE id = ?', [noteId])
       if (!before) return { error: 'note_not_found', noteId }
       // 用完全相同的 title/content/category/tags 调用 updateNote，看会不会错置 dirty
       const updates = {
@@ -1666,7 +1682,7 @@ function registerDatabaseHandlers() {
   ipcMain.handle('db:deleteNote', async (event, payload) => {
     try {
       const noteId = typeof payload === 'object' && payload !== null ? payload.id : payload
-      await db.run('DELETE FROM notes WHERE id = ?', [noteId])
+      await runSql('DELETE FROM notes WHERE id = ?', [noteId])
       saveDatabase()
       return true
     } catch (error) {
@@ -1679,18 +1695,18 @@ function registerDatabaseHandlers() {
   ipcMain.handle('db:getStats', async () => {
     try {
       const currentKbGuid = ClientStorage.get('kbGuid')
-      const total = execOne('SELECT COUNT(*) as count FROM notes')
+      const total = await execOne('SELECT COUNT(*) as count FROM notes')
       let pending
 
       if (currentKbGuid) {
-        pending = execOne(
+        pending = await execOne(
           `SELECT COUNT(*) as count
            FROM notes
            WHERE dirty = 1 AND kb_guid = ?`,
           [currentKbGuid]
         )
       } else {
-        pending = execOne(
+        pending = await execOne(
           `SELECT COUNT(*) as count
            FROM notes
            WHERE dirty = 1 AND (kb_guid IS NULL OR kb_guid = '')`
@@ -1733,7 +1749,7 @@ function registerDatabaseHandlers() {
       }
 
       query += ' ORDER BY t.name'
-      return execToObjects(query, params)
+      return await execToObjects(query, params)
     } catch (error) {
       log.error('[DB] getTags error:', error)
       return []
@@ -1748,19 +1764,19 @@ function registerDatabaseHandlers() {
       if (!tagId) return { success: false, code: 'TAG_NOT_FOUND' }
       if (!nextName) return { success: false, code: 'TAG_NAME_REQUIRED' }
 
-      const row = execOne('SELECT id, name FROM tags WHERE id = ?', [tagId])
+      const row = await execOne('SELECT id, name FROM tags WHERE id = ?', [tagId])
       if (!row) return { success: false, code: 'TAG_NOT_FOUND' }
 
       if (String(row.name || '') === nextName) {
         return { success: true, data: { ...row, tagGuid: `local_tag_${tagId}` } }
       }
 
-      const duplicated = execOne('SELECT id FROM tags WHERE name = ? AND id != ?', [nextName, tagId])
+      const duplicated = await execOne('SELECT id FROM tags WHERE name = ? AND id != ?', [nextName, tagId])
       if (duplicated) return { success: false, code: 'TAG_DUPLICATE_NAME' }
 
-      await db.run('UPDATE tags SET name = ? WHERE id = ?', [nextName, tagId])
+      await runSql('UPDATE tags SET name = ? WHERE id = ?', [nextName, tagId])
       saveDatabase()
-      const updated = execOne('SELECT id, name, color, created_at FROM tags WHERE id = ?', [tagId])
+      const updated = await execOne('SELECT id, name, color, created_at FROM tags WHERE id = ?', [tagId])
       return updated
         ? { success: true, data: { ...updated, tagGuid: `local_tag_${tagId}` } }
         : { success: false, code: 'TAG_NOT_FOUND' }
@@ -1777,12 +1793,12 @@ function registerDatabaseHandlers() {
       const name = (tag?.name || '').trim()
       if (!name) return null
 
-      const existing = execOne('SELECT id, name, color, created_at FROM tags WHERE name = ?', [name])
+      const existing = await execOne('SELECT id, name, color, created_at FROM tags WHERE name = ?', [name])
       if (existing) {
         return { ...existing, tagGuid: `local_tag_${existing.id}` }
       }
 
-      await db.run(`INSERT INTO tags (name, color, created_at) VALUES (?, ?, ?)`, [name, tag.color || '#1890ff', now])
+      await runSql(`INSERT INTO tags (name, color, created_at) VALUES (?, ?, ?)`, [name, tag.color || '#1890ff', now])
       saveDatabase()
       const lastId = getLastInsertRowid()
       return { id: lastId, name, color: tag.color || '#1890ff', created_at: now, tagGuid: `local_tag_${lastId}` }
@@ -1795,7 +1811,7 @@ function registerDatabaseHandlers() {
   ipcMain.handle('db:getNoteTags', async (event, { noteId }) => {
     try {
       if (!noteId) return []
-      return execToObjects(
+      return await execToObjects(
         `SELECT t.id, t.name, t.color, t.created_at, 'local_tag_' || t.id AS tagGuid
          FROM tags t
          INNER JOIN note_tags nt ON nt.tag_id = t.id
@@ -1812,7 +1828,7 @@ function registerDatabaseHandlers() {
   ipcMain.handle('db:getTagByName', async (event, { name }) => {
     try {
       if (!name) return null
-      const row = execOne('SELECT id, name, color, created_at FROM tags WHERE name = ?', [name])
+      const row = await execOne('SELECT id, name, color, created_at FROM tags WHERE name = ?', [name])
       return row ? { ...row, tagGuid: `local_tag_${row.id}` } : null
     } catch (error) {
       log.error('[DB] getTagByName error:', error)
@@ -1823,7 +1839,7 @@ function registerDatabaseHandlers() {
   ipcMain.handle('db:attachTagToNote', async (event, { noteId, tagId }) => {
     try {
       if (!noteId || !tagId) return false
-      await db.run('INSERT OR IGNORE INTO note_tags (note_id, tag_id) VALUES (?, ?)', [noteId, tagId])
+      await runSql('INSERT OR IGNORE INTO note_tags (note_id, tag_id) VALUES (?, ?)', [noteId, tagId])
       saveDatabase()
       return true
     } catch (error) {
@@ -1835,7 +1851,7 @@ function registerDatabaseHandlers() {
   ipcMain.handle('db:removeTagFromNote', async (event, { noteId, tagId }) => {
     try {
       if (!noteId || !tagId) return false
-      await db.run('DELETE FROM note_tags WHERE note_id = ? AND tag_id = ?', [noteId, tagId])
+      await runSql('DELETE FROM note_tags WHERE note_id = ? AND tag_id = ?', [noteId, tagId])
       saveDatabase()
       return true
     } catch (error) {
@@ -1854,9 +1870,9 @@ function registerDatabaseHandlers() {
       if (!tagId) return false
 
       const tagGuid = `local_tag_${tagId}`
-      await db.run('DELETE FROM note_tags WHERE tag_id = ?', [tagId])
+      await runSql('DELETE FROM note_tags WHERE tag_id = ?', [tagId])
 
-      const affectedNotes = execToObjects(
+      const affectedNotes = await execToObjects(
         'SELECT id, tags FROM notes WHERE tags IS NOT NULL AND tags != "" AND tags LIKE ?',
         [`%${tagGuid}%`]
       )
@@ -1865,13 +1881,13 @@ function registerDatabaseHandlers() {
         const parts = String(note.tags || '').split('*')
         if (!parts.includes(tagGuid)) continue
         const nextTags = parts.filter(part => part && part !== tagGuid).join('*')
-        await db.run(
+        await runSql(
           'UPDATE notes SET tags = ?, local_modified = ?, updated_at = ?, dirty = 1 WHERE id = ?',
           [nextTags, now, now, note.id]
         )
       }
 
-      await db.run('DELETE FROM tags WHERE id = ?', [tagId])
+      await runSql('DELETE FROM tags WHERE id = ?', [tagId])
       saveDatabase()
       return true
     } catch (error) {
@@ -1883,11 +1899,11 @@ function registerDatabaseHandlers() {
   // 清理未被任何笔记引用的本地标签（设置 → AI → 标签 的「清理未使用」）
   ipcMain.handle('db:cleanupUnusedTags', async () => {
     try {
-      const tags = execToObjects('SELECT id, name FROM tags')
+      const tags = await execToObjects('SELECT id, name FROM tags')
       if (!tags.length) return { success: true, removed: [] }
 
       const usedGuids = new Set()
-      const notes = execToObjects('SELECT tags FROM notes WHERE tags IS NOT NULL AND tags != ""')
+      const notes = await execToObjects('SELECT tags FROM notes WHERE tags IS NOT NULL AND tags != ""')
       for (const note of notes) {
         for (const guid of String(note.tags || '').split('*')) {
           if (guid) usedGuids.add(guid)
@@ -1895,7 +1911,7 @@ function registerDatabaseHandlers() {
       }
 
       const attachedIds = new Set(
-        execToObjects('SELECT DISTINCT tag_id FROM note_tags')
+        await execToObjects('SELECT DISTINCT tag_id FROM note_tags')
           .map(row => Number(row.tag_id))
           .filter(Number.isFinite)
       )
@@ -1905,8 +1921,8 @@ function registerDatabaseHandlers() {
         const tagId = Number(tag.id)
         if (!Number.isFinite(tagId)) continue
         if (usedGuids.has(`local_tag_${tagId}`) || attachedIds.has(tagId)) continue
-        await db.run('DELETE FROM note_tags WHERE tag_id = ?', [tagId])
-        await db.run('DELETE FROM tags WHERE id = ?', [tagId])
+        await runSql('DELETE FROM note_tags WHERE tag_id = ?', [tagId])
+        await runSql('DELETE FROM tags WHERE id = ?', [tagId])
         removed.push({ id: tagId, name: tag.name })
       }
 
@@ -1933,7 +1949,7 @@ function registerDatabaseHandlers() {
         params.push(kbGuid)
       }
       query += ' ORDER BY category ASC'
-      return execToObjects(query, params)
+      return await execToObjects(query, params)
     } catch (error) {
       log.error('[DB] getCategories error:', error)
       return []
@@ -1954,7 +1970,7 @@ function registerDatabaseHandlers() {
       const normalizedLocalOnly = localOnly ? 1 : 0
 
       // 幂等：同一路径若已存在，则按当前目标状态升级/回退，而不是重复插入
-      const existing = execOne('SELECT * FROM local_categories WHERE category = ?', [normalizedCategory])
+      const existing = await execOne('SELECT * FROM local_categories WHERE category = ?', [normalizedCategory])
       if (existing) {
         const needsUpdate =
           (existing.parent || '') !== normalizedParent ||
@@ -1962,25 +1978,25 @@ function registerDatabaseHandlers() {
           Number(existing.local_only || 0) !== normalizedLocalOnly
 
         if (needsUpdate) {
-          await db.run(
+          await runSql(
             'UPDATE local_categories SET parent = ?, kb_guid = ?, local_only = ?, updated_at = ? WHERE category = ?',
             [normalizedParent, normalizedKbGuid, normalizedLocalOnly, now, normalizedCategory]
           )
           saveDatabase()
-          return execOne('SELECT * FROM local_categories WHERE category = ?', [normalizedCategory])
+          return await execOne('SELECT * FROM local_categories WHERE category = ?', [normalizedCategory])
         }
 
         log.info(`[DB] createCategory: category "${normalizedCategory}" already exists, skipping`)
         return existing
       }
 
-      await db.run(
+      await runSql(
         `INSERT INTO local_categories (category, parent, kb_guid, local_only, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
         [normalizedCategory, normalizedParent, normalizedKbGuid, normalizedLocalOnly, now, now]
       )
       saveDatabase()
       const lastId = getLastInsertRowid()
-      return execOne('SELECT * FROM local_categories WHERE id = ?', [lastId])
+      return await execOne('SELECT * FROM local_categories WHERE id = ?', [lastId])
     } catch (error) {
       log.error('[DB] createCategory error:', error)
       return null
@@ -1990,7 +2006,7 @@ function registerDatabaseHandlers() {
   // 删除本地文件夹
   ipcMain.handle('db:deleteCategory', async (event, { category }) => {
     try {
-      await db.run('DELETE FROM local_categories WHERE category = ?', [category])
+      await runSql('DELETE FROM local_categories WHERE category = ?', [category])
       saveDatabase()
       return true
     } catch (error) {
@@ -2004,13 +2020,13 @@ function registerDatabaseHandlers() {
   ipcMain.handle('db:syncCategoryToCloud', async (event, { category, parent, kbGuid }) => {
     try {
       // 已在云端创建过了（local_only=0），跳过
-      const existing = execOne('SELECT * FROM local_categories WHERE category = ? AND local_only = 0', [category])
+      const existing = await execOne('SELECT * FROM local_categories WHERE category = ? AND local_only = 0', [category])
       if (existing) {
         return { success: true, skipped: true }
       }
 
       // 标记为已同步（local_only=0）
-      await db.run('UPDATE local_categories SET local_only = 0, updated_at = ? WHERE category = ?', [Date.now(), category])
+      await runSql('UPDATE local_categories SET local_only = 0, updated_at = ? WHERE category = ?', [Date.now(), category])
       saveDatabase()
       return { success: true }
     } catch (error) {
@@ -2026,7 +2042,7 @@ function registerDatabaseHandlers() {
         log.warn('[DB] migrateOfflineCategories: currentKbGuid is required')
         return 0
       }
-      const result = await db.run(
+      const result = await runSql(
         "UPDATE local_categories SET kb_guid = ?, updated_at = ? WHERE kb_guid IS NULL OR kb_guid = ''",
         [currentKbGuid, Date.now()]
       )
@@ -2043,15 +2059,15 @@ function registerDatabaseHandlers() {
   ipcMain.handle('db:ensureOfflineRoot', async () => {
     try {
       const rootCat = DEFAULT_ROOT_CATEGORY
-      const existing = execOne('SELECT * FROM local_categories WHERE category = ?', [rootCat])
+      const existing = await execOne('SELECT * FROM local_categories WHERE category = ?', [rootCat])
       if (existing) return existing
 
-      await db.run(
+      await runSql(
         `INSERT INTO local_categories (category, parent, kb_guid, local_only, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
         [rootCat, '/', '', 1, Date.now(), Date.now()]
       )
       saveDatabase()
-      return execOne('SELECT * FROM local_categories WHERE category = ?', [rootCat])
+      return await execOne('SELECT * FROM local_categories WHERE category = ?', [rootCat])
     } catch (error) {
       log.error('[DB] ensureOfflineRoot error:', error)
       return null
@@ -2061,7 +2077,7 @@ function registerDatabaseHandlers() {
   ipcMain.handle('db:getAppState', async (event, key) => {
     try {
       if (!key) return null
-      const row = execOne('SELECT value FROM app_state WHERE key = ?', [key])
+      const row = await execOne('SELECT value FROM app_state WHERE key = ?', [key])
       if (!row) return null
       try {
         return JSON.parse(row.value)
@@ -2076,7 +2092,7 @@ function registerDatabaseHandlers() {
 
   ipcMain.handle('db:getAiModelConfigs', async () => {
     try {
-      const rows = execToObjects('SELECT * FROM ai_model_configs ORDER BY is_default DESC, updated_at DESC, id DESC')
+      const rows = await execToObjects('SELECT * FROM ai_model_configs ORDER BY is_default DESC, updated_at DESC, id DESC')
       return await Promise.all(rows.map(row => normalizeAiModelConfigRow(row)))
     } catch (error) {
       log.error('[DB] getAiModelConfigs error:', error)
@@ -2087,7 +2103,7 @@ function registerDatabaseHandlers() {
   ipcMain.handle('db:getAiModelConfig', async (event, id) => {
     try {
       if (!id) return null
-      const row = execOne('SELECT * FROM ai_model_configs WHERE id = ?', [id])
+      const row = await execOne('SELECT * FROM ai_model_configs WHERE id = ?', [id])
       return await normalizeAiModelConfigRow(row, { includeApiKey: true })
     } catch (error) {
       log.error('[DB] getAiModelConfig error:', error)
@@ -2119,13 +2135,13 @@ function registerDatabaseHandlers() {
       // 关键修复：必须用 Number(id) 做严格比对，避免 id 类型飘移（string/number/undefined）
       // 导致 SELECT 查不到 existing，进而把已保存的 key 视为新建行覆盖丢失。
       const numericId = id !== null && id !== undefined && id !== '' ? Number(id) : null
-      const existing = Number.isFinite(numericId) ? execOne('SELECT * FROM ai_model_configs WHERE id = ?', [numericId]) : null
+      const existing = Number.isFinite(numericId) ? await execOne('SELECT * FROM ai_model_configs WHERE id = ?', [numericId]) : null
       if (numericId !== null && !existing) {
         log.warn('[DB] saveAiModelConfig: id provided but row not found, refusing implicit-create', { id: numericId })
         return { success: false, code: 'AI_MODEL_NOT_FOUND' }
       }
 
-      const duplicateNameRow = execOne(
+      const duplicateNameRow = await execOne(
         'SELECT id FROM ai_model_configs WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) AND (? IS NULL OR id != ?)',
         [name, numericId, numericId]
       )
@@ -2179,30 +2195,30 @@ function registerDatabaseHandlers() {
 
       if (isDefault) {
         if (numericId !== null) {
-          await db.run('UPDATE ai_model_configs SET is_default = 0, updated_at = ? WHERE id != ?', [now, numericId])
+          await runSql('UPDATE ai_model_configs SET is_default = 0, updated_at = ? WHERE id != ?', [now, numericId])
         } else {
-          await db.run('UPDATE ai_model_configs SET is_default = 0, updated_at = ?', [now])
+          await runSql('UPDATE ai_model_configs SET is_default = 0, updated_at = ?', [now])
         }
       }
 
       if (existing) {
-        await db.run(
+        await runSql(
           `UPDATE ai_model_configs
            SET name = ?, provider_type = ?, base_url = ?, api_key_encrypted = ?, api_key_encrypted_version = ?, virtual_key_encrypted = ?, virtual_key_encrypted_version = ?, model = ?, is_default = ?, enabled = ?, headers_json = ?, extra_config_json = ?, updated_at = ?
            WHERE id = ?`,
           [name, providerType, baseUrl, encryptedApiKey, apiKeyVersion, encryptedVirtualKey, virtualKeyVersion, model, isDefault, enabled, headersJson, extraConfigJson, now, numericId]
         )
         saveDatabase()
-        return { success: true, data: await normalizeAiModelConfigRow(execOne('SELECT * FROM ai_model_configs WHERE id = ?', [numericId]), { includeApiKey: true }) }
+        return { success: true, data: await normalizeAiModelConfigRow(await execOne('SELECT * FROM ai_model_configs WHERE id = ?', [numericId]), { includeApiKey: true }) }
       }
 
-      await db.run(
+      await runSql(
         `INSERT INTO ai_model_configs (name, provider_type, base_url, api_key_encrypted, api_key_encrypted_version, virtual_key_encrypted, virtual_key_encrypted_version, model, is_default, enabled, headers_json, extra_config_json, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [name, providerType, baseUrl, encryptedApiKey, apiKeyVersion, encryptedVirtualKey, virtualKeyVersion, model, isDefault, enabled, headersJson, extraConfigJson, now, now]
       )
       saveDatabase()
-      return { success: true, data: await normalizeAiModelConfigRow(execOne('SELECT * FROM ai_model_configs WHERE id = ?', [getLastInsertRowid()]), { includeApiKey: true }) }
+      return { success: true, data: await normalizeAiModelConfigRow(await execOne('SELECT * FROM ai_model_configs WHERE id = ?', [getLastInsertRowid()]), { includeApiKey: true }) }
     } catch (error) {
       log.error('[DB] saveAiModelConfig error:', error)
       if (/UNIQUE constraint failed:\s*ai_model_configs\.name/i.test(String(error && error.message ? error.message : error))) {
@@ -2219,8 +2235,8 @@ function registerDatabaseHandlers() {
   ipcMain.handle('db:deleteAiModelConfig', async (event, id) => {
     try {
       if (!id) return false
-      const row = execOne('SELECT api_key_encrypted, api_key_encrypted_version, virtual_key_encrypted, virtual_key_encrypted_version FROM ai_model_configs WHERE id = ?', [id])
-      await db.run('DELETE FROM ai_model_configs WHERE id = ?', [id])
+      const row = await execOne('SELECT api_key_encrypted, api_key_encrypted_version, virtual_key_encrypted, virtual_key_encrypted_version FROM ai_model_configs WHERE id = ?', [id])
+      await runSql('DELETE FROM ai_model_configs WHERE id = ?', [id])
       if (row) {
         await removeApiKey(row.api_key_encrypted, row.api_key_encrypted_version)
         await removeApiKey(row.virtual_key_encrypted, row.virtual_key_encrypted_version)
@@ -2237,8 +2253,8 @@ function registerDatabaseHandlers() {
     try {
       if (!id) return false
       const now = Date.now()
-      await db.run('UPDATE ai_model_configs SET is_default = 0, updated_at = ?', [now])
-      await db.run('UPDATE ai_model_configs SET is_default = 1, updated_at = ? WHERE id = ?', [now, id])
+      await runSql('UPDATE ai_model_configs SET is_default = 0, updated_at = ?', [now])
+      await runSql('UPDATE ai_model_configs SET is_default = 1, updated_at = ? WHERE id = ?', [now, id])
       saveDatabase()
       return true
     } catch (error) {
@@ -2251,7 +2267,7 @@ function registerDatabaseHandlers() {
   // 用户可见的列表：排除 builtin=1 的记录，内置仅供开发侧调试
   ipcMain.handle('db:getAiSkills', async () => {
     try {
-      const rows = execToObjects(
+      const rows = await execToObjects(
         'SELECT * FROM ai_skills WHERE builtin = 0 ORDER BY sort_order ASC, updated_at DESC, id DESC'
       )
       return rows.map(row => normalizeAiSkillRow(row))
@@ -2264,7 +2280,7 @@ function registerDatabaseHandlers() {
   // 开发调试：列出所有 AI 技能（含内置），与内置回响一致
   ipcMain.handle('db:getAllAiSkills', async () => {
     try {
-      const rows = execToObjects(
+      const rows = await execToObjects(
         'SELECT * FROM ai_skills ORDER BY builtin DESC, sort_order ASC, updated_at DESC, id DESC'
       )
       return rows.map(row => normalizeAiSkillRow(row))
@@ -2277,7 +2293,7 @@ function registerDatabaseHandlers() {
   ipcMain.handle('db:getAiSkill', async (event, id) => {
     try {
       if (!id) return null
-      const row = execOne('SELECT * FROM ai_skills WHERE id = ?', [id])
+      const row = await execOne('SELECT * FROM ai_skills WHERE id = ?', [id])
       return normalizeAiSkillRow(row)
     } catch (error) {
       log.error('[DB] getAiSkill error:', error)
@@ -2300,7 +2316,7 @@ function registerDatabaseHandlers() {
         return { success: false, code: 'AI_SKILL_REQUIRED_FIELDS' }
       }
 
-      const existing = id ? execOne('SELECT * FROM ai_skills WHERE id = ?', [id]) : null
+      const existing = id ? await execOne('SELECT * FROM ai_skills WHERE id = ?', [id]) : null
       if (id && !existing) {
         return { success: false, code: 'AI_SKILL_NOT_FOUND' }
       }
@@ -2309,7 +2325,7 @@ function registerDatabaseHandlers() {
         return { success: false, code: 'AI_SKILL_BUILTIN_READONLY' }
       }
 
-      const duplicateNameRow = execOne(
+      const duplicateNameRow = await execOne(
         'SELECT id FROM ai_skills WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) AND (? IS NULL OR id != ?)',
         [name, id, id]
       )
@@ -2318,22 +2334,22 @@ function registerDatabaseHandlers() {
       }
 
       if (existing) {
-        await db.run(
+        await runSql(
           `UPDATE ai_skills SET name = ?, title = ?, content = ?, enabled = ?, sort_order = ?, updated_at = ?
            WHERE id = ?`,
           [name, title, content, enabled, sortOrder, now, id]
         )
         saveDatabase()
-        return { success: true, data: normalizeAiSkillRow(execOne('SELECT * FROM ai_skills WHERE id = ?', [id])) }
+        return { success: true, data: normalizeAiSkillRow(await execOne('SELECT * FROM ai_skills WHERE id = ?', [id])) }
       }
 
-      await db.run(
+      await runSql(
         `INSERT INTO ai_skills (name, title, content, builtin, enabled, sort_order, created_at, updated_at)
          VALUES (?, ?, ?, 0, ?, ?, ?, ?)`,
         [name, title, content, enabled, sortOrder, now, now]
       )
       saveDatabase()
-      return { success: true, data: normalizeAiSkillRow(execOne('SELECT * FROM ai_skills WHERE id = ?', [getLastInsertRowid()])) }
+      return { success: true, data: normalizeAiSkillRow(await execOne('SELECT * FROM ai_skills WHERE id = ?', [getLastInsertRowid()])) }
     } catch (error) {
       log.error('[DB] saveAiSkill error:', error)
       if (/UNIQUE constraint failed:\s*ai_skills\.name/i.test(String(error && error.message ? error.message : error))) {
@@ -2350,13 +2366,13 @@ function registerDatabaseHandlers() {
   ipcMain.handle('db:deleteAiSkill', async (event, id) => {
     try {
       if (!id) return false
-      const existing = execOne('SELECT builtin FROM ai_skills WHERE id = ?', [id])
+      const existing = await execOne('SELECT builtin FROM ai_skills WHERE id = ?', [id])
       if (!existing) return false
       if (Number(existing.builtin) === 1) {
         // 内置技能不通过渲染层删除
         return false
       }
-      await db.run('DELETE FROM ai_skills WHERE id = ?', [id])
+      await runSql('DELETE FROM ai_skills WHERE id = ?', [id])
       saveDatabase()
       return true
     } catch (error) {
@@ -2371,7 +2387,7 @@ function registerDatabaseHandlers() {
         return { success: false, code: 'AI_MODEL_NOT_FOUND' }
       }
 
-      const row = execOne('SELECT * FROM ai_model_configs WHERE id = ?', [id])
+      const row = await execOne('SELECT * FROM ai_model_configs WHERE id = ?', [id])
       const modelConfig = await normalizeAiModelConfigRow(row, { includeApiKey: true })
       if (!modelConfig) {
         return { success: false, code: 'AI_MODEL_NOT_FOUND' }
@@ -2406,7 +2422,7 @@ function registerDatabaseHandlers() {
       if (!key) return false
       const now = Date.now()
       const serialized = JSON.stringify(value)
-      await db.run(
+      await runSql(
         `INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, ?)
          ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
         [key, serialized, now]
@@ -2423,7 +2439,7 @@ function registerDatabaseHandlers() {
     try {
       if (!Array.isArray(keys) || keys.length === 0) return {}
       const placeholders = keys.map(() => '?').join(', ')
-      const rows = execToObjects(`SELECT key, value FROM app_state WHERE key IN (${placeholders})`, keys)
+      const rows = await execToObjects(`SELECT key, value FROM app_state WHERE key IN (${placeholders})`, keys)
       const result = {}
       for (const row of rows) {
         try {
@@ -2442,7 +2458,7 @@ function registerDatabaseHandlers() {
   ipcMain.handle('db:removeAppState', async (event, key) => {
     try {
       if (!key) return false
-      await db.run('DELETE FROM app_state WHERE key = ?', [key])
+      await runSql('DELETE FROM app_state WHERE key = ?', [key])
       saveDatabase()
       return true
     } catch (error) {
@@ -2456,7 +2472,7 @@ function registerDatabaseHandlers() {
 
   ipcMain.handle('db:getCdnDeps', async () => {
     try {
-      const row = execOne('SELECT value FROM app_state WHERE key = ?', [CDN_DEPS_KEY])
+      const row = await execOne('SELECT value FROM app_state WHERE key = ?', [CDN_DEPS_KEY])
       if (!row) return []
       try {
         return JSON.parse(row.value)
@@ -2474,7 +2490,7 @@ function registerDatabaseHandlers() {
       if (!Array.isArray(deps)) deps = []
       const now = Date.now()
       const serialized = JSON.stringify(deps)
-      await db.run(
+      await runSql(
         `INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, ?)
          ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
         [CDN_DEPS_KEY, serialized, now]
@@ -2490,7 +2506,7 @@ function registerDatabaseHandlers() {
   // 微应用（聊天弹框内的 wujie 子应用）持久化
   ipcMain.handle('db:getMicroApps', async () => {
     try {
-      const row = execOne('SELECT value FROM app_state WHERE key = ?', [MICRO_APPS_KEY])
+      const row = await execOne('SELECT value FROM app_state WHERE key = ?', [MICRO_APPS_KEY])
       if (!row) return []
       try {
         const parsed = JSON.parse(row.value)
@@ -2509,7 +2525,7 @@ function registerDatabaseHandlers() {
       if (!Array.isArray(apps)) apps = []
       const now = Date.now()
       const serialized = JSON.stringify(apps)
-      await db.run(
+      await runSql(
         `INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, ?)
          ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
         [MICRO_APPS_KEY, serialized, now]
@@ -2525,7 +2541,7 @@ function registerDatabaseHandlers() {
   // 记录待同步的删除日志
   ipcMain.handle('db:logPendingDelete', async (event, { noteId, docGuid = null, kbGuid = null }) => {
     try {
-      await db.run(`INSERT INTO sync_log (note_id, action, direction, doc_guid, kb_guid, timestamp, synced) VALUES (?, 'delete', 'local_to_server', ?, ?, ?, 0)`,
+      await runSql(`INSERT INTO sync_log (note_id, action, direction, doc_guid, kb_guid, timestamp, synced) VALUES (?, 'delete', 'local_to_server', ?, ?, ?, 0)`,
         [noteId, docGuid, kbGuid, Date.now()])
       saveDatabase()
       return true
@@ -2561,7 +2577,7 @@ function registerDatabaseHandlers() {
 
   ipcMain.handle('db:getPendingDeleteLogs', async () => {
     try {
-      return execToObjects(`
+      return await execToObjects(`
         SELECT id, note_id, doc_guid, kb_guid, timestamp
         FROM sync_log
         WHERE action = 'delete'
@@ -2577,7 +2593,7 @@ function registerDatabaseHandlers() {
 
   ipcMain.handle('db:markSyncLogSynced', async (event, { id }) => {
     try {
-      await db.run('UPDATE sync_log SET synced = 1 WHERE id = ?', [id])
+      await runSql('UPDATE sync_log SET synced = 1 WHERE id = ?', [id])
       saveDatabase()
       return true
     } catch (error) {
@@ -2588,7 +2604,7 @@ function registerDatabaseHandlers() {
 
   ipcMain.handle('db:cleanupSyncedDeleteLogs', async () => {
     try {
-      await db.run(`
+      await runSql(`
         DELETE FROM sync_log
         WHERE action = 'delete'
           AND direction = 'local_to_server'
@@ -2605,7 +2621,7 @@ function registerDatabaseHandlers() {
   // 获取待同步的笔记（纯 dirty 架构：只查 dirty=1）
   ipcMain.handle('db:getPendingSyncNotes', async () => {
     try {
-      return execToObjects(`
+      return await execToObjects(`
         SELECT * FROM notes
         WHERE dirty = 1
         ORDER BY local_modified ASC
@@ -2619,7 +2635,7 @@ function registerDatabaseHandlers() {
   // 获取 GUID 映射
   ipcMain.handle('db:getGuidMapping', async (event, serverGuid) => {
     try {
-      return execOne('SELECT * FROM guid_mapping WHERE server_guid = ?', [serverGuid])
+      return await execOne('SELECT * FROM guid_mapping WHERE server_guid = ?', [serverGuid])
     } catch (error) {
       log.error('[DB] getGuidMapping error:', error)
       return null
@@ -2650,7 +2666,7 @@ function registerDatabaseHandlers() {
         service: safeService
       })
 
-      await db.run(`INSERT OR REPLACE INTO guid_mapping (local_id, server_guid, service, created_at) VALUES (?, ?, ?, ?)`,
+      await runSql(`INSERT OR REPLACE INTO guid_mapping (local_id, server_guid, service, created_at) VALUES (?, ?, ?, ?)`,
         [safeLocalId, safeServerGuid, safeService, Date.now()])
       saveDatabase()
       return true
@@ -2664,7 +2680,7 @@ function registerDatabaseHandlers() {
   // 根据本地 ID 查询 GUID 映射（用于幂等性检查）
   ipcMain.handle('db:getGuidMappingByLocalId', async (event, { localId }) => {
     try {
-      const result = db.exec(`SELECT * FROM guid_mapping WHERE local_id = ?`, [localId])
+      const result = await execRaw(`SELECT * FROM guid_mapping WHERE local_id = ?`, [localId])
       if (result.length > 0 && result[0].values.length > 0) {
         const columns = result[0].columns
         const values = result[0].values[0]
@@ -2689,7 +2705,7 @@ function registerDatabaseHandlers() {
                              category === '/My Notes/' ||
                              category === '/我的笔记/') ? '/' : (category || '')
 
-      const result = execToObjects(`
+      const result = await execToObjects(`
         SELECT id, doc_guid, kb_guid, title, category, dirty
         FROM notes
         WHERE title = ?
@@ -2714,7 +2730,7 @@ function registerDatabaseHandlers() {
   // ✅ 获取所有已同步的笔记（用于同步后清理重复笔记）
   ipcMain.handle('db:getAllSyncedNotesForCleanup', async () => {
     try {
-      const result = execToObjects(`
+      const result = await execToObjects(`
         SELECT id, doc_guid, kb_guid, title, category,
                local_modified, server_modified
         FROM notes
@@ -2738,7 +2754,7 @@ function registerDatabaseHandlers() {
       console.log('[DB] Starting note GUID normalization...')
 
       // 步骤 1：查找所有 doc_guid 仍为临时格式的笔记
-      const tempNotes = execToObjects(`
+      const tempNotes = await execToObjects(`
         SELECT id, doc_guid, kb_guid, title
         FROM notes
         WHERE (doc_guid LIKE 'local_%' OR doc_guid IS NULL)
@@ -2750,7 +2766,7 @@ function registerDatabaseHandlers() {
       let updatedCount = 0
       for (const note of tempNotes) {
         // 查找 guid_mapping 中是否有对应的云端 GUID
-        const mapping = db.exec(`
+        const mapping = await execRaw(`
           SELECT server_guid FROM guid_mapping WHERE local_id = ?
         `, [note.id])
 
@@ -2758,7 +2774,7 @@ function registerDatabaseHandlers() {
           const serverGuid = mapping[0].values[0][0]
           if (serverGuid && !serverGuid.startsWith('local_')) {
             // 用实际的云端 GUID 替换临时的 local_xxx
-            await db.run(`
+            await runSql(`
               UPDATE notes SET doc_guid = ?, updated_at = ? WHERE id = ?
             `, [serverGuid, Date.now(), note.id])
 
@@ -2769,7 +2785,7 @@ function registerDatabaseHandlers() {
           // 如果没有映射，尝试基于 kb_guid + title 生成一个稳定的 GUID
           // 使用 kb_guid 的前半部分 + 时间戳确保唯一性
           const normalizedGuid = `${(note.kb_guid || '').substring(0, 16)}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`
-          await db.run(`
+          await runSql(`
             UPDATE notes SET doc_guid = ?, updated_at = ? WHERE id = ?
           `, [normalizedGuid, Date.now(), note.id])
 
@@ -2779,7 +2795,7 @@ function registerDatabaseHandlers() {
       }
 
       // 步骤 2：清理无效数据（doc_guid 存在但 kb_guid 为 NULL）
-      const invalidNotes = execToObjects(`
+      const invalidNotes = await execToObjects(`
         SELECT id, doc_guid, kb_guid
         FROM notes
         WHERE doc_guid IS NOT NULL
@@ -2790,7 +2806,7 @@ function registerDatabaseHandlers() {
       if (invalidNotes.length > 0) {
         console.warn(`[DB] Found ${invalidNotes.length} notes with missing kb_guid, marking as dirty`)
         for (const note of invalidNotes) {
-          await db.run(`
+          await runSql(`
             UPDATE notes SET dirty = 1, updated_at = ? WHERE id = ?
           `, [Date.now(), note.id])
         }
@@ -2819,7 +2835,7 @@ function registerDatabaseHandlers() {
       console.log('[DB] Starting duplicate notes cleanup...')
 
       // 查找潜在的重复记录（相同 kb_guid + 相同标题，排除本地临时笔记）
-      const duplicates = execToObjects(`
+      const duplicates = await execToObjects(`
         SELECT kb_guid, title, COUNT(*) as count, GROUP_CONCAT(id) as ids, GROUP_CONCAT(doc_guid) as doc_guids
         FROM notes
         WHERE kb_guid IS NOT NULL
@@ -2845,8 +2861,8 @@ function registerDatabaseHandlers() {
         console.log(`[DB] Keeping note ${keepId}, removing duplicates: ${removeIds.join(', ')}`)
 
         for (const removeId of removeIds) {
-          await db.run('DELETE FROM notes WHERE id = ?', [removeId])
-          await db.run('DELETE FROM guid_mapping WHERE local_id = ?', [removeId])
+          await runSql('DELETE FROM notes WHERE id = ?', [removeId])
+          await runSql('DELETE FROM guid_mapping WHERE local_id = ?', [removeId])
           removedCount++
         }
       }
@@ -2870,13 +2886,13 @@ function registerDatabaseHandlers() {
   // 重置数据库（清空所有本地笔记和文件夹，重置同步状态）
   ipcMain.handle('db:resetDatabase', async () => {
     try {
-      await db.run('DELETE FROM notes')
-      await db.run('DELETE FROM guid_mapping')
-      await db.run('DELETE FROM sync_log')
-      await db.run('DELETE FROM local_categories')
-      await db.run('DELETE FROM echoes')
+      await runSql('DELETE FROM notes')
+      await runSql('DELETE FROM guid_mapping')
+      await runSql('DELETE FROM sync_log')
+      await runSql('DELETE FROM local_categories')
+      await runSql('DELETE FROM echoes')
       // 重建离线根目录
-      await db.run(
+      await runSql(
         `INSERT INTO local_categories (category, parent, kb_guid, local_only, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
         [DEFAULT_ROOT_CATEGORY, '/', '', 1, Date.now(), Date.now()]
       )
@@ -2896,8 +2912,8 @@ function registerDatabaseHandlers() {
         log.warn('[DB] deleteNotesByKbGuid: kbGuid is required')
         return 0
       }
-      const result = await db.run('DELETE FROM notes WHERE kb_guid = ?', [kbGuid])
-      await db.run('DELETE FROM guid_mapping WHERE local_id IN (SELECT id FROM notes WHERE kb_guid = ?)', [kbGuid])
+      const result = await runSql('DELETE FROM notes WHERE kb_guid = ?', [kbGuid])
+      await runSql('DELETE FROM guid_mapping WHERE local_id IN (SELECT id FROM notes WHERE kb_guid = ?)', [kbGuid])
       saveDatabase()
       log.info(`[DB] Deleted all notes for kbGuid=${kbGuid}`)
       return result?.changes || 0
@@ -2916,7 +2932,7 @@ function registerDatabaseHandlers() {
         return 0
       }
       const now = Date.now()
-      const result = await db.run(
+      const result = await runSql(
         'UPDATE notes SET kb_guid = NULL, dirty = 1, local_modified = ?, updated_at = ? WHERE kb_guid = ?',
         [now, now, kbGuid]
       )
@@ -2936,7 +2952,7 @@ function registerDatabaseHandlers() {
         log.warn('[DB] getPendingSyncNotesByKbGuid: kbGuid is required')
         return []
       }
-      return execToObjects(`
+      return await execToObjects(`
         SELECT * FROM notes
         WHERE dirty = 1 AND kb_guid = ?
         ORDER BY local_modified ASC
@@ -2955,7 +2971,7 @@ function registerDatabaseHandlers() {
         log.warn('[DB] migrateOfflineNotes: currentKbGuid is required')
         return 0
       }
-      const result = await db.run(
+      const result = await runSql(
         "UPDATE notes SET kb_guid = ?, dirty = 1 WHERE kb_guid IS NULL OR kb_guid = ''",
         [currentKbGuid]
       )
@@ -2971,7 +2987,7 @@ function registerDatabaseHandlers() {
   // 获取所有符文
   ipcMain.handle('db:getRunes', async () => {
     try {
-      return execToObjects('SELECT * FROM runes ORDER BY COALESCE(sort_order, 0) ASC, created_at ASC')
+      return await execToObjects('SELECT * FROM runes ORDER BY COALESCE(sort_order, 0) ASC, created_at ASC')
     } catch (error) {
       log.error('[DB] getRunes error:', error)
       return []
@@ -2990,7 +3006,7 @@ function registerDatabaseHandlers() {
       }
 
       // 同名校验:不区分大小写、去首尾空白,且允许 id 自身(更新时)
-      const dup = execOne(
+      const dup = await execOne(
         'SELECT id FROM runes WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) AND id != ?',
         [name, rune.id]
       )
@@ -2999,21 +3015,21 @@ function registerDatabaseHandlers() {
       }
 
       const now = Date.now()
-      const existing = execOne('SELECT id FROM runes WHERE id = ?', [rune.id])
+      const existing = await execOne('SELECT id FROM runes WHERE id = ?', [rune.id])
       const template = rune.template || (existing ? '' : createDefaultRuneTemplate())
       const category = typeof rune.category === 'string' && rune.category.trim() ? rune.category.trim() : 'general'
       const sortOrder = Number.isFinite(Number(rune.sort_order)) ? Number(rune.sort_order) : 0
       const inheritFromPrevious = rune.inherit_from_previous === true || rune.inherit_from_previous === 1 || rune.inherit_from_previous === '1' ? 1 : 0
       if (existing) {
-        await db.run(`UPDATE runes SET name = ?, "desc" = ?, color = ?, icon = ?, template = ?, category = ?, sort_order = ?, inherit_from_previous = ?, updated_at = ? WHERE id = ?`, [
+        await runSql(`UPDATE runes SET name = ?, "desc" = ?, color = ?, icon = ?, template = ?, category = ?, sort_order = ?, inherit_from_previous = ?, updated_at = ? WHERE id = ?`, [
           name, rune.desc || '', rune.color || '#7E57C2', rune.icon || 'auto_awesome', template, category, sortOrder, inheritFromPrevious, now, rune.id
         ])
       } else {
-        await db.run(`INSERT INTO runes (id, name, "desc", color, icon, template, category, sort_order, inherit_from_previous, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        await runSql(`INSERT INTO runes (id, name, "desc", color, icon, template, category, sort_order, inherit_from_previous, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [rune.id, name, rune.desc || '', rune.color || '#7E57C2', rune.icon || 'auto_awesome', template, category, sortOrder, inheritFromPrevious, now, now])
       }
       saveDatabase()
-      return { success: true, data: execOne('SELECT * FROM runes WHERE id = ?', [rune.id]) }
+      return { success: true, data: await execOne('SELECT * FROM runes WHERE id = ?', [rune.id]) }
     } catch (error) {
       log.error('[DB] saveRune error:', error)
       if (/UNIQUE constraint failed:\s*index\s*"?idx_runes_name_unique"?/i.test(String(error && error.message ? error.message : error))
@@ -3031,7 +3047,7 @@ function registerDatabaseHandlers() {
   // 删除符文
   ipcMain.handle('db:deleteRune', async (event, id) => {
     try {
-      await db.run('DELETE FROM runes WHERE id = ?', [id])
+      await runSql('DELETE FROM runes WHERE id = ?', [id])
       saveDatabase()
       return true
     } catch (error) {
@@ -3060,7 +3076,7 @@ function registerDatabaseHandlers() {
         const category = typeof rune.category === 'string' && rune.category.trim() ? rune.category.trim() : 'general'
         const sortOrder = Number.isFinite(Number(rune.sort_order)) ? Number(rune.sort_order) : 0
         const inheritFromPrevious = rune.inherit_from_previous === true || rune.inherit_from_previous === 1 || rune.inherit_from_previous === '1' ? 1 : 0
-        await db.run(`INSERT OR REPLACE INTO runes (id, name, "desc", color, icon, template, category, sort_order, inherit_from_previous, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        await runSql(`INSERT OR REPLACE INTO runes (id, name, "desc", color, icon, template, category, sort_order, inherit_from_previous, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [rune.id, rune.name, rune.desc || '', rune.color || '#7E57C2', rune.icon || 'auto_awesome', rune.template || '', category, sortOrder, inheritFromPrevious, rune.created_at || now, now])
       }
       saveDatabase()
@@ -3084,12 +3100,11 @@ function registerDatabaseHandlers() {
   // 复用 initSchema 阶段创建的 runeTemplateService，避免重复闭包。
   if (!runeTemplateService) {
     runeTemplateService = createRuneTemplateService({ db, execToObjects, execOne, saveDatabase, log })
-    runeTemplateService.ensureSchema()
   }
 
   ipcMain.handle('db:getRuneTemplates', async () => {
     try {
-      const rows = runeTemplateService.listAll()
+      const rows = await runeTemplateService.listAll()
       console.log(`[RUNE-TPL] IPC db:getRuneTemplates -> ${rows.length} rows`)
       return rows
     } catch (error) {
@@ -3099,15 +3114,15 @@ function registerDatabaseHandlers() {
   })
 
   ipcMain.handle('db:saveRuneTemplate', async (event, row) => {
-    return runeTemplateService.saveOne(row || {})
+    return await runeTemplateService.saveOne(row || {})
   })
 
   ipcMain.handle('db:saveRuneTemplates', async (event, rows) => {
-    return runeTemplateService.saveMany(rows || [])
+    return await runeTemplateService.saveMany(rows || [])
   })
 
   ipcMain.handle('db:deleteRuneTemplate', async (event, id) => {
-    return runeTemplateService.remove(id)
+    return await runeTemplateService.remove(id)
   })
 
   ipcMain.handle('rune-template:fetchRemote', async (event, payload) => {
@@ -3137,12 +3152,11 @@ function registerDatabaseHandlers() {
   // 复用 initSchema 阶段创建的 noteTemplateService，避免重复闭包。
   if (!noteTemplateService) {
     noteTemplateService = createNoteTemplateService({ db, execToObjects, execOne, saveDatabase, log })
-    noteTemplateService.ensureSchema()
   }
 
   ipcMain.handle('db:getNoteTemplates', async () => {
     try {
-      const rows = noteTemplateService.listAll()
+      const rows = await noteTemplateService.listAll()
       console.log(`[NOTE-TPL] IPC db:getNoteTemplates -> ${rows.length} rows`)
       return rows
     } catch (error) {
@@ -3152,21 +3166,21 @@ function registerDatabaseHandlers() {
   })
 
   ipcMain.handle('db:saveNoteTemplate', async (event, row) => {
-    return noteTemplateService.saveOne(row || {})
+    return await noteTemplateService.saveOne(row || {})
   })
 
   ipcMain.handle('db:saveNoteTemplates', async (event, rows) => {
-    return noteTemplateService.saveMany(rows || [])
+    return await noteTemplateService.saveMany(rows || [])
   })
 
   ipcMain.handle('db:deleteNoteTemplate', async (event, id) => {
-    return noteTemplateService.remove(id)
+    return await noteTemplateService.remove(id)
   })
 
   // 获取所有回响
   ipcMain.handle('db:getEchoes', async () => {
     try {
-      return execToObjects('SELECT * FROM echoes ORDER BY COALESCE(sort_order, 0) ASC, created_at ASC')
+      return await execToObjects('SELECT * FROM echoes ORDER BY COALESCE(sort_order, 0) ASC, created_at ASC')
     } catch (error) {
       log.error('[DB] getEchoes error:', error)
       return []
@@ -3190,7 +3204,7 @@ function registerDatabaseHandlers() {
       // 生产模式 saveEcho 在 renderer 端已过滤掉 builtin 写入，无需 main 再做保护。
 
       // 同名校验：不区分大小写、去首尾空白，且允许 id 自身（更新时）
-      const dup = execOne(
+      const dup = await execOne(
         'SELECT id FROM echoes WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) AND id != ?',
         [name, echo.id]
       )
@@ -3199,7 +3213,7 @@ function registerDatabaseHandlers() {
       }
 
       const now = Date.now()
-      const existing = execOne('SELECT id, created_at FROM echoes WHERE id = ?', [echo.id])
+      const existing = await execOne('SELECT id, created_at FROM echoes WHERE id = ?', [echo.id])
       const annoSource = echo.anno_source || echo.template || createDefaultEchoAnnoSource(name)
       const renderType = echo.render_type || 'anno'
       const category = (typeof echo.category === 'string' && echo.category.trim())
@@ -3207,15 +3221,15 @@ function registerDatabaseHandlers() {
         : (isBuiltin ? 'builtin' : 'marker')
       const sortOrder = Number.isFinite(Number(echo.sort_order)) ? Number(echo.sort_order) : 0
       if (existing) {
-        await db.run(`UPDATE echoes SET name = ?, "desc" = ?, color = ?, icon = ?, anno_source = ?, render_type = ?, category = ?, sort_order = ?, updated_at = ? WHERE id = ?`, [
+        await runSql(`UPDATE echoes SET name = ?, "desc" = ?, color = ?, icon = ?, anno_source = ?, render_type = ?, category = ?, sort_order = ?, updated_at = ? WHERE id = ?`, [
           name, echo.desc || '', echo.color || '#26A69A', echo.icon || 'graphic_eq', annoSource, renderType, category, sortOrder, now, echo.id
         ])
       } else {
-        await db.run(`INSERT INTO echoes (id, name, "desc", color, icon, anno_source, render_type, category, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        await runSql(`INSERT INTO echoes (id, name, "desc", color, icon, anno_source, render_type, category, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [echo.id, name, echo.desc || '', echo.color || '#26A69A', echo.icon || 'graphic_eq', annoSource, renderType, category, sortOrder, existing?.created_at || now, now])
       }
       saveDatabase()
-      return { success: true, data: execOne('SELECT * FROM echoes WHERE id = ?', [echo.id]) }
+      return { success: true, data: await execOne('SELECT * FROM echoes WHERE id = ?', [echo.id]) }
     } catch (error) {
       log.error('[DB] saveEcho error:', error)
       if (/UNIQUE constraint failed:\s*index\s*"?idx_echoes_name_unique"?/i.test(String(error && error.message ? error.message : error))
@@ -3239,7 +3253,7 @@ function registerDatabaseHandlers() {
         log.warn(`[DB] deleteEcho blocked: builtin echo ${id} cannot be removed`)
         return { success: false, code: 'ECHO_BUILTIN_DELETE_FORBIDDEN', message: '内置回响不可删除' }
       }
-      await db.run('DELETE FROM echoes WHERE id = ?', [id])
+      await runSql('DELETE FROM echoes WHERE id = ?', [id])
       saveDatabase()
       return { success: true }
     } catch (error) {
@@ -3274,7 +3288,7 @@ function registerDatabaseHandlers() {
           ? echo.category.trim()
           : (isBuiltin ? 'builtin' : 'marker')
         const sortOrder = Number.isFinite(Number(echo.sort_order)) ? Number(echo.sort_order) : 0
-        await db.run(`INSERT OR REPLACE INTO echoes (id, name, "desc", color, icon, anno_source, render_type, category, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        await runSql(`INSERT OR REPLACE INTO echoes (id, name, "desc", color, icon, anno_source, render_type, category, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [echo.id, echo.name, echo.desc || '', echo.color || '#26A69A', echo.icon || 'graphic_eq', annoSource, echo.render_type || 'anno', category, sortOrder, echo.created_at || now, now])
       }
       saveDatabase()
@@ -3328,14 +3342,14 @@ function registerDatabaseHandlers() {
         return { success: false, code: 'NO_BUILTIN_RUNE_TEMPLATES' }
       }
       // 先查出所有非内置的符文模板，保留下来
-      const customRunes = execToObjects('SELECT id FROM rune_templates WHERE is_builtin = 0')
+      const customRunes = await execToObjects('SELECT id FROM rune_templates WHERE is_builtin = 0')
       const customIds = (customRunes || []).map(r => r.id)
       // 删掉所有内置符文模板
-      await db.run('DELETE FROM rune_templates WHERE is_builtin = 1')
+      await runSql('DELETE FROM rune_templates WHERE is_builtin = 1')
       // 重新插入 renderer 端推送的内置符文模板
       let count = 0
       for (const row of normalized) {
-        await db.run(
+        await runSql(
           `INSERT INTO rune_templates (id, category_key, name, "desc", color, icon, template, source_url, is_builtin, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             row.id,
@@ -3379,14 +3393,14 @@ function registerDatabaseHandlers() {
       // 取 renderer 推过来的内置 id 集合（与 main 镜像 id 完全等价，因为内置 echo id 是稳定的）
       const builtinIds = new Set(sourceList.map(e => e && e.id).filter(Boolean))
       // 先查出所有非内置的回响，保留下来
-      const customEchoes = execToObjects('SELECT id FROM echoes')
+      const customEchoes = await execToObjects('SELECT id FROM echoes')
       const customIds = (customEchoes || [])
         .filter(e => !builtinIds.has(e.id))
         .map(e => e.id)
       // 删掉所有内置回响
       const builtinIdList = Array.from(builtinIds)
       if (builtinIdList.length > 0) {
-        await db.run(
+        await runSql(
           `DELETE FROM echoes WHERE ${builtinIdList.map(() => 'id = ?').join(' OR ')}`,
           builtinIdList
         )
@@ -3394,7 +3408,7 @@ function registerDatabaseHandlers() {
       // 按 renderer / main 镜像列表重新插入
       for (const builtinEcho of sourceList) {
         if (!builtinEcho || !builtinEcho.id) continue
-        await db.run(
+        await runSql(
           `INSERT INTO echoes (id, name, "desc", color, icon, anno_source, render_type, category, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             builtinEcho.id,
@@ -3446,7 +3460,7 @@ function registerDatabaseHandlers() {
       if (!Array.isArray(echoes)) {
         return { success: false, code: 'ECHO_PACK_INVALID', message: 'payload.echoes must be an array' }
       }
-      const liveRows = execToObjects('SELECT id, name, category, created_at FROM echoes')
+      const liveRows = await execToObjects('SELECT id, name, category, created_at FROM echoes')
       const liveByKey = new Map()
       for (const row of (liveRows || [])) {
         const key = computeEchoNameKey(row && row.name)
@@ -3560,7 +3574,7 @@ function registerDatabaseHandlers() {
       const targetCategory = targetCategoryRaw || 'marker'
 
       // 1. 重新读取 DB，按 previewAt 之前的 committed_at 拒绝（这里用 previewAt 距今 30 分钟内的最新 DB）。
-      const liveRows = execToObjects('SELECT id, name, category, created_at, updated_at FROM echoes')
+      const liveRows = await execToObjects('SELECT id, name, category, created_at, updated_at FROM echoes')
       const liveByKey = new Map()
       for (const row of (liveRows || [])) {
         const key = computeEchoNameKey(row && row.name)
@@ -3673,23 +3687,23 @@ function registerDatabaseHandlers() {
 
       // 4. 单事务执行：先写新行，再写覆盖行；任何错误回滚。
       try {
-        await db.run('BEGIN IMMEDIATE')
+        await runSql('BEGIN IMMEDIATE')
         for (const r of rows) {
           if (r.op === 'insert') {
-            await db.run(
+            await runSql(
               `INSERT INTO echoes (id, name, "desc", color, icon, anno_source, render_type, category, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               [r.id, r.name, r.desc, r.color, r.icon, r.anno_source, r.render_type, r.category, r.sort_order, r.created_at, r.updated_at]
             )
           } else {
-            await db.run(
+            await runSql(
               `UPDATE echoes SET name = ?, "desc" = ?, color = ?, icon = ?, anno_source = ?, render_type = ?, category = ?, sort_order = ?, updated_at = ? WHERE id = ?`,
               [r.name, r.desc, r.color, r.icon, r.anno_source, r.render_type, r.category, r.sort_order, r.updated_at, r.id]
             )
           }
         }
-        await db.run('COMMIT')
+        await runSql('COMMIT')
       } catch (txErr) {
-        try { await db.run('ROLLBACK') } catch (_) { /* noop */ }
+        try { await runSql('ROLLBACK') } catch (_) { /* noop */ }
         throw txErr
       }
       saveDatabase()

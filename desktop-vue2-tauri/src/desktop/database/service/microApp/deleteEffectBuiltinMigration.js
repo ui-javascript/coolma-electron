@@ -36,7 +36,7 @@ const DELETE_EFFECT_APP_ID = 'echo-monster-deleter'
  */
 async function runDeleteEffectMigration (ctx) {
   const { db, execOne, saveDatabase, log, MICRO_APPS_KEY } = ctx
-  const legacyRow = execOne('SELECT value FROM app_state WHERE key = ?', [LEGACY_DELETE_EFFECT_KEY])
+  const legacyRow = await execOne('SELECT value FROM app_state WHERE key = ?', [LEGACY_DELETE_EFFECT_KEY])
   if (!legacyRow) return { migrated: false, reason: 'no-legacy-key' }
   let legacy = null
   try { legacy = JSON.parse(legacyRow.value) } catch (_) { legacy = null }
@@ -46,7 +46,7 @@ async function runDeleteEffectMigration (ctx) {
     return { migrated: false, reason: 'legacy-corrupted' }
   }
 
-  const microAppsRow = execOne('SELECT value FROM app_state WHERE key = ?', [MICRO_APPS_KEY])
+  const microAppsRow = await execOne('SELECT value FROM app_state WHERE key = ?', [MICRO_APPS_KEY])
   let list = []
   try { list = JSON.parse(microAppsRow.value) } catch (_) { list = [] }
   if (!Array.isArray(list)) list = []

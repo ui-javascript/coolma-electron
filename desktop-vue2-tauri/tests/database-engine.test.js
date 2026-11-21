@@ -67,7 +67,21 @@ describe('数据库引擎适配层', () => {
       lastInsertRowid: 9
     })
     expect(database.run).toHaveBeenCalledWith('INSERT INTO t VALUES (?)', ['y'])
+    // 落盘改由 flush() 触发（命令边界统一 flush，避免 initSchema 期间反复整库导出）
+    expect(persist).not.toHaveBeenCalled()
+    await engine.flush()
     expect(persist).toHaveBeenCalledTimes(1)
+  })
+
+  it('flush 失败时给错误打上 persistFailure 标记', async () => {
+    const engine = createSqlJsEngine({
+      exec: () => [],
+      prepare: () => { throw new Error('unused') },
+      run: jest.fn(),
+      getRowsModified: () => 0
+    }, () => Promise.reject(new Error('disk offline')))
+
+    await expect(engine.flush()).rejects.toMatchObject({ message: 'disk offline', persistFailure: true })
   })
 
   it('sql.js 缺少实例时直接报错', () => {

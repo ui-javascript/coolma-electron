@@ -33,10 +33,15 @@ test('offline note and settings survive reloading the database', async () => {
   await expect(reopened('db:getAppState', 'setting/editor/fontSize')).resolves.toBe('15')
 })
 
-test('a failed snapshot write rejects the command and is retried before the next result', async () => {
+test('a failed snapshot write rejects the command, and the next write persists it', async () => {
   await invoke('db:getNotes')
   snapshot.writeSnapshot.mockRejectedValueOnce(new Error('disk offline'))
   await expect(invoke('db:setAppState', { key: 'setting/bridge/test', value: '1' })).rejects.toThrow('disk offline')
+  // 内存里的值还在，下一次写入会把整库快照重新落盘（sql.js 引擎每次 run 后导出）
   await expect(invoke('db:getAppState', 'setting/bridge/test')).resolves.toBe('1')
-  expect(snapshot.writeSnapshot).toHaveBeenCalledTimes(3)
+  await expect(invoke('db:setAppState', { key: 'setting/bridge/test2', value: '2' })).resolves.toBeTruthy()
+  // getNotes（initSchema 之后首次 flush）、失败的 setAppState、getAppState 的补写、最后一次 setAppState
+  expect(snapshot.writeSnapshot).toHaveBeenCalledTimes(4)
+  expect(await snapshot.writeSnapshot.mock.lastCall[0]).toBeDefined()
+  expect(Buffer.from(snapshot.writeSnapshot.mock.lastCall[0]).subarray(0, 16).toString()).toBe('SQLite format 3\0')
 })

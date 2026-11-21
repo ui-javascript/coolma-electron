@@ -12,8 +12,8 @@
  *
  * 工厂模式：createRuneTemplateService({ db, execToObjects, execOne, execRun, saveDatabase })
  *   - db           sql.js Database 实例
- *   - execToObjects(sql, params?)   返回对象数组
- *   - execOne(sql, params?)         返回单个对象或 null
+ *   - await execToObjects(sql, params?)   返回对象数组
+ *   - await execOne(sql, params?)         返回单个对象或 null
  *   - execRun(sql, params?)         返回 { changes, lastInsertRowid } 或 null
  *   - saveDatabase()                落盘函数
  *   - log           可选 logger，console 兜底
@@ -117,9 +117,9 @@ function createRuneTemplateService ({ db, execToObjects, execOne, saveDatabase, 
   if (typeof execOne !== 'function') throw new Error('[rune-template-service] execOne is required')
   const logger = log || console
 
-  function ensureSchema () {
+  async function ensureSchema () {
     try {
-      db.run(`
+      await db.run(`
         CREATE TABLE IF NOT EXISTS rune_templates (
           id           TEXT PRIMARY KEY,
           category_key TEXT NOT NULL,
@@ -135,17 +135,17 @@ function createRuneTemplateService ({ db, execToObjects, execOne, saveDatabase, 
           updated_at   INTEGER NOT NULL
         )
       `)
-      db.run(`CREATE INDEX IF NOT EXISTS idx_rune_tpl_cat  ON rune_templates(category_key)`)
-      db.run(`CREATE INDEX IF NOT EXISTS idx_rune_tpl_name ON rune_templates(name)`)
+      await db.run(`CREATE INDEX IF NOT EXISTS idx_rune_tpl_cat  ON rune_templates(category_key)`)
+      await db.run(`CREATE INDEX IF NOT EXISTS idx_rune_tpl_name ON rune_templates(name)`)
       logger.info && logger.info('[DB] rune_templates table ready')
     } catch (error) {
       logger.error && logger.error('[DB] ensureSchema(rune_templates) error:', error)
     }
   }
 
-  function listAll () {
+  async function listAll () {
     try {
-      const rows = execToObjects(
+      const rows = await execToObjects(
         'SELECT * FROM rune_templates ORDER BY is_builtin DESC, sort_order ASC, created_at ASC'
       ) || []
       try {
@@ -158,7 +158,7 @@ function createRuneTemplateService ({ db, execToObjects, execOne, saveDatabase, 
     }
   }
 
-  function saveOne (row) {
+  async function saveOne (row) {
     if (!row || !row.id) return { success: false, code: 'INVALID', message: 'id required' }
     try {
       const now = Date.now()
@@ -169,7 +169,7 @@ function createRuneTemplateService ({ db, execToObjects, execOne, saveDatabase, 
       // 这里改用 INSERT OR REPLACE，由主键幂等保证不会插出"两条同名 id"的多余行。
       // 注意：replace 的真相源是 renderer 端 service.batchImport 已经查过 DB 拿到的真实 id，
       // 主进程这里只负责原子落地，不再二次"猜测"该 UPDATE 还是 INSERT。
-      db.run(`INSERT OR REPLACE INTO rune_templates (id, category_key, name, desc, color, icon, template, source_url, is_builtin, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
+      await db.run(`INSERT OR REPLACE INTO rune_templates (id, category_key, name, desc, color, icon, template, source_url, is_builtin, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
         row.id,
         row.category_key || 'general',
         row.name || '',
@@ -184,7 +184,7 @@ function createRuneTemplateService ({ db, execToObjects, execOne, saveDatabase, 
         now
       ])
       if (typeof saveDatabase === 'function') saveDatabase()
-      return { success: true, data: execOne('SELECT * FROM rune_templates WHERE id = ?', [row.id]) }
+      return { success: true, data: await execOne('SELECT * FROM rune_templates WHERE id = ?', [row.id]) }
     } catch (error) {
       logger.error && logger.error('[rune-template-service] saveOne error:', error)
       return { success: false, code: 'SAVE_FAILED', message: error && error.message ? error.message : String(error) }
@@ -197,19 +197,19 @@ function createRuneTemplateService ({ db, execToObjects, execOne, saveDatabase, 
    * 现在：内联同一条 INSERT OR REPLACE，事务里跑整批，最后才落盘一次；失败整体 ROLLBACK。
    * 不复用 saveOne 是因为 saveOne 内部 try/catch 会吞掉异常、破坏事务的失败传播。
    */
-  function saveMany (rows) {
+  async function saveMany (rows) {
     const list = Array.isArray(rows) ? rows : []
     if (list.length === 0) return { success: true, count: 0 }
     const now = Date.now()
     let count = 0
     try {
-      db.run('BEGIN')
+      await db.run('BEGIN')
       for (const row of list) {
         if (!row || !row.id) {
           // 跳过无效行，不计入 count；事务继续
           continue
         }
-        db.run(
+        await db.run(
           `INSERT OR REPLACE INTO rune_templates (id, category_key, name, desc, color, icon, template, source_url, is_builtin, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             row.id,
@@ -228,20 +228,20 @@ function createRuneTemplateService ({ db, execToObjects, execOne, saveDatabase, 
         )
         count++
       }
-      db.run('COMMIT')
+      await db.run('COMMIT')
       if (typeof saveDatabase === 'function') saveDatabase()
       return { success: true, count }
     } catch (error) {
-      try { db.run('ROLLBACK') } catch (_) { /* noop */ }
+      try { await db.run('ROLLBACK') } catch (_) { /* noop */ }
       logger.error && logger.error('[rune-template-service] saveMany rolled back:', error)
       return { success: false, code: 'SAVE_FAILED', message: error && error.message ? error.message : String(error) }
     }
   }
 
-  function remove (id) {
+  async function remove (id) {
     if (!id) return false
     try {
-      db.run('DELETE FROM rune_templates WHERE id = ?', [id])
+      await db.run('DELETE FROM rune_templates WHERE id = ?', [id])
       if (typeof saveDatabase === 'function') saveDatabase()
       return true
     } catch (error) {
