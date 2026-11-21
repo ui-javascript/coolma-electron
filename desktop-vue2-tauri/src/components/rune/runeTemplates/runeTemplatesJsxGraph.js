@@ -8,7 +8,7 @@ export const runeTemplatesJsxGraph = () => {
 
 <script>
 // JsxGraph 符文：通过 this.$jxg 调用 JSXGraph 初始化坐标系，鼠标点击上报坐标
-// this.$jxg 在 src/boot/jxgraph.js 中挂载。
+// JSXGraph 改为按需加载，boot 只挂 this.$jxgReady()，首次使用前 await 一次。
 export default {
   props: {
     value: { type: [String, Number], default: null }
@@ -30,13 +30,15 @@ export default {
     }
   },
   methods: {
-    initBoard() {
+    async initBoard() {
       const container = this.$refs.jxgBox
-      if (!container || !this.$jxg) return
+      if (!container) return
+      const JXG = this.$jxg || await this.$jxgReady()
+      if (!JXG) return
       if (this.board) {
         this.board.destroy && this.board.destroy()
       }
-      this.board = this.$jxg.JSXGraph.initBoard(container, {
+      this.board = JXG.JSXGraph.initBoard(container, {
         boundingbox: [-6, 6, 6, -6],
         axis: true,
         grid: true,
