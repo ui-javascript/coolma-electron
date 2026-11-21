@@ -64,12 +64,16 @@ import {
 } from '../frontend/src/utils/syncAuto';
 import { buildEchoCodeGenPrompt, buildRuneCodeGenPrompt, extractGeneratedCode } from '../frontend/src/utils/aiCodegen';
 import {
+  applyBaseToConfig,
   buildBlogPackageJson,
   buildManagerCommand,
   buildVuepressConfig,
   detectConfigTheme,
   NAV_BUILDER_SOURCE,
+  normalizeBase,
   normalizeBlogTheme,
+  quoteBase,
+  readBaseFromConfig,
   SIDEBAR_BUILDER_SOURCE,
   shouldRebuildPackage,
 } from '../electron/service/blog/blogEnv';
@@ -882,6 +886,55 @@ async function main(): Promise<void> {
       blogBuildSchema.safeParse({ blogDir: 'x', script: 'docs:build' }).success &&
         !blogBuildSchema.safeParse({ blogDir: 'x', script: 'build && rm -rf /' }).success,
       'schema',
+    );
+    assert(
+      '博客 base：规范化与 vue2 一致',
+      normalizeBase('/foo') === '/foo/' &&
+        normalizeBase('/foo///') === '/foo/' &&
+        normalizeBase('./foo') === './foo/' &&
+        normalizeBase('./') === './' &&
+        normalizeBase('/') === '/' &&
+        normalizeBase('') === '' &&
+        quoteBase('/foo') === "'/foo/'",
+      JSON.stringify([normalizeBase('/foo'), normalizeBase('/foo///'), quoteBase('/foo')]),
+    );
+    const baseReplaced = applyBaseToConfig("module.exports = { title: 'X', base: './' }", '/foo///');
+    assert(
+      '博客 base：已有 base 整段覆盖且保留其它字段',
+      baseReplaced.mode === 'replaced' &&
+        readBaseFromConfig(baseReplaced.content) === '/foo/' &&
+        baseReplaced.content.includes("title: 'X'") &&
+        baseReplaced.content.includes('// memocast: base=/foo/'),
+      baseReplaced.content,
+    );
+    const replacedFile = nodePath.join(tmp, 'config-base-replaced.js');
+    await fs.writeFile(replacedFile, baseReplaced.content, 'utf-8');
+    execFileSync('node', ['--check', replacedFile], { stdio: 'pipe' });
+    const baseInserted = applyBaseToConfig("module.exports = {\n  title: 'X'\n}", '/blog');
+    assert(
+      '博客 base：缺 base 时插入导出对象且不破坏字段',
+      baseInserted.mode === 'inserted' &&
+        readBaseFromConfig(baseInserted.content) === '/blog/' &&
+        baseInserted.content.includes("title: 'X'"),
+      baseInserted.content,
+    );
+    const insertedFile = nodePath.join(tmp, 'config-base-inserted.js');
+    await fs.writeFile(insertedFile, baseInserted.content, 'utf-8');
+    execFileSync('node', ['--check', insertedFile], { stdio: 'pipe' });
+    const hopeBase = applyBaseToConfig(buildVuepressConfig('hope'), '/docs');
+    const hopeBaseFile = nodePath.join(tmp, 'config-base-hope.js');
+    await fs.writeFile(hopeBaseFile, hopeBase.content, 'utf-8');
+    execFileSync('node', ['--check', hopeBaseFile], { stdio: 'pipe' });
+    assert(
+      '博客 base：hope 的 config({...}) 也能注入',
+      hopeBase.mode === 'replaced' && readBaseFromConfig(hopeBase.content) === '/docs/',
+      hopeBase.content.slice(0, 160),
+    );
+    const themed = buildVuepressConfig('vdoing', '/blog///');
+    assert(
+      '博客 base：新生成主题 config 直接写入规范化 base',
+      themed.includes("theme: 'vdoing'") && readBaseFromConfig(themed) === '/blog/',
+      themed.slice(0, 200),
     );
 
     const configDir = nodePath.join(tmp, '.vuepress');

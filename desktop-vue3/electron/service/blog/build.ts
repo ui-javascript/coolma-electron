@@ -4,11 +4,13 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { BrowserWindow } from 'electron';
 import {
+  applyBaseToConfig,
   buildBlogPackageJson,
   buildManagerCommand,
   buildVuepressConfig,
   detectBuildScript,
   detectConfigTheme,
+  normalizeBase,
   normalizeBlogTheme,
   normalizePackageManager,
   NAV_BUILDER_SOURCE,
@@ -36,7 +38,7 @@ export type BlogBuildEnv = {
   theme: BlogTheme;
   nodeVersion: string;
   packageStatus: 'created' | 'updated' | 'kept';
-  configStatus: 'created' | 'updated' | 'kept';
+  configStatus: 'created' | 'updated' | 'base-updated' | 'kept';
   installed: boolean;
 };
 
@@ -129,23 +131,32 @@ async function ensurePackage(
 async function ensureConfig(
   blogDir: string,
   theme: BlogTheme,
+  baseInput?: string,
 ): Promise<BlogBuildEnv['configStatus']> {
   const vuepressDir = path.join(blogDir, '.vuepress');
   const configPath = path.join(vuepressDir, 'config.js');
   const configTsPath = path.join(vuepressDir, 'config.ts');
+  const base = normalizeBase(baseInput);
   await fs.mkdir(vuepressDir, { recursive: true });
   if (await pathExists(configTsPath) && !(await pathExists(configPath))) {
     return 'kept';
   }
   if (!(await pathExists(configPath))) {
-    await fs.writeFile(configPath, buildVuepressConfig(theme), 'utf-8');
+    await fs.writeFile(configPath, buildVuepressConfig(theme, base), 'utf-8');
     return 'created';
   }
   const source = await fs.readFile(configPath, 'utf-8');
   const currentTheme = detectConfigTheme(source);
   if (currentTheme && currentTheme !== theme) {
-    await fs.writeFile(configPath, buildVuepressConfig(theme), 'utf-8');
+    await fs.writeFile(configPath, buildVuepressConfig(theme, base), 'utf-8');
     return 'updated';
+  }
+  if (base) {
+    const result = applyBaseToConfig(source, base);
+    if (result.mode !== 'unchanged') {
+      await fs.writeFile(configPath, result.content, 'utf-8');
+      return 'base-updated';
+    }
   }
   return 'kept';
 }
@@ -273,6 +284,7 @@ export async function runBlogBuild(input: {
   packageManager?: BlogPackageManager | string;
   script?: string;
   theme?: BlogTheme | string;
+  base?: string;
 }): Promise<{
   ok: boolean;
   distDir?: string;
@@ -315,7 +327,7 @@ export async function runBlogBuild(input: {
     message: `package.json ${packageSetup.status}`,
     percent: 4,
   });
-  const configStatus = await ensureConfig(blogDir, theme);
+  const configStatus = await ensureConfig(blogDir, theme, input.base);
   sendBlogProgress({
     stage: 'config',
     message: `config.js ${configStatus}`,

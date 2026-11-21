@@ -33,7 +33,7 @@ export interface BlogBuildEnv {
   theme: BlogTheme;
   nodeVersion: string;
   packageStatus: 'created' | 'updated' | 'kept';
-  configStatus: 'created' | 'updated' | 'kept';
+  configStatus: 'created' | 'updated' | 'base-updated' | 'kept';
   installed: boolean;
 }
 
@@ -44,6 +44,7 @@ export const buildBlog = (input: {
   packageManager?: 'npm' | 'pnpm' | 'yarn';
   script?: string;
   theme?: BlogTheme;
+  base?: string;
 }): Promise<IpcResult<{ distDir: string; script: string; env: BlogBuildEnv }>> =>
   invoke<{ distDir: string; script: string; env: BlogBuildEnv }>(IPC_CHANNELS.blog.build, input);
 

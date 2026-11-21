@@ -31,6 +31,95 @@ export function normalizeBlogTheme(value: unknown): BlogTheme {
   return BLOG_THEMES.includes(value as BlogTheme) ? (value as BlogTheme) : 'default';
 }
 
+/**
+ * VuePress 1.x base 规范化（对齐 vue2 normalizeBase）：
+ * '' → ''；'./' → './'；'/foo' → '/foo/'；'/foo///' → '/foo/'；'/' → '/'。
+ * 既不是 / 也不是 ./ ../ 开头的值原样返回，不猜测。
+ */
+export function normalizeBase(value: unknown): string {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+  if (trimmed === './') {
+    return './';
+  }
+  const quoted = trimmed.match(/^(['"`])([\s\S]*)\1$/);
+  const raw = quoted ? quoted[2] : trimmed;
+  if (raw.startsWith('/')) {
+    const collapsed = `/${raw.replace(/^\/+/, '').replace(/\/+$/, '')}`;
+    return collapsed === '/' ? '/' : `${collapsed}/`;
+  }
+  if (raw.startsWith('./') || raw.startsWith('../')) {
+    return raw.endsWith('/') ? raw : `${raw}/`;
+  }
+  return raw;
+}
+
+/** 把 base 包成可写入 JS 的字面量；空值返回 ''。 */
+export function quoteBase(value: unknown): string {
+  const normalized = normalizeBase(value);
+  if (!normalized) {
+    return '';
+  }
+  if (/^['"`][\s\S]*['"`]$/.test(normalized)) {
+    return normalized;
+  }
+  return `'${normalized.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+}
+
+/** 静态读取 config.js 里的 base 值（不含引号）；没写返回 ''。 */
+export function readBaseFromConfig(source: string): string {
+  const matched = String(source || '').match(/base\s*:\s*(['"`])([^'"`]*)\1/);
+  return matched ? matched[2] : '';
+}
+
+export type BaseWriteMode = 'replaced' | 'inserted' | 'appended' | 'unchanged';
+
+/**
+ * 把用户填的 base 覆盖进已有 config.js，保留其它字段（对齐 vue2 replaceBaseInConfig）。
+ * 已有 base 整段替换；缺失时插到导出对象开头；都找不到才在文件末尾赋值。
+ */
+export function applyBaseToConfig(source: string, value: unknown): { content: string; mode: BaseWriteMode } {
+  const normalized = normalizeBase(value);
+  const quoted = quoteBase(normalized);
+  if (!quoted) {
+    return { content: source, mode: 'unchanged' };
+  }
+  const inner = quoted.slice(1, -1).replace(/\\'/g, "'");
+  let didReplace = false;
+  const replaced = source.replace(
+    /(\bbase\s*:\s*)(['"`])([^'"`]*)\2(\s*,)?/,
+    (_match, head: string, quote: string, _old: string, trailingComma?: string) => {
+      didReplace = true;
+      const tail = trailingComma || ',';
+      return `${head}${quote}${inner}${quote}${tail} // memocast: base=${normalized}\n`;
+    },
+  );
+  if (didReplace) {
+    return { content: replaced, mode: 'replaced' };
+  }
+
+  const marker = source.match(/module\.exports\s*=\s*config\(\s*\{|module\.exports\s*=\s*\{|export\s+default\s*\{/);
+  if (marker?.index !== undefined) {
+    const braceAt = source.indexOf('{', marker.index);
+    if (braceAt >= 0) {
+      const insertAt = braceAt + 1;
+      return {
+        content: `${source.slice(0, insertAt)}\n  base: ${quoted}, // memocast: base=${normalized}\n${source.slice(insertAt)}`,
+        mode: 'inserted',
+      };
+    }
+  }
+  return {
+    content: `${source}\nmodule.exports.base = ${quoted} // memocast: base=${normalized}\n`,
+    mode: 'appended',
+  };
+}
+
 export function normalizePackageManager(value: unknown): BlogPackageManager {
   return BLOG_PACKAGE_MANAGERS.includes(value as BlogPackageManager)
     ? (value as BlogPackageManager)
@@ -340,17 +429,23 @@ module.exports = {
 }
 `;
 
-export function buildVuepressConfig(theme: BlogTheme): string {
-  if (theme === 'vdoing') {
-    return VDOING_CONFIG;
+export function buildVuepressConfig(theme: BlogTheme, baseInput?: unknown): string {
+  const template = theme === 'vdoing'
+    ? VDOING_CONFIG
+    : theme === 'hope'
+      ? HOPE_CONFIG
+      : theme === 'reco'
+        ? RECO_CONFIG
+        : DEFAULT_CONFIG;
+  const normalized = normalizeBase(baseInput);
+  const quoted = quoteBase(normalized);
+  if (!quoted) {
+    return template;
   }
-  if (theme === 'hope') {
-    return HOPE_CONFIG;
-  }
-  if (theme === 'reco') {
-    return RECO_CONFIG;
-  }
-  return DEFAULT_CONFIG;
+  return template.replace(
+    /base:\s*'\.\/',?/,
+    `base: ${quoted}, // memocast: base=${normalized}`,
+  );
 }
 
 export function buildManagerCommand(

@@ -22,6 +22,10 @@
           <el-option value="reco" label="reco" />
         </el-select>
       </el-form-item>
+      <el-form-item :label="t('blog.base')">
+        <el-input v-model="form.base" :placeholder="t('blog.basePlaceholder')" spellcheck="false" />
+        <div class="field-hint">{{ t('blog.baseHint') }}</div>
+      </el-form-item>
       <el-form-item :label="t('blog.includeCi')">
         <el-checkbox v-model="form.includeCi">{{ t('blog.includeCiLabel') }}</el-checkbox>
         <div class="field-hint">{{ t('blog.includeCiHint') }}</div>
@@ -120,7 +124,7 @@
       <span>{{ t('blog.envNode', { version: buildEnv.nodeVersion }) }}</span>
       <span>{{ t('blog.envTheme', { theme: buildEnv.theme }) }}</span>
       <span>{{ t(`blog.envPackage${buildEnv.packageStatus === 'created' ? 'Created' : buildEnv.packageStatus === 'updated' ? 'Updated' : 'Kept'}`) }}</span>
-      <span>{{ t(`blog.envConfig${buildEnv.configStatus === 'created' ? 'Created' : buildEnv.configStatus === 'updated' ? 'Updated' : 'Kept'}`) }}</span>
+      <span>{{ t(`blog.envConfig${buildEnv.configStatus === 'created' ? 'Created' : buildEnv.configStatus === 'updated' ? 'Updated' : buildEnv.configStatus === 'base-updated' ? 'BaseUpdated' : 'Kept'}`) }}</span>
       <span>{{ buildEnv.installed ? t('blog.envInstalled') : t('blog.envReused') }}</span>
     </div>
 
@@ -184,9 +188,10 @@ const { t } = useI18n();
 const appStore = useAppStore();
 const STORAGE_KEY = 'setting/blog/config';
 
-const form = reactive<{ blogDir: string; theme: 'default' | 'vdoing' | 'hope' | 'reco'; includeCi: boolean }>({
+const form = reactive<{ blogDir: string; theme: 'default' | 'vdoing' | 'hope' | 'reco'; base: string; includeCi: boolean }>({
   blogDir: '',
   theme: 'default',
+  base: '',
   includeCi: false,
 });
 const exporting = ref(false);
@@ -249,12 +254,15 @@ watch(
 
 async function loadConfig(): Promise<void> {
   await appStore.loadPrefs();
-  const saved = appStore.prefs[STORAGE_KEY] as { blogDir?: string; theme?: typeof form.theme; includeCi?: boolean } | undefined;
+  const saved = appStore.prefs[STORAGE_KEY] as { blogDir?: string; theme?: typeof form.theme; base?: string; includeCi?: boolean } | undefined;
   if (saved?.blogDir) {
     form.blogDir = saved.blogDir;
   }
   if (saved?.theme) {
     form.theme = saved.theme;
+  }
+  if (typeof saved?.base === 'string') {
+    form.base = saved.base;
   }
   form.includeCi = Boolean(saved?.includeCi);
   const savedGithub = appStore.prefs[GITHUB_KEY] as Partial<typeof github> | undefined;
@@ -398,6 +406,7 @@ async function runBuild(): Promise<void> {
       blogDir: form.blogDir.trim(),
       packageManager: packageManager.value,
       theme: form.theme,
+      base: form.base.trim(),
     });
     if (!result.ok) {
       if (result.error.code === 'NODE_NOT_FOUND') {
