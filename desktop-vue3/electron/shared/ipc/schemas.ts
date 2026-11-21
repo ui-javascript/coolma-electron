@@ -22,7 +22,9 @@ export const blogExportSchema = z.object({
 export const blogBuildSchema = z.object({
   blogDir: z.string().min(1),
   packageManager: z.enum(['npm', 'pnpm', 'yarn']).optional(),
-  script: z.string().min(1).optional(),
+  script: z.string().min(1).regex(/^[A-Za-z0-9:_-]+$/).optional(),
+  theme: z.enum(['default', 'vdoing', 'hope', 'reco']).optional(),
+  base: z.string().max(500).optional(),
 });
 
 export const blogDispatchSchema = z.object({

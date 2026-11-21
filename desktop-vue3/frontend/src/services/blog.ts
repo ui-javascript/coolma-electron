@@ -21,16 +21,32 @@ export const exportBlog = (input: BlogExportInput): Promise<IpcResult<BlogExport
   invoke<BlogExportOutput>(IPC_CHANNELS.blog.export, input);
 
 export interface BlogBuildProgress {
-  stage: 'build' | 'sftp' | 'done' | 'error' | 'cancelled';
+  stage: 'config' | 'install' | 'build' | 'sftp' | 'done' | 'error' | 'cancelled';
   message: string;
   percent: number;
   stream?: 'stdout' | 'stderr';
 }
 
+export type BlogTheme = 'default' | 'vdoing' | 'hope' | 'reco';
+
+export interface BlogBuildEnv {
+  theme: BlogTheme;
+  nodeVersion: string;
+  packageStatus: 'created' | 'updated' | 'kept';
+  configStatus: 'created' | 'updated' | 'base-updated' | 'kept';
+  installed: boolean;
+}
+
 export const BLOG_PROGRESS_CHANNEL = 'blog-deploy-progress';
 
-export const buildBlog = (input: { blogDir: string; packageManager?: 'npm' | 'pnpm' | 'yarn'; script?: string }): Promise<IpcResult<{ distDir: string; script: string }>> =>
-  invoke<{ distDir: string; script: string }>(IPC_CHANNELS.blog.build, input);
+export const buildBlog = (input: {
+  blogDir: string;
+  packageManager?: 'npm' | 'pnpm' | 'yarn';
+  script?: string;
+  theme?: BlogTheme;
+  base?: string;
+}): Promise<IpcResult<{ distDir: string; script: string; env: BlogBuildEnv }>> =>
+  invoke<{ distDir: string; script: string; env: BlogBuildEnv }>(IPC_CHANNELS.blog.build, input);
 
 export const cancelBlogBuild = (): Promise<IpcResult<{ cancelled: boolean }>> =>
   invoke<{ cancelled: boolean }>(IPC_CHANNELS.blog.cancel, {});

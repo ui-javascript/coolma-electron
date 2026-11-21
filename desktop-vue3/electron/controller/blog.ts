@@ -7,6 +7,7 @@ import { notesRepository } from '../service/db/notes-repository';
 import { exportCIWorkflows, ensureReadme, generateSidebarJson, writeBlogPosts } from '../service/blog/deploy';
 import type { BlogNote } from '../service/blog/deploy';
 import { cancelBlogBuild, runBlogBuild, sendBlogProgress } from '../service/blog/build';
+import type { BlogBuildEnv } from '../service/blog/build';
 import { dispatchWorkflow } from '../service/blog/github';
 import { backupRemoteDir, cancelSftpUpload, testConnection, uploadDirectory } from '../service/blog/sftp';
 import { failFromError } from './controller-utils';
@@ -72,14 +73,14 @@ class BlogController {
   }
 
   /** 在博客目录跑构建脚本；进度通过 `blog-deploy-progress` 事件推送。 */
-  async build(args?: unknown): Promise<IpcResult<{ distDir: string; script: string }>> {
+  async build(args?: unknown): Promise<IpcResult<{ distDir: string; script: string; env: BlogBuildEnv }>> {
     try {
       const input = blogBuildSchema.parse(args);
       const result = await runBlogBuild(input);
-      if (!result.ok) {
-        return fail(result.error || 'BLOG_BUILD_ERROR', result.error || 'build failed');
+      if (!result.ok || !result.env) {
+        return fail(result.error || 'BLOG_BUILD_ERROR', result.error || 'build failed', result.details);
       }
-      return ok({ distDir: result.distDir || '', script: result.script || '' });
+      return ok({ distDir: result.distDir || '', script: result.script || '', env: result.env });
     } catch (error) {
       return failFromError(error, 'BLOG_BUILD_ERROR');
     }
