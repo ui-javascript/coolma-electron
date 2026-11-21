@@ -18,4 +18,5 @@ Windows 安装包默认生成在 `src-tauri/target/release/bundle/nsis/`。如�
 - 笔记、分类、标签和运行时设置继续使用原版 SQLite 数据模型。Tauri 版的 `memocast.db` 写入应用自己的本地数据目录（标识 `cn.coolma.tauri`），开发构建使用其中的 `dev` 子目录。浏览器预览使用自己的 IndexedDB。不会自动导入或写入 Electron 原版的数据库。
 - 窗口控制、标题栏拖动和右键菜单走 Tauri；基础文件导出走 WebView 下载。为知笔记接口和图片上传通过 Tauri 原生网络发送，已有笔记的内嵌图片和附件按需下载并缓存。登录时可启用「自建服务器」并填入完整服务地址；推荐使用 HTTPS。上述资源流程已用本地模拟服务验证，真实账号同步仍需验证。
 - 已对齐的桌面通道（`src/desktop/bridge.js` 统一分发）：目录选择、单篇导出 Markdown/PNG/附件（保存对话框 + 成功提示，Markdown 会把已缓存图片复制到同级 `ExportImage/` 并改写链接）、批量导出 Markdown、导入本地图片（转 data URL 供 WebView 渲染）、主题目录读写与打开、日志目录、PicGo 上传、笔记图片缓存（`get-cache-image` / `save-temp-image` / `save-uploaded-image` / `get-local-file-data`）。`$q.electron.shell/clipboard` 由 `boot/tauri-desktop.js` 补同形实现，原版调用点无需改动。检查更新在 Tauri 下会明确提示「暂未接入自动更新」，不再无限转圈。
+- 快捷键：原版依赖 Electron 原生菜单转发 `editor-*` 事件，Tauri 没有原生菜单，改由 `src/desktop/keyboard.js` 在渲染层复刻同一组 accelerator（编辑、格式、段落、笔记、视图），发出完全相同的事件与参数；`Ctrl+C/X/V` 等系统剪切板快捷键仍交给 WebView 原生处理。
 - 仍需适配：博客构建/SFTP（需要 Node 运行时或 sidecar 才能跑 `vuepress build`），自动更新（Tauri updater 需要签名与发布端点），系统钥匙串里的 AI 密钥，微应用 `vue-sfc:parse`（`@vue/compiler-sfc` 会静态引入大量可选预处理器，需要单独打包并屏蔽这些依赖，不能直接进主 bundle）。现有应用可继续使用 Electron 版的这些功能。

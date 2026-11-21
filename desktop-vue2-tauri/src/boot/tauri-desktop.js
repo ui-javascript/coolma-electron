@@ -1,5 +1,6 @@
 import { isTauri, openExternal, revealPath, openFolder } from 'src/desktop/nativeFs'
 import { refreshThemeFolder } from 'src/desktop/theme'
+import { installKeyboardShortcuts } from 'src/desktop/keyboard'
 import ClientFileStorage from 'src/utils/storage/ClientFileStorage'
 
 /**
@@ -23,6 +24,7 @@ function installElectronShell ($q) {
 export default async ({ Vue }) => {
   if (!isTauri()) return
   installElectronShell(Vue.prototype.$q)
+  installKeyboardShortcuts()
   // 原版由主进程在建窗时把主题列表写进 electron-store，这里在启动阶段补做一次。
   const themes = await refreshThemeFolder().catch(error => {
     console.warn('[tauri-desktop] 主题目录扫描失败', error)
