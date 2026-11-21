@@ -166,16 +166,73 @@ function validateJson(text: string | undefined): boolean {
   }
 }
 
-async function save(): Promise<void> {
+function validate(): boolean {
+  const name = String(form.value.name ?? '').trim();
+  const baseUrl = String(form.value.baseUrl ?? '').trim();
+  const model = String(form.value.model ?? '').trim();
+  if (!name || !baseUrl || !model) {
+    ElMessage.warning(t('aiModelRequiredFields'));
+    return false;
+  }
+  try {
+    const parsed = new URL(baseUrl);
+    if (!/^https?:$/.test(parsed.protocol)) {
+      throw new Error('invalid protocol');
+    }
+  } catch {
+    ElMessage.warning(t('aiBaseUrlInvalid'));
+    return false;
+  }
+  if (!editing.value) {
+    const apiKey = String(form.value.apiKey ?? '').trim();
+    const virtualKey = String(form.value.virtualKey ?? '').trim();
+    if (form.value.providerType === 'portkey') {
+      if (!apiKey) {
+        ElMessage.warning(t('aiPortkeyApiKeyRequired'));
+        return false;
+      }
+      if (!virtualKey) {
+        ElMessage.warning(t('aiVirtualKeyRequired'));
+        return false;
+      }
+    } else if (!apiKey) {
+      ElMessage.warning(t('aiApiKeyRequired'));
+      return false;
+    }
+  }
   if (!validateJson(form.value.headersJson) || !validateJson(form.value.extraConfigJson)) {
     ElMessage.warning(t('aiJsonInvalid'));
+    return false;
+  }
+  return true;
+}
+
+async function save(): Promise<void> {
+  if (!validate()) {
     return;
   }
   saving.value = true;
   try {
-    const result = await saveAiModel(form.value);
+    const result = await saveAiModel({
+      ...form.value,
+      name: String(form.value.name ?? '').trim(),
+      baseUrl: String(form.value.baseUrl ?? '').trim(),
+      model: String(form.value.model ?? '').trim(),
+    });
     if (!result.ok) {
-      ElMessage.error(result.error.message);
+      const code = result.error.code;
+      const message = code === 'AI_MODEL_DUPLICATE_NAME'
+        ? t('aiConfigNameExists')
+        : code === 'AI_MODEL_REQUIRED_FIELDS'
+          ? t('aiModelRequiredFields')
+          : code === 'AI_MODEL_SECRET_REQUIRED'
+            ? (form.value.providerType === 'portkey' ? t('aiVirtualKeyRequired') : t('aiApiKeyRequired'))
+            : `${t('aiConfigSaveFailed')}: ${result.error.message}`;
+      if (code === 'AI_MODEL_DUPLICATE_NAME' || code === 'AI_MODEL_REQUIRED_FIELDS' || code === 'AI_MODEL_SECRET_REQUIRED') {
+        ElMessage.warning(message);
+      } else {
+        ElMessage.error(message);
+      }
       return;
     }
     formVisible.value = false;

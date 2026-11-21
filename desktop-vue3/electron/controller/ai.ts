@@ -189,6 +189,20 @@ class AiController {
   async saveModel(args?: unknown): Promise<IpcResult<ReturnType<typeof toModelView>>> {
     try {
       const input = aiModelSaveSchema.parse(args ?? {});
+      const existing = input.id ? aiModelsRepository.get(input.id) : null;
+      if (input.id && !existing) {
+        return { ok: false, error: { code: 'AI_MODEL_NOT_FOUND', message: '模型配置不存在' } };
+      }
+      if (!existing) {
+        const apiKey = String(input.apiKey ?? '').trim();
+        const virtualKey = String(input.virtualKey ?? '').trim();
+        const missingSecret = input.providerType === 'portkey'
+          ? !apiKey || !virtualKey
+          : !apiKey;
+        if (missingSecret) {
+          return { ok: false, error: { code: 'AI_MODEL_SECRET_REQUIRED', message: '新建模型缺少密钥' } };
+        }
+      }
       const encrypted: Record<string, unknown> = {};
       if (input.clearApiKey) {
         encrypted.apiKeyEncrypted = '';
@@ -220,7 +234,16 @@ class AiController {
       });
       return ok(toModelView(saved));
     } catch (error) {
-      return failFromError(error, 'AI_MODEL_SAVE_ERROR');
+      const rawCode = toErrorMessage(error);
+      const code = [
+        'AI_MODEL_REQUIRED_FIELDS',
+        'AI_MODEL_DUPLICATE_NAME',
+        'AI_MODEL_NOT_FOUND',
+        'AI_MODEL_SECRET_REQUIRED',
+      ].includes(rawCode)
+        ? rawCode
+        : 'AI_MODEL_SAVE_ERROR';
+      return failFromError(error, code);
     }
   }
 

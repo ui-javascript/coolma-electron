@@ -539,6 +539,13 @@ assert('体检：能抓到 tags 与 note_tags 不一致', dirtyReport.issues.som
 
   const upd = aiModelsRepository.save({ id: m.id, name: 'gpt 测试 v2', providerType: 'openai-compatible', baseUrl: 'https://api.test/v1', model: 'gpt-4o-mini' });
   assert('AI：更新不改密文', upd.apiKeyEncrypted === 'enc-1' && upd.name === 'gpt 测试 v2', JSON.stringify(upd));
+  let modelDupCode = '';
+  try {
+    aiModelsRepository.save({ name: ' gpt 测试 v2 ', providerType: 'openai-compatible', baseUrl: 'https://api.test/v1', model: 'gpt-4o-mini' });
+  } catch (error) {
+    modelDupCode = String((error as Error).message);
+  }
+  assert('AI：模型重名校验忽略首尾空格', modelDupCode === 'AI_MODEL_DUPLICATE_NAME', modelDupCode);
 
   const sk = aiSkillsRepository.save({ name: '摘要', title: '总结', content: '请总结' });
   assert('AI：技能保存往返', sk.builtin === false && sk.title === '总结', JSON.stringify(sk));

@@ -144,6 +144,14 @@ export const aiModelsRepository = {
     const now = Date.now();
     const isDefault = input.isDefault ? 1 : 0;
     const enabled = input.enabled === false ? 0 : 1;
+    const duplicate = db
+      .prepare(
+        'SELECT id FROM ai_model_configs WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) AND (? IS NULL OR id != ?)',
+      )
+      .get(input.name, input.id ?? null, input.id ?? null) as { id: number } | undefined;
+    if (duplicate) {
+      throw new Error('AI_MODEL_DUPLICATE_NAME');
+    }
     // 默认标记互斥：新默认落下时清掉其他默认行
     if (isDefault) {
       db.prepare('UPDATE ai_model_configs SET is_default = 0 WHERE is_default = 1').run();
