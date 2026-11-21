@@ -1666,3 +1666,25 @@ html.dark .editor-action-bar {
     min-width: 0;
   }
 }
+
+/* 导出符文/回响：对齐 vue2 runeExportDialog 的 480px 预览卡片 */
+.pack-export-dialog {
+  min-width: 420px;
+  max-width: 92vw;
+  padding: 0;
+  border-radius: 8px;
+}
+
+.pack-export-dialog .el-dialog__header {
+  display: none;
+}
+
+.pack-export-dialog .el-dialog__body {
+  padding: 0;
+}
+
+.pack-export-dialog .el-dialog__footer {
+  padding: 10px 18px;
+  border-top: 1px solid var(--el-border-color-lighter);
+  background: var(--el-fill-color-lighter);
+}

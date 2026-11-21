@@ -17,6 +17,7 @@ const LIBRARY_OWN_KEYS = new Set([
   'builtinBadge', 'builtinHint', 'noBuiltins', 'editCard', 'viewCard', 'selectionHint',
   'batchDelete', 'deleteSelected', 'batchDeleteConfirm', 'batchDeleteSuccess', 'batchDeletePartial',
   'exportCategory', 'exportRunes', 'exportEchoes', 'exportCount', 'exportMore',
+  'exportPrefix', 'exportRuneSuffix', 'exportEchoSuffix', 'exportPreview',
 ]);
 
 /**
