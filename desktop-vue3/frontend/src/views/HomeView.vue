@@ -464,7 +464,14 @@ const currentFilterLabel = computed(() => {
   return t('index.all');
 });
 
-const headerTitle = computed(() => activeSummary.value?.title || t('notes.untitled'));
+function formatHeaderTitle(raw: string): string {
+  if (raw.length <= 30) {
+    return raw;
+  }
+  return `${raw.slice(0, 9)}...${raw.slice(-12)}`;
+}
+
+const headerTitle = computed(() => formatHeaderTitle(activeSummary.value?.title || t('notes.untitled')));
 const headerTags = computed(() => (activeSummary.value ? noteTags(activeSummary.value) : []));
 const headerDirty = computed(() => notesStore.saving || activeSummary.value?.dirty === 1);
 const aiProvider = ref(localStorage.getItem('coolma.aiProvider') === 'doubao' ? 'doubao' : 'builtin');
