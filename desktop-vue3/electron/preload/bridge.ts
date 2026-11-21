@@ -18,6 +18,7 @@ const INVOKE_CHANNELS = new Set<string>([
   'controller/window/state',
   'controller/window/toggleMaximize',
   'controller/window/close',
+  'controller/window/openDevTools',
   'controller/notes/list',
   'controller/notes/stats',
   'controller/notes/get',

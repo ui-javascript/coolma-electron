@@ -23,6 +23,7 @@ export const IPC_CHANNELS = {
     state: 'controller/window/state',
     toggleMaximize: 'controller/window/toggleMaximize',
     close: 'controller/window/close',
+    openDevTools: 'controller/window/openDevTools',
   },
   notes: {
     list: 'controller/notes/list',
@@ -144,6 +145,7 @@ export const INVOKE_CHANNELS = new Set<string>([
   IPC_CHANNELS.window.state,
   IPC_CHANNELS.window.toggleMaximize,
   IPC_CHANNELS.window.close,
+  IPC_CHANNELS.window.openDevTools,
   IPC_CHANNELS.notes.list,
   IPC_CHANNELS.notes.stats,
   IPC_CHANNELS.notes.get,

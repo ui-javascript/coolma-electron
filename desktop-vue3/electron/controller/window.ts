@@ -52,6 +52,20 @@ class WindowController {
     getMainWindow()?.close();
     return { ok: true, data: null };
   }
+
+  /** vue2 View 菜单 `openDevtool` 的等价入口（CmdOrCtrl+Shift+P）。 */
+  openDevTools(args?: unknown): IpcResult<null> {
+    emptyPayloadSchema.parse(args);
+    const win = getMainWindow();
+    if (!win) {
+      return {
+        ok: false,
+        error: { code: 'WINDOW_NOT_READY', message: 'Main window is not available' },
+      };
+    }
+    win.webContents.openDevTools({ mode: 'detach' });
+    return { ok: true, data: null };
+  }
 }
 
 WindowController.toString = () => '[class WindowController]';

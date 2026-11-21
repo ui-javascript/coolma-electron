@@ -188,6 +188,7 @@ import { normalizeTagName } from '@/utils/autotag';
 import { formatDocumentByPangu } from '@/utils/pangu';
 import { readEchoInstance, rewriteEchoInstance, type EchoInstancePatch, type EchoInstanceToken } from '@/utils/echoToken';
 import { ProofreadError, proofreadMarkdown } from '@/services/aiProofread';
+import type { ShortcutAction } from '@/utils/shortcuts';
 
 const props = defineProps<{
   summary: NoteSummary | null;
@@ -850,6 +851,82 @@ function runEditorCommand(command: string): boolean {
 }
 
 /**
+ * 键盘 accelerator 的编辑器分发（vue2 menu → editor-*-action → Muya/Monaco）。
+ * 源码模式只保留撤销/重做/全选/复制为 Markdown/纯文本粘贴和盘古格式化，
+ * 段落/格式命令与 vue2 一样只在 Muya 生效。
+ */
+function executeShortcut(
+  action: Extract<ShortcutAction, { scope: 'editor' }>,
+): boolean | Promise<boolean> {
+  if (action.command === 'formatDocument') {
+    return formatDocument();
+  }
+
+  if (sourceMode.value) {
+    switch (action.command) {
+      case 'undo':
+        return monacoRef.value?.undo?.() ?? false;
+      case 'redo':
+        return monacoRef.value?.redo?.() ?? false;
+      case 'selectAll':
+        return monacoRef.value?.selectAll?.() ?? false;
+      case 'copyAsMarkdown':
+        return monacoRef.value?.copyAsMarkdown?.() ?? false;
+      case 'pasteAsPlainText':
+        return monacoRef.value?.pasteAsPlainText?.() ?? false;
+      default:
+        return false;
+    }
+  }
+
+  const editor = muyaRef.value?.getEditor?.();
+  if (!editor) {
+    return false;
+  }
+
+  // 锁定只放行只读命令；与右键菜单的 copyAsMarkdown 例外保持一致。
+  if (locked.value && !['copyAsMarkdown', 'selectAll'].includes(action.command)) {
+    return false;
+  }
+
+  switch (action.command) {
+    case 'undo':
+      editor.undo();
+      return true;
+    case 'redo':
+      editor.redo();
+      return true;
+    case 'copyAsMarkdown':
+      editor.copyAsMarkdown();
+      return true;
+    case 'pasteAsPlainText':
+      editor.pasteAsPlainText();
+      return true;
+    case 'selectAll':
+      editor.selectAll();
+      return true;
+    case 'duplicate':
+      editor.duplicate();
+      return true;
+    case 'createParagraph':
+      // vue2 editParagraphHandler: insertParagraph('after', '', true)
+      editor.insertParagraph('after', '', true);
+      return true;
+    case 'deleteParagraph':
+      editor.deleteParagraph();
+      return true;
+    case 'paragraph':
+      editor.updateParagraph(action.value ?? '');
+      return true;
+    case 'format':
+      editor.format(action.value ?? '');
+      return true;
+    default:
+      return false;
+  }
+}
+
+/**
  * 大纲跳转：按标题序号滚动到对应块。
  * 引擎没有 scrollToHeader API（vue2 是走 bus 让 contentState 自己滚），
  * 这里按 DOM 里第 n 个 h1-h6 定位——标题顺序与 buildOutline 的展平顺序一致。
@@ -865,5 +942,13 @@ function scrollToHeading(index: number): boolean {
   return true;
 }
 
-defineExpose({ scrollToHeading, toggleSourceMode, toggleLock, runEditorCommand, formatDocument, applyEchoInstance });
+defineExpose({
+  scrollToHeading,
+  toggleSourceMode,
+  toggleLock,
+  runEditorCommand,
+  executeShortcut,
+  formatDocument,
+  applyEchoInstance,
+});
 </script>
