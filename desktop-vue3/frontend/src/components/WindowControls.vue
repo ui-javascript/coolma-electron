@@ -1,5 +1,5 @@
 <template>
-  <div v-if="available" class="window-controls" aria-label="Window controls">
+  <div v-if="available" class="window-controls" :class="{ 'skin-dark': skin !== 'baiyang' }" aria-label="Window controls">
     <button
       type="button"
       class="window-control"
@@ -55,6 +55,8 @@ import {
 
 const { t } = useI18n();
 const available = hasIpc();
+
+withDefaults(defineProps<{ skin?: string }>(), { skin: 'baiyang' });
 const maximized = ref(false);
 
 let resizeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -115,16 +117,17 @@ onBeforeUnmount(() => {
   top: 0;
   right: 0;
   display: flex;
-  height: 64px;
+  height: 6.5vh;
+  min-height: 44px;
   align-items: center;
   gap: 2px;
-  padding-right: 10px;
+  padding-right: 6px;
   -webkit-app-region: no-drag;
 }
 
 .window-control {
   display: flex;
-  width: 40px;
+  width: 36px;
   height: 32px;
   align-items: center;
   justify-content: center;
@@ -141,6 +144,15 @@ onBeforeUnmount(() => {
   color: var(--coolma-text);
 }
 
+.window-controls.skin-dark .window-control {
+  color: #2c2c2c;
+}
+
+.window-controls.skin-dark .window-control:hover {
+  background: rgb(0 0 0 / 8%);
+  color: #2c2c2c;
+}
+
 .window-control:active {
   background: var(--coolma-primary-soft);
   color: var(--coolma-primary);
@@ -152,8 +164,8 @@ onBeforeUnmount(() => {
 }
 
 .window-control svg {
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;

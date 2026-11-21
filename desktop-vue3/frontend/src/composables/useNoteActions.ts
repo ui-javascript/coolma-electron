@@ -12,7 +12,7 @@ interface UseNoteActionsOptions {
   activeId: Ref<number | null>;
   activeSummary: ComputedRef<NoteSummary | null>;
   selectedIds: Ref<number[]>;
-  searchResults: Ref<NoteSummary[] | null>;
+  searchResults?: Ref<NoteSummary[] | null>;
   folderPaths: ComputedRef<string[]>;
   /** 落盘当前编辑器内的未保存内容。 */
   flushSave: () => Promise<void>;
@@ -212,7 +212,7 @@ export function useNoteActions(options: UseNoteActionsOptions) {
     }
 
     ElMessage.success(t('notes.deleteSuccess'));
-    if (options.searchResults.value) {
+    if (options.searchResults?.value) {
       options.searchResults.value = options.searchResults.value.filter((item) => item.id !== note.id);
     }
     if (options.activeId.value === note.id) {
@@ -372,7 +372,7 @@ export function useNoteActions(options: UseNoteActionsOptions) {
         await options.flushSave();
       }
       const removed = await notesStore.removeMany(ids);
-      if (options.searchResults.value) {
+      if (options.searchResults?.value) {
         options.searchResults.value = options.searchResults.value.filter((note) => !ids.includes(note.id));
       }
       options.selectedIds.value = [];

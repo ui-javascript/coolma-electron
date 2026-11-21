@@ -1,32 +1,5 @@
 <template>
   <aside class="sidebar">
-    <div class="sidebar-section-head">
-      <span>{{ t('index.title') }}</span>
-      <el-dropdown trigger="click" @command="createWithTemplate">
-        <el-button text size="small" :loading="creating" :title="t('action.newNote')">
-          <el-icon><Plus /></el-icon>
-        </el-button>
-        <template #dropdown>
-          <el-dropdown-menu>
-            <el-dropdown-item command="">{{ t('noteTemplateEmptyOption') }}</el-dropdown-item>
-            <el-dropdown-item
-              v-for="tpl in notesStore.templates"
-              :key="tpl.id"
-              :command="tpl.id"
-            >
-              {{ tpl.name }}
-            </el-dropdown-item>
-          </el-dropdown-menu>
-        </template>
-      </el-dropdown>
-    </div>
-
-    <el-radio-group v-model="modeProxy" class="index-mode-switch" size="small">
-      <el-radio-button v-for="item in indexModes" :key="item.value" :value="item.value">
-        {{ t(item.label) }}
-      </el-radio-button>
-    </el-radio-group>
-
     <button type="button" class="index-row index-all" :class="{ active: isAllScope }" @click="clearFilters">
       <el-icon><Document /></el-icon>
       <span class="index-label">{{ t('index.all') }}</span>
@@ -35,12 +8,6 @@
 
     <div class="index-panel" @contextmenu="onPanelContextMenu">
       <template v-if="mode === IndexModeEnum.Folder">
-        <div class="index-toolbar">
-          <el-button text size="small" :title="t('folder.create')" @click="createFolder">
-            <el-icon><FolderAdd /></el-icon>
-            <span>{{ t('folder.create') }}</span>
-          </el-button>
-        </div>
         <el-tree
           ref="folderTreeRef"
           class="folder-tree"
@@ -115,15 +82,11 @@
       </template>
     </div>
 
-    <div class="sidebar-footer">
-      <span class="phase-dot" />
-      <span>{{ phaseLabel }}</span>
-    </div>
   </aside>
 </template>
 
 <script setup lang="ts">
-import { Clock, Delete, Document, Folder, FolderAdd, FolderOpened, Plus } from '@element-plus/icons-vue';
+import { Clock, Delete, Document, Folder, FolderOpened, Plus } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox, ElTree } from 'element-plus';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -149,9 +112,7 @@ const props = defineProps<{
   timeGroupFilter: string;
   calendarDate: string;
   calendarBasis: CalendarDateBasis;
-  creating: boolean;
   total: number;
-  phaseLabel: string;
 }>();
 
 const emit = defineEmits<{
@@ -170,18 +131,6 @@ const appStore = useAppStore();
 defineExpose({ startCreateFolder: (parentCategory = '') => { void createFolder(parentCategory); } });
 
 
-
-/** 新建笔记：command 空串=空模板，否则为模板 id（对齐 vue2 buildTemplateOptions）。 */
-function createWithTemplate(command: string): void {
-  emit('create-note', command ? { templateId: command } : undefined);
-}
-
-const indexModes = IndexModeEnum.items;
-
-const modeProxy = computed({
-  get: () => props.mode,
-  set: (value: IndexMode) => emit('update:mode', value),
-});
 
 const isAllScope = computed(
   () => !props.folderFilter && !props.tagFilter && !props.timeGroupFilter && !props.calendarDate,

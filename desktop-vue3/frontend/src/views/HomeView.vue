@@ -1,92 +1,30 @@
 <template>
   <div class="app-shell">
     <SkinEffects ref="skinEffectsRef" />
-    <header class="topbar">
-      <div class="brand">
-        <div class="brand-mark">C</div>
-        <div class="brand-copy">
-          <div class="brand-name">{{ t('app.name') }}</div>
-          <div class="brand-tagline">{{ t('app.tagline') }}</div>
-        </div>
-      </div>
-
-      <div class="topbar-search">
-        <el-input v-model="keyword" :placeholder="t('search.placeholder')" clearable>
-          <template #prefix>
-            <el-icon><Search /></el-icon>
-          </template>
-        </el-input>
-      </div>
-
-      <div class="topbar-actions">
-        <el-tag :type="statusType" effect="light" round>{{ statusLabel }}</el-tag>
-        <template v-if="syncLoggedIn">
-          <el-tooltip :content="syncPushTooltip" placement="bottom" :show-after="300">
-            <el-badge
-              :value="syncStore.pendingTotal"
-              :max="99"
-              :hidden="syncStore.pendingTotal <= 0"
-              class="sync-count-badge"
-            >
-              <el-button
-                circle
-                plain
-                :loading="syncStore.busyKind === 'push'"
-                :disabled="syncStore.isSyncing && syncStore.busyKind !== 'push'"
-                @click="handlePushSync"
-              >
-                <el-icon><Upload /></el-icon>
-              </el-button>
-            </el-badge>
-          </el-tooltip>
-          <el-tooltip :content="syncPullTooltip" placement="bottom" :show-after="300">
-            <el-button
-              circle
-              plain
-              :loading="syncStore.busyKind === 'pull'"
-              :disabled="syncStore.isSyncing && syncStore.busyKind !== 'pull'"
-              @click="handlePullSync"
-            >
-              <el-icon><Download /></el-icon>
-            </el-button>
-          </el-tooltip>
-        </template>
-        <el-button circle plain :title="paneLayoutTitle" class="pane-layout-btn" @click="cyclePaneLayout">
-          <el-icon><Operation /></el-icon>
-        </el-button>
-        <SkinDropdown />
-        <el-button circle plain :title="t('aiHelper.title')" @click="openAiAssistant">
-          <el-icon><ChatDotRound /></el-icon>
-        </el-button>
-        <el-button circle plain :title="t('search.title')" @click="searchVisible = true">
-          <el-icon><Search /></el-icon>
-        </el-button>
-        <el-button circle plain :title="t('outline.title')" @click="outlineVisible = true">
-          <el-icon><Document /></el-icon>
-        </el-button>
-        <el-button circle plain :title="t('microApps.open')" @click="microDrawerVisible = true">
-          <el-icon><Grid /></el-icon>
-        </el-button>
-        <el-dropdown trigger="click" @command="onAccountCommand">
-          <el-button circle plain :title="syncLoggedIn ? t('login.logout') : t('login.title')">
-            <el-icon><UserFilled /></el-icon>
-          </el-button>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item v-if="!syncLoggedIn" command="login">
-                {{ t('login.title') }}
-              </el-dropdown-item>
-              <el-dropdown-item v-else command="logout">
-                {{ t('login.logout') }}
-              </el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
-        <el-button circle plain :title="t('action.settings')" @click="openSettings">
-          <el-icon><Setting /></el-icon>
-        </el-button>
-      </div>
-    </header>
+    <HeaderBar
+      :mode="indexMode"
+      :logged-in="syncLoggedIn"
+      :pending-total="syncStore.pendingTotal"
+      :busy-kind="syncStore.busyKind"
+      :title="headerTitle"
+      :dirty="headerDirty"
+      :pane-layout-mode="paneLayoutMode"
+      :pane-layout-title="paneLayoutTitle"
+      :skin="appStore.skin"
+      :ai-provider="aiProvider"
+      :sync-push-tooltip="syncPushTooltip"
+      :sync-pull-tooltip="syncPullTooltip"
+      @mode="handleModeChange"
+      @search="searchVisible = true"
+      @tags="openActiveTags"
+      @push="handlePushSync"
+      @pull="handlePullSync"
+      @account="onAccountCommand"
+      @layout="cyclePaneLayout"
+      @ai="openAiAssistant"
+      @chat="microDrawerVisible = true"
+      @settings="openSettings"
+    />
 
     <Splitpanes class="workspace" @resized="onPanesResized">
       <Pane v-if="paneVisible.sidebar" :size="paneLayoutSizes.sidebar" :min-size="14" :max-size="25">
@@ -98,9 +36,7 @@
           :calendar-date="calendarDate"
           :calendar-basis="calendarBasis"
           :time-group-filter="activeTimeGroup"
-          :creating="creating"
           :total="notesStore.total"
-          :phase-label="phaseLabel"
           @update:mode="handleModeChange"
           @update:filter="handleFilterChange"
           @create-note="openCreateNote"
@@ -113,13 +49,11 @@
       <Pane v-if="paneVisible.list" :size="paneLayoutSizes.list" :min-size="20" :max-size="40">
         <NoteListPane
           :dense="denseMode"
-          v-model:keyword="keyword"
           :notes="filteredNotes"
           :active-id="activeId"
           :selected-ids="selectedIds"
           :loading="notesStore.loading"
           :refreshing="refreshing"
-          :creating="creating"
           :filter-label="currentFilterLabel"
           :total="notesStore.total"
           :batch-pending="batchPending"
@@ -154,6 +88,8 @@
           @context-menu="openEditorMenu"
           @mind-map="mindMapVisible = true"
           @ppt-preview="pptPreviewVisible = true"
+          @create-note="openCreateNote"
+          @outline="outlineVisible = true"
         />
         <PreviewPptDialog v-model="pptPreviewVisible" :markdown="activeContent" />
         <MindMapDialog
@@ -242,7 +178,6 @@
 </template>
 
 <script setup lang="ts">
-import { ChatDotRound, Document, Download, Grid, Operation, Search, Setting, Upload, UserFilled } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Pane, Splitpanes } from 'splitpanes';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
@@ -254,7 +189,7 @@ import type { EchoCard } from '@shared/types/domain';
 import type { EchoInstancePatch, EchoInstanceToken } from '@/utils/echoToken';
 import EditorPane from '@/components/EditorPane.vue';
 import SkinEffects from '@/components/SkinEffects.vue';
-import SkinDropdown from '@/components/SkinDropdown.vue';
+import HeaderBar from '@/components/HeaderBar.vue';
 import NewNoteDialog from '@/components/NewNoteDialog.vue';
 import MicroAppDrawer from '@/components/MicroAppDrawer.vue';
 import FullscreenOverlay from '@/components/FullscreenOverlay.vue';
@@ -317,9 +252,6 @@ const muyaPlugins = computed(() => createMuyaPlugins({
   echoes: libraryStore.echoes,
 }));
 
-const phaseLabel = 'P3 · SQLite';
-
-const keyword = ref('');
 const activeId = ref<number | null>(null);
 const activeTag = ref('');
 const activeFolder = ref('');
@@ -332,7 +264,6 @@ const refreshing = ref(false);
 const lastSavedAt = ref(0);
 const mindMapVisible = ref(false);
 const pptPreviewVisible = ref(false);
-const searchResults = ref<NoteSummary[] | null>(null);
 const selectedIds = ref<number[]>([]);
 
 let loadedId: number | null = null;
@@ -340,7 +271,6 @@ let loadedContent = '';
 let loadedTitle = '';
 let hydrating = false;
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
-let searchTimer: ReturnType<typeof setTimeout> | undefined;
 let pendingSave: { id: number; content: string; title: string } | null = null;
 
 function readIndexMode(): IndexMode {
@@ -467,10 +397,7 @@ function applyEditorPrefs(): void {
 }
 
 const filteredNotes = computed(() => {
-  const query = keyword.value.trim().toLowerCase();
-  const useServerSearch = Boolean(query && searchResults.value);
-  const source = useServerSearch ? searchResults.value! : notesStore.notes;
-  return source.filter((note) => {
+  return notesStore.notes.filter((note) => {
     const noteTagList = noteTags(note);
     const tagMatch = !activeTag.value || noteTagList.includes(activeTag.value);
     const folderMatch = !activeFolder.value || note.category === activeFolder.value;
@@ -479,13 +406,7 @@ const filteredNotes = computed(() => {
       indexMode.value !== IndexModeEnum.Calendar ||
       !calendarDate.value ||
       noteDateKey(note, calendarBasis.value) === calendarDate.value;
-    const textMatch =
-      useServerSearch ||
-      !query ||
-      note.title.toLowerCase().includes(query) ||
-      note.excerpt.toLowerCase().includes(query) ||
-      noteTagList.some((tag) => tag.toLowerCase().includes(query));
-    return tagMatch && folderMatch && timeMatch && calendarMatch && textMatch;
+    return tagMatch && folderMatch && timeMatch && calendarMatch;
   }).sort(compareByOrder(noteOrder.value));
 });
 
@@ -534,6 +455,10 @@ const currentFilterLabel = computed(() => {
   return t('index.all');
 });
 
+const headerTitle = computed(() => activeSummary.value?.title || t('notes.untitled'));
+const headerDirty = computed(() => notesStore.saving || activeSummary.value?.dirty === 1);
+const aiProvider = ref(localStorage.getItem('coolma.aiProvider') === 'doubao' ? 'doubao' : 'builtin');
+
 const saveHint = computed(() => {
   if (notesStore.saving) return t('notes.saving');
   if (lastSavedAt.value > 0) return t('notes.saved');
@@ -572,7 +497,6 @@ const {
   activeId,
   activeSummary,
   selectedIds,
-  searchResults,
   folderPaths,
   flushSave,
   nextActiveId,
@@ -981,24 +905,6 @@ watch(activeContent, (value) => {
   }, 700);
 });
 
-watch(keyword, (value) => {
-  if (searchTimer) {
-    clearTimeout(searchTimer);
-    searchTimer = undefined;
-  }
-  const query = value.trim();
-  if (!query) {
-    searchResults.value = null;
-    return;
-  }
-  searchTimer = setTimeout(async () => {
-    const result = await listNotes({ query, limit: 5000 });
-    if (keyword.value.trim() !== query) {
-      return;
-    }
-    searchResults.value = result.ok ? result.data.items : [];
-  }, 250);
-});
 
 function jumpToHeading(index: number): void {
   const scrolled = editorPaneRef.value?.scrollToHeading?.(index) ?? false;
@@ -1014,6 +920,11 @@ function selectNote(id: number): void {
 function handleModeChange(mode: IndexMode): void {
   indexMode.value = mode;
   localStorage.setItem('coolma.indexMode', mode);
+  // vue2 切到标签/日历模式会收起左侧文件树，让列表占满整栏。
+  if (mode !== IndexModeEnum.Folder && paneLayoutMode.value !== 0) {
+    paneLayoutMode.value = 0;
+    localStorage.setItem(PANE_LAYOUT_STORAGE, '0');
+  }
   handleFilterChange({ folder: '', tag: '', timeGroup: '', calendarDate: '' });
 }
 
@@ -1184,8 +1095,6 @@ async function submitCreateNote(payload: { title: string; templateId?: string })
   }
   creating.value = true;
   try {
-    keyword.value = '';
-    searchResults.value = null;
     // 模板正文由主进程拼在 `# 标题` 之后；无模板时也由主进程补 H1，和 vue2 createNote 一致。
     const note = await notesStore.create({
       title: payload.title || t('notes.untitled'),
@@ -1221,7 +1130,7 @@ function runAppShortcut(command: AppShortcutCommand): void {
       void openCreateNote();
       return;
     case 'focusListSearch':
-      document.querySelector<HTMLInputElement>('.topbar-search input')?.focus();
+      searchVisible.value = true;
       return;
     case 'searchNote':
       // vue2 Header 的 searchDialog.toggle()：再按一次关闭。
@@ -1326,10 +1235,6 @@ onBeforeUnmount(() => {
   if (saveTimer) {
     clearTimeout(saveTimer);
     saveTimer = undefined;
-  }
-  if (searchTimer) {
-    clearTimeout(searchTimer);
-    searchTimer = undefined;
   }
   if (paneSizeSaveTimer) {
     clearTimeout(paneSizeSaveTimer);
