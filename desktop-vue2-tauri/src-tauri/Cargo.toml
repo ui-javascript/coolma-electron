@@ -21,3 +21,11 @@ tauri-plugin-single-instance = "2"
 # native-tls 走系统 TLS，避免引入 rustls 的 ring（本机 MSVC 编译 ring 的 C 源码会失败）。
 tauri-plugin-updater = { version = "2", default-features = false, features = ["native-tls", "system-proxy", "zip"] }
 tempfile = "3"
+
+# DPAPI 解封（读 Electron safeStorage 留的旧密钥），只用到 CryptUnprotectData/LocalFree。
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.60", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_Security_Cryptography",
+] }

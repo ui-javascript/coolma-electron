@@ -346,7 +346,10 @@ fn main() {
             sidecar::sidecar_status,
             credential::credential_set,
             credential::credential_get,
-            credential::credential_delete
+            credential::credential_delete,
+            credential::legacy_data_dir,
+            credential::legacy_key_secrets,
+            credential::dpapi_unprotect
         ])
         .run(tauri::generate_context!())
         .expect("Unable to start Coolma Tauri");
