@@ -9,8 +9,11 @@
   >
     <template #header>
       <div class="move-note-title">
-        <el-icon class="move-note-icon"><Share /></el-icon>
-        <span>{{ t('notes.moveTitle') }}</span>
+        <el-icon class="move-note-icon">
+          <CopyDocument v-if="mode === 'copy'" />
+          <Share v-else />
+        </el-icon>
+        <span>{{ dialogTitle }}</span>
       </div>
     </template>
     <div class="move-note-body">
@@ -32,7 +35,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { Share } from '@element-plus/icons-vue';
+import { CopyDocument, Share } from '@element-plus/icons-vue';
 
 interface FolderNode {
   key: string;
@@ -45,6 +48,7 @@ const props = defineProps<{
   current: string;
   folders: string[];
   pending?: boolean;
+  mode?: 'move' | 'copy';
 }>();
 
 const emit = defineEmits<{
@@ -53,6 +57,10 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+
+const dialogTitle = computed(() => (
+  props.mode === 'copy' ? t('notes.copyToCategoryTitle') : t('notes.moveTitle')
+));
 
 function normalize(path: string): string {
   const parts = String(path || '').split('/').filter(Boolean);

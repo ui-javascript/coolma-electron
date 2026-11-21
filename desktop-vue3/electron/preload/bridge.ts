@@ -17,6 +17,7 @@ const INVOKE_CHANNELS = new Set<string>([
   'controller/window/minimize',
   'controller/window/state',
   'controller/window/toggleMaximize',
+  'controller/window/armCloseGuard',
   'controller/window/close',
   'controller/window/openDevTools',
   'controller/notes/list',
@@ -114,7 +115,12 @@ const INVOKE_CHANNELS = new Set<string>([
 
 
 
-const EVENT_CHANNELS = new Set<string>(['blog-deploy-progress', 'ai-chat-stream', 'updater-event']);
+const EVENT_CHANNELS = new Set<string>([
+  'blog-deploy-progress',
+  'ai-chat-stream',
+  'updater-event',
+  'window-close-requested',
+]);
 
 const api: CoolmaApi = {
   async invoke<T = unknown>(channel: string, payload?: unknown): Promise<IpcResult<T>> {

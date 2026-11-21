@@ -154,6 +154,20 @@ export function closeWindow(): Promise<IpcResult<null>> {
   return invoke<null>(IPC_CHANNELS.window.close);
 }
 
+/** 装好关闭确认监听后再武装主进程拦截，避免启动期关窗被锁死。 */
+export function armCloseGuard(): Promise<IpcResult<null>> {
+  return invoke<null>(IPC_CHANNELS.window.armCloseGuard);
+}
+
+/** 主进程拦下 Alt+F4/系统关闭后，请求渲染进程弹同一个退出确认。 */
+export function onWindowCloseRequested(listener: () => void): () => void {
+  const api = window.coolma;
+  if (!api) {
+    return () => undefined;
+  }
+  return api.on(IPC_EVENTS.windowCloseRequested, () => listener());
+}
+
 /** 打开独立窗口 DevTools（对齐 vue2 CmdOrCtrl+Shift+P）。 */
 export function openDevTools(): Promise<IpcResult<null>> {
   return invoke<null>(IPC_CHANNELS.window.openDevTools);

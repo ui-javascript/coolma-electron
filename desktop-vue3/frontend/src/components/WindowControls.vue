@@ -47,10 +47,12 @@ import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessageBox } from 'element-plus';
 import {
+  armCloseGuard,
   closeWindow,
   getWindowState,
   hasIpc,
   minimizeWindow,
+  onWindowCloseRequested,
   toggleMaximizeWindow,
 } from '@/services/ipc';
 
@@ -61,6 +63,8 @@ withDefaults(defineProps<{ skin?: string }>(), { skin: 'baiyang' });
 const maximized = ref(false);
 
 let resizeTimer: ReturnType<typeof setTimeout> | undefined;
+let offCloseRequest: (() => void) | undefined;
+let confirming = false;
 
 async function syncState(): Promise<void> {
   const result = await getWindowState();
@@ -92,6 +96,11 @@ async function toggleMaximize(): Promise<void> {
 }
 
 async function close(): Promise<void> {
+  // 标题栏 X 和系统关闭（Alt+F4）共用同一个确认框，避免重复弹窗。
+  if (confirming) {
+    return;
+  }
+  confirming = true;
   try {
     await ElMessageBox.confirm(t('window.quitMessage'), t('window.quitTitle'), {
       type: 'warning',
@@ -101,6 +110,8 @@ async function close(): Promise<void> {
     });
   } catch {
     return;
+  } finally {
+    confirming = false;
   }
   await closeWindow();
 }
@@ -111,12 +122,17 @@ onMounted(() => {
   }
   void syncState();
   window.addEventListener('resize', scheduleSync);
+  offCloseRequest = onWindowCloseRequested(() => {
+    void close();
+  });
+  void armCloseGuard();
 });
 
 onBeforeUnmount(() => {
   if (resizeTimer) {
     clearTimeout(resizeTimer);
   }
+  offCloseRequest?.();
   window.removeEventListener('resize', scheduleSync);
 });
 </script>

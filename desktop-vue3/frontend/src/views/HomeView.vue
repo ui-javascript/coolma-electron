@@ -130,6 +130,7 @@
       v-model="moveVisible"
       :current="moveFromCategory"
       :folders="folderPaths"
+      :mode="moveMode"
       :pending="metaPending"
       @confirm="confirmMove"
     />
@@ -138,8 +139,9 @@
       v-model="tagVisible"
       :value="tagValue"
       :options="notesStore.tags"
-      :pending="metaPending"
-      @confirm="confirmTags"
+      :reset-key="tagResetKey"
+      @apply="applyTags"
+      @delete-tag="deleteTagFromDialog"
     />
     <EchoInstanceDialog
       v-model="echoInstanceVisible"
@@ -484,10 +486,13 @@ const {
   menuNote,
   moveVisible,
   moveFromCategory,
+  moveMode,
   confirmMove,
   tagVisible,
   tagValue,
-  confirmTags,
+  tagResetKey,
+  applyTags,
+  deleteTagFromDialog,
   openTagDialog,
   metaPending,
   batchPending,

@@ -18,52 +18,61 @@
         :reserve-keyword="false"
         class="tag-select"
         :placeholder="t('notes.tagsPlaceholder')"
+        @change="applySelection"
       >
         <el-option v-for="tag in options" :key="tag.id" :label="tag.name" :value="tag.name" />
       </el-select>
 
       <div v-if="options.length" class="tag-chip-grid">
-        <button
+        <div
           v-for="tag in options"
           :key="tag.id"
-          type="button"
           class="tag-chip"
           :class="{ active: selected.includes(tag.name) }"
           :style="{ background: chipColor(tag) }"
-          @click="toggleTag(tag.name)"
         >
-          <el-icon><PriceTag /></el-icon>
-          <span>{{ tag.name }}</span>
-          <el-icon v-if="selected.includes(tag.name)" class="tag-chip-check"><Check /></el-icon>
-        </button>
+          <button
+            type="button"
+            class="tag-chip-main"
+            :aria-pressed="selected.includes(tag.name)"
+            @click="toggleTag(tag.name)"
+          >
+            <el-icon><PriceTag /></el-icon>
+            <span>{{ tag.name }}</span>
+            <el-icon v-if="selected.includes(tag.name)" class="tag-chip-check"><Check /></el-icon>
+          </button>
+          <button
+            type="button"
+            class="tag-chip-remove"
+            :aria-label="`${t('aiTagDelete')} ${tag.name}`"
+            :title="t('aiTagDelete')"
+            @click="requestDelete(tag)"
+          >
+            <el-icon><Close /></el-icon>
+          </button>
+        </div>
       </div>
       <div v-else class="tag-dialog-empty">{{ t('notes.noTags') }}</div>
     </div>
-
-    <template #footer>
-      <el-button size="small" @click="close">{{ t('action.cancel') }}</el-button>
-      <el-button size="small" type="primary" :loading="pending" @click="confirm">
-        {{ t('action.confirm') }}
-      </el-button>
-    </template>
   </el-dialog>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { Check, PriceTag } from '@element-plus/icons-vue';
+import { Check, Close, PriceTag } from '@element-plus/icons-vue';
 import { useI18n } from 'vue-i18n';
 
 const props = defineProps<{
   modelValue: boolean;
   value: string[];
   options: Array<{ id: number; name: string; color?: string }>;
-  pending?: boolean;
+  resetKey?: number;
 }>();
 
 const emit = defineEmits<{
   (event: 'update:modelValue', value: boolean): void;
-  (event: 'confirm', tags: string[]): void;
+  (event: 'apply', tags: string[]): void;
+  (event: 'delete-tag', tag: { id: number; name: string }): void;
 }>();
 
 const { t } = useI18n();
@@ -78,6 +87,15 @@ watch(
   },
 );
 
+watch(
+  () => props.resetKey,
+  () => {
+    if (props.modelValue) {
+      selected.value = [...props.value];
+    }
+  },
+);
+
 function toggleTag(name: string): void {
   const index = selected.value.indexOf(name);
   if (index >= 0) {
@@ -85,6 +103,16 @@ function toggleTag(name: string): void {
   } else {
     selected.value.push(name);
   }
+  applySelection();
+}
+
+function applySelection(): void {
+  const unique = Array.from(new Set(selected.value.map((tag) => tag.trim()).filter(Boolean)));
+  emit('apply', unique);
+}
+
+function requestDelete(tag: { id: number; name: string }): void {
+  emit('delete-tag', tag);
 }
 
 function chipColor(tag: { color?: string }): string {
@@ -94,11 +122,6 @@ function chipColor(tag: { color?: string }): string {
 function close(): void {
   emit('update:modelValue', false);
 }
-
-function confirm(): void {
-  const unique = Array.from(new Set(selected.value.map((tag) => tag.trim()).filter(Boolean)));
-  emit('confirm', unique);
-}
 </script>
 
 <style scoped>
@@ -107,7 +130,7 @@ function confirm(): void {
   min-height: 0;
   flex-direction: column;
   gap: 18px;
-  height: 58vh;
+  height: 100%;
 }
 
 .tag-select {
@@ -128,27 +151,66 @@ function confirm(): void {
 .tag-chip {
   display: inline-flex;
   max-width: 100%;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 11px;
+  align-items: stretch;
+  overflow: hidden;
   border: 1px solid rgb(255 255 255 / 20%);
   border-radius: 99px;
   color: #fff;
-  cursor: pointer;
   font: inherit;
   font-size: 12px;
   opacity: 0.82;
   transition: opacity 0.15s, box-shadow 0.15s, transform 0.15s;
 }
 
-.tag-chip span {
+.tag-chip-main {
+  display: inline-flex;
+  max-width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 6px 5px 11px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+
+.tag-chip-main span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.tag-chip-remove {
+  display: inline-flex;
+  width: 22px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid rgb(255 255 255 / 18%);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 12px;
+  opacity: 0.68;
+}
+
+.tag-chip-remove:hover {
+  background: rgb(0 0 0 / 18%);
+  opacity: 1;
+}
+
 .tag-chip:hover {
   opacity: 1;
+}
+
+.tag-chip-main:focus-visible,
+.tag-chip-remove:focus-visible {
+  outline: 2px solid rgb(255 255 255 / 75%);
+  outline-offset: -2px;
 }
 
 .tag-chip.active {

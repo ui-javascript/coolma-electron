@@ -21,17 +21,17 @@ export function buildSideDrawerMenu(input: SideDrawerMenuInput) {
   const items: Array<Record<string, unknown>> = [];
   const pushCreate = (): void => {
     if (!input.hideCreateCategory) {
-      items.push({ id: 'createCategory', label: '新建文件夹' });
+      items.push({ id: 'createCategory', label: '创建文件夹' });
     }
     if (!input.hideCreateNote) {
-      items.push({ id: 'createNote', label: '新建笔记' });
+      items.push({ id: 'createNote', label: '创建笔记' });
     }
   };
 
   pushCreate();
   if (input.isLogin) {
     items.push({ type: 'separator', label: '' });
-    items.push({ id: 'importNotes', label: '导入…' });
+    items.push({ id: 'importNotes', label: '导入' });
     items.push({
       id: 'export',
       label: '导出',
@@ -41,12 +41,12 @@ export function buildSideDrawerMenu(input: SideDrawerMenuInput) {
     items.push({ type: 'separator', label: '' });
     items.push({ id: 'tierRanking', label: '从夯到拉', enabled: input.tierRankingReady === true });
     items.push({ type: 'separator', label: '' });
-    items.push({ id: 'exportToBlog', label: '导出到博客', enabled: input.blogReady === true });
-    items.push({ id: 'copyMarkdown', label: '复制 Markdown' });
+    items.push({ id: 'exportToBlog', label: '部署 VuePress 博客', enabled: input.blogReady === true });
+    items.push({ id: 'copyMarkdown', label: '复制 MD 到剪贴板' });
   }
   if (!input.isRootCategory) {
     items.push({ type: 'separator', label: '' });
-    items.push({ id: 'delete', label: '删除文件夹', danger: true });
+    items.push({ id: 'delete', label: '删除此文件夹', danger: true });
   }
   return items;
 }

@@ -136,6 +136,8 @@ export default {
     copyMarkdown: 'Copy Markdown',
     copySuccess: 'Copied to clipboard',
     copyFailed: 'Copy failed',
+    copyToCategoryTitle: 'Copy to folder',
+    copyToCategorySuccess: 'Copied to "{folder}"',
     actions: 'More actions',
   },
   folder: {
