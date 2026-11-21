@@ -403,6 +403,8 @@ export default {
     noteTemplateDescPlaceholder: 'Optional, brief description',
     noteTemplateContentPlaceholder: 'Template body. When creating a note, this content is appended after "# Title".',
     noteTemplateContentHint: 'Do not include the H1 title line; the title is generated automatically and placed first.',
+    noteTemplateView: 'View Template',
+    noteTemplateViewTitle: 'View Built-in Template',
     noteTemplateEdit: 'Edit template',
     noteTemplateDelete: 'Delete template',
     noteTemplateDeleteConfirm: 'Delete template "{name}"?',

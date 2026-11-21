@@ -403,6 +403,8 @@ export default {
     noteTemplateDescPlaceholder: '可选，简要说明模板用途',
     noteTemplateContentPlaceholder: '在此输入模板正文。新建笔记时，模板内容会拼到「# 标题」之后。',
     noteTemplateContentHint: '模板正文不应再写 H1 标题行；标题由新建笔记时自动生成并放在最前面。',
+    noteTemplateView: '查看模板',
+    noteTemplateViewTitle: '查看内置模板',
     noteTemplateEdit: '编辑模板',
     noteTemplateDelete: '删除模板',
     noteTemplateDeleteConfirm: '确定删除模板「{name}」？',

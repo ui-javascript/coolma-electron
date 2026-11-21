@@ -13,7 +13,7 @@
           <el-icon><Delete /></el-icon>
           <span>{{ t('selectedCount', { count: selected.length }) }}</span>
         </el-button>
-        <el-button text size="small" @click="openForm(null)">
+        <el-button v-if="!hasBuiltin" text size="small" @click="openForm(null)">
           <el-icon><Plus /></el-icon>
           <span>{{ t('noteTemplateAdd') }}</span>
         </el-button>
@@ -43,6 +43,7 @@
           <span class="template-name">{{ tpl.name }}</span>
           <el-tag v-if="tpl.isBuiltin" size="small" type="warning" effect="plain">{{ t('noteTemplateBuiltinBadge') }}</el-tag>
           <el-button
+            v-if="!isReadOnly(tpl)"
             text
             size="small"
             class="template-delete"
@@ -57,7 +58,12 @@
     </div>
     <p v-else class="template-empty">{{ t('noteTemplateEmpty') }}</p>
 
-    <NoteTemplateFormDialog v-model="formVisible" :value="editing" @submit="submit" />
+    <NoteTemplateFormDialog
+      v-model="formVisible"
+      :value="editing"
+      :readonly="isReadOnly(editing)"
+      @submit="submit"
+    />
   </div>
 </template>
 
@@ -79,8 +85,14 @@ const notesStore = useNotesStore();
 const formVisible = ref(false);
 const editing = ref<NoteTemplate | null>(null);
 const selected = ref<string[]>([]);
+const production = import.meta.env.PROD;
 
 const templates = computed(() => notesStore.templates);
+const hasBuiltin = computed(() => templates.value.some((tpl) => tpl.isBuiltin));
+
+function isReadOnly(tpl: NoteTemplate | null): boolean {
+  return production && Boolean(tpl?.isBuiltin);
+}
 
 onMounted(() => {
   void notesStore.loadTemplates();

@@ -21,6 +21,7 @@
             maxlength="100"
             :placeholder="t('noteTemplateNamePlaceholder')"
             class="note-template-input"
+            :disabled="readonly"
           />
         </div>
         <div class="note-template-field">
@@ -30,6 +31,7 @@
             maxlength="500"
             :placeholder="t('noteTemplateDescPlaceholder')"
             class="note-template-input"
+            :disabled="readonly"
           />
         </div>
         <div class="note-template-field note-template-field--content">
@@ -40,6 +42,7 @@
             :rows="8"
             :placeholder="t('noteTemplateContentPlaceholder')"
             class="content-input"
+            :disabled="readonly"
           />
           <div class="note-template-hint">
             <el-icon><InfoFilled /></el-icon>
@@ -50,8 +53,8 @@
     </div>
     <template #footer>
       <div class="note-template-form-footer">
-        <el-button text @click="close(false)">{{ t('action.cancel') }}</el-button>
-        <el-button text class="note-template-save" @click="submit">{{ t('action.save') }}</el-button>
+        <el-button text @click="close(false)">{{ readonly ? t('action.close') : t('action.cancel') }}</el-button>
+        <el-button v-if="!readonly" text class="note-template-save" @click="submit">{{ t('action.save') }}</el-button>
       </div>
     </template>
   </el-dialog>
@@ -68,6 +71,7 @@ import { randomUUID } from '@/utils/id';
 const props = defineProps<{
   modelValue: boolean;
   value: NoteTemplate | null;
+  readonly?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -82,7 +86,11 @@ const desc = ref('');
 const content = ref('');
 
 const title = computed(() =>
-  props.value ? t('noteTemplateEdit') : t('noteTemplateAdd'),
+  props.readonly
+    ? t('noteTemplateViewTitle')
+    : props.value
+      ? t('noteTemplateEdit')
+      : t('noteTemplateAdd'),
 );
 
 watch(
