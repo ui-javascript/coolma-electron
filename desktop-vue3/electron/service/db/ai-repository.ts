@@ -241,25 +241,48 @@ export const aiSkillsRepository = {
   save(input: AiSkillSaveInput): AiSkillRow {
     const db = getDatabase();
     const now = Date.now();
+    const name = String(input.name ?? '').trim();
+    const title = String(input.title ?? '').trim();
+    const content = String(input.content ?? '');
+    if (!name || !title || !content.trim()) {
+      throw new Error('AI_SKILL_REQUIRED_FIELDS');
+    }
+
     if (input.id) {
-      const info = db
-        .prepare(
-          `UPDATE ai_skills SET name = ?, title = ?, content = ?, enabled = ?, sort_order = ?, updated_at = ? WHERE id = ? AND builtin = 0`,
-        )
-        .run(
-          input.name, input.title ?? '', input.content ?? '',
-          input.enabled === false ? 0 : 1, input.sortOrder ?? 0, now, input.id,
-        );
-      if (info.changes === 0) {
-        throw new Error('AI_SKILL_NOT_FOUND_OR_BUILTIN');
+      const existing = db.prepare('SELECT builtin FROM ai_skills WHERE id = ?').get(input.id) as
+        | { builtin: number }
+        | undefined;
+      if (!existing) {
+        throw new Error('AI_SKILL_NOT_FOUND');
       }
+      if (Number(existing.builtin) === 1) {
+        throw new Error('AI_SKILL_BUILTIN_READONLY');
+      }
+    }
+
+    const duplicate = db
+      .prepare(
+        'SELECT id FROM ai_skills WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) AND (? IS NULL OR id != ?)',
+      )
+      .get(name, input.id ?? null, input.id ?? null) as { id: number } | undefined;
+    if (duplicate) {
+      throw new Error('AI_SKILL_DUPLICATE_NAME');
+    }
+
+    if (input.id) {
+      db.prepare(
+        `UPDATE ai_skills SET name = ?, title = ?, content = ?, enabled = ?, sort_order = ?, updated_at = ? WHERE id = ?`,
+      ).run(
+        name, title, content, input.enabled === false ? 0 : 1,
+        input.sortOrder ?? 0, now, input.id,
+      );
     } else {
       const info = db
         .prepare(
           `INSERT INTO ai_skills (name, title, content, builtin, enabled, sort_order, created_at, updated_at)
-           VALUES (?, ?, ?, 0, 1, ?, ?, ?)`,
+           VALUES (?, ?, ?, 0, ?, ?, ?, ?)`,
         )
-        .run(input.name, input.title ?? '', input.content ?? '', input.sortOrder ?? 0, now, now);
+        .run(name, title, content, input.enabled === false ? 0 : 1, input.sortOrder ?? 0, now, now);
       input.id = Number(info.lastInsertRowid);
     }
     const row = db.prepare('SELECT * FROM ai_skills WHERE id = ?').get(input.id) as RawAiSkillRow;

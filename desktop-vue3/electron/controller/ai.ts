@@ -1,6 +1,6 @@
 import { BrowserWindow, safeStorage } from 'electron';
 import type { IpcResult } from '../shared/ipc/contract';
-import { ok } from '../shared/ipc/result';
+import { ok, toErrorMessage } from '../shared/ipc/result';
 import {
   aiModelsRepository,
   aiSkillsRepository,
@@ -537,7 +537,16 @@ class AiController {
       const input = aiSkillSaveSchema.parse(args ?? {});
       return ok(aiSkillsRepository.save(input));
     } catch (error) {
-      return failFromError(error, 'AI_SKILL_SAVE_ERROR');
+      const rawCode = toErrorMessage(error);
+      const code = [
+        'AI_SKILL_REQUIRED_FIELDS',
+        'AI_SKILL_DUPLICATE_NAME',
+        'AI_SKILL_NOT_FOUND',
+        'AI_SKILL_BUILTIN_READONLY',
+      ].includes(rawCode)
+        ? rawCode
+        : 'AI_SKILL_SAVE_ERROR';
+      return failFromError(error, code);
     }
   }
 

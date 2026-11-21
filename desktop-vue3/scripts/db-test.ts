@@ -542,8 +542,29 @@ assert('体检：能抓到 tags 与 note_tags 不一致', dirtyReport.issues.som
 
   const sk = aiSkillsRepository.save({ name: '摘要', title: '总结', content: '请总结' });
   assert('AI：技能保存往返', sk.builtin === false && sk.title === '总结', JSON.stringify(sk));
-  const sk2 = aiSkillsRepository.save({ name: '翻译', content: 'translate' });
+  const sk2 = aiSkillsRepository.save({ name: '翻译', title: '翻译', content: 'translate' });
   assert('AI：技能列表按 sort/id', aiSkillsRepository.list().map((x) => x.name).join(',') === '摘要,翻译');
+
+  const disabledSkill = aiSkillsRepository.save({ name: '禁用技能', title: '禁用', content: 'x', enabled: false });
+  assert('AI：新建技能尊重 enabled=false', disabledSkill.enabled === false, JSON.stringify(disabledSkill));
+  const enabledSkill = aiSkillsRepository.save({ id: disabledSkill.id, name: '禁用技能', title: '禁用', content: 'x', enabled: true });
+  assert('AI：编辑技能可重新启用', enabledSkill.enabled === true, JSON.stringify(enabledSkill));
+
+  let dupCode = '';
+  try {
+    aiSkillsRepository.save({ name: ' 摘要 ', title: '重复', content: 'x' });
+  } catch (error) {
+    dupCode = String((error as Error).message);
+  }
+  assert('AI：技能名校验忽略大小写与首尾空格', dupCode === 'AI_SKILL_DUPLICATE_NAME', dupCode);
+
+  let requiredCode = '';
+  try {
+    aiSkillsRepository.save({ name: '缺标题', title: '  ', content: 'x' });
+  } catch (error) {
+    requiredCode = String((error as Error).message);
+  }
+  assert('AI：技能必填校验', requiredCode === 'AI_SKILL_REQUIRED_FIELDS', requiredCode);
 
   // 内置技能保护：直接插 builtin=1 行，验证不可删/列表不含
   const raw = getDatabase();
