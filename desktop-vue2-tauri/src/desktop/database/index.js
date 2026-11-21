@@ -191,8 +191,15 @@ let engine = null
 let sqlDatabase = null
 let lastRowid = null
 
-// 阶段二期间先保持 sql.js，等所有调用点迁移完再切成 isTauri() ? 'tauri' : 'sqljs'
-const DB_ENGINE = 'sqljs'
+/**
+ * 引擎选择：Tauri 下走 Rust rusqlite（单连接、直接读写 memocast.db），
+ * 浏览器预览（pnpm dev:frontend / 单测）仍用 sql.js + IndexedDB 快照。
+ *
+ * 排障开关：`globalThis.__COOLMA_DB_ENGINE__ = 'sqljs'` 可强制回退，
+ * 用于 rusqlite 路径出问题时临时救场，不必重新打包。
+ */
+const DB_ENGINE = (globalThis && globalThis.__COOLMA_DB_ENGINE__) ||
+  (isTauri() ? 'tauri' : 'sqljs')
 
 /** sql.js 形状的单语句结果：[{ columns, values }]，照顾老代码对 result[0].values 的读法。 */
 async function execRaw (sql, params = []) {
