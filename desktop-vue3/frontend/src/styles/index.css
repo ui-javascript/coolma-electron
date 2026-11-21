@@ -1990,3 +1990,14 @@ html.dark .remote-import-error {
   background: var(--el-color-danger) !important;
   color: #fff !important;
 }
+
+.header-tags-popper .header-tags {
+  display: flex;
+  max-width: 300px;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.header-tags-popper .header-tags .el-tag {
+  margin: 0;
+}

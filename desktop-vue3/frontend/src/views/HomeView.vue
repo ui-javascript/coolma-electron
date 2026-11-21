@@ -24,7 +24,9 @@
       @ai="openAiAssistant"
       @chat="microDrawerVisible = true"
       @settings="openSettings"
-    />
+    
+          :tags="headerTags"
+        />
 
     <Splitpanes class="workspace" @resized="onPanesResized">
       <Pane v-if="paneVisible.sidebar" :size="paneLayoutSizes.sidebar" :min-size="14" :max-size="25">
@@ -463,6 +465,7 @@ const currentFilterLabel = computed(() => {
 });
 
 const headerTitle = computed(() => activeSummary.value?.title || t('notes.untitled'));
+const headerTags = computed(() => (activeSummary.value ? noteTags(activeSummary.value) : []));
 const headerDirty = computed(() => notesStore.saving || activeSummary.value?.dirty === 1);
 const aiProvider = ref(localStorage.getItem('coolma.aiProvider') === 'doubao' ? 'doubao' : 'builtin');
 

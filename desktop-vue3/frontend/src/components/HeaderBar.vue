@@ -40,12 +40,27 @@
     <div class="header-spacer" />
 
     <div
+      v-if="tags.length > 0"
       class="header-note-title"
-      :title="title"
       @click="emit('tags')"
     >
       <span class="save-dot" :class="{ show: dirty }" />
-      <span>{{ title }}</span>
+      <el-tooltip placement="bottom" effect="light" popper-class="header-tags-popper">
+        <template #content>
+          <div class="header-tags">
+            <el-tag v-for="tag in tags" :key="tag" size="small" effect="plain">{{ tag }}</el-tag>
+          </div>
+        </template>
+        <span class="header-note-title-text">{{ title }}</span>
+      </el-tooltip>
+    </div>
+    <div
+      v-else
+      class="header-note-title"
+      @click="emit('tags')"
+    >
+      <span class="save-dot" :class="{ show: dirty }" />
+      <span class="header-note-title-text">{{ title }}</span>
     </div>
 
     <div class="header-spacer" />
@@ -183,6 +198,7 @@ const props = defineProps<{
   aiProvider: string;
   syncPushTooltip: string;
   syncPullTooltip: string;
+  tags: string[];
 }>();
 
 const emit = defineEmits<{
@@ -280,7 +296,7 @@ function onAccountCommand(command: string): void {
   -webkit-app-region: no-drag;
 }
 
-.header-note-title > span:last-child {
+.header-note-title-text {
   overflow: hidden;
   margin-left: 7px;
   font-weight: 600;
@@ -348,9 +364,9 @@ function onAccountCommand(command: string): void {
 }
 
 .header--skin-nezha .header-icon-btn .icon-custom,
-.header--skin-nezha .header-note-title > span:last-child,
+.header--skin-nezha .header-note-title-text,
 .header--skin-infp .header-icon-btn .icon-custom,
-.header--skin-infp .header-note-title > span:last-child,
+.header--skin-infp .header-note-title-text,
 .header--skin-nezha .workspace-mode-label,
 .header--skin-nezha .workspace-mode-caret,
 .header--skin-nezha .workspace-mode-btn .mode-icon,
