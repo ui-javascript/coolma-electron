@@ -50,7 +50,9 @@ export default {
   },
   data () {
     return {
-      contentEditor: {},
+      // 注意：这里必须是 null。之前写成 {} 让异步初始化的守卫误判成"编辑器已存在"，
+      // 导致 initMonaco 永不执行、源码模式只剩一块空白 div。
+      contentEditor: null,
       pendingSaveData: null  // ✅ 编辑变化时预捕获的数据（与 Muya 保持一致）
     }
   },
@@ -64,11 +66,18 @@ export default {
   },
   methods: {
     /**
+     * contentEditor 只有在 monaco.editor.create 成功后才算就绪。
+     * 直接用真值判断会被 data() 里的历史默认值坑到，这里统一收口。
+     */
+    hasMonacoInstance: function () {
+      return !!(this.contentEditor && typeof this.contentEditor.getValue === 'function')
+    },
+    /**
      * 首屏渲染完成后再初始化编辑器：requestIdleCallback 让出主线程，
      * 保证笔记列表和正文先出来。超时兜底 1.5s，避免一直空闲不下来时编辑器永远不建。
      */
     scheduleMonacoInit: function () {
-      if (this.contentEditor || this._monacoInitPromise || this._monacoIdleHandle) return
+      if (this.hasMonacoInstance() || this._monacoInitPromise || this._monacoIdleHandle) return
       const run = () => {
         this._monacoIdleHandle = null
         if (this._isDestroyed) return
@@ -83,7 +92,8 @@ export default {
       }
     },
     initMonaco: function () {
-      if (this.contentEditor || this._monacoInitPromise) return this._monacoInitPromise
+      if (this.hasMonacoInstance()) return Promise.resolve(this.contentEditor)
+      if (this._monacoInitPromise) return this._monacoInitPromise
       this._monacoInitPromise = this.createMonacoInstance()
       return this._monacoInitPromise
     },
@@ -253,6 +263,13 @@ export default {
       if (this._pendingCursor) {
         this.setCursorPosition(this._pendingCursor)
         this._pendingCursor = null
+      }
+
+      // 编辑器可能在 v-show=false（源码模式未开启）时创建，容器尺寸为 0；
+      // 切到源码模式瞬间补一次 layout，避免出现"切过去是空白、动一下窗口才出来"。
+      if (this.active) {
+        this.contentEditor.layout()
+        this.contentEditor.focus()
       }
     },
     /**
@@ -460,6 +477,7 @@ export default {
       this.contentEditor.revealPositionInCenter({ lineNumber: safeLineNumber, column: safeColumn }, 0)
     },
     getWordCount: function (markdown) {
+      if (!this.hasMonacoInstance()) return 0
       return this.contentEditor.getWordCount(markdown)
     },
     
@@ -562,6 +580,20 @@ export default {
     }
   },
   watch: {
+    active: function (isActive) {
+      if (!isActive) return
+      // 切到源码模式：编辑器可能还在异步加载（甚至还没开始建），这里立即触发创建；
+      // 已建好则补 layout + 聚焦。内容同步由 Index.vue 的 tempNoteData + data watcher 负责。
+      this.initMonaco()
+        .then(() => {
+          if (!this.hasMonacoInstance()) return
+          this.contentEditor.layout()
+          this.contentEditor.focus()
+        })
+        .catch(error => {
+          console.warn('[Monaco] 切换到源码模式时初始化失败', error)
+        })
+    },
     currentNote: function (currentData) {
       console.log('\n[Monaco watcher] ====== START ======')
       console.log(`[Monaco watcher] ⚡ FIRED! Time: ${new Date().toISOString()}`)
