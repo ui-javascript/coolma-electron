@@ -10,7 +10,7 @@
 </template>
 
 <script>
-import * as monaco from 'monaco-editor'
+import { loadMonaco, getMonaco } from 'src/utils/monacoRuntime'
 import { createNamespacedHelpers } from 'vuex'
 import debugLogger from 'src/utils/debugLogger'
 import helper from 'src/utils/helper'
@@ -18,6 +18,8 @@ import bus from 'components/common/bus'
 import { EVENTS as events } from 'src/utils/const/eventsConst'
 import { setupMonacoClipboard } from 'src/utils/monacoClipboardBridge'
 import { escape } from 'lodash'
+
+// monaco 不再静态引入：编辑器实例由 scheduleMonacoInit 在首屏渲染后异步创建。
 
 const {
   mapGetters: mapServerGetters,
@@ -61,7 +63,34 @@ export default {
     ...mapClientState(['darkMode'])
   },
   methods: {
+    /**
+     * 首屏渲染完成后再初始化编辑器：requestIdleCallback 让出主线程，
+     * 保证笔记列表和正文先出来。超时兜底 1.5s，避免一直空闲不下来时编辑器永远不建。
+     */
+    scheduleMonacoInit: function () {
+      if (this.contentEditor || this._monacoInitPromise || this._monacoIdleHandle) return
+      const run = () => {
+        this._monacoIdleHandle = null
+        if (this._isDestroyed) return
+        this.initMonaco().catch(error => {
+          console.warn('[Monaco] 初始化失败', error)
+        })
+      }
+      if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+        this._monacoIdleHandle = window.requestIdleCallback(run, { timeout: 1500 })
+      } else {
+        this._monacoIdleHandle = setTimeout(run, 300)
+      }
+    },
     initMonaco: function () {
+      if (this.contentEditor || this._monacoInitPromise) return this._monacoInitPromise
+      this._monacoInitPromise = this.createMonacoInstance()
+      return this._monacoInitPromise
+    },
+    async createMonacoInstance () {
+      const monaco = await loadMonaco()
+      // 加载期间组件可能已经被销毁（切换页面 / 热更新），直接放弃。
+      if (this._isDestroyed) return
       monaco.editor.defineTheme('Memocast-Dark', {
         base: 'vs-dark',
         inherit: true,
@@ -215,6 +244,16 @@ export default {
         contextMenuOrder: 3,
         run: () => this._runClipboardFromMenu('paste')
       })
+
+      // 编辑器创建期间错过的笔记内容/光标先缓存，这里补上，避免首屏快速切笔记丢内容。
+      if (this._pendingContent !== undefined) {
+        this.contentEditor.setValue(this._pendingContent)
+        this._pendingContent = undefined
+      }
+      if (this._pendingCursor) {
+        this.setCursorPosition(this._pendingCursor)
+        this._pendingCursor = null
+      }
     },
     /**
      * 通过右键菜单触发的复制 / 剪切 / 粘贴
@@ -381,7 +420,13 @@ export default {
       }
     },
     getValue: function () {
-      return this.contentEditor?.getValue()
+      if (this.contentEditor) return this.contentEditor.getValue()
+      // 编辑器还没建好时回退到 store 里的当前笔记内容：Index.vue 在退出源码模式时会读这里，
+      // 返回空字符串会把笔记内容清掉。
+      const note = this.currentNote
+      if (typeof note === 'string') return note
+      if (note && typeof note === 'object') return note.__markdown || ''
+      return (this.data && this.data.markdown) || ''
     },
     getCursorPosition: function () {
       const raw = this.contentEditor?.getPosition()
@@ -485,7 +530,7 @@ export default {
   mounted () {
     // Add global keydown listener for Ctrl+S to ensure save works even when Monaco captures the event
     document.addEventListener('keydown', this.handleGlobalKeyDown)
-    this.initMonaco()
+    this.scheduleMonacoInit()
     bus.$on(events.EDIT_SHORTCUT_CALL.save, this.saveHandler)
     bus.$on(events.EDIT_SHORTCUT_CALL.copyAsMarkdown, this.editCopyPasteHandler)
     bus.$on(events.EDIT_SHORTCUT_CALL.copyAsHtml, this.editCopyPasteHandler)
@@ -495,6 +540,11 @@ export default {
     bus.$on(events.INSERT_AI_TEXT, this.insertAiTextHandler)
   },
   beforeDestroy () {
+    if (this._monacoIdleHandle) {
+      if (typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(this._monacoIdleHandle)
+      clearTimeout(this._monacoIdleHandle)
+      this._monacoIdleHandle = null
+    }
     document.removeEventListener('keydown', this.handleGlobalKeyDown)
     bus.$off(events.EDIT_SHORTCUT_CALL.save)
     bus.$off(events.EDIT_SHORTCUT_CALL.copyAsMarkdown)
@@ -541,6 +591,11 @@ export default {
       }
       
       try {
+        // 编辑器还在异步创建中：先记住内容，建好后补写
+        if (!this.contentEditor) {
+          this._pendingContent = markdownContent
+          return
+        }
         // ✅ 使用提取后的内容设置到编辑器
         this.contentEditor.setValue(markdownContent)
         console.log(`[Monaco watcher] ✅ Done! Editor now has content (len=${markdownContent.length})`)
@@ -557,10 +612,17 @@ export default {
       }
     },
     darkMode: function (darkMode) {
+      const monaco = getMonaco()
+      if (!monaco) return
       const currentTheme = darkMode ? 'Memocast-Dark' : 'Memocast-Light'
       monaco.editor.setTheme(currentTheme)
     },
     data: function ({ markdown, cursor }) {
+      if (!this.contentEditor) {
+        this._pendingContent = markdown
+        this._pendingCursor = cursor
+        return
+      }
       this.contentEditor.setValue(markdown)
       this.setCursorPosition(cursor)
       this.contentEditor.focus()

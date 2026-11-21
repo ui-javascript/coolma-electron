@@ -14,7 +14,7 @@
  *   setupMonacoClipboard(monacoEditor, monaco, { onCopy, onCut, onPaste })
  */
 
-import * as monacoApi from 'monaco-editor'
+// monaco 通过参数传入（调用方持有动态加载后的实例），这里不再静态引用 monaco-editor。
 
 const getClipboard = () => (typeof window !== 'undefined' ? window.__electronClipboard : null)
 
@@ -109,7 +109,7 @@ const handlePaste = (editor, monaco, onPaste) => {
  * @param {{ onCopy?: Function, onCut?: Function, onPaste?: Function }} [callbacks]
  * @returns {{ dispose: Function }} 返回 dispose 函数用于解绑快捷键
  */
-export const setupMonacoClipboard = (editor, monaco = monacoApi, callbacks = {}) => {
+export const setupMonacoClipboard = (editor, monaco, callbacks = {}) => {
   if (!editor || !monaco || !monaco.editor || !monaco.KeyMod || !monaco.KeyCode) {
     return { dispose: () => {} }
   }

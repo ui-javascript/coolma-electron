@@ -20,7 +20,6 @@ module.exports = function (/* ctx */) {
     // --> boot files are part of "main.js"
     // https://quasar.dev/quasar-cli/boot-files
     boot: [
-      'monaco-env',
       'vue-warn-filter',
       'i18n',
       'globalGlobals',
@@ -92,6 +91,14 @@ module.exports = function (/* ctx */) {
 
       // https://quasar.dev/quasar-cli/handling-webpack
       extendWebpack (cfg) {
+        // Quasar 1 默认把 vendors 分组的 chunks 设成 'all'：只要某个三方依赖在任意
+        // 异步 chunk 里被 import，也会被抽进首屏 vendor.js。本项目重依赖很多
+        // （monaco / vega / mermaid / sql.js 等），导致每次冷启动都要先解析十几 MB
+        // 代码。改成 'initial' 后它们留在各自的异步 chunk，异步 chunk 之间的共享依赖
+        // 由 chunk-common 处理。
+        if (cfg.optimization && cfg.optimization.splitChunks && cfg.optimization.splitChunks.cacheGroups) {
+          cfg.optimization.splitChunks.cacheGroups.vendors.chunks = 'initial'
+        }
         // pnpm resolves each package through its real dependency directory.
         cfg.resolve.symlinks = true
         cfg.resolve.alias['electron$'] = path.resolve(__dirname, 'src/desktop/bridge.js')

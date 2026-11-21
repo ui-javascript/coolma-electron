@@ -23,14 +23,17 @@ function installElectronShell ($q) {
   }
 }
 
-export default async ({ Vue }) => {
+export default ({ Vue }) => {
   if (!isTauri()) return
   installElectronShell(Vue.prototype.$q)
   installKeyboardShortcuts()
-  // 原版由主进程在建窗时把主题列表写进 electron-store，这里在启动阶段补做一次。
-  const themes = await refreshThemeFolder().catch(error => {
-    console.warn('[tauri-desktop] 主题目录扫描失败', error)
-    return []
-  })
-  if (themes.length) ClientFileStorage.setItemInStore('themes', themes)
+  // 原版由主进程在建窗时把主题列表写进 electron-store。这里放到启动后台跑：
+  // 主题列表只有打开「设置」时才用，没必要卡在 boot 链上等 IPC 扫描目录。
+  refreshThemeFolder()
+    .then(themes => {
+      if (themes.length) ClientFileStorage.setItemInStore('themes', themes)
+    })
+    .catch(error => {
+      console.warn('[tauri-desktop] 主题目录扫描失败', error)
+    })
 }

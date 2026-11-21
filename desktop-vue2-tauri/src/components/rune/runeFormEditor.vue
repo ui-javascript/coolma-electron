@@ -47,7 +47,7 @@
 </template>
 
 <script>
-import * as monaco from 'monaco-editor'
+import { loadMonaco } from 'src/utils/monacoRuntime'
 import CategoryPicker from 'components/category/CategoryPickerV2'
 import { RuneCategoryEnum } from 'src/utils/enum'
 import { setupMonacoClipboard } from 'src/utils/monacoClipboardBridge'
@@ -347,9 +347,12 @@ export default {
       }, 1200)
     },
 
-    _createMonacoEditor (template) {
+    async _createMonacoEditor (template) {
       if (!this.$refs.editorContainer) return
       this.disposeMonaco()
+      // monaco 按需加载：符文编辑器只在真正打开时才拉编辑器 chunk
+      const monaco = await loadMonaco()
+      if (this._isDestroyed || !this.$refs.editorContainer) return
 
       const isDark = document.body.classList.contains('body--dark')
       const editorBg = isDark ? '#34383e' : '#ffffff'
