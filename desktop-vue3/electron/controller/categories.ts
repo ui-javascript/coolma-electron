@@ -1,6 +1,6 @@
 import type { CategoryRecord } from '../shared/types/domain';
 import type { IpcResult } from '../shared/ipc/contract';
-import { fail, ok } from '../shared/ipc/result';
+import { ok } from '../shared/ipc/result';
 import { categoryCreateSchema, categoryRemoveSchema } from '../shared/ipc/schemas';
 import { categoriesRepository } from '../service/db/categories-repository';
 import { createRemoteCategory, deleteRemoteCategory, getPublicConfig } from '../service/sync/wiznote';
@@ -45,11 +45,7 @@ class CategoriesController {
   async remove(args?: unknown): Promise<IpcResult<{ deleted: boolean }>> {
     try {
       const { category } = categoryRemoveSchema.parse(args);
-      // 非空校验放在主进程，渲染层只是提示；即便绕过 UI 也删不掉有笔记的文件夹。
-      const noteCount = categoriesRepository.countNotes(category);
-      if (noteCount > 0) {
-        return fail('CATEGORY_NOT_EMPTY', `Category ${category} still has ${noteCount} note(s)`);
-      }
+      // 照 vue2 deleteCategory：只删分类节点，笔记原样留在库里（仍归在该路径下）。
       const config = getPublicConfig();
       // vue2 在线时先删云端目录；云端失败只 warn，本地照样删。
       if (config.loggedIn && config.kbGuid) {
