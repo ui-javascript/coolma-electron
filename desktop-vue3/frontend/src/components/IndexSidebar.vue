@@ -474,12 +474,6 @@ async function createFolder(parentCategory = ''): Promise<void> {
 }
 
 async function removeFolder(category: string): Promise<void> {
-  const count = notesStore.notes.filter((note) => note.category === category).length;
-  if (count > 0) {
-    ElMessage.warning(t('folder.deleteNotEmpty', { count }));
-    return;
-  }
-
   try {
     await ElMessageBox.confirm(
       t('folder.deleteConfirm', { name: folderName(category, t('notes.rootFolder')) }),

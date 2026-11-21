@@ -2,7 +2,7 @@
   <el-dialog
     v-model="visible"
     :title="readonly ? t('library.viewCard') : kind === 'rune' ? t(exists ? 'library.editRune' : 'library.newRune') : t(exists ? 'library.editEcho' : 'library.newEcho')"
-    width="560px"
+    width="760px"
     append-to-body
     destroy-on-close
   >
@@ -40,6 +40,21 @@
           />
         </el-select>
       </el-form-item>
+      <el-form-item :label="t('library.icon')">
+        <el-select v-model="form.icon" :disabled="readonly" filterable class="icon-select">
+          <el-option
+            v-for="option in iconOptions"
+            :key="option.value"
+            :label="option.label"
+            :value="option.value"
+          >
+            <span class="icon-option">
+              <el-icon v-if="libraryIconOf(option.value)"><component :is="libraryIconOf(option.value)" /></el-icon>
+              <span>{{ option.label }}</span>
+            </span>
+          </el-option>
+        </el-select>
+      </el-form-item>
       <el-form-item v-if="kind === 'rune' && !readonly" :label="t('library.templatePreset')">
         <div class="template-picker">
           <el-select
@@ -61,15 +76,15 @@
         </div>
         <span class="form-hint">{{ t('library.templateHint') }}</span>
       </el-form-item>
-      <el-form-item :label="t('library.source')">
-        <el-input
-          v-model="source"
-          :readonly="readonly"
-          type="textarea"
-          :rows="kind === 'rune' ? 8 : 6"
-          :placeholder="kind === 'rune' ? t('library.templatePlaceholder') : t('library.annoPlaceholder')"
-          class="mono"
-        />
+      <el-form-item :label="t('library.source')" class="source-form-item">
+        <div class="code-editor-wrap">
+          <SourceEditor
+            v-model="source"
+            :theme="appStore.theme"
+            :readonly="readonly"
+            :language="kind === 'rune' ? 'html' : 'javascript'"
+          />
+        </div>
       </el-form-item>
       <el-form-item v-if="kind === 'rune'" :label="t('library.inherit')">
         <el-switch v-model="inheritOn" :disabled="readonly" />
@@ -88,6 +103,8 @@ import { computed, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessage } from 'element-plus';
 import { MagicStick } from '@element-plus/icons-vue';
+import SourceEditor from './SourceEditor.vue';
+import { ECHO_ICON_OPTIONS, RUNE_ICON_OPTIONS, libraryIconOf } from '@/utils/libraryIcons';
 import { randomUUID } from '@/utils/id';
 import { useLibraryStore } from '@/stores/library';
 import { busDialogBus } from '@/services/busDialogBus';
@@ -132,6 +149,7 @@ const form = reactive({
   name: '',
   desc: '',
   color: '#7E57C2',
+  icon: 'whatshot',
   category: 'general',
 });
 
@@ -142,6 +160,7 @@ const categoryOptions = computed(() =>
 const source = ref('');
 const inheritOn = ref(false);
 const presetId = ref('');
+const iconOptions = computed(() => (props.kind === 'rune' ? RUNE_ICON_OPTIONS : ECHO_ICON_OPTIONS));
 const runePresets = runeTemplateBuiltins();
 
 /** 内置模板按分类分组，顺序固定：通用 → 简历。 */
@@ -208,6 +227,7 @@ watch(
       form.name = props.editing.name;
       form.desc = props.editing.desc;
       form.color = props.editing.color;
+      form.icon = props.editing.icon || (props.kind === 'rune' ? 'whatshot' : 'graphic_eq');
       form.category = resolveLibraryCategory(props.kind, props.editing.category);
       if (props.kind === 'rune') {
         source.value = (props.editing as RuneCard).template;
@@ -220,6 +240,7 @@ watch(
       form.name = '';
       form.desc = '';
       form.color = props.kind === 'rune' ? '#7E57C2' : '#26A69A';
+      form.icon = props.kind === 'rune' ? 'whatshot' : 'graphic_eq';
       form.category = resolveLibraryCategory(props.kind, props.initialCategory);
       // vue2 createRuneForm 新增默认就是 inheritFromPrevious 演示模板，开关默认开。
       source.value = props.kind === 'rune' ? defaultRuneTemplate() : '';
@@ -256,7 +277,7 @@ async function submit(): Promise<void> {
         name,
         desc: form.desc.trim(),
         color: form.color,
-        icon: props.editing?.icon,
+        icon: form.icon,
         category: form.category,
         sortOrder: props.editing?.sortOrder,
         template: source.value,
@@ -272,7 +293,7 @@ async function submit(): Promise<void> {
         name,
         desc: form.desc.trim(),
         color: form.color,
-        icon: props.editing?.icon,
+        icon: form.icon,
         category: form.category,
         sortOrder: props.editing?.sortOrder,
         renderType: (props.editing as EchoCard | null)?.renderType,
@@ -299,6 +320,26 @@ async function submit(): Promise<void> {
 
 .category-select {
   width: 200px;
+}
+
+.icon-select {
+  width: 200px;
+}
+
+.icon-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.source-form-item :deep(.el-form-item__content) {
+  width: 100%;
+}
+
+.code-editor-wrap {
+  display: flex;
+  width: 100%;
+  height: 300px;
 }
 
 .template-picker {

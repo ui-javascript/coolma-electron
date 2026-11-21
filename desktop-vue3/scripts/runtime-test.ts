@@ -25,7 +25,7 @@ import {
   resolveActiveUrl,
 } from '../frontend/src/services/microApps';
 import { DEFAULT_SKIN, SKIN_LIST, applySkinThemeColor, normalizeSkinSelection, skinLabelKey } from '../frontend/src/utils/skin';
-import { joinFolderPath, newNoteDefaults } from '../frontend/src/utils/note';
+import { joinFolderPath, newNoteDefaults, removableTemplateIds } from '../frontend/src/utils/note';
 import {
   MAX_TAG_NAME_LENGTH,
   buildAutoTagMessages,
@@ -616,6 +616,19 @@ async function main(): Promise<void> {
     assert('皮肤：文案 key 指向根级 skin 节点', skinLabelKey('nezha') === 'skin.nezha' && skinLabelKey('infp') === 'skin.infp', skinLabelKey('nezha'));
   }
 
+  // ===== 库表单：符文/回响图标选项 =====
+  {
+    const { ECHO_ICON_OPTIONS, RUNE_ICON_OPTIONS, libraryIconOf } = await import('../frontend/src/utils/libraryIcons');
+    assert('库图标：符文 15 项、回响 8 项', RUNE_ICON_OPTIONS.length === 15 && ECHO_ICON_OPTIONS.length === 8, `${RUNE_ICON_OPTIONS.length}/${ECHO_ICON_OPTIONS.length}`);
+    assert(
+      '库图标：所有选项都能映射到 Element 图标',
+      [...RUNE_ICON_OPTIONS, ...ECHO_ICON_OPTIONS].every((option) => libraryIconOf(option.value) !== null),
+      JSON.stringify([...RUNE_ICON_OPTIONS, ...ECHO_ICON_OPTIONS].filter((option) => !libraryIconOf(option.value))),
+    );
+    assert('库图标：vue2 默认值与旧内置图标可渲染', libraryIconOf('whatshot') !== null && libraryIconOf('graphic_eq') !== null && libraryIconOf('auto_awesome') !== null, 'defaults');
+    assert('库图标：未知值返回 null', libraryIconOf('not_a_real_icon') === null && libraryIconOf('') === null, 'unknown');
+  }
+
   // ===== 新建笔记：默认标题与模板下拉 =====
   {
     const fakeT = (key: string, named?: Record<string, unknown>) => (
@@ -628,6 +641,11 @@ async function main(): Promise<void> {
     assert('新建文件夹：右键父节点拼子目录、忽略多余斜杠', joinFolderPath('/工作/', '/项目A/') === '/工作/项目A', joinFolderPath('/工作/', '/项目A/'));
     assert('新建文件夹：无父节点支持多级相对路径', joinFolderPath('', '技术/前端') === '/技术/前端', joinFolderPath('', '技术/前端'));
     assert('新建文件夹：空名称拒绝', joinFolderPath('/工作', ' / ') === '', JSON.stringify(joinFolderPath('/工作', ' / ')));
+    const batchIds = removableTemplateIds(
+      [{ id: 'builtin-1', isBuiltin: true }, { id: 'custom-1', isBuiltin: false }, { id: 'custom-2', isBuiltin: false }],
+      ['builtin-1', 'custom-1', 'missing', 'custom-2'],
+    );
+    assert('模板批删：过滤内置与失效 id', batchIds.join('|') === 'custom-1|custom-2', JSON.stringify(batchIds));
   }
 
   // ===== 微应用数据层（归一化 / 默认选取 / 重建判定）=====
@@ -1204,6 +1222,7 @@ async function main(): Promise<void> {
     assert('i18n：settings.skin 归并进 settings 节点', typeof fixed.settings?.skin === 'string', JSON.stringify(fixed.settings?.skin));
     assert('i18n：皮肤名在根级 skin 节点可解析', fixed.skin?.nezha === '哪吒' && fixed.skin?.baiyang === '白羊' && fixed.skin?.infp === 'INFP', JSON.stringify(fixed.skin));
     assert('i18n：新建笔记标题模板可解析', fixed.notes?.defaultTitle === '【{category}】新笔记-{date}.md', JSON.stringify(fixed.notes?.defaultTitle));
+    assert('i18n：模板批删文案可解析', fixed.noteTemplateBatchDelete === '批量删除模板' && fixed.selectedCount === '已选 {count} 项', JSON.stringify([fixed.noteTemplateBatchDelete, fixed.selectedCount]));
     assert('i18n：aiHelper.title 回到根级', typeof fixed.aiHelper?.title === 'string', JSON.stringify(fixed.aiHelper?.title));
     assert('i18n：新面板键可在根级解析', typeof fixed.settings?.groupServer === 'string', JSON.stringify(fixed.settings?.groupServer));
   }

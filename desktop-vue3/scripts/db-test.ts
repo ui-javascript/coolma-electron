@@ -216,6 +216,18 @@ const category = categoriesRepository.create({ category: '/工作/子目录' });
 assert('分类：创建返回节点', Boolean(category?.category), JSON.stringify(category));
 assert('分类：countNotes 统计', categoriesRepository.countNotes('/工作') >= 1, String(categoriesRepository.countNotes('/工作')));
 assert('分类：根目录不可删', categoriesRepository.remove('/') === false);
+const nonEmptyCategory = categoriesRepository.create({ category: '/非空删除' });
+const keptNote = notesRepository.create({ title: '目录删了还在', content: 'keep', category: '/非空删除' });
+assert(
+  '分类：非空目录可删（照 vue2 只删节点）',
+  categoriesRepository.remove(nonEmptyCategory.category) === true,
+  nonEmptyCategory.category,
+);
+assert(
+  '分类：删目录不动笔记',
+  notesRepository.get(keptNote.id)?.category === '/非空删除',
+  JSON.stringify(notesRepository.get(keptNote.id)),
+);
 assert('分类：parentOf 解析', categoriesRepository.parentOf('/工作/子目录') === '/工作', categoriesRepository.parentOf('/工作/子目录'));
 
 const offlineCategory = categoriesRepository.create({

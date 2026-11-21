@@ -1076,7 +1076,13 @@ async function requestDeleteFolder(category: string): Promise<void> {
   const deleted = await notesStore.deleteFolder(category);
   if (!deleted) {
     ElMessage.error(notesStore.error || t('folder.deleteFailed'));
+    return;
   }
+  // vue2：只有当前选中目录属于被删子树时才重置筛选，笔记仍在原分类下。
+  if (activeFolder.value && (activeFolder.value === category || activeFolder.value.startsWith(`${category}/`))) {
+    activeFolder.value = '';
+  }
+  ElMessage.success(t('folder.deleteSuccess'));
 }
 
 async function exportFolder(category: string): Promise<void> {
