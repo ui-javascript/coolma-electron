@@ -55,11 +55,14 @@ body,
   margin: 0;
 }
 
-body {
+/* Quasar 自带 body 字体和 14px 行高，用更高优先级的选择器保住 Coolma 原有排版。 */
+html body {
   overflow: hidden;
   background: var(--coolma-bg);
   color: var(--coolma-text);
   font-family: var(--el-font-family);
+  font-size: 16px;
+  line-height: normal;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizelegibility;
 }

@@ -57,6 +57,17 @@ export default defineConfig(({ mode }) => {
       sourcemap: mode !== 'production',
       minify: 'esbuild',
       chunkSizeWarningLimit: 1600,
+      rollupOptions: {
+        output: {
+          // 三套 UI 库全局注册后主 chunk 会撑爆内存，按库拆开，也避免互相挤占缓存。
+          manualChunks(id) {
+            if (id.includes('ant-design-vue') || id.includes('@ant-design')) return 'vendor-antd';
+            if (id.includes('quasar')) return 'vendor-quasar';
+            if (id.includes('element-plus') || id.includes('@element-plus')) return 'vendor-element';
+            return undefined;
+          },
+        },
+      },
     },
   };
 });

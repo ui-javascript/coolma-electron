@@ -15,7 +15,7 @@
     "dev-frontend": "ee-bin dev --serve=frontend",
     "dev-electron": "ee-bin dev --serve=electron",
     "build": "pnpm run build-frontend && pnpm run build-electron",
-    "build-frontend": "ee-bin build --cmds=frontend && ee-bin move --flag=frontend_dist",
+    "build-frontend": "node scripts/build-frontend.mjs",
     "build-electron": "ee-bin build --cmds=electron",
     "build-w": "ee-bin build --cmds=win64",
     "build-we": "ee-bin build --cmds=win_e",

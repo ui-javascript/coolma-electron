@@ -1,14 +1,16 @@
 <template>
-  <div class="app-frame" :class="{ 'has-window-controls': hasControls }">
-    <router-view />
-    <WindowControls :skin="appStore.skin" />
-    <LoginDialog
-      v-model="loginDialogState.visible"
-      @success="notifyLoginSuccess"
-      @skip="closeLoginDialog"
-    />
-    <UpdateDialog v-model="updateVisible" />
-  </div>
+  <a-config-provider :locale="antdLocale">
+    <div class="app-frame" :class="{ 'has-window-controls': hasControls }">
+      <router-view />
+      <WindowControls :skin="appStore.skin" />
+      <LoginDialog
+        v-model="loginDialogState.visible"
+        @success="notifyLoginSuccess"
+        @skip="closeLoginDialog"
+      />
+      <UpdateDialog v-model="updateVisible" />
+    </div>
+  </a-config-provider>
 </template>
 
 <script setup lang="ts">
@@ -23,6 +25,7 @@ import { useAppStore } from '@/stores/app';
 import { useNotesStore } from '@/stores/notes';
 import { useSyncStore } from '@/stores/sync';
 import { hasIpc } from '@/services/ipc';
+import antdZhCN from 'ant-design-vue/es/locale/zh_CN';
 import { installBusDialogs } from '@/services/busDialogEntries';
 import { closeLoginDialog, loginDialogState, notifyLoginSuccess } from '@/services/loginDialog';
 import { getSyncStatus, syncAutoLogin } from '@/services/sync';
@@ -30,6 +33,7 @@ import { checkUpdate, downloadUpdate, onUpdaterEvent } from '@/services/updater'
 import { loadCdnDeps } from '@/utils/cdnDeps';
 
 const hasControls = hasIpc();
+const antdLocale = antdZhCN;
 const appStore = useAppStore();
 const notesStore = useNotesStore();
 const syncStore = useSyncStore();
