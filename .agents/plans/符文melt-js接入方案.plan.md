@@ -553,6 +553,21 @@ desktop-vue2-tauri 15 suites / 120 tests 全绿。
 踩坑：方法直接挂 `v-on` 会丢 `this`（Vue 报 handler ReferenceError），
 已改箭头函数包一层。
 
+### 11.2.1 CORS 兜底（Node 取 meta）
+
+结论先行：**远端包可以静态镜像到自建站，改指向即可**，CORS 不是必须解决的问题；
+这里只是把「跨源拿不到 meta」时的兜底补上，避免纯 Web 形态直接死。
+
+- hel 自己的 meta 拉取走 fetch/XHR；`HelFetchLib` 要求实现者返回**完整 lib 记录**，
+  自己重写一遍资源加载/导出提取不划算，所以用 hel 官方的 `custom.onFetchMetaFailed`
+  兜底钩子：hel 拿到我们返回的 meta 后会自己 `cacheApp` 并继续加载资源。
+- `buildMetaUrlCandidates(dep)`：直连 `.../hel-meta.json` 原样用；站点根先试
+  `<host>/hel-meta.json`，再试 `<host>/<name>/hel_dist|dist/hel-meta.json`。
+- `fetchMetaViaNode`：Electron 渲染层 `nodeIntegration: true`，用 `http(s)` 直接取同一份 JSON；
+  纯 Web 没有 Node 时自动跳过，行为与之前一致。已用真实 `82.156.212.243` 实测返回
+  `comps-vue2-meme 2026.11.18` 且 css 列表完整。
+- 壳新增 `errorCaptured`：远端组件自身抛错兜成错误卡，不白屏。
+
 ### 11.3 用户 props 透传（链路真实缺口）
 
 `mountRuneVueHosts` 采集到的宿主属性此前塞进 `propsData`，但渲染的是

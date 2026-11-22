@@ -44,6 +44,7 @@ const {
   getMeltResourceKey,
   getMeltPoolKey,
   getMeltDepKey,
+  buildMetaUrlCandidates,
   buildMeltLoadSpec,
   coerceMeltProp,
   normalizeMeltEmitValue,
@@ -329,5 +330,38 @@ describe('配置 → hel 加载描述', () => {
     expect(mockResource.dispose).not.toHaveBeenCalled()
     vm.$destroy()
     expect(mockResource.dispose).toHaveBeenCalledTimes(1)
+  })
+
+  test('meta 兜底地址候选：直连优先，站点根再按包目录约定', () => {
+    expect(buildMetaUrlCandidates({ host: 'http://82.156.212.243/@melt-js/comps-vue2-meme/hel_dist/hel-meta.json' }))
+      .toEqual(['http://82.156.212.243/@melt-js/comps-vue2-meme/hel_dist/hel-meta.json'])
+    const candidates = buildMetaUrlCandidates({ name: '@melt-js/comps-vue2-meme', host: 'http://82.156.212.243/' })
+    expect(candidates[0]).toBe('http://82.156.212.243/hel-meta.json')
+    expect(candidates).toContain('http://82.156.212.243/@melt-js/comps-vue2-meme/hel_dist/hel-meta.json')
+    expect(buildMetaUrlCandidates({ name: 'x' })).toEqual([])
+  })
+
+  test('加载描述挂上 onFetchMetaFailed（CORS 兜底），不破坏原有字段', () => {
+    const config = require('libs-muya-vue2/lib/rune/runeDefinition').parseMeltRuneConfig({
+      template: JSON.stringify({
+        $type: 'melt-js',
+        dep: { name: 'comps-vue2-meme', host: 'http://82.156.212.243/@melt-js/comps-vue2-meme/hel_dist/hel-meta.json' },
+        exportName: 'TierRanking'
+      })
+    })
+    const spec = buildMeltLoadSpec(config)
+    expect(typeof spec.custom.onFetchMetaFailed).toBe('function')
+    expect(spec.host).toContain('hel-meta.json')
+  })
+
+  test('远端组件渲染抛错 → 壳落到错误卡，不白屏', async () => {
+    const bad = { render () { throw new Error('boom in remote') } }
+    const Ctor = createMeltRuneRendererCtor(makeRune())
+    const vm = mountCtor(Ctor)
+    vm.state = { status: 'ready', component: bad, error: null }
+    await vm.$nextTick()
+    await vm.$nextTick()
+    expect(vm.$el.getAttribute('data-melt-rune-state')).toBe('error')
+    expect(vm.$el.textContent).toContain('boom in remote')
   })
 })

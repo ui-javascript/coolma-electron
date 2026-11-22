@@ -85,6 +85,85 @@ export function getMeltResourceKey (rawConfig) {
 // 这种重复路径（已用真包实测）。这也正是对方 demo 的写法：host 直接给 meta 地址、不带版本。
 const DIRECT_ENTRY_RE = /\/(?:hel-meta\.json|index\.html)$/i
 
+// 远端 meta 的「兜底取法」：hel 自己用 fetch/XHR 拉 meta，跨源会被 CORS 拦；
+// Electron 渲染层开了 nodeIntegration，这里用 Node 的 http(s) 直接取同一份 meta，
+// 再交给 hel 的 custom.onFetchMetaFailed（hel 会缓存这份 meta，后续资源仍由 hel 加载，
+// script/link 标签不受 CORS 限制）。纯 Web 环境没有 Node，会自动跳过。
+function fetchMetaViaNode (url) {
+  return new Promise((resolve, reject) => {
+    let transport
+    try {
+      // eslint-disable-next-line global-require
+      transport = url.startsWith('https:') ? require('https') : require('http')
+    } catch (error) {
+      reject(new Error('当前环境没有 Node http，无法兜底拉 meta'))
+      return
+    }
+    const req = transport.get(url, { headers: { 'cache-control': 'no-cache' } }, res => {
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        res.resume()
+        reject(new Error(`meta 请求失败：HTTP ${res.statusCode} ${url}`))
+        return
+      }
+      let body = ''
+      res.setEncoding('utf8')
+      res.on('data', chunk => { body += chunk })
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(body))
+        } catch (error) {
+          reject(new Error(`meta 不是合法 JSON：${url}`))
+        }
+      })
+      res.on('error', reject)
+    })
+    req.on('error', reject)
+    req.setTimeout(15000, () => req.destroy(new Error(`meta 请求超时：${url}`)))
+  })
+}
+
+// 依赖配置 → meta 地址候选（直连优先，其次站点根约定，最后包目录约定）
+export function buildMetaUrlCandidates (dep = {}) {
+  const host = typeof dep.host === 'string' ? dep.host.trim().replace(/\/+$/, '') : ''
+  if (!host) return []
+  if (DIRECT_ENTRY_RE.test(host)) return [host]
+  const name = String(dep.name || '').replace(/^\/+/, '')
+  const list = [`${host}/hel-meta.json`]
+  if (name) list.push(`${host}/${name}/hel_dist/hel-meta.json`, `${host}/${name}/dist/hel-meta.json`)
+  return list
+}
+
+// 给 spec 挂上「Node 兜底拉 meta」：只在能 require 到 http(s) 的宿主里生效
+function attachMetaProxy (spec, dep) {
+  const candidates = buildMetaUrlCandidates(dep)
+  if (!candidates.length) return spec
+  let hasNode = false
+  try {
+    // eslint-disable-next-line global-require
+    hasNode = typeof require('http').get === 'function'
+  } catch (_error) {
+    hasNode = false
+  }
+  if (!hasNode) return spec
+  return {
+    ...spec,
+    custom: {
+      ...(spec.custom || {}),
+      onFetchMetaFailed: async () => {
+        let lastError = null
+        for (const url of candidates) {
+          try {
+            return await fetchMetaViaNode(url)
+          } catch (error) {
+            lastError = error
+          }
+        }
+        throw lastError || new Error('没有可用的 meta 地址')
+      }
+    }
+  }
+}
+
 // 配置 → hel 的加载描述（先解析地址，再补 platform / requiredExports）
 export function buildMeltLoadSpec (rawConfig) {
   const config = resolveMeltConfig(rawConfig)
@@ -106,7 +185,8 @@ export function buildMeltLoadSpec (rawConfig) {
   }
   if (dep.platform) spec.platform = dep.platform
   if (dep.requiredExports && dep.requiredExports.length) spec.requiredExports = dep.requiredExports.slice()
-  return spec
+  // CORS 兜底：fetch/XHR 拿不到 meta 时，用 Node 直接取同一份 JSON 交给 hel
+  return attachMetaProxy(spec, dep)
 }
 
 // 配置 → dep key（同一依赖不同来源算两个 dep）
@@ -354,6 +434,12 @@ export function createMeltRuneRendererCtor (rune = {}) {
         this.failureReason = `melt-js 运行时不可用：${error && error.message ? error.message : error}`
       }
     },
+    // 远端组件自身渲染/生命周期抛错时，兜住它并落错误卡，避免整块区域白掉
+    errorCaptured (error) {
+      console.warn(`${LOG_PREFIX} remote component threw`, error)
+      this.state = { status: 'error', component: null, error }
+      return false
+    },
     beforeDestroy () {
       if (this.__meltResourceKey && this.__meltResourceListener) {
         releaseResource(this.__meltResourceKey, this.__meltResourceListener)
@@ -456,6 +542,7 @@ export default {
   getMeltResourceKey,
   getMeltPoolKey,
   getMeltDepKey,
+  buildMetaUrlCandidates,
   clearAllMeltCaches,
   resetMeltDepLoader,
   resolveMeltConfig,

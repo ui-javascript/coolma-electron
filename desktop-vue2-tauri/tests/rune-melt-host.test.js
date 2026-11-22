@@ -44,6 +44,7 @@ const {
   createMeltRuneRendererCtor,
   getMeltResourceKey,
   getMeltPoolKey,
+  buildMetaUrlCandidates,
   buildMeltLoadSpec,
   coerceMeltProp,
   normalizeMeltEmitValue,
@@ -251,5 +252,12 @@ describe('配置 → hel 加载描述', () => {
     vm.$destroy()
     expect(mockResource.dispose).toHaveBeenCalledTimes(1)
     next.$destroy()
+  })
+
+  test('meta 兜底候选：直连优先，站点根再按包目录约定', () => {
+    expect(buildMetaUrlCandidates({ host: 'http://82.156.212.243/@melt-js/comps-vue2-meme/hel_dist/hel-meta.json' }))
+      .toEqual(['http://82.156.212.243/@melt-js/comps-vue2-meme/hel_dist/hel-meta.json'])
+    expect(buildMetaUrlCandidates({ name: 'comps-vue2-meme', host: 'http://82.156.212.243/' })[0])
+      .toBe('http://82.156.212.243/hel-meta.json')
   })
 })
