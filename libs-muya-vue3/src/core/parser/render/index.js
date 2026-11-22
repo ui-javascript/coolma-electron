@@ -655,112 +655,6 @@ class StateRender {
     }
   }
 
-  /**
-   * 挂载 Rune Vue 组件（Vue.extend 模式）
-   */
-  mountRuneVueHosts () {
-    const RuneRenderer = this.muya?.options?.runeRendererCtor
-    if (!RuneRenderer) return
-
-    const root = document.querySelector(`div#${CLASS_OR_ID.AG_EDITOR_ID}`) || this.container
-    if (!root) return
-
-    const runeMap = this.getRuneMap()
-    const hosts = root.querySelectorAll(RUNE_PLACEHOLDER_SELECTOR)
-    const aliveNodeIds = new Set()
-
-    hosts.forEach(host => {
-      const dataset = host.dataset || {}
-      const runeName = String(dataset.runeName || '').trim()
-      const runeId = String(dataset.runeId || '')
-      const nodeId = String(dataset.runeNodeId || '')
-      if (!runeName || !runeId || !nodeId) {
-        return
-      }
-
-      aliveNodeIds.add(nodeId)
-      const matchedRune = runeMap.get(runeName) || null
-      // 没匹配到符文模板时保留 renderRunePlaceholders 生成的占位卡片，
-      // 不要清空 host 再 new 一个空 ctor，否则宿主会变成 0 高度空节点。
-      if (!matchedRune || !String(matchedRune.template || '').trim()) {
-        const staleVm = this.runeVmMap.get(nodeId)
-        if (staleVm && typeof staleVm.$destroy === 'function') {
-          staleVm.$destroy()
-        }
-        this.runeVmMap.delete(nodeId)
-        if (!host.querySelector(`.${RUNE_CARD_CLASS}`)) {
-          host.innerHTML = this.createRunePlaceholderMarkup(null, dataset)
-        }
-        return
-      }
-      const rune = matchedRune
-      const runeValue = String(dataset.runeValue || '').trim()
-      const renderKey = host.dataset.runeRenderKey || ''
-      const mountedVm = this.runeVmMap.get(nodeId)
-
-      const muyaInstance = this.muya?.options?.memocastMuya || null
-      const onValueChange = (payload) => {
-        if (!muyaInstance || typeof muyaInstance.updateRunePlaceholderValue !== 'function') return
-        muyaInstance.updateRunePlaceholderValue({
-          runeId: payload?.runeId || runeId,
-          nodeId: payload?.nodeId || nodeId,
-          value: payload?.value
-        })
-      }
-
-      // 占位符 div 上只携带 4 个系统级 data-rune-* 属性（name/id/node-id/value）。
-      // SFC 的 props 由 Vue 自己按 props.default 处理；用户在 Markdown 里手写的
-      // data-rune-prop-* 仍然以"显式 prop"形式传入 SFC（最高优先级）。
-      const propDefs = parseSfcPropsDef(rune?.template || '')
-      // 收集 host.dataset 上"用户显式写过"的 prop 值，按 Vue props 规则传给 SFC。
-      // 没写的 prop → SFC 走 props.default
-      const sfcProps = collectRunePropsFromHost(host, propDefs)
-
-      if (mountedVm && mountedVm.$el && mountedVm.$el.parentNode === host && mountedVm.__runeRenderKey === renderKey) {
-        mountedVm.runeId = runeId
-        mountedVm.nodeId = nodeId
-        mountedVm.rune = rune
-        mountedVm.value = runeValue
-        mountedVm.onValueChange = onValueChange
-        // 把变化后的 prop 集合同步到 SFC
-        Object.keys(mountedVm.$options.props || {}).forEach((propName) => {
-          if (Object.prototype.hasOwnProperty.call(sfcProps, propName)) {
-            mountedVm[propName] = sfcProps[propName]
-          }
-        })
-        return
-      }
-
-      if (mountedVm && typeof mountedVm.$destroy === 'function') {
-        mountedVm.$destroy()
-      }
-
-      host.innerHTML = ''
-      const vm = new RuneRenderer({
-        propsData: {
-          runeId,
-          nodeId,
-          rune,
-          ...sfcProps,
-          value: runeValue,
-          onValueChange
-        }
-      })
-      vm.__runeRenderKey = renderKey
-      vm.$mount()
-      host.appendChild(vm.$el)
-      this.runeVmMap.set(nodeId, vm)
-    })
-
-    for (const [savedNodeId, vm] of this.runeVmMap.entries()) {
-      if (!aliveNodeIds.has(savedNodeId)) {
-        if (vm && typeof vm.$destroy === 'function') {
-          vm.$destroy()
-        }
-        this.runeVmMap.delete(savedNodeId)
-      }
-    }
-  }
 
   /**
    * 挂载 Echo Vue 实例（供外部调用）
@@ -808,16 +702,6 @@ class StateRender {
     }
   }
 
-  /**
-   * 兼容旧方法名 - renderRunes()
-   * 依次调用 Echo 和 Rune 的后处理
-   */
-  renderRunes () {
-    // Echo 独立渲染通道
-    this.postRenderEchoPlaceholders()
-    // Rune 独立渲染通道
-    this.postRenderRunePlaceholders()
-  }
 
   cleanupDetachedRuneVms (force = false) {
     for (const [nodeId, vm] of this.runeVmMap.entries()) {
@@ -843,10 +727,6 @@ class StateRender {
 
   mountRuneVueHosts () {
     const RuneRenderer = this.muya?.options?.runeRendererCtor
-    console.log('[Muya.StateRender.mountRuneVueHosts] called', {
-      hasRuneRenderer: !!RuneRenderer,
-      enableRuneVueRenderer: !!this.muya?.options?.enableRuneVueRenderer
-    })
     if (!RuneRenderer) return
 
     const root = document.querySelector(`div#${CLASS_OR_ID.AG_EDITOR_ID}`) || this.container
@@ -854,11 +734,6 @@ class StateRender {
 
     const runeMap = this.getRuneMap()
     const hosts = root.querySelectorAll(RUNE_PLACEHOLDER_SELECTOR)
-    console.log('[Muya.StateRender.mountRuneVueHosts] scanning hosts', {
-      hostCount: hosts.length,
-      runeMapSize: runeMap.size,
-      runeKeys: Array.from(runeMap.keys())
-    })
     const aliveNodeIds = new Set()
 
     hosts.forEach(host => {
@@ -867,26 +742,11 @@ class StateRender {
       const runeId = String(dataset.runeId || '')
       const nodeId = String(dataset.runeNodeId || '')
       if (!runeName || !runeId || !nodeId) {
-        console.log('[Muya.StateRender.mountRuneVueHosts] skip host due to missing dataset', {
-          runeName,
-          runeId,
-          nodeId,
-          dataset
-        })
         return
       }
 
       aliveNodeIds.add(nodeId)
       const matchedRune = runeMap.get(runeName) || null
-      console.log('[Muya.StateRender.mountRuneVueHosts] resolved rune by name', {
-        runeName,
-        runeId,
-        nodeId,
-        matched: !!matchedRune,
-        matchedRuneId: matchedRune?.id || '',
-        matchedTemplateLen: (matchedRune?.template || '').length,
-        matchedTemplatePreview: String(matchedRune?.template || '').substring(0, 120)
-      })
       // 没匹配到符文模板时保留占位卡片，不进入 Vue 挂载分支。
       if (!matchedRune || !String(matchedRune.template || '').trim()) {
         const staleVm = this.runeVmMap.get(nodeId)
@@ -905,7 +765,8 @@ class StateRender {
       const mountedVm = this.runeVmMap.get(nodeId)
       // Memocast 扩展：把 Muya 实例的回写方法作为 onValueChange 注入，
       // 这样内层 SFC emit('input', value) 时就能写回 Markdown 的 data-rune-value。
-      const muyaInstance = this.muya?.options?.memoMuya || null
+      // v3 插件写的是 memocastMuya；memoMuya 仅作为旧宿主兼容回退。
+      const muyaInstance = this.muya?.options?.memocastMuya || this.muya?.options?.memoMuya || null
       const onValueChange = (payload) => {
         if (!muyaInstance || typeof muyaInstance.updateRunePlaceholderValue !== 'function') return
         muyaInstance.updateRunePlaceholderValue({
@@ -932,17 +793,10 @@ class StateRender {
             mountedVm[propName] = sfcProps[propName]
           }
         })
-        console.log('[Muya.StateRender.mountRuneVueHosts] reuse vm', {
-          nodeId,
-          runeId,
-          runeName,
-          templateLen: (rune?.template || '').length
-        })
         return
       }
 
       if (mountedVm && typeof mountedVm.$destroy === 'function') {
-        console.log('[Muya.StateRender.mountRuneVueHosts] destroy stale vm', { nodeId, runeId, runeName })
         mountedVm.$destroy()
       }
 
@@ -971,13 +825,6 @@ class StateRender {
       vm.$mount()
       host.appendChild(vm.$el)
       this.runeVmMap.set(nodeId, vm)
-      console.log('[Muya.StateRender.mountRuneVueHosts] mounted vm', {
-        nodeId,
-        runeId,
-        runeName,
-        templateLen: (rune?.template || '').length,
-        renderKey
-      })
     })
 
     for (const [savedNodeId, vm] of this.runeVmMap.entries()) {

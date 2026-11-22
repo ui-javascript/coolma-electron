@@ -425,6 +425,16 @@ async function main(): Promise<void> {
         && scoped.includes(':global') === false,
       scoped,
     );
+    const rendererSource = await fs.readFile(
+      path.resolve(process.cwd(), '../libs-muya-vue3/src/core/parser/render/index.js'),
+      'utf8',
+    );
+    assert(
+      'Rune 渲染：mountRuneVueHosts / renderRunes 各只剩一处定义',
+      (rendererSource.match(/^\s*mountRuneVueHosts \(\) \{/gm) || []).length === 1
+        && (rendererSource.match(/^\s*renderRunes \(\) \{/gm) || []).length === 1,
+      `mount=${(rendererSource.match(/^\s*mountRuneVueHosts \(\) \{/gm) || []).length}, render=${(rendererSource.match(/^\s*renderRunes \(\) \{/gm) || []).length}`,
+    );
   }
 
   // ===== 自动上传闸门（P1-5）：常量与 vue2 一致，冷却/断网/无 pending 不推 =====
