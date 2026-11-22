@@ -25,7 +25,7 @@ import {
   saveTemplate as saveTemplateIpc,
   removeTemplate as removeTemplateIpc,
 } from '@/services/ipc';
-import { getSyncStatus, syncPull } from '@/services/sync';
+import { getSyncCategories, getSyncStatus, syncPull } from '@/services/sync';
 
 function toSummary(note: NoteRecord): NoteSummary {
   return {
@@ -107,6 +107,22 @@ export const useNotesStore = defineStore('notes', {
         this.error = syncError;
       }
       return ok;
+    },
+
+    /**
+     * 登录/启动后刷新云端目录：
+     * - 目录接口会顺手把远端目录落到 SQLite（见 wiznote.fetchCategories）；
+     * - 再重载本地笔记/目录/标签，侧栏才能看到云端文件夹。
+     */
+    async refreshCloudTree(): Promise<boolean> {
+      const status = await getSyncStatus();
+      if (status.ok && status.data.loggedIn) {
+        const categories = await getSyncCategories();
+        if (!categories.ok) {
+          this.error = categories.error.message;
+        }
+      }
+      return this.loadAll();
     },
 
     /** 笔记模板列表（设置页卡片 + 新建笔记下拉共用）。 */

@@ -414,6 +414,23 @@ export async function fetchCategoryDirectory(): Promise<{ items: WizCategory[]; 
 export async function fetchCategories(): Promise<WizCategory[]> {
   const directory = await fetchCategoryDirectory();
   settingsRepository.set(CATEGORY_POS_KEY, directory.pos);
+  // 目录接口返回的是完整云端目录，必须落到 local_categories；
+  // 否则登录后侧栏只读本地旧目录，空文件夹和新文件夹都不会出现。
+  const config = readConfig();
+  if (config.kbGuid) {
+    for (const item of directory.items) {
+      try {
+        categoriesRepository.create({
+          category: item.category,
+          parent: item.parent,
+          kbGuid: config.kbGuid,
+          localOnly: false,
+        });
+      } catch (error) {
+        console.warn('[sync] 云端目录落库失败', item.category, (error as Error).message);
+      }
+    }
+  }
   return directory.items;
 }
 

@@ -136,13 +136,15 @@ async function bootstrapLogin(): Promise<void> {
   if (appStore.prefs['setting/client/autoLogin'] === true) {
     const auto = await syncAutoLogin();
     if (auto.ok && auto.data?.loggedIn) {
-      await notesStore.loadAll();
+      await notesStore.refreshCloudTree();
       notifyLoginSuccess();
     }
     return;
   }
   const status = await getSyncStatus();
   if (status.ok && status.data.loggedIn) {
+    // 已登录重启也要刷一次云端目录，否则旧安装里的 local_categories 一直是登录前的快照。
+    await notesStore.refreshCloudTree();
     return;
   }
   loginDialogState.visible = true;

@@ -177,6 +177,7 @@ watch(
     if (categoryResult.ok) {
       categories.value = categoryResult.data;
     }
+    await notesStore.loadAll();
     await loadPending();
     syncMessage.value = t('settings.syncLoginDone');
   },
@@ -258,6 +259,7 @@ async function doCategories(): Promise<void> {
     const result = await getSyncCategories();
     if (result.ok) {
       categories.value = result.data;
+      await notesStore.loadAll();
     } else {
       syncError.value = result.error.message;
     }

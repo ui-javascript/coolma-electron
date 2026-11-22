@@ -185,7 +185,8 @@ async function doLogin(): Promise<void> {
       return;
     }
     await persistForm();
-    await notesStore.loadAll?.();
+    // 登录成功后先拉云端目录并落库，再重载侧栏；只 loadAll 会永远读到登录前的旧目录。
+    await notesStore.refreshCloudTree();
     const pendingResult = await getPendingSync();
     if (pendingResult.ok) {
       pending.value = pendingResult.data.summary.total ?? 0;

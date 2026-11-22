@@ -141,7 +141,8 @@ const folderTree = computed<CategoryTreeNode[]>(() => {
     counts.set(category, (counts.get(category) ?? 0) + 1);
   }
   for (const category of notesStore.categories) {
-    if (!counts.has(category.category) && category.noteCount > 0) {
+    // 空文件夹也要进树：v2 的云端目录是独立数据，不靠“有没有笔记”才存在。
+    if (!counts.has(category.category)) {
       counts.set(category.category, category.noteCount);
     }
   }
@@ -153,13 +154,19 @@ const folderTree = computed<CategoryTreeNode[]>(() => {
     (_path, segment) => segment,
     pos,
   );
+  // 云端目录自带 `/My Notes/` 根；侧栏外面已经有虚拟“我的笔记”，
+  // 把它的子目录并入顶层，避免出现“我的笔记 > 我的笔记”的双层重复。
+  const myNotesRoot = children.find((node) => node.key === '/My Notes/');
+  const visibleChildren = myNotesRoot
+    ? [...children.filter((node) => node !== myNotesRoot), ...myNotesRoot.children]
+    : children;
   // 照 vue2：分类树外面永远套一层可选择的“我的笔记”，点击它等价于全部笔记。
   return [
     {
       key: '/',
       label: t('index.myNotes'),
       count: props.total,
-      children,
+      children: visibleChildren,
       isRoot: true,
     },
   ];
