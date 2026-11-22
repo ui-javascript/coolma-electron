@@ -7,7 +7,7 @@
 - “有文件、有按钮、有类型”不等于已复刻；死入口、接错弹窗、只读展示都算缺口。
 - 样式差异后置，本清单只记功能、数据和行为差异。
 
-旧 `gap-audit.md`（2026-11-18）与 `_todo/TODO-vue3-P0缺口-202611.md` 的 18 个 `[x]` 仅代表文件级覆盖。本轮按 vue2 页面、顶栏、对话框、右键菜单和 busDialog 逐块重走，新增以下 24 条。
+旧 `gap-audit.md`（2026-11-18）与 `_todo/TODO.md` 的 18 个 `[x]` 仅代表文件级覆盖。本轮按 vue2 页面、顶栏、对话框、右键菜单和 busDialog 逐块重走，新增以下 24 条。
 
 > 2026-11-21 批 A 已落地：P0-1 回响实例弹窗、P0-2 手动标签入口、P0-3 文件夹笔记导入、P0-4 豆包 provider。B1/B2 已落地：P1-5 自动上传与顶栏同步（App 级 3s 首传 + 30s 轮询 + 5min 冷却，顶栏 push/pull 与 pending 角标，Settings 手动同步共用同一把锁）；P1-6 强运 AI 校对（全局 handler 注册、当前 Markdown 校对、变化检测后整篇写回）；B3 已落地：P1-7 符文/回响表单 AI 代码生成（`aiCodegen` 构建 prompt、表单 AI 按钮经 busDialog 带 callback、面板 codegen 模式预填/提取/回写源码）；B4 已落地：P1-8 博客构建环境引导（Node 检测与安装指引、package.json/config 自动生成或修复、sidebar/nav builders、缺依赖安装、清缓存后构建）；B5 已落地：P1-9 博客 base 输入与 VuePress base 规范化回写（已有 config 只改 base、保留其它字段，hope 的 config({...}) 也支持）。B6 已落地：P1-10 单条 GitHub `.vue` 符文导入（blob/raw/gist URL 归一、SSRF 白名单、302 逐跳校验、5MB/20s、前 20 行注释元数据、1MB 模板、入库后列表刷新）。B7 已落地：P1-11 微应用通用 IPC 桥 + `vue-sfc:parse` 特例桥（通用桥解包 IpcResult、白名单/越权/失败回包；`controller/microapp/parse` 复用 `@vue/compiler-sfc` 2.7.16，输出与 Vue2 playground 同形的 template/script/style/customBlocks）。B8 已落地：P1-12 完整键盘 accelerator 表（`utils/shortcuts.ts` 对齐 vue2 KeyBindings，按物理键与精确修饰键匹配，Muya/Monaco 双编辑器命令和应用级视图/搜索/DevTools 已接）。
 >

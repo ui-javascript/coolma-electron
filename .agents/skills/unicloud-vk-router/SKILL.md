@@ -252,7 +252,7 @@ function unwrap (data) {
 
 ### 2. 替换 WizNote 接口
 
-迁移（参考 `_todo/TODO-云函数调研存档-202607.md` 第 4 节）：
+迁移（参考 `_todo/参考/云函数调研-存档.md` 第 4 节）：
 
 | 当前 | 替换为 |
 |----|----|
@@ -283,7 +283,7 @@ function unwrap (data) {
 | `src/components/ui/dialog/SettingsDialog.vue` | 把 CloudFnConfigDialog 挂到 `cloudFn` tab |
 | `src/i18n/zh-cn/components/ui/SettingsDialog.js` | `cloudFunction*` i18n key |
 | `src/i18n/en-us/components/ui/SettingsDialog.js` | 同上英文版 |
-| `_todo/TODO-云函数调研存档-202607.md` | 决策与风险存档 |
+| `_todo/参考/云函数调研-存档.md` | 决策与风险存档 |
 
 ## 扩展阅读
 

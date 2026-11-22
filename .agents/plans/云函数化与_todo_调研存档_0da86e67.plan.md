@@ -62,7 +62,7 @@ export const cloud = {
 
 ## 五、_todo 沉淀成一篇
 
-新建 `_todo/TODO-云函数调研存档-202607.md`，结构：
+新建 `_todo/参考/云函数调研-存档.md`，结构：
 
 ```
 # 云函数调研存档（uniCloud + vk-router 路线）
@@ -93,7 +93,7 @@ export const cloud = {
 | 默认 baseUrl 模块 | `src/utils/cloud-router.js` | **新增**（选型 b 路径时） |
 | 设置子组件 | `src/components/ui/dialog/CloudFnConfigDialog.vue` | **新增** |
 | 父组件 | `src/components/ui/dialog/SettingsDialog.vue` | **新增 1 个 tab** + 引入子组件 |
-| 调研存档 | `_todo/TODO-云函数调研存档-202607.md` | **新增** |
+| 调研存档 | `_todo/参考/云函数调研-存档.md` | **新增** |
 | `package.json` | 根 | 选择性 `yarn add uni-cloud-router-sdk` 或不加 |
 
 ## 边界与不回退项

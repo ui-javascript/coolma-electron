@@ -1,82 +1,85 @@
-# TODO
+# TODO（唯一待办清单）
 
-# 2026-08
+> 只记**未完成**。做完就删，历史在 git log 里查。
+> 设计稿/调研/竞品笔记都在 `参考/`——那里不是待办，别当任务读。
+> 整理于 2026-11-22，按源码与提交实况复核过；旧文档里已实现的条目已删。
+>
+> 标记：`[ ]` 未开始 / `[~]` 在做
 
-- [ ] 排版强化
-  - https://github.com/eternityspring/article-tools/blob/main/md-to-wechat.html
+## A. Vue3 复刻收口（主线，171 提交/30 天）
 
-```
-主要是图片布局的强化
-```
+### A1 功能缺口
 
-# 2026-07
+- [ ] C7 云函数 Supabase 分支 / 平台选择 / 示例执行——C 批仅剩这一项（C8–C12 已落地：主题目录、日志+SQLite+重置库、关闭二次确认、默认排序、博客自定义构建命令）
+- [ ] melt-js 运行时远程符文移植——vue3 前端 `melt` 命中 0；要搬 `meltRuneHost` + `runeSourceRegistry` + 远程组件源设置面板，并接启动/开笔记的懒加载预热
+- [ ] 设置项收尾：远程组件源面板（vue2 `SettingsMeltSourcesPanel` 无对应）；`SettingsGeneralPanel` 的条目与 `SettingsView` 现有卡片逐项核对，缺什么补什么
 
+### A2 编辑器细节（R）
 
-- [x] 数学代码交互动画
+- [ ] R-02 四角缩放只验了右下角，左上/右上/左下需实拖确认
+- [ ] R-03 运行动画逐项对照（成长 / 碎裂 / 天空步道 / 双生花等）
+- [ ] R-04 SFC `<style scoped>` 与 less/scss 未编译、scoped 未改写（会污染全局）
+- [ ] R-05 合并 `mountRuneVueHosts` 双定义（`libs-muya-vue3/.../render/index.js` 661/844 行），顺手摘掉渲染路径上的 9 条 console
+- [ ] R-07 外链图片失败兜底（当前落 `ag-image-fail`）
 
-```
-jsxgraph
-```
+### A3 验收与测试
 
-# 2026-06
+- [ ] E-01 弹窗 / 快捷键 / 右键 / 主题下拉真机端到端
+- [ ] E-02 次级弹窗 2px 级视觉对照
+- [ ] E-03 最大化 / 最小尺寸 / 窗口安全区
+- [ ] 单测基座：现在 0 例；先给 `stores/sync`、`services/ipc`、Rune/Echo 渲染插件上护城河
 
-- [x] reveal.js的PPT查看模式
+### A4 同步边界（S）
 
-```
-reveal.js
-Marp
-```
+- [ ] S-01 为知真实账号端到端（分页 / 空正文 / 目录删除 / 改名影响）
+- [ ] S-02 冲突合并 + 增量游标——设计见 `参考/同步冲突策略-设计.md`
 
+## B. Tauri 收口（功能已近 1:1，缺验证与债务清理）
 
-- [ ] 新建文档模板prompt和挖空模板
+- [ ] Windows 真机全流程 + macOS/Linux 构建验证（仓库只有 NSIS 记录）
+- [ ] 真实账号同步端到端（README 自述缺口）
+- [ ] 批量导入 + 同步并发压测（rusqlite 单连接 + Mutex 串行）
+- [ ] db shim 收敛：3,732 行 JS 重放 91 个 `db:*`，加字段要动两处
 
-# 2026-05
+## C. 产品 backlog（非复刻）
 
-- [x] 设计符文插件机制
+### C1 笔记与编辑器
 
+- [ ] 新建文档模板 prompt + 挖空模板
+- [ ] 待办面板：聚合所有笔记里未完成的 `- [ ]`
+- [ ] 排版强化：md-to-wechat 的图片布局
 
-- [x] 提供vdoing打包功能
+### C2 外观
 
-# 2026-04
+- [ ] 皮肤扩展：12 星座 + MBTI（现有哪吒/白羊/INFP），带动画与背景
 
-- [x] 可配置 AI Provider
+### C3 博客部署
 
-```
-https://github.com/Portkey-AI/portkey-node-sdk
-```
+- [ ] 导出 MD 时补分类 README（nav-builder 现在指向不存在的 README）
+- [ ] `base` 合法性校验（`#`、`?` 非法字符未拦）
+- [ ] 菜单项 i18n 英文 key 补全
+- [ ] 博客端符文/回响渲染——设计见 `参考/vuepress符文回响-设计.md`
+- [ ] 增量导出 manifest（noteId → path/mtime/hash）
+- [ ] 千篇级导出并发限流（p-limit）
+- [ ] 部署历史入库（时间 / 状态 / 目标）
+- [ ] 打包后自动 `vuepress dev` 预览
+- [ ] Gitee / GitLab 支持
 
-- [x] 加入聊天对话
+### C4 生态与其他
 
-```
-https://gitee.com/bluexsx/box-im
-https://github.com/OvidijusParsiunas/deep-chat
-https://github.com/mattmezza/vue-beautiful-chat
-https://github.com/advanced-chat/vue-advanced-chat/tree/legacy
-```
+- [ ] 文件夹重命名（为知无直连接口，需曲线方案）
+- [ ] 微应用子应用隔离（wujie 扩展）
+- [ ] Skill 占位符机制——设计见 `参考/Skill占位机制-设计.md`
+- [ ] AI 取消语义：现在只 abort 本地 fetch，服务端可能继续生成计费；补超时 / 重试 / 取消原因
+- [ ] deepagents-js 接入——触发条件见 `参考/deepagents-js评估.md`
+- [ ] 存储双轨制（SQLite ↔ MD）——未拍板，决策点见 `参考/同步冲突策略-设计.md` 附录
+- [ ] 阶段0 内容验证（公开信 + 挑战）——是否继续待定，材料见 `参考/阶段0-内容验证存档.md`
 
-- [x] 支持离线 和 同步在线功能
+## D. 暂停 / 不做
 
-```
-yarn add -D @electron/rebuild
-npx electron-rebuild -f -w
-```
+- 云函数 customFn 自建——用户已拍板暂停（`参考/云函数调研-存档.md`）
+- 实时协同 Phase 3 / TipTap 替换 Muya / 自建 CRDT Gateway——已弃用
 
-- [ ] 切换皮肤, 哪吒红 + 白羊等12星座 + MBTI, 会有不同动画特效和背景图
+---
 
-```
-最近还有SBTI，也可以纳入考虑
-```
-
-- [x] 优化打包体积
-
-
-# 2026-03
-
-- [x] 标签模式改用 矩形树图 改造
-- [ ] 支持文件夹重命名功能
-
-```
-为知笔记似乎没有直接支持的api，但是可以曲线救国
-```
-
-- [x] 修复monaco-editor的复制粘贴功能
+**关于删掉的旧文档**：`TODO-vue3-P0缺口`、`TODO-模块联邦组件加载改造`、`TODO-vuepress博客打包部署优化`、`TODO-Vue3升级迁移成本调研`、`TODO-是否升级技术栈`、`TODO-数据存储与同步`、`MUYA-LINK-SETUP`、`MUYA-SDK-MIGRATION`、`TODO-阶段0内容验证` + `phase0-*` 全部完成或已过期，内容仍在 git 历史。其中未实现的方案型内容（melt、vuepress 符文渲染、Skill 占位、冲突策略、云函数）没有删，移到了 `参考/`。
