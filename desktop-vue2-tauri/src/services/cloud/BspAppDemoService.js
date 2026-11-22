@@ -12,7 +12,7 @@
  *    不要挂到任何会被远程面板/公共用户触发的入口上。
  */
 
-import axios from 'axios'
+import { httpFetch } from 'src/desktop/http'
 
 export const DEMO_ENDPOINT = 'https://api.bspapp.com/client'
 
@@ -132,18 +132,22 @@ export function buildEnvelope () {
  */
 export async function invokeDemo () {
   const envelope = buildEnvelope()
-  const response = await axios({
+  // 固定外部域名，同样走 Rust 代理通道，避免 WebView2 的跨域拦截
+  const response = await httpFetch(DEMO_ENDPOINT, {
     method: 'POST',
-    url: DEMO_ENDPOINT,
-    data: envelope,
-    headers: {
-      'content-type': 'application/json;charset=utf-8'
-    },
-    timeout: 30000
+    headers: { 'content-type': 'application/json;charset=utf-8' },
+    body: JSON.stringify(envelope),
+    timeoutMs: 30000
   })
+  const text = await response.text()
+  let data = text
+  try { data = text ? JSON.parse(text) : null } catch (_) {}
+  if (!response.ok) {
+    throw Object.assign(new Error(`bspapp 返回 HTTP ${response.status}`), { status: response.status })
+  }
   return {
     status: response.status,
-    data: response.data
+    data
   }
 }
 
