@@ -694,6 +694,124 @@ async function main(): Promise<void> {
     );
   }
 
+  // ===== R-02 四角实拖：真事件驱动 RuneTransformer，四个把手各自算对宽高与偏移 =====
+  {
+    const { RuneTransformer } = (await import('../frontend/src/editor/runeTransformer')) as Any;
+    /** 用 style.width/height/translate 反推矩形，模拟浏览器在被拖后的真实布局。 */
+    const rectOf = (width: number, height: number, offsetX = 0, offsetY = 0) => ({
+      x: 100 + offsetX,
+      y: 50 + offsetY,
+      left: 100 + offsetX,
+      top: 50 + offsetY,
+      right: 100 + offsetX + width,
+      bottom: 50 + offsetY + height,
+      width,
+      height,
+      toJSON: () => ({}),
+    }) as DOMRect;
+    const dynamicRect = (el: HTMLElement): DOMRect => {
+      const width = parseFloat(el.style.width) || 200;
+      const height = parseFloat(el.style.height) || 100;
+      const numbers = (el.style.translate || '').match(/-?\d+(?:\.\d+)?/g) || [];
+      return rectOf(width, height, Number(numbers[0] || 0), Number(numbers[1] || 0));
+    };
+
+    const runCorner = (position: string, from: [number, number], to: [number, number]) => {
+      const scroller = document.createElement('div');
+      scroller.style.position = 'relative';
+      (scroller as Any).getBoundingClientRect = () => rectOf(800, 600);
+      const host = document.createElement('div');
+      host.className = 'ag-rune-placeholder-host';
+      host.dataset.runeNodeId = 'n1';
+      host.dataset.runeWidth = '200';
+      host.dataset.runeHeight = '100';
+      host.style.width = '200px';
+      host.style.height = '100px';
+      (host as Any).getBoundingClientRect = () => dynamicRect(host);
+      scroller.appendChild(host);
+      document.body.appendChild(scroller);
+
+      const commits: Any[] = [];
+      const transformer = new RuneTransformer({ container: scroller }, {
+        canEdit: () => true,
+        onCommit: (payload: Any) => {
+          commits.push(payload);
+          return true;
+        },
+        scrollContainer: scroller,
+      });
+      host.dispatchEvent(new (globalThis as Any).MouseEvent('click', { bubbles: true }));
+      const handle = document.querySelector(`.ag-rune-transformer .circle[data-position="${position}"]`) as HTMLElement | null;
+      if (!handle) throw new Error(`handle ${position} missing`);
+      handle.dispatchEvent(new (globalThis as Any).MouseEvent('mousedown', {
+        bubbles: true, button: 0, clientX: from[0], clientY: from[1],
+      }));
+      document.dispatchEvent(new (globalThis as Any).MouseEvent('mousemove', {
+        bubbles: true, clientX: to[0], clientY: to[1],
+      }));
+      document.dispatchEvent(new (globalThis as Any).MouseEvent('mouseup', { bubbles: true }));
+      const live = { width: host.dataset.runeWidth, height: host.dataset.runeHeight };
+      transformer.destroy();
+      scroller.remove();
+      return { commit: commits[0], live };
+    };
+
+    const br = runCorner('bottom-right', [300, 150], [340, 170]);
+    assert(
+      '四角拖拽 bottom-right：只放大宽高，不产生偏移',
+      br.commit?.width === 240 && br.commit?.height === 120
+        && br.commit?.offsetX === 0 && br.commit?.offsetY === 0
+        && br.live.width === '240' && br.live.height === '120',
+      JSON.stringify(br),
+    );
+    const tl = runCorner('top-left', [100, 50], [140, 70]);
+    assert(
+      '四角拖拽 top-left：宽高收缩，左/上边跟手（正向偏移）',
+      tl.commit?.width === 160 && tl.commit?.height === 80
+        && tl.commit?.offsetX === 40 && tl.commit?.offsetY === 20,
+      JSON.stringify(tl),
+    );
+    const tr = runCorner('top-right', [300, 50], [260, 70]);
+    assert(
+      '四角拖拽 top-right：宽度收缩、高度上边跟手，横向无偏移',
+      tr.commit?.width === 160 && tr.commit?.height === 80
+        && tr.commit?.offsetX === 0 && tr.commit?.offsetY === 20,
+      JSON.stringify(tr),
+    );
+    const bl = runCorner('bottom-left', [100, 150], [140, 130]);
+    assert(
+      '四角拖拽 bottom-left：左边界右移（正向偏移）、下边界上移不改偏移',
+      bl.commit?.width === 160 && bl.commit?.height === 80
+        && bl.commit?.offsetX === 40 && bl.commit?.offsetY === 0,
+      JSON.stringify(bl),
+    );
+    const tiny = runCorner('bottom-right', [300, 150], [110, 60]);
+    assert(
+      '四角拖拽：宽高被 MIN_WIDTH/MIN_HEIGHT 兜住，不会拖成 0',
+      tiny.commit?.width === 80 && tiny.commit?.height === 40,
+      JSON.stringify(tiny),
+    );
+
+    // 拖拽落点直接喂给回写函数，证明 width/height 能持久化进 Markdown 属性。
+    const md = '<div data-rune-name="排行" data-rune-node-id="n1" data-rune-width="200" data-rune-height="100" class="ag-rune-placeholder-host">x</div>';
+    const persisted = rewriteRunePlaceholderBoxByNodeId(md, 'n1', {
+      width: br.commit.width,
+      height: br.commit.height,
+      offsetX: tl.commit.offsetX,
+      offsetY: tl.commit.offsetY,
+    });
+    assert(
+      '四角拖拽 → 持久化：data-rune-width/height/offset 写进 Markdown 开标签，其余属性保留',
+      /data-rune-width="240"/.test(persisted)
+        && /data-rune-height="120"/.test(persisted)
+        && /data-rune-offset-x="40"/.test(persisted)
+        && /data-rune-offset-y="20"/.test(persisted)
+        && /data-rune-name="排行"/.test(persisted)
+        && /class="ag-rune-placeholder-host"/.test(persisted),
+      persisted,
+    );
+  }
+
   // ===== 自动上传闸门（P1-5）：常量与 vue2 一致，冷却/断网/无 pending 不推 =====
   {
     const baseline = {
