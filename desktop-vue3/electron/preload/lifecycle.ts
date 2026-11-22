@@ -24,13 +24,23 @@ class Lifecycle {
     logger.info('[lifecycle] electron-app-ready');
 
     // 图片附件协议：coolma://coolma.app/<kb>/<doc>/<name>
-    try {
-      // 动态 import 走 ESM 解析器，相对路径必须带 .js 后缀，否则找不到模块
-      const { registerCoolmaProtocol } = await import('../service/coolma-protocol.js');
-      registerCoolmaProtocol();
-    } catch (error) {
-      logger.error('[lifecycle] register coolma protocol failed');
-    }
+    // protocol.handle 内部要取 defaultSession，必须等 app ready 之后才能调用；
+    // ee-core 的 electron-app-ready 早于 ready，直接注册会抛
+    // "Session can only be received when app is ready"，所以这里显式等 whenReady。
+    void electronApp
+      .whenReady()
+      .then(async () => {
+        try {
+          // 动态 import 走 ESM 解析器，相对路径必须带 .js 后缀，否则找不到模块
+          const { registerCoolmaProtocol } = await import('../service/coolma-protocol.js');
+          registerCoolmaProtocol();
+        } catch (error) {
+          logger.error(
+            '[lifecycle] register coolma protocol failed: ' +
+              String((error as Error)?.message ?? error),
+          );
+        }
+      });
 
     // Frameless window: remove the native menu entirely (File/Edit/View/...).
     // macOS 例外：保留系统 appMenu 角色，否则 Cmd+H / Cmd+Alt+H / Cmd+Q 会全部失效。
