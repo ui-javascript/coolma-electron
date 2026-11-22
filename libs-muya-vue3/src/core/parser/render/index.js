@@ -283,13 +283,7 @@ class StateRender {
 
   createRunePlaceholderMarkup (rune, dataset = {}) {
     const runeName = rune?.name || dataset.runeName || 'Rune'
-    return `
-      <div class="${RUNE_CARD_CLASS}" data-rune-mounted="true">
-        <div class="ag-rune-placeholder-body">
-          <div class="ag-rune-placeholder-title">${runeName}</div>
-        </div>
-      </div>
-    `
+    return `<div class="${RUNE_CARD_CLASS}" data-rune-mounted="true"><div class="ag-rune-placeholder-body"><div class="ag-rune-placeholder-title">${runeName}</div></div></div>`
   }
 
   createEchoPlaceholderMarkup (echo, dataset = {}) {
@@ -653,11 +647,20 @@ class StateRender {
 
       aliveNodeIds.add(nodeId)
       const matchedRune = runeMap.get(runeName) || null
-      const rune = matchedRune || {
-        id: '',
-        name: runeName,
-        template: ''
+      // 没匹配到符文模板时保留 renderRunePlaceholders 生成的占位卡片，
+      // 不要清空 host 再 new 一个空 ctor，否则宿主会变成 0 高度空节点。
+      if (!matchedRune || !String(matchedRune.template || '').trim()) {
+        const staleVm = this.runeVmMap.get(nodeId)
+        if (staleVm && typeof staleVm.$destroy === 'function') {
+          staleVm.$destroy()
+        }
+        this.runeVmMap.delete(nodeId)
+        if (!host.querySelector(`.${RUNE_CARD_CLASS}`)) {
+          host.innerHTML = this.createRunePlaceholderMarkup(null, dataset)
+        }
+        return
       }
+      const rune = matchedRune
       const runeValue = String(dataset.runeValue || '').trim()
       const renderKey = host.dataset.runeRenderKey || ''
       const mountedVm = this.runeVmMap.get(nodeId)
@@ -851,11 +854,19 @@ class StateRender {
         matchedTemplateLen: (matchedRune?.template || '').length,
         matchedTemplatePreview: String(matchedRune?.template || '').substring(0, 120)
       })
-      const rune = matchedRune || {
-        id: '',
-        name: runeName,
-        template: ''
+      // 没匹配到符文模板时保留占位卡片，不进入 Vue 挂载分支。
+      if (!matchedRune || !String(matchedRune.template || '').trim()) {
+        const staleVm = this.runeVmMap.get(nodeId)
+        if (staleVm && typeof staleVm.$destroy === 'function') {
+          staleVm.$destroy()
+        }
+        this.runeVmMap.delete(nodeId)
+        if (!host.querySelector(`.${RUNE_CARD_CLASS}`)) {
+          host.innerHTML = this.createRunePlaceholderMarkup(null, dataset)
+        }
+        return
       }
+      const rune = matchedRune
       const runeValue = String(dataset.runeValue || '').trim()
       const renderKey = host.dataset.runeRenderKey || ''
       const mountedVm = this.runeVmMap.get(nodeId)
@@ -903,16 +914,26 @@ class StateRender {
       }
 
       host.innerHTML = ''
-      const vm = new RuneRenderer({
-        propsData: {
-          runeId,
-          nodeId,
-          rune,
-          ...sfcProps,
-          value: runeValue,
-          onValueChange
-        }
-      })
+      let vm = null
+      try {
+        vm = new RuneRenderer({
+          propsData: {
+            runeId,
+            nodeId,
+            rune,
+            ...sfcProps,
+            value: runeValue,
+            onValueChange
+          }
+        })
+      } catch (err) {
+        console.warn('[Muya.StateRender.mountRuneVueHosts] create rune vm failed', err)
+      }
+      if (!vm || typeof vm.$mount !== 'function') {
+        host.innerHTML = this.createRunePlaceholderMarkup(rune, dataset)
+        host.dataset.runeRenderKey = renderKey
+        return
+      }
       vm.__runeRenderKey = renderKey
       vm.$mount()
       host.appendChild(vm.$el)

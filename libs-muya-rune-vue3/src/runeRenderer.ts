@@ -11,6 +11,26 @@ function section(source: string, tag: string): string {
   return start < 0 || end < 0 ? '' : source.slice(start + 1, end).trim();
 }
 
+/**
+ * 把 SFC 的 `<style>` 注入 document.head。
+ * v2 的 runeSfcRendererFactory 也是这么做的；v3 之前只编译 template/script，
+ * 内置符文里的 padding、边框、字号等 scoped 样式全部丢失。
+ */
+function ensureRuneStyle(rune: AnyRecord, css: string): void {
+  if (!css || typeof document === 'undefined') return;
+  const rawId = String(rune.id || rune.name || 'default').replace(/[^a-zA-Z0-9_-]/g, '-');
+  const styleId = `rune-style-${rawId}`;
+  let styleEl = document.getElementById(styleId) as HTMLStyleElement | null;
+  if (!styleEl) {
+    styleEl = document.createElement('style');
+    styleEl.id = styleId;
+    document.head.appendChild(styleEl);
+  }
+  if (styleEl.textContent !== css) {
+    styleEl.textContent = css;
+  }
+}
+
 function evaluateScript(source: string): AnyRecord {
   const body = String(source || '').replace('export default', 'return');
   try {
@@ -46,6 +66,8 @@ export function createRuneRendererCtor(rune: AnyRecord = {}): any {
   const source = String(rune.template || '');
   const template = section(source, 'template');
   const script = evaluateScript(section(source, 'script'));
+  const style = section(source, 'style');
+  ensureRuneStyle(rune, style);
   const render = compileTemplate(template);
   if (!render) return null;
   const props = declaredProps(script);

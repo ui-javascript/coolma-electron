@@ -1,0 +1,274 @@
+/* ============================================================
+ * 多回响运行时样式（Echo 体系的 echo-chant 子分类）
+ * 配合 echoRuntime.js 中的 ECHO_CHANT_HANDLERS 使用
+ *
+ * - 触发点：[data-echo-chant-id]（由 echoRuntime.renderToHtml 注入）
+ * - kind 枚举：'echo-chant' / 'echo-tbd'
+ * - 副作用样式：ag-rune-<id>-target / -active / -disabled
+ * - 容器属性：data-skywalk-theme / data-skywalk-layout / data-disperse-density
+ *
+ * 注意：
+ *   data-echo-chant-id / data-echo-chant-kind / ag-rune-* class 是 echo 命名空间下的
+ *   当前 markdown / DOM ABI；CSS class 名沿用 ag-rune-* 前缀仅为保留视觉样式锚点。
+ * ============================================================ */
+
+/* ====================== 共同基类 ====================== */
+.ag-echo-inline[data-echo-chant-id] {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 6px;
+  padding: 0 4px;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.ag-echo-inline[data-echo-chant-kind="echo-chant"]::before {
+  content: "回响·咏唱";
+  font-size: 10px;
+  color: var(--echo-color, #43A047);
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  padding: 0 4px;
+  line-height: 1.4;
+  opacity: 0.7;
+}
+.ag-echo-inline[data-echo-chant-kind="echo-tbd"]::before {
+  content: "回响·待定";
+  font-size: 10px;
+  color: #9E9E9E;
+  border: 1px dashed currentColor;
+  border-radius: 4px;
+  padding: 0 4px;
+  line-height: 1.4;
+  opacity: 0.7;
+}
+
+/* ====================== 生生不息 ====================== */
+@keyframes ag-rune-growth-pulse {
+  0%   { transform: scale(0.9);  filter: brightness(0.92); }
+  50%  { transform: scale(1.04); filter: brightness(1.08); }
+  100% { transform: scale(1);    filter: brightness(1); }
+}
+.ag-rune-growth-target {
+  animation: ag-rune-growth-pulse 2.6s ease-in-out infinite;
+  animation-delay: var(--ag-rune-growth-delay, 0ms);
+  transform-origin: center;
+  will-change: transform, filter;
+}
+.ag-rune-growth-active {
+  box-shadow: 0 0 0 2px rgba(67, 160, 71, 0.35);
+  background: rgba(67, 160, 71, 0.08);
+}
+
+/* ====================== 破万法 ====================== */
+.ag-echo-inline.ag-rune-shatter-disabled,
+[data-shatter-disabled="true"] {
+  opacity: 0.35 !important;
+  filter: grayscale(0.85);
+  pointer-events: none;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+.ag-rune-shatter-active {
+  outline: 1px dashed #E53935;
+  outline-offset: 1px;
+  background: rgba(229, 57, 53, 0.08);
+}
+
+/* ====================== 天行健 ====================== */
+[data-skywalk-theme="light"] { --ag-skywalk-bg: #FAFAFA; --ag-skywalk-fg: #212121; }
+[data-skywalk-theme="dark"]  { --ag-skywalk-bg: #1B1B1F; --ag-skywalk-fg: #ECECEC; }
+[data-skywalk-theme="warm"]  { --ag-skywalk-bg: #FFF7E6; --ag-skywalk-fg: #4E342E; }
+[data-skywalk-theme="cool"]  { --ag-skywalk-bg: #E3F2FD; --ag-skywalk-fg: #0D47A1; }
+[data-skywalk-theme="auto"],
+[data-skywalk-theme]:not([data-skywalk-theme="light"]):not([data-skywalk-theme="dark"]):not([data-skywalk-theme="warm"]):not([data-skywalk-theme="cool"]) {
+  --ag-skywalk-bg: inherit;
+  --ag-skywalk-fg: inherit;
+}
+[data-skywalk-layout="enhanced"] {
+  letter-spacing: 0.02em;
+  line-height: 1.75;
+  font-feature-settings: "tnum" 1, "ss01" 1;
+}
+[data-skywalk-layout="compact"] {
+  letter-spacing: -0.01em;
+  line-height: 1.45;
+}
+.ag-rune-skywalk-active {
+  background: linear-gradient(90deg, rgba(30, 136, 229, 0.10), rgba(30, 136, 229, 0.02));
+  box-shadow: 0 0 0 1px rgba(30, 136, 229, 0.4);
+}
+
+/* ====================== nice（<mark> 高亮行内文本） ====================== */
+mark.ag-rune-nice-highlight {
+  background: linear-gradient(120deg, rgba(255, 235, 59, 0.55), rgba(255, 193, 7, 0.45));
+  color: inherit;
+  padding: 0 2px;
+  border-radius: 3px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  transition: background 0.25s ease;
+}
+mark.ag-rune-nice-highlight:hover {
+  background: linear-gradient(120deg, rgba(255, 235, 59, 0.75), rgba(255, 193, 7, 0.65));
+}
+html.dark mark.ag-rune-nice-highlight {
+  background: linear-gradient(120deg, rgba(255, 213, 79, 0.32), rgba(255, 167, 38, 0.32));
+  color: #FFFDE7;
+}
+.ag-rune-nice-active {
+  outline: 1px dashed rgba(76, 175, 80, 0.45);
+  outline-offset: 2px;
+}
+
+/* ====================== 双生花 ====================== */
+.ag-rune-twinbloom-clone {
+  position: relative;
+  border-left: 2px dashed rgba(142, 36, 170, 0.5);
+  padding-left: 8px;
+  margin-top: 4px;
+  opacity: 0.85;
+}
+.ag-rune-twinbloom-clone::after {
+  content: "双生 · " attr(data-twinbloom-placeholder);
+  position: absolute;
+  top: -10px;
+  left: 8px;
+  font-size: 10px;
+  color: #8E24AA;
+  background: #fff;
+  padding: 0 4px;
+}
+.ag-rune-twinbloom-active {
+  background: rgba(142, 36, 170, 0.08);
+}
+
+/* ====================== 夺心魄 ====================== */
+[data-mindsteal-mode="override"] [data-echo-chant-id]:not([data-echo-chant-id="mindsteal"]) {
+  filter: hue-rotate(180deg) saturate(1.2);
+  opacity: 0.6;
+}
+[data-mindsteal-mode="stack"] [data-echo-chant-id]:not([data-echo-chant-id="mindsteal"]) {
+  outline: 1px solid currentColor;
+}
+.ag-rune-mindsteal-active {
+  box-shadow: 0 0 0 2px rgba(244, 81, 30, 0.5);
+}
+
+/* ====================== 强运 ====================== */
+.ag-rune-lucky-active {
+  background: linear-gradient(120deg, rgba(251, 140, 0, 0.12), rgba(251, 140, 0, 0.04));
+  outline: 1px solid rgba(251, 140, 0, 0.6);
+}
+.ag-rune-lucky-active:hover {
+  background: linear-gradient(120deg, rgba(251, 140, 0, 0.22), rgba(251, 140, 0, 0.10));
+}
+.ag-rune-lucky-loading::after {
+  content: "…";
+  margin-left: 4px;
+  animation: ag-rune-lucky-blink 0.9s steps(2) infinite;
+}
+@keyframes ag-rune-lucky-blink {
+  0%, 100% { opacity: 0.2; }
+  50%      { opacity: 1; }
+}
+
+/* ====================== 替罪 / scapegoat ====================== */
+.ag-rune-scapegoat-standby {
+  position: relative;
+  background: rgba(255, 235, 59, 0.06);
+  outline: 1px dashed rgba(255, 193, 7, 0.55);
+  outline-offset: 2px;
+}
+.ag-rune-scapegoat-standby::before {
+  content: '🛡️ 救场位（替罪 standby）';
+  position: absolute;
+  top: -18px;
+  right: 4px;
+  font-size: 10px;
+  padding: 1px 6px;
+  background: rgba(255, 193, 7, 0.85);
+  color: #4e342e;
+  border-radius: 4px;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 4;
+}
+
+.ag-rune-scapegoat-injured {
+  position: relative;
+  background: rgba(244, 67, 54, 0.1);
+  outline: 1.5px solid rgba(244, 67, 54, 0.65);
+  outline-offset: 2px;
+  animation: ag-rune-scapegoat-injured-pulse 1.2s ease-in-out infinite;
+}
+.ag-rune-scapegoat-injured::before {
+  content: '⚠️ 替罪受伤：' attr(data-scapegoat-error);
+  position: absolute;
+  top: -18px;
+  right: 4px;
+  font-size: 10px;
+  padding: 1px 6px;
+  background: rgba(244, 67, 54, 0.9);
+  color: #fff;
+  border-radius: 4px;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 4;
+  max-width: 80%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@keyframes ag-rune-scapegoat-injured-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.45); }
+  50% { box-shadow: 0 0 0 6px rgba(244, 67, 54, 0); }
+}
+
+/* ====================== 招灾 / calamity（哥特染彩） ====================== */
+.ag-rune-calamity-gothic {
+  font-family: 'UnifrakturMaguntia', 'Old English Text MT', 'Cardo', serif;
+  background: linear-gradient(120deg, #ff1744 0%, #f50057 30%, #d500f9 60%, #651fff 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 4px rgba(255, 23, 68, 0.4);
+  letter-spacing: 0.02em;
+  transition: font-family 0.4s, background 0.4s;
+}
+
+/* ====================== 离析 ====================== */
+[data-disperse-density="loose"] {
+  letter-spacing: 0.04em;
+  line-height: 1.85;
+  --ag-disperse-margin: 14px;
+}
+[data-disperse-density="very-loose"] {
+  letter-spacing: 0.08em;
+  line-height: 2.05;
+  --ag-disperse-margin: 22px;
+}
+[data-disperse-density] > * + * {
+  margin-top: var(--ag-disperse-margin, 14px);
+}
+.ag-rune-disperse-active {
+  background: rgba(0, 137, 123, 0.06);
+  box-shadow: 0 0 0 1px rgba(0, 137, 123, 0.4);
+}
+
+/* ====================== 暗色模式覆盖 ====================== */
+html.dark .ag-rune-twinbloom-clone::after {
+  background: #1E1E1E;
+  color: #CE93D8;
+}
+html.dark .ag-rune-lucky-active {
+  background: linear-gradient(120deg, rgba(251, 140, 0, 0.22), rgba(251, 140, 0, 0.08));
+}
+html.dark .ag-rune-skywalk-active {
+  background: linear-gradient(90deg, rgba(30, 136, 229, 0.22), rgba(30, 136, 229, 0.04));
+}
+
+/* ====================== 减少动画偏好 ====================== */
+@media (prefers-reduced-motion: reduce) {
+  .ag-rune-growth-target { animation: none; }
+  .ag-rune-lucky-loading::after { animation: none; }
+}
