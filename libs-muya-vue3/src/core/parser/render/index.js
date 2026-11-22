@@ -858,7 +858,6 @@ class StateRender {
     // enableEchoVueRenderer === false 时，renderEchoPlaceholders 已通过 renderToHtml 设置 innerHTML，
     // 不再走 Vue 组件 mount，避免组件覆盖掉已渲染的 HTML（如 nice222 被 ag-echo-inline-preview 覆盖的问题）。
     if (!this.muya?.options?.enableEchoVueRenderer) {
-      console.log('[Muya.StateRender.mountEchoVueHosts] skipped — enableEchoVueRenderer is false, renderToHtml handles rendering')
       return
     }
 
@@ -868,11 +867,6 @@ class StateRender {
     const echoMap = this.getEchoMap()
     const hosts = root.querySelectorAll(ECHO_PLACEHOLDER_SELECTOR)
     const aliveNodeIds = new Set()
-    console.log('[Muya.StateRender.mountEchoVueHosts] scanning hosts', {
-      hostCount: hosts.length,
-      echoMapSize: echoMap.size,
-      existingVmCount: this.echoVmMap.size
-    })
 
     hosts.forEach(host => {
       const dataset = host.dataset || {}
@@ -882,12 +876,6 @@ class StateRender {
       const nodeId = String(dataset.echoNodeId || '')
       const value = String(dataset.echoValue || '')
       if (!echoName || !echoId || !nodeId) {
-        console.log('[Muya.StateRender.mountEchoVueHosts] skip host due to missing dataset', {
-          echoName,
-          echoId,
-          nodeId,
-          dataset
-        })
         return
       }
 
@@ -904,26 +892,10 @@ class StateRender {
         mountedVm.nodeId = nodeId
         mountedVm.echo = echo
         mountedVm.value = value
-        console.log('[Muya.StateRender.mountEchoVueHosts] reuse vm', {
-          nodeId,
-          echoId,
-          echoName,
-          renderKey,
-          hostConnected: host.isConnected,
-          vmConnected: !!mountedVm.$el?.isConnected
-        })
         return
       }
 
       if (mountedVm && typeof mountedVm.$destroy === 'function') {
-        console.log('[Muya.StateRender.mountEchoVueHosts] destroy stale vm', {
-          nodeId,
-          echoId,
-          echoName,
-          renderKey,
-          hasEl: !!mountedVm.$el,
-          vmConnected: !!mountedVm.$el?.isConnected
-        })
         mountedVm.$destroy()
       }
 
@@ -945,25 +917,10 @@ class StateRender {
       vm.$mount()
       host.appendChild(vm.$el)
       this.echoVmMap.set(nodeId, vm)
-      console.log('[Muya.StateRender.mountEchoVueHosts] mounted vm', {
-        nodeId,
-        echoId,
-        echoName,
-        renderKey,
-        hostConnected: host.isConnected,
-        vmConnected: !!vm.$el?.isConnected,
-        hostChildCount: host.childNodes.length,
-        outerHtmlPreview: String(vm.$el?.outerHTML || '').substring(0, 200)
-      })
     })
 
     for (const [savedNodeId, vm] of this.echoVmMap.entries()) {
       if (!aliveNodeIds.has(savedNodeId)) {
-        console.log('[Muya.StateRender.mountEchoVueHosts] cleanup detached vm', {
-          savedNodeId,
-          hasEl: !!vm?.$el,
-          vmConnected: !!vm?.$el?.isConnected
-        })
         if (vm && typeof vm.$destroy === 'function') {
           vm.$destroy()
         }

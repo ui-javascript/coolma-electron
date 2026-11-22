@@ -692,6 +692,12 @@ async function main(): Promise<void> {
         && (rendererSource.match(/^\s*renderRunes \(\) \{/gm) || []).length === 1,
       `mount=${(rendererSource.match(/^\s*mountRuneVueHosts \(\) \{/gm) || []).length}, render=${(rendererSource.match(/^\s*renderRunes \(\) \{/gm) || []).length}`,
     );
+    assert(
+      'Rune 渲染：渲染路径不再留 console.log 调试输出，错误级 console.warn 保留',
+      (rendererSource.match(/console\.log/g) || []).length === 0
+        && (rendererSource.match(/console\.warn/g) || []).length >= 4,
+      `log=${(rendererSource.match(/console\.log/g) || []).length}, warn=${(rendererSource.match(/console\.warn/g) || []).length}`,
+    );
   }
 
   // ===== R-02 四角实拖：真事件驱动 RuneTransformer，四个把手各自算对宽高与偏移 =====
