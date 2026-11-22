@@ -192,7 +192,8 @@ export default {
     pptExportRevealOption: 'Reveal PDF (closer to slide pagination)',
   },
   editor: {
-    "editor.imageUploadFailed": "Image upload failed; using the local file: {message}",
+    imageUploadFailed: "Image upload failed; using the local file: {message}",
+    imagePathFailed: "Local image could not be read: {message}",
 
     noteSection: 'Notes',
     runeSection: 'Runes',

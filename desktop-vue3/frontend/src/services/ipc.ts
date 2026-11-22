@@ -235,6 +235,20 @@ export function saveAttachmentImage(
   return invoke<{ url: string; filePath: string; name: string }>(IPC_CHANNELS.attachments.saveImage, input);
 }
 
+export interface SaveImageFromPathInput {
+  filePath: string;
+  kbGuid?: string | null;
+  docGuid?: string | null;
+  noteId?: number | null;
+}
+
+/** 本地路径图片落盘：选择器输入本地路径、拖拽本地图片时使用。 */
+export function saveAttachmentImageFromPath(
+  input: SaveImageFromPathInput,
+): Promise<IpcResult<{ url: string; filePath: string; name: string }>> {
+  return invoke<{ url: string; filePath: string; name: string }>(IPC_CHANNELS.attachments.saveImageFromPath, input);
+}
+
 export type ImageUploadService = 'picgoServer' | 'wizOfficialImageUploadService' | 'none';
 
 export interface UploadImageInput extends SaveAttachmentInput {

@@ -1,7 +1,7 @@
 import type { IpcResult } from '../shared/ipc/contract';
 import { ok } from '../shared/ipc/result';
 import { z } from 'zod';
-import { saveAttachmentBuffer, saveImageAttachment } from '../service/attachments';
+import { saveAttachmentBuffer, saveImageAttachment, saveImageAttachmentFromPath } from '../service/attachments';
 import { uploadImageByPicGo } from '../service/image/upload';
 import { uploadImageResource } from '../service/sync/wiznote';
 import { failFromError } from './controller-utils';
@@ -9,6 +9,13 @@ import { failFromError } from './controller-utils';
 const saveImageSchema = z.object({
   base64: z.string().min(1),
   ext: z.string().trim().max(8).optional(),
+  kbGuid: z.string().trim().max(100).nullable().optional(),
+  docGuid: z.string().trim().max(100).nullable().optional(),
+  noteId: z.number().int().positive().nullable().optional(),
+});
+
+const saveImageFromPathSchema = z.object({
+  filePath: z.string().trim().min(1).max(4096),
   kbGuid: z.string().trim().max(100).nullable().optional(),
   docGuid: z.string().trim().max(100).nullable().optional(),
   noteId: z.number().int().positive().nullable().optional(),
@@ -40,6 +47,24 @@ class AttachmentsController {
       return ok(result);
     } catch (error) {
       return failFromError(error, 'ATTACHMENT_SAVE_ERROR');
+    }
+  }
+
+  /**
+   * 本地路径图片落盘：图片选择器输入本地路径、拖拽本地图片时调用。
+   * 返回 coolma:// 地址，失败抛错让前端落图片失败态。
+   */
+  async saveImageFromPath(args?: unknown): Promise<IpcResult<{ url: string; filePath: string; name: string }>> {
+    try {
+      const input = saveImageFromPathSchema.parse(args);
+      const { app } = await import('electron');
+      const result = await saveImageAttachmentFromPath({
+        ...input,
+        root: app.getPath('temp'),
+      });
+      return ok(result);
+    } catch (error) {
+      return failFromError(error, 'ATTACHMENT_SAVE_PATH_ERROR');
     }
   }
 

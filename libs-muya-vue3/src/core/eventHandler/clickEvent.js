@@ -96,7 +96,7 @@ class ClickEvent {
         })
       }
       // Handle image and inline math preview click
-      const markedImageText = target.previousElementSibling
+      const markedImageText = target.closest(`.${CLASS_OR_ID.AG_IMAGE_MARKED_TEXT}`) || target.previousElementSibling
       const mathRender = target.closest(`.${CLASS_OR_ID.AG_MATH_RENDER}`)
       const rubyRender = target.closest(`.${CLASS_OR_ID.AG_RUBY_RENDER}`)
       const imageWrapper = target.closest(`.${CLASS_OR_ID.AG_INLINE_IMAGE}`)
@@ -106,6 +106,26 @@ class ClickEvent {
       const mathText = mathRender && mathRender.previousElementSibling
       const rubyText = rubyRender && rubyRender.previousElementSibling
       if (markedImageText && markedImageText.classList.contains(CLASS_OR_ID.AG_IMAGE_MARKED_TEXT)) {
+        if (markedImageText.classList.contains(CLASS_OR_ID.AG_IMAGE_FAIL) && markedImageText.dataset.refSrc) {
+          // 引用式图片失败后没有 <img>，点失败标记直接按原地址重试一次。
+          const attrs = {
+            src: markedImageText.dataset.refSrc,
+            alt: markedImageText.dataset.refAlt || ''
+          }
+          if (markedImageText.dataset.refTitle) {
+            attrs.title = markedImageText.dataset.refTitle
+          }
+          contentState.stateRender.retryImage(
+            { imageId: markedImageText.id, token: { attrs } },
+            {
+              className: markedImageText.dataset.refClass || null,
+              imageClass: CLASS_OR_ID.AG_COPY_REMOVE
+            }
+          )
+          event.preventDefault()
+          event.stopPropagation()
+          return
+        }
         eventCenter.dispatch('format-click', {
           event,
           formatType: 'image',

@@ -192,7 +192,8 @@ export default {
     pptExportRevealOption: 'Reveal PDF 导出（更接近演示稿分页）',
   },
   editor: {
-    "editor.imageUploadFailed": "图床上传失败，已改用本地图片：{message}",
+    imageUploadFailed: "图床上传失败，已改用本地图片：{message}",
+    imagePathFailed: "本地图片读取失败：{message}",
 
     noteSection: '笔记',
     runeSection: '符文',

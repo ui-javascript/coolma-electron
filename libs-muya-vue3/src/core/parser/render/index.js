@@ -1093,16 +1093,17 @@ class StateRender {
 
   // 重新加载同一个失败的图片：清掉失败缓存，复用原来的图片节点 id，
   // 成功/失败回调会直接更新这张图，不需要整篇重绘。
-  retryImage (imageInfo) {
+  retryImage (imageInfo, options = {}) {
     const attrs = imageInfo && imageInfo.token && imageInfo.token.attrs
     const id = imageInfo && imageInfo.imageId
     if (!attrs || !attrs.src || !id) return false
     const wrapper = document.querySelector(`#${id}`)
     if (!wrapper) return false
+    const { className = null, imageClass = null } = options || {}
     this.loadImageMap.delete(attrs.src)
     wrapper.classList.remove(CLASS_OR_ID.AG_IMAGE_FAIL, CLASS_OR_ID.AG_IMAGE_SUCCESS)
     wrapper.classList.add(CLASS_OR_ID.AG_IMAGE_LOADING)
-    this.loadImageAsync(getImageInfo(attrs.src), attrs, null, null, id)
+    this.loadImageAsync(getImageInfo(attrs.src), attrs, className, imageClass, id)
     return true
   }
 

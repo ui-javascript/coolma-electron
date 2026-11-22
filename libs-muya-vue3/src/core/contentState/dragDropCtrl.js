@@ -1,5 +1,5 @@
 import { findNearestParagraph, findOutMostParagraph } from '../selection/dom'
-import { verticalPositionInRect, getUniqueId, getImageInfo as getImageSrc, checkImageContentType } from '../utils'
+import { verticalPositionInRect, getUniqueId, getImageInfo as getImageSrc, checkImageContentType, markImageActionFailed } from '../utils'
 import { getImageInfo } from '../utils/getImageInfo'
 import { URL_REG, IMAGE_EXT_REG } from '../config'
 
@@ -158,13 +158,23 @@ const dragDropCtrl = ContentState => {
         }
         this.render()
 
-        const nSrc = await this.muya.options.imageAction(path, id, name)
+        let nSrc = ''
+        try {
+          nSrc = await this.muya.options.imageAction(path, id, name)
+        } catch (error) {
+          console.warn('[drag-drop] imageAction failed', error)
+        }
         const { src } = getImageSrc(path)
+        const imageWrapper = this.muya.container.querySelector(`span[data-id=${id}]`)
+        if (!nSrc) {
+          // 拖入本地图片失败：保留路径，落失败态，点击后可从同一路径重试。
+          markImageActionFailed(imageWrapper)
+          this.muya.eventCenter.dispatch('stateChange')
+          return
+        }
         if (src) {
           this.stateRender.urlMap.set(nSrc, src)
         }
-        const imageWrapper = this.muya.container.querySelector(`span[data-id=${id}]`)
-
         if (imageWrapper) {
           const imageInfo = getImageInfo(imageWrapper)
           this.replaceImage(imageInfo, {

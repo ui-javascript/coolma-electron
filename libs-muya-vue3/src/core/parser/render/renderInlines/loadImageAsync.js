@@ -40,6 +40,7 @@ export default function loadImageAsync (imageInfo, attrs, className, imageClass,
             imageText.classList.remove('ag-image-fail')
             imageText.classList.add('ag-image-success')
           } else {
+            imageText.classList.remove(CLASS_OR_ID.AG_IMAGE_LOADING, CLASS_OR_ID.AG_IMAGE_FAIL)
             insertAfter(img, imageText)
             operateClassName(imageText, 'add', className)
           }

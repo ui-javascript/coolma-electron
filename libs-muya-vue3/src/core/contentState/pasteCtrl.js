@@ -1,6 +1,6 @@
 
 import { PARAGRAPH_TYPES, PREVIEW_DOMPURIFY_CONFIG, HAS_TEXT_BLOCK_REG, IMAGE_EXT_REG, URL_REG } from '../config'
-import { sanitize, getUniqueId, getImageInfo as getImageSrc, getPageTitle } from '../utils'
+import { sanitize, getUniqueId, getImageInfo as getImageSrc, getPageTitle, markImageActionFailed } from '../utils'
 import { getImageInfo } from '../utils/getImageInfo'
 
 const LIST_REG = /ul|ol/
@@ -141,13 +141,22 @@ const pasteCtrl = ContentState => {
           src: imagePath
         })
       }
-      const nSrc = await this.muya.options.imageAction(imagePath, id)
+      let nSrc = ''
+      try {
+        nSrc = await this.muya.options.imageAction(imagePath, id)
+      } catch (error) {
+        console.warn('[paste] imageAction failed', error)
+      }
       const { src } = getImageSrc(imagePath)
+      const imageWrapper = this.muya.container.querySelector(`span[data-id=${id}]`)
+      if (!nSrc) {
+        // 本地路径上传失败：保留路径，落失败态，点击后可从同一路径重试。
+        markImageActionFailed(imageWrapper)
+        return imagePath
+      }
       if (src) {
         this.stateRender.urlMap.set(nSrc, src)
       }
-
-      const imageWrapper = this.muya.container.querySelector(`span[data-id=${id}]`)
 
       if (imageWrapper) {
         const imageInfo = getImageInfo(imageWrapper)
@@ -190,6 +199,10 @@ const pasteCtrl = ContentState => {
         const imageWrapper = this.muya.container.querySelector(`span[data-id=${id}]`)
         const imageContainer = this.muya.container.querySelector(`span[data-id=${id}] .ag-image-container`)
         this.stateRender.urlMap.set(id, base64)
+        // 上传可能已经先失败；失败态不能再被本地预览翻成成功。
+        if (imageWrapper && imageWrapper.classList.contains('ag-image-fail')) {
+          return
+        }
         if (imageContainer) {
           imageWrapper.classList.remove('ag-empty-image')
           imageWrapper.classList.add('ag-image-success')
@@ -200,14 +213,23 @@ const pasteCtrl = ContentState => {
       }
       reader.readAsDataURL(file)
 
-      const nSrc = await this.muya.options.imageAction(file, id)
+      let nSrc = ''
+      try {
+        nSrc = await this.muya.options.imageAction(file, id)
+      } catch (error) {
+        console.warn('[paste] imageAction failed for file', error)
+      }
+      const imageWrapper = this.muya.container.querySelector(`span[data-id=${id}]`)
+      if (!nSrc) {
+        // 剪贴板文件没有可重放的路径，失败后落失败态，提示用户重新粘贴。
+        markImageActionFailed(imageWrapper)
+        return file
+      }
       const base64 = this.stateRender.urlMap.get(id)
       if (base64) {
         this.stateRender.urlMap.set(nSrc, base64)
         this.stateRender.urlMap.delete(id)
       }
-      const imageWrapper = this.muya.container.querySelector(`span[data-id=${id}]`)
-
       if (imageWrapper) {
         const imageInfo = getImageInfo(imageWrapper)
         this.replaceImage(imageInfo, {

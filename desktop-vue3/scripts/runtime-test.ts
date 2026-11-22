@@ -36,7 +36,7 @@ import {
 } from '../frontend/src/utils/autotag';
 import { coolmaUrl, hashImageName, parseCoolmaUrl } from '../electron/service/attachments';
 import { collectTree, normalizeRemotePath } from '../electron/service/blog/sftp-fs';
-import { attachmentDir, saveAttachmentBuffer } from '../electron/service/attachments';
+import { attachmentDir, saveAttachmentBuffer, saveImageAttachmentFromPath } from '../electron/service/attachments';
 import { uploadImageByPicGo } from '../electron/service/image/upload';
 import {
   findCloudNoteByTitle,
@@ -589,6 +589,25 @@ async function main(): Promise<void> {
     assert('附件：协议地址', coolmaUrl('kb', 'doc', 'a.png') === 'coolma://coolma.app/kb/doc/a.png');
     assert('附件：拒绝穿越', parseCoolmaUrl('coolma://coolma.app/../../x') === null);
     assert('附件：md5 命名稳定', hashImageName(Buffer.from('abc')) === hashImageName(Buffer.from('abc')));
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'coolma-local-image-'));
+    const pngPath = path.join(root, 'local.png');
+    await fs.writeFile(pngPath, Buffer.from('local-image-bytes'));
+    const saved = await saveImageAttachmentFromPath({ root, filePath: pngPath, kbGuid: 'kb', docGuid: 'doc' });
+    assert(
+      '本地图片：路径落盘并返回 coolma 地址',
+      saved.url === coolmaUrl('kb', 'doc', hashImageName(Buffer.from('local-image-bytes'), '.png')) &&
+        (await fs.stat(saved.filePath)).isFile(),
+      saved.url,
+    );
+    let badExt = '';
+    try {
+      const txtPath = path.join(root, 'local.txt');
+      await fs.writeFile(txtPath, 'not-image');
+      await saveImageAttachmentFromPath({ root, filePath: txtPath });
+    } catch (error) {
+      badExt = String((error as Error).message || error);
+    }
+    assert('本地图片：非图片扩展名拒绝', badExt === 'INVALID_IMAGE_EXT', badExt);
   }
 
   // ===== 光标同步：engine setMarkdown(md, cursor) / getCursor 往返 =====
@@ -2195,7 +2214,7 @@ async function main(): Promise<void> {
     g.XMLHttpRequest = FakeXhr;
     g.Image = FakeImage;
     try {
-      const { checkImageContentType, loadImage } = (await import('../../libs-muya-vue3/src/core/utils/index.js')) as Any;
+      const { checkImageContentType, loadImage, markImageActionFailed } = (await import('../../libs-muya-vue3/src/core/utils/index.js')) as Any;
       FakeXhr.mode = 'cors';
       assert('外链图片：CORS 拦截的 HEAD 返回未知，不判非图片', (await checkImageContentType('https://x/u/1')) === null, 'null expected');
       FakeXhr.mode = 'html';
@@ -2206,6 +2225,18 @@ async function main(): Promise<void> {
         '外链图片：预检未知时 <img> 直载成功',
         loaded && loaded.width === 200 && loaded.height === 100,
         JSON.stringify(loaded),
+      );
+      const wrapper = document.createElement('span');
+      wrapper.className = 'ag-inline-image ag-image-loading ag-image-uploading';
+      wrapper.innerHTML = '<img src="x">';
+      const marked = markImageActionFailed(wrapper);
+      assert(
+        '本地图片：上传失败摘掉 loading/uploading 并落 fail',
+        marked && !wrapper.classList.contains('ag-image-loading') &&
+          !wrapper.classList.contains('ag-image-uploading') &&
+          wrapper.classList.contains('ag-image-fail') &&
+          !wrapper.querySelector('img'),
+        wrapper.className,
       );
     } finally {
       g.XMLHttpRequest = origXhr;

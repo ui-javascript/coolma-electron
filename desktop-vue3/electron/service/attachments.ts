@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 /**
@@ -95,6 +95,45 @@ export async function saveImageAttachment(input: SaveAttachmentInput): Promise<S
     docGuid: input.docGuid,
     noteId: input.noteId,
     name: hashImageName(buffer, input.ext || '.png'),
+    buffer,
+  });
+}
+
+const IMAGE_PATH_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp']);
+const MAX_IMAGE_FILE_BYTES = 50 * 1024 * 1024;
+
+export interface SaveImageFromPathInput {
+  root: string;
+  filePath: string;
+  kbGuid?: string | null;
+  docGuid?: string | null;
+  noteId?: number | null;
+}
+
+/**
+ * 本地路径图片落盘：图片选择器输入绝对/相对路径、拖拽本地文件时走这里。
+ * 只接受常见位图扩展名，且限制单文件 50MB，避免渲染层把任意路径读进附件目录。
+ */
+export async function saveImageAttachmentFromPath(input: SaveImageFromPathInput): Promise<SaveAttachmentResult> {
+  const filePath = String(input.filePath ?? '');
+  const ext = path.extname(filePath).toLowerCase();
+  if (!IMAGE_PATH_EXTENSIONS.has(ext)) {
+    throw new Error('INVALID_IMAGE_EXT');
+  }
+  const info = await stat(filePath);
+  if (!info.isFile()) {
+    throw new Error('INVALID_IMAGE_PATH');
+  }
+  if (info.size <= 0 || info.size > MAX_IMAGE_FILE_BYTES) {
+    throw new Error('INVALID_IMAGE_SIZE');
+  }
+  const buffer = await readFile(filePath);
+  return saveAttachmentBuffer({
+    root: input.root,
+    kbGuid: input.kbGuid,
+    docGuid: input.docGuid,
+    noteId: input.noteId,
+    name: hashImageName(buffer, ext),
     buffer,
   });
 }

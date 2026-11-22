@@ -30,10 +30,23 @@ export default function referenceImage (h, cursor, block, token, outerClass) {
     selector += `.${CLASS_OR_ID.AG_IMAGE_FAIL}`
   }
 
+  // 引用式图片失败时没有 <img> 可点，失败态本身要能携带重试所需的地址。
+  // 这三个 data 属性只服务于本地点按重试，不写进 Markdown。
+  const attrs = {
+    'data-ref-src': href,
+    'data-ref-alt': alt
+  }
+  if (className) {
+    attrs['data-ref-class'] = className
+  }
+  if (title) {
+    attrs['data-ref-title'] = title
+  }
+
   return isSuccess
     ? [
-      h(selector, tag),
+      h(selector, { attrs }, tag),
       h(`img.${CLASS_OR_ID.AG_COPY_REMOVE}`, { props: { alt, src, title } })
     ]
-    : [h(selector, tag)]
+    : [h(selector, { attrs }, tag)]
 }

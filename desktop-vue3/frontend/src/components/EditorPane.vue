@@ -167,7 +167,7 @@ import { noteTags } from '@/utils/note';
 import { createQuickInsertProvider } from '@/editor/quickInsert';
 import { quickInsertTypes } from '@/editor/insertHandlers';
 import { useLibraryStore } from '@/stores/library';
-import { saveAttachmentImage, uploadImageAttachment } from '@/services/ipc';
+import { saveAttachmentImage, saveAttachmentImageFromPath, uploadImageAttachment } from '@/services/ipc';
 import type { ImageUploadService } from '@/services/ipc';
 import { getSyncStatus } from '@/services/sync';
 import { useAppStore } from '@/stores/app';
@@ -814,6 +814,25 @@ async function savePastedImage(file: File): Promise<string> {
   return result.data.url;
 }
 
+/** 本地路径图片 → 复制进附件目录，返回 coolma:// 地址；失败返回空串让引擎落失败态。 */
+async function saveLocalImage(filePath: string): Promise<string> {
+  const summary = props.summary;
+  if (!summary) {
+    return '';
+  }
+  const result = await saveAttachmentImageFromPath({
+    filePath,
+    kbGuid: summary.kbGuid,
+    docGuid: summary.docGuid,
+    noteId: summary.id,
+  });
+  if (result.ok === false) {
+    ElMessage.warning(t('editor.imagePathFailed', { message: result.error.message }));
+    return '';
+  }
+  return result.data.url;
+}
+
 const editorOptions = {
   quickInsertProvider: createQuickInsertProvider(
     () => ({
@@ -825,10 +844,13 @@ const editorOptions = {
   ),
   // 领域插入语义由 app 注入，引擎只负责定位 @ 和调用这里。
   quickInsertTypes,
-  // 图片落盘：引擎把 File 交过来，应用侧存盘并回写 coolma:// 地址
+  // 图片落盘：引擎把 File / 本地路径交过来，应用侧存盘并回写 coolma:// 地址
   imageAction: async (file: File | string) => {
     if (typeof File !== 'undefined' && file instanceof File) {
       return savePastedImage(file);
+    }
+    if (typeof file === 'string' && file.trim()) {
+      return saveLocalImage(file.trim());
     }
     return '';
   },

@@ -417,3 +417,17 @@ export const collectFootnotes = (blocks) => {
 
   return map
 }
+
+/**
+ * imageAction（本地图片落盘/上传）失败时把占位图落到可点击的失败态。
+ * 加载中/成功/上传中三种类名都要摘掉，否则会出现失败图标和转圈叠在一起。
+ * 这里用字面类名，避免 utils ↔ config 循环依赖。
+ */
+export const markImageActionFailed = (wrapper) => {
+  if (!wrapper || !wrapper.classList) return false
+  wrapper.classList.remove('ag-image-loading', 'ag-image-success', 'ag-image-uploading')
+  wrapper.classList.add('ag-image-fail')
+  const image = wrapper.querySelector('img')
+  if (image) image.remove()
+  return true
+}

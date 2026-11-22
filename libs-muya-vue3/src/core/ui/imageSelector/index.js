@@ -2,7 +2,7 @@ import Unsplash, { toJson } from 'unsplash-js'
 import BaseFloat from '../baseFloat'
 import { patch, h } from '../../parser/render/snabbdom'
 import { EVENT_KEYS, URL_REG, CLASS_OR_ID } from '../../config'
-import { getUniqueId, getImageInfo as getImageSrc } from '../../utils'
+import { getUniqueId, getImageInfo as getImageSrc, markImageActionFailed } from '../../utils'
 import { getImageInfo } from '../../utils/getImageInfo'
 import { i18n } from '../../i18n'
 
@@ -231,12 +231,23 @@ class ImageSelector extends BaseFloat {
           title
         })
         this.hide()
-        const nSrc = await this.muya.options.imageAction(src, id, alt)
+        let nSrc = ''
+        try {
+          nSrc = await this.muya.options.imageAction(src, id, alt)
+        } catch (error) {
+          console.warn('[image-selector] imageAction failed', error)
+        }
         const { src: localPath } = getImageSrc(src)
+        const imageWrapper = this.muya.container.querySelector(`span[data-id=${id}]`)
+        if (!nSrc) {
+          // 本地上传失败：保留原来的本地路径，落到失败态，点击后可从同一路径重试。
+          markImageActionFailed(imageWrapper)
+          this.muya.eventCenter.dispatch('stateChange')
+          return
+        }
         if (localPath) {
           this.muya.contentState.stateRender.urlMap.set(nSrc, localPath)
         }
-        const imageWrapper = this.muya.container.querySelector(`span[data-id=${id}]`)
 
         if (imageWrapper) {
           const imageInfo = getImageInfo(imageWrapper)

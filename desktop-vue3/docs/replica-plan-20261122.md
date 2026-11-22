@@ -3,7 +3,7 @@
 > 基线：`desktop-vue2` 源码 + Quasar 视觉/交互；`desktop-vue3` 是长期主应用。
 > 用法：一张表就是待办池，一次只推进一项；一项一个提交，真实页面验收后再勾。**不按“文件存在”算完成。**
 
-当前提交基线：`f9009cb fix(echo): 四张内置回响恢复动画宿主与文档根`
+当前提交基线：`d808de3 docs: 收口 stash 审计、回响表状态与 layui 口径`
 
 ## 1. 执行顺序
 
@@ -25,6 +25,7 @@
 | R-05 | `mountRuneVueHosts` 重复定义 | `libs-muya-vue3/src/core/parser/render/index.js` 原有两套同名定义，后者覆盖前者；SFC `$emit('input')` 没有 `onInput` 接收方 | 合并为一处；Rune 卡片、未知符文回退、props、scoped 与回响渲染均不回归；输入框失焦能写回 `data-rune-value` | 已修复，见 `rune-merge-20261122.md`、`rune-input-bridge-20261122.md` |
 | R-06 | 中间位置 Mermaid 激活遮挡 | 只有文末 `last-child` 改 static，中间节点仍是 absolute 预览 | 中间 Mermaid 激活不覆盖后续正文；文末仍不被底栏遮住 | 已修复，见 `mermaid-mid-20261122.md` |
 | R-07 | 外链图片可能落 `ag-image-fail` | 内联 data URI 实测成功；外链 GitHub 头像失败 | 外链图片能显示；失败时有不误导的占位/重试 | 已修复，见 `image-external-20261122.md` |
+| R-07b | 本地路径图片失败态与重试 | `imageAction` 抛错或空返回时停在 loading；失败块没有可保存的路径；引用图只能绕选择器恢复 | 失败统一落 `ag-image-fail` 并摘 loading/uploading；同路径可重试；引用图点失败标记直接重载；本地路径经 IPC 落盘成 `coolma://` | 已修复，见 `image-local-retry-20261122.md`；真实落盘仅 runtime 覆盖，待 Electron 真机 |
 | R-08 | 14 个内置符文模板未进新建选择器 | **误判**：`LibraryFormDialog.vue` 已接 `runeTemplateBuiltins()` 分组与 `applyPreset()`，14 项可选 | 新建符文弹窗可选内置模板，选中后预填名称/描述/分类/源码 | 已复核关闭，见 `rune-presets-verify-20261122.md` |
 
 ## 3. Electron 真机
@@ -58,10 +59,11 @@
 3. **R-08** 内置模板选择器：复核为**误判**，14 项本来就在，已关闭。
 4. **R-04** SFC scoped：已修复，作用域只命中符文内部，正文同类名不再被污染；预处理器按 v2 运行态不编译。
 5. **R-07** 外链图片：已修复，无扩展名外链不再被 HEAD 预检误判，失败态可就地重试。
-6. **R-05** `mountRuneVueHosts` 重复定义：已合并；SFC `$emit('input')` 到 `onValueChange` 的桥已补，内置输入框失焦可写回 `data-rune-value`。`update:modelValue` 与整篇重渲染优化未做。
-7. **R-02** Rune 四角：已逐个拖拽记录；左/上锚点为 v2 同源限制，v3 写回后卡片消失已修。真正四角锚定需新增持久化偏移字段，待产品决策。
-8. **R-03** 四张内置回响：已修复 `annoSource` 归一化、宿主零宽、天行健文档根、破万法激活框；生长动画已录屏。破万法“禁用其它回响”受一 block 单回响 parser 限制，留作 ABI 变更。
-9. C-01/C-02/C-03 已收口：旧 stash 审计后 drop、P0 回响/导入/豆包状态回填、layui 块级差异接受 v3 恢复口径。E-01 真机项按用户要求后置；下一项评估 S-01/S-02 的可离线拆分部分。
+6. **R-07b** 本地图片：失败统一落 `ag-image-fail` 并摘 loading/uploading；本地路径经 `saveImageFromPath` 走附件服务，引用图点失败标记同地址重载。真实落盘仅 runtime service 覆盖，Electron 真机验证后置。
+7. **R-05** `mountRuneVueHosts` 重复定义：已合并；SFC `$emit('input')` 到 `onValueChange` 的桥已补，内置输入框失焦可写回 `data-rune-value`。`update:modelValue` 与整篇重渲染优化未做。
+8. **R-02** Rune 四角：已逐个拖拽记录；左/上锚点为 v2 同源限制，v3 写回后卡片消失已修。真正四角锚定需新增持久化偏移字段，待产品决策。
+9. **R-03** 四张内置回响：已修复 `annoSource` 归一化、宿主零宽、天行健文档根、破万法激活框；生长动画已录屏。破万法“禁用其它回响”受一 block 单回响 parser 限制，留作 ABI 变更。
+10. C-01/C-02/C-03 已收口：旧 stash 审计后 drop、P0 回响/导入/豆包状态回填、layui 块级差异接受 v3 恢复口径。E-01 真机项按用户要求后置；下一项评估 S-01/S-02 的可离线拆分部分。
 
 ## 7. 验收记录要求
 
