@@ -104,8 +104,21 @@ export function generateUniqueTitle(category: string, baseTitle: string, exclude
   return `${base} (${counter})${ext}`;
 }
 
+/**
+ * 列表摘要：把正文压成一行纯文本。
+ *
+ * 笔记正文里会混入符文/回响落盘的 HTML（`<div data-rune-name="输入框" ...>`），
+ * 之前只剥 markdown 记号，标签会原样漏到列表预览里。这里先整体去掉标签与
+ * 常见实体，再处理图片/链接，最后才压缩空白。
+ */
 function excerptOf(content: string): string {
-  return content
+  return String(content ?? '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&amp;/gi, '&')
     .replace(/!\[[^\]]*]\([^)]*\)/g, '')
     .replace(/\[([^\]]*)]\([^)]*\)/g, '$1')
     .replace(/[#>*_`~]/g, ' ')

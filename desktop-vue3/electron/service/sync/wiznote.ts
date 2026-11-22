@@ -3,7 +3,7 @@ import path from 'node:path';
 import { app } from 'electron';
 import * as wizMarkdown from '@altairwei/wiz-markdown';
 import { settingsRepository } from '../db/settings-repository';
-import { notesRepository } from '../db/notes-repository';
+import { notesRepository, normalizeCategory } from '../db/notes-repository';
 import { syncLogRepository } from '../db/sync-log-repository';
 import { categoriesRepository } from '../db/categories-repository';
 import { ATTACHMENT_ROOT_NAME, parseCoolmaUrl } from '../attachments';
@@ -419,6 +419,12 @@ export async function fetchCategories(): Promise<WizCategory[]> {
   const config = readConfig();
   if (config.kbGuid) {
     for (const item of directory.items) {
+      // 云端根目录（'/My Notes/'、'/'、空串）归一后就是 '/'，侧栏已有虚拟
+      // “我的笔记”节点承载它，local_categories 不接受根节点
+      // （normalizeCategory 后为 '/' 会抛 Category is required），直接跳过。
+      if (normalizeCategory(item.category) === '/') {
+        continue;
+      }
       try {
         categoriesRepository.create({
           category: item.category,
