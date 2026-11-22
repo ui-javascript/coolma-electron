@@ -131,7 +131,7 @@
       >
         <q-icon
           class="icon-custom"
-          :name="aiProvider === AiAssistantProviderEnum.Doubao ? 'mic' : 'auto_awesome'"
+          :name="aiProvider === AiAssistantProviderEnum.Doubao ? 'mic' : 'smart_toy'"
         />
         <span v-if="aiProvider === AiAssistantProviderEnum.Doubao" class="ai-entry-badge">{{ t('aiAssistantProviderDoubao') }}</span>
       </span>
@@ -141,7 +141,7 @@
         :title="t('microApps.open')"
         @click="emit('chat')"
       >
-        <q-icon class="icon-custom" name="chat_bubble_outline" />
+        <q-icon class="icon-custom" name="chat_bubble" />
       </span>
 
       <span
