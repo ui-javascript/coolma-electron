@@ -27,7 +27,7 @@
 - [ ] E-01 弹窗 / 快捷键 / 右键 / 主题下拉真机端到端
 - [ ] E-02 次级弹窗 2px 级视觉对照
 - [ ] E-03 最大化 / 最小尺寸 / 窗口安全区
-- [ ] 单测基座：现在 0 例；先给 `stores/sync`、`services/ipc`、Rune/Echo 渲染插件上护城河
+- [~] 单测基座：已起 `pnpm test:unit`（esbuild + node:test，13 例：分类树/标签树、CDN 规则）；还缺 `stores/sync` 调度、`services/ipc` 契约、Rune/Echo 渲染插件
 
 ### A4 同步边界（S）
 
