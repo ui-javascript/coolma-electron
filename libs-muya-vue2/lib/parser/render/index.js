@@ -7,6 +7,8 @@ import renderInlines from './renderInlines'
 import renderBlock from './renderBlock'
 import { tokenizer } from '../index'
 import { i18n } from 'boot/i18n'
+import { collectRunePropsFromHost } from '../../rune/runeProps'
+import { resolveRunePropDefs } from '../../rune/runePropDefs'
 
 const RUNE_PLACEHOLDER_SELECTOR = '[data-rune-name][data-rune-id][data-rune-node-id]'
 // Support both named (@name{...}(...)) and anonymous (@{...}(...)) echo annotations
@@ -30,85 +32,6 @@ const applyRuneHostSize = (host, dataset = {}) => {
   host.style.height = height ? `${height}px` : ''
 }
 
-// 解析 SFC 字符串里的 props 块，返回 [{ name, default }] 数组。
-// 这里只关心 prop 名和 default：default 是 SFC 开发者写的"无 prop 传入时的兜底值"。
-// 解析方式：从 <script> 块里用正则匹配 props: { ... } 的键值对（够用、避免引入 vue-template-compiler）。
-const parseSfcPropsDef = (template = '') => {
-  if (typeof template !== 'string' || !template) return []
-  // 取 <script> ... </script> 块（包含属性，如 lang="ts"）
-  const scriptMatch = template.match(/<script[^>]*>([\s\S]*?)<\/script>/i)
-  if (!scriptMatch) return []
-  const body = scriptMatch[1]
-  // 匹配 export default { ... } 整体
-  const exportMatch = body.match(/export\s+default\s+([\s\S]*?)\n\}\s*(?:;|$)/m)
-  if (!exportMatch) return []
-  const exportBody = exportMatch[1]
-  // 找到 props: { ... } 块。允许嵌套最外层 { } 对齐。
-  const propsIdx = exportBody.indexOf('props')
-  if (propsIdx < 0) return []
-  const start = exportBody.indexOf('{', propsIdx)
-  if (start < 0) return []
-  // 从 start 开始按括号深度匹配
-  let depth = 0
-  let end = -1
-  for (let i = start; i < exportBody.length; i++) {
-    const ch = exportBody[i]
-    if (ch === '{') depth++
-    else if (ch === '}') {
-      depth--
-      if (depth === 0) { end = i; break }
-    }
-  }
-  if (end <= start) return []
-  const propsBody = exportBody.slice(start + 1, end)
-
-  const result = []
-  // 把 propsBody 按顶层逗号切分（顶层 = 括号/方括号深度为 0）
-  let seg = ''
-  let d = 0
-  const segs = []
-  for (let i = 0; i < propsBody.length; i++) {
-    const ch = propsBody[i]
-    if (ch === '{' || ch === '[' || ch === '(') d++
-    else if (ch === '}' || ch === ']' || ch === ')') d--
-    if (ch === ',' && d === 0) { segs.push(seg); seg = ''; continue }
-    seg += ch
-  }
-  if (seg.trim()) segs.push(seg)
-
-  for (const raw of segs) {
-    const m = raw.match(/^\s*([A-Za-z_$][\w$]*)\s*:\s*(\{[\s\S]*\}|null)\s*$/)
-    if (!m) continue
-    const name = m[1]
-    const defBlock = m[2]
-    // 在 defBlock 里找 default: ... 字段
-    const defMatch = defBlock.match(/\bdefault\s*:\s*([\s\S]*?)(?=,\s*(?:type|required|validator|default)\s*:|$)/)
-    if (!defMatch) continue
-    let defRaw = defMatch[1].trim()
-    // 去掉尾部逗号
-    if (defRaw.endsWith(',')) defRaw = defRaw.slice(0, -1).trim()
-    // 解析 default 的字面值
-    let parsed
-    try {
-      // 用 Function 跑一下字符串字面量表达式
-      // eslint-disable-next-line no-new-func
-      parsed = new Function(`return (${defRaw});`)()
-    } catch (_e) {
-      parsed = undefined
-    }
-    result.push({ name, default: parsed })
-  }
-  return result
-}
-
-// 把 prop 名转成 data-attr 形式：inheritFromPrevious → data-rune-prop-inherit-from-previous
-const toRunePropAttr = (name) => `runeProp${name.charAt(0).toUpperCase()}${name.slice(1)}`
-
-// 把 camelCase 转成 kebab-case（专给 dataset / attribute 用）
-const camelToKebab = (s) => String(s)
-  .replace(/([A-Z])/g, '-$1')
-  .toLowerCase()
-
 // 归一化 prop 值到字符串，便于写 data-attr
 const normalizePropValue = (v) => {
   if (v === undefined || v === null) return ''
@@ -130,35 +53,6 @@ const escapeAttrString = (value = '') => String(value)
   .replace(/"/g, '&quot;')
   .replace(/</g, '&lt;')
   .replace(/>/g, '&gt;')
-
-// 从 host.dataset 按 prop 名收集"用户显式写过"的 prop 值（按 Vue props 解析规则）：
-//   - 有 dataset → 当作显式 prop 传入 SFC
-//   - 没 dataset → 不传，SFC 自己用 props.default
-// 这样：
-//   - 用户手写在 Markdown 里的 data-rune-prop-* 是最高优先级
-//   - SFC 自己的 props.default 由 Vue 兜底
-//   - 占位符 div 上不会自动出现 data-rune-prop-*，Markdown 体积不会膨胀
-const collectRunePropsFromHost = (host, propDefs) => {
-  const dataset = host && host.dataset ? host.dataset : {}
-  const out = {}
-  for (const def of propDefs) {
-    const attr = toRunePropAttr(def.name)
-    let raw
-    if (Object.prototype.hasOwnProperty.call(dataset, attr)) {
-      raw = dataset[attr]
-    } else if (Object.prototype.hasOwnProperty.call(dataset, attr.toLowerCase())) {
-      raw = dataset[attr.toLowerCase()]
-    }
-    if (raw === undefined || raw === null) continue
-    // 把字符串归一化回 JS 值
-    if (raw === '1') out[def.name] = true
-    else if (raw === '0') out[def.name] = false
-    else if (raw === 'true') out[def.name] = true
-    else if (raw === 'false') out[def.name] = false
-    else out[def.name] = raw
-  }
-  return out
-}
 
 class StateRender {
   constructor (muya) {
@@ -680,7 +574,7 @@ class StateRender {
       // 占位符 div 上只携带 4 个系统级 data-rune-* 属性（name/id/node-id/value）。
       // SFC 的 props 由 Vue 自己按 props.default 处理；用户在 Markdown 里手写的
       // data-rune-prop-* 仍然以"显式 prop"形式传入 SFC（最高优先级）。
-      const propDefs = parseSfcPropsDef(rune?.template || '')
+      const propDefs = resolveRunePropDefs(rune)
       // 收集 host.dataset 上"用户显式写过"的 prop 值，按 Vue props 规则传给 SFC。
       // 没写的 prop → SFC 走 props.default
       const sfcProps = collectRunePropsFromHost(host, propDefs)
@@ -879,7 +773,7 @@ class StateRender {
       // 占位符 div 上只携带 4 个系统级 data-rune-* 属性（name/id/node-id/value）。
       // SFC 的 props 由 Vue 自己按 props.default 处理；用户在 Markdown 里手写的
       // data-rune-prop-* 仍然以"显式 prop"形式传入 SFC（最高优先级）。
-      const propDefs = parseSfcPropsDef(rune?.template || '')
+      const propDefs = resolveRunePropDefs(rune)
       const sfcProps = collectRunePropsFromHost(host, propDefs)
 
       if (mountedVm && mountedVm.$el && mountedVm.$el.parentNode === host && mountedVm.__runeRenderKey === renderKey) {

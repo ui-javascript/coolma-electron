@@ -568,3 +568,7 @@ export {
 
 // 配置常量
 export { CLASS_OR_ID, MUYA_DEFAULT_OPTION }
+
+// v2026-11-22 新增：符文定义类型判定与 melt-js 配置解析（纯函数，宿主应用与测试共用）。
+// 宿主一般直接 `import … from 'libs-muya-vue2/lib/rune/runeDefinition'` 以免拉起本 barrel。
+export * from './rune/runeDefinition'

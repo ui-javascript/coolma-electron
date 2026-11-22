@@ -13,6 +13,7 @@
  */
 
 import DatabaseClient from 'src/utils/DatabaseClient'
+import { resolveRuneDefinition } from 'libs-muya-vue2/lib/rune/runeDefinition'
 
 const CACHE_TTL_MS = 60 * 1000
 
@@ -98,8 +99,21 @@ async function ensureLoaded (force = false) {
     }
   }
   console.log(`[RUNE-TPL] ensureLoaded ipc-returned list=${Array.isArray(list) ? list.length : 'non-array'}`)
-  cache = { list: Array.isArray(list) ? list : [], grouped: null, cachedAt: Date.now() }
+  cache = { list: (Array.isArray(list) ? list : []).map(normalizeRuneRow), grouped: null, cachedAt: Date.now() }
   return cache
+}
+
+// 给每一行补上「派生字段」，不落库、不改 DB：type 决定渲染分支，config 是 melt-js 的解析结果。
+// 老行（Vue SFC）天然得到 type='vue-sfc'，行为完全不变。
+function normalizeRuneRow (row) {
+  if (!row || typeof row !== 'object') return row
+  const definition = resolveRuneDefinition(row)
+  return {
+    ...row,
+    type: definition.type,
+    config: definition.config,
+    configErrors: definition.errors
+  }
 }
 
 async function listFlat (force = false) {
