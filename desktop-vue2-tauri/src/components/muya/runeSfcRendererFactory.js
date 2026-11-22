@@ -28,6 +28,7 @@
 
 import Vue from 'vue'
 import * as VueTemplateCompiler from 'vue-template-compiler'
+import { RUNE_TYPE_MELT_JS, detectRuneType } from 'libs-muya-vue2/lib/rune/runeDefinition'
 
 // 注：符文 SFC 编译在渲染进程内同步执行（不绕 IPC）。微应用（genericMicroAppIpcBridge.js）
 // 仍然走主进程的 `parseVueSfc` IPC 通道，那条链路不要动，作用域不重叠。
@@ -151,6 +152,14 @@ export const createRuneRendererCtor = (rune = {}) => {
   const cacheKey = `${rune.id || rune.name || 'default'}:${templateSource}`
   if (runeRendererCtorCache.has(cacheKey)) {
     return runeRendererCtorCache.get(cacheKey)
+  }
+
+  // melt-js 定义不是 SFC：template 是 JSON 配置，交给远端组件渲染器处理。
+  // 远端渲染器还没接（当前只做「笔记侧属性 ABI 适配」），这里返回 null，
+  // 上层 mountRuneVueHosts 会退回占位卡片，不会尝试把 JSON 当 SFC 编译。
+  if (detectRuneType(templateSource) === RUNE_TYPE_MELT_JS) {
+    runeRendererCtorCache.set(cacheKey, null)
+    return null
   }
 
   let ctor
