@@ -101,6 +101,7 @@ import {
   shouldRebuildPackage,
 } from '../electron/service/blog/blogEnv';
 import { PROOFREAD_SYSTEM_PROMPT, buildProofreadMessages } from '../frontend/src/services/aiProofread';
+import { BUILTIN_CATALOG } from '../electron/shared/builtins/data';
 
 type Any = Record<string, any>;
 
@@ -472,6 +473,90 @@ async function main(): Promise<void> {
     shatterRuntime.disposeAll();
     scope.remove();
   }
+
+  // ===== R-03 成长 / 天空步道 / 双生花：直接跑 catalog 里发布的真实 anno_source =====
+  {
+    const catalogSource = (id: string): string => {
+      const item = BUILTIN_CATALOG.items.find((entry) => entry.id === id) as Any;
+      return String(((item?.payload as Any)?.annoSource) || '');
+    };
+    const growthSource = catalogSource('__builtin_growth__');
+    const skywalkSource = catalogSource('__builtin_skywalk__');
+    const twinbloomSource = catalogSource('__builtin_twinbloom__');
+    assert('R-03：catalog 里三套动画源码齐全', Boolean(growthSource && skywalkSource && twinbloomSource),
+      `growth=${growthSource.length} skywalk=${skywalkSource.length} twinbloom=${twinbloomSource.length}`);
+
+    const docRoot = document.createElement('div');
+    docRoot.className = 'mu-editor';
+    docRoot.setAttribute('data-doc-id', 'r03');
+
+    const blockPrev = document.createElement('div');
+    blockPrev.setAttribute('data-block-type', 'paragraph');
+    blockPrev.textContent = '上一行';
+
+    const mkHost = (id: string, name: string, nodeId: string, props: string): HTMLElement => {
+      const host = document.createElement('span');
+      host.setAttribute('data-echo-host', 'true');
+      host.setAttribute('data-echo-inline', 'true');
+      host.setAttribute('data-echo-name', name);
+      host.setAttribute('data-echo-id', id);
+      host.setAttribute('data-echo-node-id', nodeId);
+      host.setAttribute('data-echo-props-json', props);
+      return host;
+    };
+
+    const blockGrowth = document.createElement('div');
+    blockGrowth.setAttribute('data-block-type', 'paragraph');
+    const growthHost = mkHost('__builtin_growth__', '生生不息', 'n-growth', '{"scope":"block","trigger":"auto","target":"div"}');
+    blockGrowth.appendChild(growthHost);
+
+    const blockSky = document.createElement('div');
+    blockSky.setAttribute('data-block-type', 'paragraph');
+    const skyHost = mkHost('__builtin_skywalk__', '天行健', 'n-sky', '{"theme":"sepia","layout":"luxe"}');
+    blockSky.appendChild(skyHost);
+
+    const blockTwin = document.createElement('div');
+    blockTwin.setAttribute('data-block-type', 'paragraph');
+    const twinHost = mkHost('__builtin_twinbloom__', '双生花', 'n-twin', '{"source":"prev-line"}');
+    blockTwin.appendChild(twinHost);
+
+    docRoot.append(blockPrev, blockGrowth, blockSky, blockTwin);
+    document.body.appendChild(docRoot);
+
+    const animRuntime = new EchoRuntime({
+      registry: new EchoRegistry([
+        { id: '__builtin_growth__', name: '生生不息', anno_source: growthSource },
+        { id: '__builtin_skywalk__', name: '天行健', anno_source: skywalkSource },
+        { id: '__builtin_twinbloom__', name: '双生花', anno_source: twinbloomSource },
+      ]),
+    });
+    animRuntime.afterRender(docRoot, { cleanupFirst: true });
+    await new Promise((resolve) => setTimeout(resolve, 350));
+
+    assert('R-03 成长：目标元素拿到动画类', blockGrowth.classList.contains('ag-rune-growth-target'), blockGrowth.className);
+    assert('R-03 成长：宿主标记激活', growthHost.classList.contains('ag-rune-growth-active'), growthHost.className);
+    assert(
+      'R-03 成长：stagger 延迟写进自定义属性',
+      blockGrowth.getAttribute('style')?.includes('--ag-rune-growth-delay') === true,
+      String(blockGrowth.getAttribute('style')),
+    );
+
+    assert('R-03 天空步道：主题写回文档根', docRoot.getAttribute('data-skywalk-theme') === 'sepia', String(docRoot.getAttribute('data-skywalk-theme')));
+    assert('R-03 天空步道：排版写回文档根', docRoot.getAttribute('data-skywalk-layout') === 'luxe', String(docRoot.getAttribute('data-skywalk-layout')));
+    assert('R-03 天空步道：宿主标记激活', skyHost.classList.contains('ag-rune-skywalk-active'), skyHost.className);
+
+    const twinClone = docRoot.querySelector('[data-twinbloom-of]') as HTMLElement | null;
+    assert('R-03 双生花：克隆出 prev-line', Boolean(twinClone), docRoot.innerHTML.slice(0, 160));
+    assert('R-03 双生花：克隆带徽标', Boolean(twinClone?.querySelector('[data-twinbloom-badge]')), String(twinClone?.textContent));
+    assert('R-03 双生花：宿主标记激活', twinHost.classList.contains('ag-rune-twinbloom-active'), twinHost.className);
+
+    animRuntime.disposeAll();
+    assert('R-03 清理：成长类被摘掉', !blockGrowth.classList.contains('ag-rune-growth-target') && !growthHost.classList.contains('ag-rune-growth-active'), blockGrowth.className);
+    assert('R-03 清理：天空步道属性还原', !docRoot.hasAttribute('data-skywalk-theme') && !docRoot.hasAttribute('data-skywalk-layout'), docRoot.outerHTML.slice(0, 80));
+    assert('R-03 清理：双生花克隆移除', !docRoot.querySelector('[data-twinbloom-of]'), String(docRoot.querySelectorAll('[data-twinbloom-of]').length));
+    docRoot.remove();
+  }
+
 
   const echoIdInMd = (muya.getMarkdown().match(/echoId:\s*'([^']+)'/) || [])[1] || '';
   const echoWritten = (muya as Any).updateEchoPlaceholderValue?.({ echoId: echoIdInMd, value: '42' });
