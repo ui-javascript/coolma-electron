@@ -2257,3 +2257,10 @@ html.dark .ag-float-wrapper {
   --floatBorderColor: rgba(255, 255, 255, 0.1);
   --tableBorderColor: #3a424f;
 }
+
+/* @ 可插入提示的占位文字：v2 规则用 --editorColor10，变量缺失时会继承正文黑色。
+   这里显式抬到 30% 灰，并带不依赖变量的回退值，保证始终是 placeholder 灰。 */
+div.ag-show-quick-insert-hint #ag-editor-id p.ag-paragraph.ag-active
+  > span.ag-paragraph-content:first-of-type:empty::after {
+  color: var(--editorColor30, rgba(0, 0, 0, 0.3));
+}
