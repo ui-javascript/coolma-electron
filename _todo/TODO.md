@@ -20,7 +20,7 @@
 - [x] R-03 运行动画逐项对照（成长 / 碎裂 / 天空步道 / 双生花等）；破万法禁用同块回响见 `desktop-vue3/docs/echo-shatter-20261122.md`
 - [ ] R-04 残余：mixin / `@extend` / SCSS 函数（`darken()` 等）未支持，当前原样注入并告警；变量与嵌套已处理
 - [ ] R-05 合并 `mountRuneVueHosts` 双定义（`libs-muya-vue3/.../render/index.js` 661/844 行），顺手摘掉渲染路径上的 9 条 console
-- [ ] R-07 外链图片失败兜底（当前落 `ag-image-fail`）
+- [ ] R-07 残余：已加 no-referrer 二次解码（防盗链热链图能救回）；两次都失败后仍是 `ag-image-fail` + 点击弹选择器，没有再试按钮
 
 ### A3 验收与测试
 

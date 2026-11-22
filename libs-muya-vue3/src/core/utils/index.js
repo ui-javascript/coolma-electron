@@ -135,15 +135,16 @@ export const deepCopy = object => {
   return obj
 }
 
-export const loadImage = async (url, detectContentType = false) => {
-  if (detectContentType) {
-    const isImage = await checkImageContentType(url)
-    // HEAD 预检在无 CORS 头的图床会失败，但 <img> 直载并不受此限制（GitHub 头像即如此）。
-    // 只有明确识别为 text/html 等非图片类型才否决；null 表示状态未知，交给下面的解码结果。
-    if (isImage === false) throw new Error('not an image')
-  }
+// 只有 http(s) 能改 referrerPolicy 重试；data:/blob:/file: 不存在防盗链问题。
+export const canRetryWithoutReferrer = url => typeof url === 'string' && /^https?:\/\//i.test(url)
+
+const decodeImage = (url, { noReferrer = false } = {}) => {
   return new Promise((resolve, reject) => {
     const image = new Image()
+    if (noReferrer) {
+      // 不少图床按 Referer 防盗链；去掉 Referer 后同一张图往往能直载。
+      image.referrerPolicy = 'no-referrer'
+    }
     image.onload = () => {
       resolve({
         url,
@@ -156,6 +157,23 @@ export const loadImage = async (url, detectContentType = false) => {
     }
     image.src = url
   })
+}
+
+export const loadImage = async (url, detectContentType = false) => {
+  if (detectContentType) {
+    const isImage = await checkImageContentType(url)
+    // HEAD 预检在无 CORS 头的图床会失败，但 <img> 直载并不受此限制（GitHub 头像即如此）。
+    // 只有明确识别为 text/html 等非图片类型才否决；null 表示状态未知，交给下面的解码结果。
+    if (isImage === false) throw new Error('not an image')
+  }
+  try {
+    return { ...(await decodeImage(url)), fallback: 'none' }
+  } catch (error) {
+    if (!canRetryWithoutReferrer(url)) throw error
+    // R-07：外链图失败后去掉 Referer 再试一次，仍然失败才真的落 ag-image-fail。
+    const retried = await decodeImage(url, { noReferrer: true })
+    return { ...retried, fallback: 'no-referrer' }
+  }
 }
 
 export const isOnline = () => {

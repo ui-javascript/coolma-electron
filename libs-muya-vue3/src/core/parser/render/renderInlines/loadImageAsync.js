@@ -12,9 +12,14 @@ export default function loadImageAsync (imageInfo, attrs, className, imageClass,
   if (!this.loadImageMap.has(src)) {
     id = forcedId || getUniqueId()
     loadImage(src, isUnknownType)
-      .then(({ url, width, height }) => {
+      .then(({ url, width, height, fallback }) => {
         const imageText = document.querySelector(`#${id}`)
         const img = document.createElement('img')
+        // R-07：二次解码是去掉 Referer 换来的，最终 <img> 也按同一策略加载，避免回落到失败态。
+        if (fallback === 'no-referrer') {
+          img.referrerPolicy = 'no-referrer'
+          img.setAttribute('data-image-fallback', 'no-referrer')
+        }
         img.src = url
         if (attrs.alt) img.alt = attrs.alt.replace(/[`*{}[\]()#+\-.!_>~:|<>$]/g, '')
         if (attrs.title) img.setAttribute('title', attrs.title)

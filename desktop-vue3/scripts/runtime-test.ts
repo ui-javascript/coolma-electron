@@ -2407,13 +2407,21 @@ async function main(): Promise<void> {
       }
     }
     class FakeImage {
+      static mode: 'ok' | 'hotlink' | 'dead' = 'ok';
+      static attempts = 0;
       width = 200;
       height = 100;
+      referrerPolicy = '';
       onload: (() => void) | null = null;
-      onerror: (() => void) | null = null;
+      onerror: ((err?: unknown) => void) | null = null;
       private current = '';
       get src(): string { return this.current; }
-      set src(value: string) { this.current = value; setTimeout(() => this.onload?.(), 0); }
+      set src(value: string) {
+        this.current = value;
+        FakeImage.attempts += 1;
+        const fail = FakeImage.mode === 'dead' || (FakeImage.mode === 'hotlink' && this.referrerPolicy !== 'no-referrer');
+        setTimeout(() => (fail ? this.onerror?.(new Error('denied')) : this.onload?.()), 0);
+      }
     }
     g.XMLHttpRequest = FakeXhr;
     g.Image = FakeImage;
@@ -2433,6 +2441,28 @@ async function main(): Promise<void> {
       const wrapper = document.createElement('span');
       wrapper.className = 'ag-inline-image ag-image-loading ag-image-uploading';
       wrapper.innerHTML = '<img src="x">';
+      // R-07：外链图被防盗链拦下时，去掉 Referer 再试一次应能救回来
+      FakeImage.mode = 'hotlink';
+      FakeImage.attempts = 0;
+      const retried = await loadImage('https://x/u/2');
+      assert(
+        '外链图片：Referer 防盗链被 no-referrer 二次解码救回',
+        retried.fallback === 'no-referrer' && retried.width === 200 && FakeImage.attempts === 2,
+        `fallback=${retried.fallback} attempts=${FakeImage.attempts}`,
+      );
+      // data: URL 不该触发重试（没有 Referer 可言）
+      FakeImage.mode = 'dead';
+      FakeImage.attempts = 0;
+      let dataFailed = false;
+      try { await loadImage('data:image/png;base64,AAAA'); } catch { dataFailed = true; }
+      assert('外链图片：data URL 失败不重试', dataFailed && FakeImage.attempts === 1, `attempts=${FakeImage.attempts}`);
+      // http(s) 两次都失败才落到 ag-image-fail
+      FakeImage.attempts = 0;
+      let httpFailed = false;
+      try { await loadImage('https://x/u/3'); } catch { httpFailed = true; }
+      assert('外链图片：两次都失败才判失败', httpFailed && FakeImage.attempts === 2, `attempts=${FakeImage.attempts}`);
+      FakeImage.mode = 'ok';
+
       const marked = markImageActionFailed(wrapper);
       assert(
         '本地图片：上传失败摘掉 loading/uploading 并落 fail',
