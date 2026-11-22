@@ -1224,6 +1224,9 @@ importers:
       '@element-plus/icons-vue':
         specifier: ^2.3.2
         version: 2.3.2(vue@3.5.45(typescript@5.9.3))
+      '@quasar/extras':
+        specifier: ^2.1.0
+        version: 2.1.0
       ant-design-vue:
         specifier: 4.2.6
         version: 4.2.6(vue@3.5.45(typescript@5.9.3))
@@ -3901,6 +3904,9 @@ packages:
 
   '@quasar/extras@1.18.0':
     resolution: {integrity: sha512-hIqqw56sKGujWA3sTIT1ItlVglD+eA3hAWDVxY4qjA4/BSgYJDHk6ymJCbsDPIJFT7DJsG/F3A67vELXbBAIvA==}
+
+  '@quasar/extras@2.1.0':
+    resolution: {integrity: sha512-WCqHXr3loA9bP1DUuzmCwuNXnHa9GKosAtjwJnr1DpngO68a0JoiyVuoXzc760tCBArdFLD/YAUHvItPbk6V2Q==}
 
   '@quasar/fastclick@1.1.5':
     resolution: {integrity: sha512-p3JKgTjRlJ1YQXbqTw3Bsa4j0mQdt5dq+WfYvyb7MgKGdephHCKdR/kxA5PCTAmJanGJuDKqRdyGYX/hYN4KGw==}
@@ -20267,6 +20273,8 @@ snapshots:
       - webpack
 
   '@quasar/extras@1.18.0': {}
+
+  '@quasar/extras@2.1.0': {}
 
   '@quasar/fastclick@1.1.5': {}
 
