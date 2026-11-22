@@ -1,6 +1,6 @@
 import loadRenderer from '../../renderers'
 import { CLASS_OR_ID } from '../../config'
-import { conflict, mixins, camelToSnake } from '../../utils'
+import { conflict, mixins, camelToSnake, getImageInfo } from '../../utils'
 import { patch, toVNode, toHTML, h } from './snabbdom'
 import { beginRules } from '../rules'
 import renderInlines from './renderInlines'
@@ -1242,6 +1242,21 @@ class StateRender {
       if (this.hasEchoInlineToken(block)) return true
       return Array.isArray(block.children) && this.hasEchoInlineTokenInBlocks(block.children)
     })
+  }
+
+  // 重新加载同一个失败的图片：清掉失败缓存，复用原来的图片节点 id，
+  // 成功/失败回调会直接更新这张图，不需要整篇重绘。
+  retryImage (imageInfo) {
+    const attrs = imageInfo && imageInfo.token && imageInfo.token.attrs
+    const id = imageInfo && imageInfo.imageId
+    if (!attrs || !attrs.src || !id) return false
+    const wrapper = document.querySelector(`#${id}`)
+    if (!wrapper) return false
+    this.loadImageMap.delete(attrs.src)
+    wrapper.classList.remove(CLASS_OR_ID.AG_IMAGE_FAIL, CLASS_OR_ID.AG_IMAGE_SUCCESS)
+    wrapper.classList.add(CLASS_OR_ID.AG_IMAGE_LOADING)
+    this.loadImageAsync(getImageInfo(attrs.src), attrs, null, null, id)
+    return true
   }
 
   render (blocks, activeBlocks, matches) {

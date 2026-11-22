@@ -1,7 +1,7 @@
 import Unsplash, { toJson } from 'unsplash-js'
 import BaseFloat from '../baseFloat'
 import { patch, h } from '../../parser/render/snabbdom'
-import { EVENT_KEYS, URL_REG } from '../../config'
+import { EVENT_KEYS, URL_REG, CLASS_OR_ID } from '../../config'
 import { getUniqueId, getImageInfo as getImageSrc } from '../../utils'
 import { getImageInfo } from '../../utils/getImageInfo'
 import { i18n } from '../../i18n'
@@ -211,7 +211,14 @@ class ImageSelector extends BaseFloat {
   replaceImageAsync = async ({ alt, src, title }) => {
     if (!this.muya.options.imageAction || URL_REG.test(src)) {
       const { alt: oldAlt, src: oldSrc, title: oldTitle } = this.imageInfo.token.attrs
-      if (alt !== oldAlt || src !== oldSrc || title !== oldTitle) {
+      if (alt === oldAlt && src === oldSrc && title === oldTitle) {
+        // 失败态重新确认同一地址时，replaceImage 不会触发重绘，表现为点了没反应。
+        // 这里清缓存并按原 id 重载，提供一个明确的“重试”路径。
+        const wrapper = document.querySelector(`#${this.imageInfo.imageId}`)
+        if (wrapper && wrapper.classList.contains(CLASS_OR_ID.AG_IMAGE_FAIL)) {
+          this.muya.contentState.stateRender.retryImage(this.imageInfo)
+        }
+      } else {
         this.muya.contentState.replaceImage(this.imageInfo, { alt, src, title })
       }
       this.hide()

@@ -2,7 +2,7 @@ import { getUniqueId, loadImage } from '../../../utils'
 import { insertAfter, operateClassName } from '../../../utils/domManipulate'
 import { CLASS_OR_ID } from '../../../config'
 
-export default function loadImageAsync (imageInfo, attrs, className, imageClass) {
+export default function loadImageAsync (imageInfo, attrs, className, imageClass, forcedId) {
   const { src, isUnknownType } = imageInfo
   let id
   let isSuccess
@@ -10,7 +10,7 @@ export default function loadImageAsync (imageInfo, attrs, className, imageClass)
   let h
 
   if (!this.loadImageMap.has(src)) {
-    id = getUniqueId()
+    id = forcedId || getUniqueId()
     loadImage(src, isUnknownType)
       .then(({ url, width, height }) => {
         const imageText = document.querySelector(`#${id}`)
@@ -37,6 +37,7 @@ export default function loadImageAsync (imageInfo, attrs, className, imageClass)
             }
             imageContainer.appendChild(img)
             imageText.classList.remove('ag-image-loading')
+            imageText.classList.remove('ag-image-fail')
             imageText.classList.add('ag-image-success')
           } else {
             insertAfter(img, imageText)
@@ -57,6 +58,7 @@ export default function loadImageAsync (imageInfo, attrs, className, imageClass)
         const imageText = document.querySelector(`#${id}`)
         if (imageText) {
           operateClassName(imageText, 'remove', CLASS_OR_ID.AG_IMAGE_LOADING)
+          operateClassName(imageText, 'remove', CLASS_OR_ID.AG_IMAGE_SUCCESS)
           operateClassName(imageText, 'add', CLASS_OR_ID.AG_IMAGE_FAIL)
           const image = imageText.querySelector('img')
           if (image) {

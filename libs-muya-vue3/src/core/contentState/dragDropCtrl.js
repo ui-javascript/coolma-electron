@@ -108,7 +108,7 @@ const dragDropCtrl = ContentState => {
               if (!isImage) {
                 isImage = await checkImageContentType(str)
               }
-              if (!isImage) return
+              if (isImage === false) return
               const text = `![](${str})`
               const imageBlock = this.createBlockP(text)
               const { anchor, position } = dropAnchor

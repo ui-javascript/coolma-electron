@@ -138,7 +138,9 @@ export const deepCopy = object => {
 export const loadImage = async (url, detectContentType = false) => {
   if (detectContentType) {
     const isImage = await checkImageContentType(url)
-    if (!isImage) throw new Error('not an image')
+    // HEAD 预检在无 CORS 头的图床会失败，但 <img> 直载并不受此限制（GitHub 头像即如此）。
+    // 只有明确识别为 text/html 等非图片类型才否决；null 表示状态未知，交给下面的解码结果。
+    if (isImage === false) throw new Error('not an image')
   }
   return new Promise((resolve, reject) => {
     const image = new Image()
@@ -221,7 +223,9 @@ export const checkImageContentType = url => {
     if (req.readyState === XMLHttpRequest.DONE) {
       if (req.status === 200) {
         const contentType = req.getResponseHeader('Content-Type')
-        if (/^image\/(?:jpeg|png|gif|svg\+xml|webp)$/.test(contentType)) {
+        if (!contentType) {
+          settle(null)
+        } else if (/^image\/(?:jpeg|png|gif|svg\+xml|webp)$/.test(contentType)) {
           settle(true)
         } else {
           settle(false)
@@ -229,12 +233,14 @@ export const checkImageContentType = url => {
       } else if (req.status === 405) { // status 405 means method not allowed, and just return true.(Solve issue#1297)
         settle(true)
       } else {
-        settle(false)
+        // status 0 = CORS/网络层被拦，403/404 也可能是图床防盗链；
+        // 这些都不能证明 URL 不是图片，交给 <img> 直载判定。
+        settle(null)
       }
     }
   }
   const handleError = () => {
-    settle(false)
+    settle(null)
   }
   req.open('HEAD', url)
   req.onreadystatechange = handler

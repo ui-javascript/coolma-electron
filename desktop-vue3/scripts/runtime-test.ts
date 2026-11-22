@@ -2093,6 +2093,63 @@ async function main(): Promise<void> {
     );
   }
 
+  // ===== 外链图片：HEAD 预检被 CORS 拦掉时不能判死，交给 <img> 直载 =====
+  {
+    const g = globalThis as Any;
+    const origXhr = g.XMLHttpRequest;
+    const origImage = g.Image;
+    class FakeXhr {
+      static DONE = 4;
+      static mode: 'cors' | 'html' | 'png' = 'cors';
+      status = 0;
+      readyState = 0;
+      onreadystatechange: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      headers: Record<string, string> = {};
+      open(): void {}
+      getResponseHeader(name: string): string | null { return this.headers[name.toLowerCase()] || null; }
+      send(): void {
+        this.readyState = 4;
+        if (FakeXhr.mode === 'html') {
+          this.status = 200;
+          this.headers = { 'content-type': 'text/html' };
+        } else if (FakeXhr.mode === 'png') {
+          this.status = 200;
+          this.headers = { 'content-type': 'image/png' };
+        }
+        this.onreadystatechange?.();
+      }
+    }
+    class FakeImage {
+      width = 200;
+      height = 100;
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      private current = '';
+      get src(): string { return this.current; }
+      set src(value: string) { this.current = value; setTimeout(() => this.onload?.(), 0); }
+    }
+    g.XMLHttpRequest = FakeXhr;
+    g.Image = FakeImage;
+    try {
+      const { checkImageContentType, loadImage } = (await import('../../libs-muya-vue3/src/core/utils/index.js')) as Any;
+      FakeXhr.mode = 'cors';
+      assert('外链图片：CORS 拦截的 HEAD 返回未知，不判非图片', (await checkImageContentType('https://x/u/1')) === null, 'null expected');
+      FakeXhr.mode = 'html';
+      assert('外链图片：200 text/html 仍判非图片', (await checkImageContentType('https://x/page')) === false, 'false expected');
+      FakeXhr.mode = 'cors';
+      const loaded = await loadImage('https://x/u/1', true);
+      assert(
+        '外链图片：预检未知时 <img> 直载成功',
+        loaded && loaded.width === 200 && loaded.height === 100,
+        JSON.stringify(loaded),
+      );
+    } finally {
+      g.XMLHttpRequest = origXhr;
+      g.Image = origImage;
+    }
+  }
+
   console.log(failed === 0 ? '\n全部通过' : `\n失败 ${failed} 项`);
   if (failed > 0) {
     process.exitCode = 1;

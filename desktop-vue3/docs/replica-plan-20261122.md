@@ -24,7 +24,7 @@
 | R-04 | SFC `<style scoped>` / `less` / `scss` | 样式原样注入 head，scoped 未改写；v2 运行态同样不编译预处理器 | scoped 选择器生效且不污染全局；`:deep/:global/@media/@keyframes` 正确；内置 less 扁平样式正常；嵌套预处理器语法与 v2 一样不编译 | 已修复，见 `rune-scoped-20261122.md` |
 | R-05 | `mountRuneVueHosts` 重复定义 | `libs-muya-vue3/src/core/parser/render/index.js` 约 641、825 两处，后者生效 | 合并为一处，行为不变，回归 Rune 卡片与 props | 待办 |
 | R-06 | 中间位置 Mermaid 激活遮挡 | 只有文末 `last-child` 改 static，中间节点仍是 absolute 预览 | 中间 Mermaid 激活不覆盖后续正文；文末仍不被底栏遮住 | 已修复，见 `mermaid-mid-20261122.md` |
-| R-07 | 外链图片可能落 `ag-image-fail` | 内联 data URI 实测成功；外链 GitHub 头像失败 | 外链图片能显示；失败时有不误导的占位/重试 | 待办 |
+| R-07 | 外链图片可能落 `ag-image-fail` | 内联 data URI 实测成功；外链 GitHub 头像失败 | 外链图片能显示；失败时有不误导的占位/重试 | 已修复，见 `image-external-20261122.md` |
 | R-08 | 14 个内置符文模板未进新建选择器 | **误判**：`LibraryFormDialog.vue` 已接 `runeTemplateBuiltins()` 分组与 `applyPreset()`，14 项可选 | 新建符文弹窗可选内置模板，选中后预填名称/描述/分类/源码 | 已复核关闭，见 `rune-presets-verify-20261122.md` |
 
 ## 3. Electron 真机
@@ -57,9 +57,10 @@
 2. **R-06** 中间 Mermaid 遮挡：已修复，预览回到文档流，中间与文末均无重叠。
 3. **R-08** 内置模板选择器：复核为**误判**，14 项本来就在，已关闭。
 4. **R-04** SFC scoped：已修复，作用域只命中符文内部，正文同类名不再被污染；预处理器按 v2 运行态不编译。
-5. **R-07** 外链图片：下一项。
-6. R-02 → R-03：四角与动画逐项验收，放到 Rune 专项批次。
-7. E-01：等功能断点清完再进真机，避免反复开 Electron。
+5. **R-07** 外链图片：已修复，无扩展名外链不再被 HEAD 预检误判，失败态可就地重试。
+6. **R-05** `mountRuneVueHosts` 重复定义：下一项。
+7. R-02 → R-03：四角与动画逐项验收，放到 Rune 专项批次。
+8. E-01：等功能断点清完再进真机，避免反复开 Electron。
 
 ## 7. 验收记录要求
 
