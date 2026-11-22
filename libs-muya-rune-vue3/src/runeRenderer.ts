@@ -2,6 +2,7 @@ import * as Vue from 'vue';
 import { compile } from '@vue/compiler-dom';
 import { detectRuneType, RUNE_TYPE_MELT_JS } from 'libs-rune-core';
 import { createMeltRuneRendererCtor } from './meltRune';
+import { preprocessRuneStyle, readStyleLang } from './runeStyle';
 
 type AnyRecord = Record<string, any>;
 
@@ -295,9 +296,10 @@ export function createRuneRendererCtor(rune: AnyRecord = {}): any {
   const style = styleMatch ? styleMatch[2].trim() : '';
   const scoped = /\bscoped\b/i.test(styleAttrs);
   const scopeId = scoped ? runeScopeId(rune) : '';
-  // `<style lang="less|scss">` 目前没有预处理器，内置模板的 less 块本身是扁平 CSS，
-  // 直接按 CSS 使用；真正的嵌套语法仍属于单独缺口，不能在这里假装编译了。
-  ensureRuneStyle(rune, scoped ? scopeCss(style, scopeId) : style);
+  // SCSS/LESS：只做变量替换与 `//` 注释剥离，嵌套交给 Chromium 原生 CSS Nesting。
+  const lang = readStyleLang(styleAttrs);
+  const preprocessed = preprocessRuneStyle(style, lang);
+  ensureRuneStyle(rune, scoped ? scopeCss(preprocessed, scopeId) : preprocessed);
   const render = compileTemplate(template);
   if (!render) return null;
   const props = declaredProps(script);

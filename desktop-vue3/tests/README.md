@@ -8,7 +8,7 @@
 cd desktop-vue3 && pnpm test:unit
 ```
 
-当前覆盖纯函数层：`utils/categoryTree`（分类树/标签树数值规则）、`utils/cdn-rules`（内置项合并/资源类型/jQuery 核心识别）。
+当前覆盖纯函数层：`utils/categoryTree`（分类树/标签树数值规则）、`utils/cdn-rules`（内置项合并/资源类型/jQuery 核心识别）、`libs-muya-rune-vue3/src/runeStyle`（SCSS/LESS 变量替换与 `//` 注释剥离）。
 新增测试照着写：`tests/unit/<name>.test.ts`，然后把它加进 `package.json` 的 `test:unit` entryPoints 与运行列表。
 
 ## `legacy-coolma.db`

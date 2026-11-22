@@ -61,4 +61,5 @@ export function createRunePlugin(options: RunePluginOptions = {}): MuyaPlugin {
 }
 
 export { createRuneRendererCtor, createMeltRuneRendererCtor, preloadMeltRunes, clearAllMeltCaches, clearMeltRuneCaches };
+export { preprocessRuneStyle, readStyleLang } from './runeStyle';
 export default createRunePlugin;
