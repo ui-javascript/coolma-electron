@@ -291,7 +291,7 @@ async function main(): Promise<void> {
   // 6) B5：插件装上之后，占位要被真正渲染成卡片
   const { createEchoPlugin } = (await import('../../libs-muya-echo-vue3/src/index')) as Any;
   const { createRunePlugin, createRuneRendererCtor } = (await import('../../libs-muya-rune-vue3/src/index')) as Any;
-  const { EchoRegistry } = (await import('../../libs-muya-echo-vue3/src/index')) as Any;
+  const { EchoRegistry, EchoRuntime } = (await import('../../libs-muya-echo-vue3/src/index')) as Any;
 
   // 应用侧库卡是 camelCase `annoSource`；只认 snake_case 会把源码归一化成空字符串。
   const camelRegistry = new EchoRegistry([
@@ -398,6 +398,80 @@ async function main(): Promise<void> {
   const echoHost = editorRoot().querySelector('[data-echo-host="true"]');
   assert('回响 afterRender 已执行', echoHost?.getAttribute('data-echo-hooked') === '空', echoHost?.getAttribute('data-echo-hooked'));
   assert('afterRender 拿到 echoId', Boolean(echoHost?.getAttribute('data-echo-id-hooked')), echoHost?.getAttribute('data-echo-id-hooked'));
+
+  // ===== R-03 破万法：target=block 必须禁用同一 block 内的其它回响 =====
+  {
+    const shatterSource =
+      "export default { render () { return '<span class=\"shatter\">破</span>' }, " +
+      "afterRender (node, props = {}) { const merged = Object.assign({ target: 'line' }, props || {}); " +
+      "const $rune = $(node); const $scopeRoot = merged.target === 'block' " +
+      "? $rune.closest('[data-block-type], .mu-block, p, pre, li, h1, h2, h3, h4, h5, h6, blockquote') " +
+      ": $rune.parent(); if (!$scopeRoot.length) return () => {}; " +
+      "const $echoes = $scopeRoot.find('[data-echo-inline=\"true\"]').filter((_i, n) => n !== node); " +
+      "$echoes.attr('data-shatter-disabled', 'true').addClass('ag-rune-shatter-disabled'); " +
+      "$rune.addClass('ag-rune-shatter-active'); " +
+      "return () => { $echoes.removeAttr('data-shatter-disabled').removeClass('ag-rune-shatter-disabled'); " +
+      "$rune.removeClass('ag-rune-shatter-active') } } }";
+    const growthSource =
+      "export default { render () { return '<span class=\"growth\">生</span>' }, afterRender () { return () => {} } }";
+    const shatterRuntime = new EchoRuntime({
+      registry: new EchoRegistry([
+        { id: 'shatter-test', name: '破万法', anno_source: shatterSource },
+        { id: 'growth-test', name: '生生不息', anno_source: growthSource },
+      ]),
+    });
+    const scope = document.createElement('div');
+    const paragraph = document.createElement('p');
+    const shatterHost = document.createElement('span');
+    shatterHost.setAttribute('data-echo-host', 'true');
+    shatterHost.setAttribute('data-echo-inline', 'true');
+    shatterHost.setAttribute('data-echo-name', '破万法');
+    shatterHost.setAttribute('data-echo-id', 'shatter-test');
+    shatterHost.setAttribute('data-echo-node-id', 'shatter-node');
+    shatterHost.setAttribute('data-echo-props-json', '{"target":"block"}');
+    const growthHost = document.createElement('span');
+    growthHost.setAttribute('data-echo-host', 'true');
+    growthHost.setAttribute('data-echo-inline', 'true');
+    growthHost.setAttribute('data-echo-name', '生生不息');
+    growthHost.setAttribute('data-echo-id', 'growth-test');
+    growthHost.setAttribute('data-echo-node-id', 'growth-node');
+    growthHost.setAttribute('data-echo-props-json', '{}');
+    const leftStrong = document.createElement('strong');
+    const rightStrong = document.createElement('strong');
+    leftStrong.appendChild(shatterHost);
+    rightStrong.appendChild(growthHost);
+    paragraph.append(leftStrong, rightStrong);    scope.appendChild(paragraph);
+    document.body.appendChild(scope);
+    shatterRuntime.afterRender(scope, { cleanupFirst: true });
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    assert(
+      '破万法 target=block 禁用同块回响',
+      growthHost.getAttribute('data-shatter-disabled') === 'true' &&
+        growthHost.classList.contains('ag-rune-shatter-disabled') &&
+        shatterHost.classList.contains('ag-rune-shatter-active'),
+      `disabled=${growthHost.getAttribute('data-shatter-disabled')}`,
+    );
+    shatterRuntime.disposeAll();
+    assert(
+      '破万法清理后恢复回响',
+      !growthHost.hasAttribute('data-shatter-disabled') &&
+        !growthHost.classList.contains('ag-rune-shatter-disabled') &&
+        !shatterHost.classList.contains('ag-rune-shatter-active'),
+      growthHost.className,
+    );
+    // target=line 的作用域是直接父节点；两个回响各在独立 strong 里，不应误伤对方
+    shatterHost.setAttribute('data-echo-props-json', '{"target":"line"}');
+    shatterRuntime.afterRender(scope, { cleanupFirst: true });
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    assert(
+      '破万法 target=line 不跨父节点误伤',
+      !growthHost.hasAttribute('data-shatter-disabled') &&
+        shatterHost.classList.contains('ag-rune-shatter-active'),
+      `disabled=${growthHost.getAttribute('data-shatter-disabled')}`,
+    );
+    shatterRuntime.disposeAll();
+    scope.remove();
+  }
 
   const echoIdInMd = (muya.getMarkdown().match(/echoId:\s*'([^']+)'/) || [])[1] || '';
   const echoWritten = (muya as Any).updateEchoPlaceholderValue?.({ echoId: echoIdInMd, value: '42' });

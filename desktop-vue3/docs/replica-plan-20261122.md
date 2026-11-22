@@ -20,7 +20,7 @@
 |---|---|---|---|---|
 | R-01 | 符文 props 链路 | `data-rune-prop-*` 曾被解析白名单丢弃；渲染层已有 dataset→SFC props 的消费代码 | Markdown 手写 props 能进 host dataset、进 SFC props；未写的走 SFC default；编辑后 `getMarkdown()` 原样保留 | 已提交 `abebaef` |
 | R-02 | Rune 四角缩放只验收右下角 | 四角已逐个真实拖拽；左/上控制点原本只改宽高、边不跟手，与 v2 `runeTransformer.js` 同源；v3 写回时选区在 Rune 内会让卡片退化成裸 HTML | 四角数据与边界记录完整；与 v2 的差异/同源限制写清；写回后卡片不消失 | 已完成：新增 `data-rune-offset-x/y` 持久化偏移，四角真锚定；见 `rune-offsets-20261122.md` |
-| R-03 | Rune 运行时动画未逐项验收 | 所谓“成长/碎裂/天空步道/双生花”实为四张内置 Echo；`annoSource` 被注册表吞空、宿主被 `ag-hide` 锁 0 宽、天行健无文档根、破万法描边被重置 | 每个动画至少一张静态对照 + 一次触发录屏，参数与 v2 一致 | 已修复并验收，见 `echo-animations-20261122.md`；破万法禁用效果受单段单回响 parser 限制，未验证 |
+| R-03 | Rune 运行时动画未逐项验收 | 所谓“成长/碎裂/天空步道/双生花”实为四张内置 Echo；`annoSource` 被注册表吞空、宿主被 `ag-hide` 锁 0 宽、天行健无文档根、破万法描边被重置 | 每个动画至少一张静态对照 + 一次触发录屏，参数与 v2 一致 | 已修复并验收，见 `echo-animations-20261122.md`；破万法 `target=block` 禁用同块回响已真实验收，见 `echo-shatter-20261122.md` |
 | R-04 | SFC `<style scoped>` / `less` / `scss` | 样式原样注入 head，scoped 未改写；v2 运行态同样不编译预处理器 | scoped 选择器生效且不污染全局；`:deep/:global/@media/@keyframes` 正确；内置 less 扁平样式正常；嵌套预处理器语法与 v2 一样不编译 | 已修复，见 `rune-scoped-20261122.md` |
 | R-05 | `mountRuneVueHosts` 重复定义 | `libs-muya-vue3/src/core/parser/render/index.js` 原有两套同名定义，后者覆盖前者；SFC `$emit('input')` 没有 `onInput` 接收方 | 合并为一处；Rune 卡片、未知符文回退、props、scoped 与回响渲染均不回归；输入框失焦能写回 `data-rune-value` | 已修复，见 `rune-merge-20261122.md`、`rune-input-bridge-20261122.md` |
 | R-06 | 中间位置 Mermaid 激活遮挡 | 只有文末 `last-child` 改 static，中间节点仍是 absolute 预览 | 中间 Mermaid 激活不覆盖后续正文；文末仍不被底栏遮住 | 已修复，见 `mermaid-mid-20261122.md` |
@@ -62,7 +62,7 @@
 6. **R-07b** 本地图片：失败统一落 `ag-image-fail` 并摘 loading/uploading；本地路径经 `saveImageFromPath` 走附件服务，引用图点失败标记同地址重载。真实落盘仅 runtime service 覆盖，Electron 真机验证后置。
 7. **R-05** `mountRuneVueHosts` 重复定义：已合并；SFC `$emit('input')` 到 `onValueChange` 的桥已补，内置输入框失焦可写回 `data-rune-value`。`update:modelValue` 与整篇重渲染优化未做。
 8. **R-02** Rune 四角：用户拍板新增 `data-rune-offset-x/y` 持久化偏移；左上/右上/左下/右下四角独立拖拽均实现对应边跟手，偏移写回并在重渲染后保持。v2 会忽略该字段，ABI 差异已接受。
-9. **R-03** 四张内置回响：已修复 `annoSource` 归一化、宿主零宽、天行健文档根、破万法激活框；生长动画已录屏。破万法“禁用其它回响”受一 block 单回响 parser 限制，留作 ABI 变更。
+9. **R-03** 四张内置回响：已修复 `annoSource` 归一化、宿主零宽、天行健文档根、破万法激活框；生长动画已录屏。破万法 `target=block` 禁用同块回响已在真实页面与 runtime 回归中验证，见 `echo-shatter-20261122.md`。
 10. C-01/C-02/C-03 已收口：旧 stash 审计后 drop、P0 回响/导入/豆包状态回填、layui 块级差异接受 v3 恢复口径。E-01 真机项按用户要求后置；下一项评估 S-01/S-02 的可离线拆分部分。
 
 ## 7. 验收记录要求

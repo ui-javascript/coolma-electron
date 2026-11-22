@@ -66,7 +66,7 @@ v3 的 `[contenteditable]` 重置规则 specificity 高于 `.ag-rune-shatter-act
 
 ## 未完成边界
 
-1. **破万法的“禁用其它回响”没有真实触点可验。** v3/v2 的 `echo_anno` 正则都是整段锚定 `^@name{...}(...)$`，一个 block 只能解析一个回响。`target=line` 时 `$rune.parent()` 内除了自己找不到第二个 `[data-echo-inline=true]`，所以 `shatterDisabled=0`。本次只验到激活态和 DOM 写入；要验证禁用效果，得先支持一行多个回响，属于 parser ABI 变更。
+1. **破万法的“禁用其它回响”已补验，结论修正。** 裸文本 token 确实一行只能解析一个回响，但把两个回响分别放进独立的 `<strong>` / `<em>` 后，同一个 `<p>` 内可以出现两个 `data-echo-inline=true` 宿主。`target=block` 时“生生不息”被写入 `data-shatter-disabled=true` 并变灰，`target=line` 不误伤，见 [echo-shatter-20261122.md](echo-shatter-20261122.md)。不需要改 parser ABI。
 2. **双生花占位文本重复。** 克隆正文是 `🌸 双生花 · 双生节点 + 原文 + 双生节点`。原因是内置实现用 `/🌸.*$/` 判断“无可见文本”，把徽标后的正文也一起截掉，于是又追加一次 placeholder。v2 同源，本次不改内置源码。
 3. **天行健只写 CSS 钩子。** `--ag-skywalk-bg/fg` 在 v3/v2 都没有消费方，实际可见的只有 `layout` 的字距/行高与激活外框；主题色不会改正文底色。
 

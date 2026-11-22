@@ -17,7 +17,7 @@
 ### A2 编辑器细节（R）
 
 - [ ] R-02 四角缩放只验了右下角，左上/右上/左下需实拖确认
-- [ ] R-03 运行动画逐项对照（成长 / 碎裂 / 天空步道 / 双生花等）
+- [x] R-03 运行动画逐项对照（成长 / 碎裂 / 天空步道 / 双生花等）；破万法禁用同块回响见 `desktop-vue3/docs/echo-shatter-20261122.md`
 - [ ] R-04 SFC `<style scoped>` 与 less/scss 未编译、scoped 未改写（会污染全局）
 - [ ] R-05 合并 `mountRuneVueHosts` 双定义（`libs-muya-vue3/.../render/index.js` 661/844 行），顺手摘掉渲染路径上的 9 条 console
 - [ ] R-07 外链图片失败兜底（当前落 `ag-image-fail`）
