@@ -13,6 +13,8 @@ pub struct ProxyRequest {
     method: String,
     headers: Option<HashMap<String, String>>,
     body: Option<String>,
+    /// 二进制请求体（multipart 上传用），base64 编码后传过来
+    body_base64: Option<String>,
     max_bytes: Option<usize>,
     timeout_ms: Option<u64>,
 }
@@ -67,7 +69,10 @@ async fn stream_request(
             outgoing = outgoing.header(&name, &value);
         }
     }
-    if let Some(body) = request.body {
+    if let Some(encoded) = request.body_base64 {
+        let bytes = decode_base64(&encoded).ok_or("上传内容编码无效")?;
+        outgoing = outgoing.body(bytes);
+    } else if let Some(body) = request.body {
         outgoing = outgoing.body(body);
     }
 
@@ -133,6 +138,46 @@ async fn stream_request(
     Ok(())
 }
 
+/// 渲染层把 multipart/二进制请求体转成 base64 传过来，这里自己解，避免再多引一个依赖。
+fn decode_base64(input: &str) -> Option<Vec<u8>> {
+    let mut output = Vec::with_capacity(input.len() / 4 * 3 + 3);
+    let mut group = [0u8; 4];
+    let mut count = 0usize;
+    for byte in input.bytes() {
+        let value = match byte {
+            b'A'..=b'Z' => byte - b'A',
+            b'a'..=b'z' => byte - b'a' + 26,
+            b'0'..=b'9' => byte - b'0' + 52,
+            b'+' | b'-' => 62,
+            b'/' | b'_' => 63,
+            b'=' => {
+                // 补位只在最后一组出现，收尾由下面的 count 判断
+                continue;
+            }
+            b'\r' | b'\n' | b' ' | b'\t' => continue,
+            _ => return None,
+        };
+        group[count] = value;
+        count += 1;
+        if count == 4 {
+            output.push((group[0] << 2) | (group[1] >> 4));
+            output.push((group[1] << 4) | (group[2] >> 2));
+            output.push((group[2] << 6) | group[3]);
+            count = 0;
+        }
+    }
+    match count {
+        0 => {}
+        2 => output.push((group[0] << 2) | (group[1] >> 4)),
+        3 => {
+            output.push((group[0] << 2) | (group[1] >> 4));
+            output.push((group[1] << 4) | (group[2] >> 2));
+        }
+        _ => return None,
+    }
+    Some(output)
+}
+
 /// 从缓冲区里取出完整的 UTF-8 前缀，剩下的（可能是半个多字节字符）留到下一块再解。
 fn take_utf8_prefix(buffer: &mut Vec<u8>) -> Option<String> {
     if buffer.is_empty() {
@@ -185,6 +230,23 @@ mod tests {
         assert!(buffer.is_empty());
     }
 
+    #[test]
+    fn decodes_base64_payloads() {
+        assert_eq!(
+            super::decode_base64("aGVsbG8=").unwrap(),
+            b"hello".to_vec()
+        );
+        assert_eq!(super::decode_base64("5Lit").unwrap(), "中".as_bytes().to_vec());
+        // 空串和带换行的长文本
+        assert_eq!(super::decode_base64("").unwrap(), Vec::<u8>::new());
+        assert_eq!(
+            super::decode_base64("aGVs\r\nbG8=").unwrap(),
+            b"hello".to_vec()
+        );
+        assert!(super::decode_base64("a").is_none());
+        assert!(super::decode_base64("****").is_none());
+    }
+
     /// 起一个只服务一次请求的本地 HTTP 服务，按给定的分块写入 chunked 响应。
     fn spawn_server(chunks: Vec<&'static [u8]>, delay_ms: u64) -> u16 {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
@@ -211,14 +273,23 @@ mod tests {
     }
 
     fn run(port: u16, max_bytes: Option<usize>) -> (Vec<StreamEvent>, Result<(), String>) {
+        run_with(port, max_bytes, None)
+    }
+
+    fn run_with(
+        port: u16,
+        max_bytes: Option<usize>,
+        body_base64: Option<&str>,
+    ) -> (Vec<StreamEvent>, Result<(), String>) {
         let events = Arc::new(Mutex::new(Vec::new()));
         let sink = events.clone();
         let client = reqwest::Client::builder().build().unwrap();
         let request = ProxyRequest {
             url: format!("http://127.0.0.1:{}/stream", port),
-            method: "GET".into(),
+            method: if body_base64.is_some() { "POST".into() } else { "GET".into() },
             headers: None,
             body: None,
+            body_base64: body_base64.map(|value| value.to_string()),
             max_bytes,
             timeout_ms: Some(3000),
         };
@@ -280,5 +351,67 @@ mod tests {
             "超限应回传 error：{:?}",
             events
         );
+    }
+
+    /// 回显服务：把收到的请求体原样写回响应里，用来验证 base64 请求体真的发出去了。
+    fn spawn_echo_server() -> u16 {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        std::thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            let mut request = Vec::new();
+            let mut buf = [0u8; 1024];
+            let (head_end, content_length) = loop {
+                let read = socket.read(&mut buf).unwrap();
+                if read == 0 {
+                    return;
+                }
+                request.extend_from_slice(&buf[..read]);
+                if let Some(position) = request
+                    .windows(4)
+                    .position(|window| window == b"\r\n\r\n")
+                {
+                    let head = String::from_utf8_lossy(&request[..position]).to_lowercase();
+                    let length = head
+                        .lines()
+                        .find_map(|line| line.strip_prefix("content-length:"))
+                        .and_then(|value| value.trim().parse::<usize>().ok())
+                        .unwrap_or(0);
+                    break (position + 4, length);
+                }
+            };
+
+            while request.len() < head_end + content_length {
+                let read = socket.read(&mut buf).unwrap();
+                if read == 0 {
+                    break;
+                }
+                request.extend_from_slice(&buf[..read]);
+            }
+            let body = request[head_end..].to_vec();
+            let head = "HTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=utf-8\r\nTransfer-Encoding: chunked\r\n\r\n";
+            let _ = socket.write_all(head.as_bytes());
+            let _ = socket.write_all(format!("{:x}\r\n", body.len()).as_bytes());
+            let _ = socket.write_all(&body);
+            let _ = socket.write_all(b"\r\n0\r\n\r\n");
+            let _ = socket.flush();
+        });
+        port
+    }
+
+    #[test]
+    fn sends_base64_body_to_server() {
+        // "中abc" 的 base64
+        let port = spawn_echo_server();
+        let (events, result) = run_with(port, None, Some("5LitYWJj"));
+        assert!(result.is_ok(), "{:?}", result);
+        let text: String = events
+            .iter()
+            .filter_map(|event| match event {
+                StreamEvent::Chunk { text } => Some(text.clone()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(text, "中abc");
     }
 }

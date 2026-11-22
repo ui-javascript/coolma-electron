@@ -36,6 +36,42 @@ function isProxyCandidate (url) {
   return /^https?:\/\//i.test(url) && !isSameOrigin(url)
 }
 
+function bytesToBase64 (bytes) {
+  // String.fromCharCode 一次塞太多会爆栈，按 8192 分片转
+  let binary = ''
+  for (let index = 0; index < bytes.length; index += 8192) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(index, index + 8192))
+  }
+  return btoa(binary)
+}
+
+function base64ToBytes (value) {
+  const binary = atob(value)
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index)
+  return bytes
+}
+
+function viewOfBinary (body) {
+  if (body instanceof ArrayBuffer) return new Uint8Array(body)
+  if (typeof ArrayBuffer !== 'undefined' && ArrayBuffer.isView(body)) {
+    return new Uint8Array(body.buffer, body.byteOffset, body.byteLength)
+  }
+  return null
+}
+
+async function resolveProxyBody (init) {
+  if (typeof init.bodyBase64 === 'string' && init.bodyBase64) return { bodyBase64: init.bodyBase64 }
+  const body = init.body
+  if (typeof body === 'string') return { body }
+  if (typeof Blob !== 'undefined' && body instanceof Blob) {
+    return { bodyBase64: bytesToBase64(new Uint8Array(await body.arrayBuffer())) }
+  }
+  const view = body ? viewOfBinary(body) : null
+  if (view) return { bodyBase64: bytesToBase64(view) }
+  return {}
+}
+
 function buildResponseHeaders (raw) {
   const headers = new Headers()
   Object.keys(raw || {}).forEach(name => {
@@ -47,7 +83,7 @@ function buildResponseHeaders (raw) {
 async function proxyFetch (url, init) {
   const method = String(init.method || 'GET').toUpperCase()
   const headers = toHeadersObject(init.headers)
-  const body = typeof init.body === 'string' ? init.body : undefined
+  const body = await resolveProxyBody(init)
 
   const encoder = new TextEncoder()
   let controller
@@ -91,7 +127,8 @@ async function proxyFetch (url, init) {
       url,
       method,
       headers,
-      body,
+      body: body.body,
+      bodyBase64: body.bodyBase64,
       maxBytes: init.maxBytes,
       timeoutMs: init.timeoutMs
     },
@@ -142,7 +179,10 @@ async function proxyFetch (url, init) {
 export async function httpFetch (input, init = {}) {
   const url = resolveUrl(input)
   if (!isTauri() || !isProxyCandidate(url)) {
-    return fetch(input, init)
+    if (typeof init.bodyBase64 !== 'string' || !init.bodyBase64) return fetch(input, init)
+    // 不需要代发（同源或非 tauri）时把 base64 还原成 Blob 再走原生 fetch
+    const { bodyBase64, ...rest } = init
+    return fetch(input, { ...rest, body: new Blob([base64ToBytes(bodyBase64)]) })
   }
   return proxyFetch(url, init)
 }

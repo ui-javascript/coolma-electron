@@ -157,6 +157,26 @@ export async function uploadToFunction ({ url, payload, fieldName = 'file', extr
   const merged = buildHeaders(headers, cfg)
   delete merged['content-type']
 
+  // multipart 的 boundary 由浏览器生成，先把表单序列化成字节和 content-type，
+  // 再交给 Rust 侧代发；WebView2 下直接用 axios 发会撞 CORS。
+  const encoded = await encodeMultipart(fullUrl, form)
+  if (encoded) {
+    const res = await httpFetch(fullUrl, {
+      method: 'POST',
+      headers: { ...merged, ...encoded.headers },
+      bodyBase64: encoded.bodyBase64,
+      timeoutMs: DEFAULT_TIMEOUT * 2
+    })
+    const text = await res.text()
+    let payload = text
+    try { payload = text ? JSON.parse(text) : null } catch (_) {}
+    if (!res.ok) {
+      const message = (payload && payload.message) || `云函数返回 HTTP ${res.status}`
+      throw Object.assign(new CloudFnError(message, res.status), { status: res.status })
+    }
+    return unwrap(payload, cfg)
+  }
+
   const response = await axios({
     method: 'POST',
     url: fullUrl,
@@ -165,6 +185,30 @@ export async function uploadToFunction ({ url, payload, fieldName = 'file', extr
     timeout: DEFAULT_TIMEOUT * 2
   })
   return unwrap(response.data, cfg)
+}
+
+/**
+ * 把 FormData 预先编码成 multipart 字节 + 带 boundary 的 content-type。
+ * 环境不支持（Request 不能吃 FormData）时返回 null，由调用方退回 axios。
+ */
+async function encodeMultipart (url, form) {
+  try {
+    const request = new Request(url, { method: 'POST', body: form })
+    const contentType = request.headers.get('content-type')
+    if (!contentType || !contentType.includes('multipart/form-data')) return null
+    const buffer = await request.arrayBuffer()
+    return { headers: { 'content-type': contentType }, bodyBase64: bytesToBase64(new Uint8Array(buffer)) }
+  } catch (_) {
+    return null
+  }
+}
+
+function bytesToBase64 (bytes) {
+  let binary = ''
+  for (let index = 0; index < bytes.length; index += 8192) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(index, index + 8192))
+  }
+  return btoa(binary)
 }
 
 /**
