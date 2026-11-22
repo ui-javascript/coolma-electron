@@ -11,7 +11,7 @@ import { createNamespacedHelpers } from 'vuex'
 import helper from 'src/utils/helper'
 import Vue from 'vue'
 import { createRuneRendererCtor } from './runeSfcRendererFactory.js'
-import { createMeltRuneRendererCtor, clearAllMeltCaches } from 'src/components/rune/meltRuneHost.js'
+import { createMeltRuneRendererCtor, clearAllMeltCaches, preloadMeltRunes } from 'src/components/rune/meltRuneHost.js'
 import {
   readRuneDataAttr,
   rewriteRunePlaceholderByNodeId,
@@ -511,6 +511,17 @@ export default {
         this.$q && this.$q.notify && this.$q.notify({ message, type: 'negative', position: 'top' })
       }
     },
+    // 打开笔记后 idle 预热 melt 依赖（失败只记日志，不阻塞编辑）
+    scheduleMeltPrewarm () {
+      const runes = Array.isArray(this.runeCards) ? this.runeCards : []
+      if (!runes.length) return
+      const start = () => { preloadMeltRunes(runes) }
+      if (typeof window.requestIdleCallback === 'function') {
+        window.requestIdleCallback(start, { timeout: 5000 })
+      } else {
+        setTimeout(start, 2000)
+      }
+    },
     // 设置里「刷新所有远程组件」后重挂符文：ctor/资源池已清，重渲染即走新链路
     onMeltCachesCleared () {
       const cleared = clearAllMeltCaches({ clearDisk: true })
@@ -859,6 +870,7 @@ export default {
 
       // 把 Vue 实例注入 Muya options，让 Muya 内部的 StateRender 能回调到我们的回写方法
       const muyaSelf = this
+      this.scheduleMeltPrewarm()
       const { container } = this.contentEditor = new Muya(this.$refs.muya, {
         memoMuya: muyaSelf,
         onRuneResize: payload => {

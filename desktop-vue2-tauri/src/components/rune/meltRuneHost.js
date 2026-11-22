@@ -89,6 +89,24 @@ const DIRECT_ENTRY_RE = /\/(?:hel-meta\.json|index\.html)$/i
 // Electron 渲染层开了 nodeIntegration，这里用 Node 的 http(s) 直接取同一份 meta，
 // 再交给 hel 的 custom.onFetchMetaFailed（hel 会缓存这份 meta，后续资源仍由 hel 加载，
 // script/link 标签不受 CORS 限制）。纯 Web 环境没有 Node，会自动跳过。
+// hel 的 meta 只校验「能加载」，脏数据会以难懂的方式炸在资源阶段，这里先判形状
+export function assertHelMetaShape (meta, url = '') {
+  const where = url ? `（${url}）` : ''
+  if (!meta || typeof meta !== 'object') throw new Error(`meta 不是对象${where}`)
+  const app = meta.app || {}
+  const version = meta.version || {}
+  const srcMap = version.src_map || {}
+  if (!app.name) throw new Error(`meta 缺 app.name${where}`)
+  if (!version.sub_app_version && !app.online_version) throw new Error(`meta 缺版本号${where}`)
+  const hasAssets = Array.isArray(srcMap.chunkJsSrcList) ||
+    Array.isArray(srcMap.bodyAssetList) ||
+    typeof srcMap.webDirPath === 'string'
+  if (!hasAssets) throw new Error(`meta 的 src_map 没有任何资源信息${where}`)
+  return meta
+}
+
+const META_TIMEOUT_MS = 8000
+
 function fetchMetaViaNode (url) {
   return new Promise((resolve, reject) => {
     let transport
@@ -109,16 +127,23 @@ function fetchMetaViaNode (url) {
       res.setEncoding('utf8')
       res.on('data', chunk => { body += chunk })
       res.on('end', () => {
+        let parsed
         try {
-          resolve(JSON.parse(body))
+          parsed = JSON.parse(body)
         } catch (error) {
           reject(new Error(`meta 不是合法 JSON：${url}`))
+          return
+        }
+        try {
+          resolve(assertHelMetaShape(parsed, url))
+        } catch (error) {
+          reject(error)
         }
       })
       res.on('error', reject)
     })
     req.on('error', reject)
-    req.setTimeout(15000, () => req.destroy(new Error(`meta 请求超时：${url}`)))
+    req.setTimeout(META_TIMEOUT_MS, () => req.destroy(new Error(`meta 请求超时：${url}`)))
   })
 }
 
@@ -150,8 +175,10 @@ function attachMetaProxy (spec, dep) {
     custom: {
       ...(spec.custom || {}),
       onFetchMetaFailed: async () => {
+        const deadline = Date.now() + 15000
         let lastError = null
         for (const url of candidates) {
+          if (Date.now() > deadline) break
           try {
             return await fetchMetaViaNode(url)
           } catch (error) {
@@ -187,6 +214,33 @@ export function buildMeltLoadSpec (rawConfig) {
   if (dep.requiredExports && dep.requiredExports.length) spec.requiredExports = dep.requiredExports.slice()
   // CORS 兜底：fetch/XHR 拿不到 meta 时，用 Node 直接取同一份 JSON 交给 hel
   return attachMetaProxy(spec, dep)
+}
+
+// 启动后预热：把当前符文列表里的 melt 依赖按需拉一次（idle 调用，失败只记日志）。
+// 目的：开笔记时卡片要点才加载，预热后首屏更接近「立刻出内容」；
+// 去重按资源池 key，同依赖多卡片只拉一次。
+export function preloadMeltRunes (runes = []) {
+  const seen = new Set()
+  const started = []
+  ;(Array.isArray(runes) ? runes : []).forEach(rune => {
+    const parsed = parseMeltRuneConfig(rune)
+    if (!parsed) return
+    const config = resolveMeltConfig(parsed)
+    if (validateMeltRuneConfig(config).length) return
+    const key = getMeltPoolKey(config)
+    if (!key || seen.has(key)) return
+    seen.add(key)
+    try {
+      const spec = buildMeltLoadSpec(config)
+      const { loader } = getMeltLoader(config, spec)
+      started.push(loader.loadHelLib(spec).catch(error => {
+        console.warn(`${LOG_PREFIX} preload failed`, config.exportName, error)
+      }))
+    } catch (error) {
+      console.warn(`${LOG_PREFIX} preload skipped`, error)
+    }
+  })
+  return Promise.all(started)
 }
 
 // 配置 → dep key（同一依赖不同来源算两个 dep）
@@ -543,6 +597,8 @@ export default {
   getMeltPoolKey,
   getMeltDepKey,
   buildMetaUrlCandidates,
+  assertHelMetaShape,
+  preloadMeltRunes,
   clearAllMeltCaches,
   resetMeltDepLoader,
   resolveMeltConfig,

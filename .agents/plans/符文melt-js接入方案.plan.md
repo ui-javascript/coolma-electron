@@ -568,6 +568,14 @@ desktop-vue2-tauri 15 suites / 120 tests 全绿。
   `comps-vue2-meme 2026.11.18` 且 css 列表完整。
 - 壳新增 `errorCaptured`：远端组件自身抛错兜成错误卡，不白屏。
 
+### 11.2.2 启动预热与 meta 形状校验
+
+- `preloadMeltRunes(runes)`：Muya `created` 里 `requestIdleCallback`（无该 API 时 2s 定时）
+  预热当前符文列表中的 melt 依赖；去重按资源池 key，同依赖多卡片只拉一次，失败只记日志。
+- `assertHelMetaShape(meta)`：Node 兜底拿到 meta 后先判 `app.name` / 版本号 / `src_map`
+  是否有资源，脏数据直接给中文错因，而不是炸在资源加载阶段。
+- 超时：单次 meta 请求 8s，候选串行总预算 15s，避免 3×15s 的长等待。
+
 ### 11.3 用户 props 透传（链路真实缺口）
 
 `mountRuneVueHosts` 采集到的宿主属性此前塞进 `propsData`，但渲染的是

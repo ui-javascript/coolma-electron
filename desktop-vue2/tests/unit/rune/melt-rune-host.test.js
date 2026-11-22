@@ -45,7 +45,9 @@ const {
   getMeltPoolKey,
   getMeltDepKey,
   buildMetaUrlCandidates,
+  assertHelMetaShape,
   buildMeltLoadSpec,
+  preloadMeltRunes,
   coerceMeltProp,
   normalizeMeltEmitValue,
   clearMeltRuneCaches,
@@ -363,5 +365,24 @@ describe('配置 → hel 加载描述', () => {
     await vm.$nextTick()
     expect(vm.$el.getAttribute('data-melt-rune-state')).toBe('error')
     expect(vm.$el.textContent).toContain('boom in remote')
+  })
+
+  test('meta 形状校验：缺版本 / 缺资源都给出可读错因', () => {
+    const ok = { app: { name: 'x', online_version: '1' }, version: { sub_app_version: '1', src_map: { webDirPath: 'http://a/b' } } }
+    expect(assertHelMetaShape(ok)).toBe(ok)
+    expect(() => assertHelMetaShape({ app: { name: 'x' }, version: { src_map: { webDirPath: 'http://a' } } }))
+      .toThrow('缺版本号')
+    expect(() => assertHelMetaShape({ app: { name: 'x' }, version: { sub_app_version: '1', src_map: {} } }))
+      .toThrow('src_map')
+  })
+
+  test('启动预热：同依赖只拉一次，非 melt / 坏定义跳过', async () => {
+    const runeA = makeRune()
+    const runeB = makeRune()
+    const sfcRune = { id: 'sfc', name: 'SFC', template: '<template><div/></template>' }
+    const broken = makeRune({ dep: { type: 'unpkg' } })
+    await preloadMeltRunes([runeA, runeB, sfcRune, broken])
+    expect(mockLoader.loadHelLib).toHaveBeenCalledTimes(1)
+    expect(meltLibs.createHelLoader).toHaveBeenCalledTimes(1)
   })
 })

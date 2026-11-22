@@ -45,7 +45,9 @@ const {
   getMeltResourceKey,
   getMeltPoolKey,
   buildMetaUrlCandidates,
+  assertHelMetaShape,
   buildMeltLoadSpec,
+  preloadMeltRunes,
   coerceMeltProp,
   normalizeMeltEmitValue,
   clearMeltRuneCaches,
@@ -259,5 +261,11 @@ describe('配置 → hel 加载描述', () => {
       .toEqual(['http://82.156.212.243/@melt-js/comps-vue2-meme/hel_dist/hel-meta.json'])
     expect(buildMetaUrlCandidates({ name: 'comps-vue2-meme', host: 'http://82.156.212.243/' })[0])
       .toBe('http://82.156.212.243/hel-meta.json')
+  })
+
+  test('meta 形状校验与预热去重', async () => {
+    expect(() => assertHelMetaShape({ app: {}, version: {} })).toThrow('app.name')
+    await preloadMeltRunes([makeRune(), makeRune()])
+    expect(mockLoader.loadHelLib).toHaveBeenCalledTimes(1)
   })
 })
