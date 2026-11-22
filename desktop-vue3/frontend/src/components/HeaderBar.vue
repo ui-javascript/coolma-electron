@@ -6,9 +6,9 @@
           class="header-icon-btn workspace-mode-btn"
           :title="`${currentMode.label} · ${t(currentMode.descriptionKey)}`"
         >
-          <el-icon class="icon-custom mode-icon"><component :is="currentMode.icon" /></el-icon>
+          <q-icon class="icon-custom mode-icon" :name="currentMode.icon" />
           <span class="workspace-mode-label">{{ currentMode.label }}</span>
-          <el-icon class="workspace-mode-caret"><ArrowDown /></el-icon>
+          <q-icon class="workspace-mode-caret" name="keyboard_arrow_down" />
         </span>
         <template #dropdown>
           <el-dropdown-menu>
@@ -20,7 +20,7 @@
               :class="{ 'is-current-mode': option.value === mode }"
               :title="t(option.descriptionKey)"
             >
-              <el-icon class="mode-option-icon"><component :is="option.icon" /></el-icon>
+              <q-icon class="mode-option-icon" :name="option.icon" />
               <span class="mode-option-label">{{ option.label }}</span>
             </el-dropdown-item>
           </el-dropdown-menu>
@@ -33,7 +33,7 @@
         :title="t('search.title')"
         @click="emit('search')"
       >
-        <el-icon class="icon-custom"><Search /></el-icon>
+        <q-icon class="icon-custom" name="search" />
       </span>
     </div>
 
@@ -73,10 +73,10 @@
           :title="syncPushTooltip"
           @click="emit('push')"
         >
-          <el-icon class="icon-custom sync-icon">
-            <Loading v-if="busyKind === 'push'" />
-            <Upload v-else />
-          </el-icon>
+          <q-icon
+            class="icon-custom sync-icon"
+            :name="busyKind === 'push' ? 'autorenew' : 'arrow_upward'"
+          />
           <span v-if="pendingTotal > 0" class="sync-badge">
             {{ pendingTotal > 99 ? '99+' : pendingTotal }}
           </span>
@@ -87,25 +87,25 @@
           :title="syncPullTooltip"
           @click="emit('pull')"
         >
-          <el-icon class="icon-custom sync-icon">
-            <Loading v-if="busyKind === 'pull'" />
-            <Download v-else />
-          </el-icon>
+          <q-icon
+            class="icon-custom sync-icon"
+            :name="busyKind === 'pull' ? 'autorenew' : 'arrow_downward'"
+          />
         </div>
       </div>
 
       <el-dropdown trigger="click" @command="onAccountCommand">
         <div class="header-avatar" :class="{ 'has-photo': false }">
-          <el-icon><UserFilled /></el-icon>
+          <q-icon name="person" />
         </div>
         <template #dropdown>
           <el-dropdown-menu>
             <el-dropdown-item v-if="!loggedIn" command="login">
-              <el-icon><User /></el-icon>
+              <q-icon name="person" />
               {{ t('login.title') }}
             </el-dropdown-item>
             <el-dropdown-item v-else command="logout">
-              <el-icon><SwitchButton /></el-icon>
+              <q-icon name="logout" />
               {{ t('login.logout') }}
             </el-dropdown-item>
           </el-dropdown-menu>
@@ -118,7 +118,7 @@
         :title="paneLayoutTitle"
         @click="emit('layout')"
       >
-        <el-icon class="icon-custom layout-mirror"><Operation /></el-icon>
+        <q-icon class="icon-custom layout-mirror" name="dashboard" />
       </span>
 
       <SkinDropdown compact />
@@ -129,10 +129,10 @@
         :title="t('aiHelper.title')"
         @click="emit('ai')"
       >
-        <el-icon class="icon-custom">
-          <Mic v-if="aiProvider === AiAssistantProviderEnum.Doubao" />
-          <MagicStick v-else />
-        </el-icon>
+        <q-icon
+          class="icon-custom"
+          :name="aiProvider === AiAssistantProviderEnum.Doubao ? 'mic' : 'auto_awesome'"
+        />
         <span v-if="aiProvider === AiAssistantProviderEnum.Doubao" class="ai-entry-badge">{{ t('aiAssistantProviderDoubao') }}</span>
       </span>
 
@@ -141,7 +141,7 @@
         :title="t('microApps.open')"
         @click="emit('chat')"
       >
-        <el-icon class="icon-custom"><ChatDotRound /></el-icon>
+        <q-icon class="icon-custom" name="chat_bubble_outline" />
       </span>
 
       <span
@@ -149,32 +149,14 @@
         :title="t('action.settings')"
         @click="emit('settings')"
       >
-        <el-icon class="icon-custom"><Setting /></el-icon>
+        <q-icon class="icon-custom" name="settings" />
       </span>
     </div>
   </header>
 </template>
 
 <script setup lang="ts">
-import {
-  ArrowDown,
-  Calendar,
-  ChatDotRound,
-  CollectionTag,
-  Download,
-  Folder,
-  Loading,
-  MagicStick,
-  Mic,
-  Operation,
-  Search,
-  Setting,
-  SwitchButton,
-  Upload,
-  User,
-  UserFilled,
-} from '@element-plus/icons-vue';
-import { computed, type Component } from 'vue';
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { AiAssistantProviderEnum, IndexModeEnum, type AiAssistantProvider, type IndexMode } from '@shared/enums/app';
 import SkinDropdown from '@/components/SkinDropdown.vue';
@@ -219,12 +201,12 @@ const { t } = useI18n();
 const modeOptions: Array<{
   value: IndexMode;
   label: string;
-  icon: Component;
+  icon: string;
   descriptionKey: string;
 }> = [
-  { value: IndexModeEnum.Folder, label: 'Idx神引', icon: Folder, descriptionKey: 'index.folderMode' },
-  { value: IndexModeEnum.Tag, label: 'Core超脱', icon: CollectionTag, descriptionKey: 'index.tagMode' },
-  { value: IndexModeEnum.Calendar, label: 'Arch终极', icon: Calendar, descriptionKey: 'index.calendarMode' },
+  { value: IndexModeEnum.Folder, label: 'Idx神引', icon: 'folder', descriptionKey: 'index.folderMode' },
+  { value: IndexModeEnum.Tag, label: 'Core超脱', icon: 'local_offer', descriptionKey: 'index.tagMode' },
+  { value: IndexModeEnum.Calendar, label: 'Arch终极', icon: 'date_range', descriptionKey: 'index.calendarMode' },
 ];
 
 const currentMode = computed(() => {
@@ -379,8 +361,8 @@ function onAccountCommand(command: string): void {
 .header--skin-infp .workspace-mode-label,
 .header--skin-infp .workspace-mode-caret,
 .header--skin-infp .workspace-mode-btn .mode-icon,
-.header--skin-nezha .header-avatar .el-icon,
-.header--skin-infp .header-avatar .el-icon {
+.header--skin-nezha .header-avatar .q-icon,
+.header--skin-infp .header-avatar .q-icon {
   color: #2c2c2c;
 }
 
@@ -477,7 +459,7 @@ function onAccountCommand(command: string): void {
   background: linear-gradient(145deg, rgb(64 158 255 / 35%), var(--themeColor, #409eff));
 }
 
-.header-avatar .el-icon {
+.header-avatar .q-icon {
   font-size: 11px;
   line-height: 1;
 }

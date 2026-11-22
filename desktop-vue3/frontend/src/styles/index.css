@@ -838,7 +838,8 @@ button {
   gap: 3px;
 }
 
-.note-info-tag .el-icon {
+.note-info-tag .el-icon,
+.note-info-tag .q-icon {
   font-size: 13px;
   line-height: 1;
 }

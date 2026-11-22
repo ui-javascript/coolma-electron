@@ -6,7 +6,8 @@
       :title="t('settings.skin')"
       :aria-label="t('settings.skin')"
     >
-      <el-icon class="icon-custom"><Brush /></el-icon>
+      <q-icon v-if="compact" class="icon-custom" name="palette" />
+      <el-icon v-else class="icon-custom"><Brush /></el-icon>
     </span>
     <el-button v-else circle plain :title="t('settings.skin')" :aria-label="t('settings.skin')">
       <el-icon><Brush /></el-icon>

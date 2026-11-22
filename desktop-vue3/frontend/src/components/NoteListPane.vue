@@ -4,15 +4,15 @@
       <span class="batch-count">{{ t('board.selected', { count: selectedIds.length }) }}</span>
       <div class="batch-actions">
         <el-button size="small" plain @click="emit('batch-move')">
-          <el-icon><FolderOpened /></el-icon>
+          <q-icon name="drive_file_move" />
           {{ t('board.move') }}
         </el-button>
         <el-button size="small" plain @click="emit('batch-export')">
-          <el-icon><Download /></el-icon>
+          <q-icon name="download" />
           {{ t('board.export') }}
         </el-button>
         <el-button size="small" type="danger" plain :loading="batchPending" @click="emit('batch-delete')">
-          <el-icon><Delete /></el-icon>
+          <q-icon name="delete" />
           {{ t('board.delete') }}
         </el-button>
         <el-button size="small" text @click="clearSelection">{{ t('board.clear') }}</el-button>
@@ -48,20 +48,19 @@
         @contextmenu.prevent="emit('open-menu', note, $event)"
       >
         <div class="note-item-head">
-          <el-icon class="note-file-icon"><component :is="fileIcon(note.title)" /></el-icon>
+          <q-icon class="note-file-icon" :name="fileIcon(note.title)" />
           <span class="note-title">{{ note.title }}</span>
-          <el-icon
+          <q-icon
             v-if="note.dirty === 1"
             class="note-sync-icon"
+            name="cloud_upload"
             :title="t('notes.pendingSync')"
-          >
-            <Upload />
-          </el-icon>
+          />
         </div>
         <p v-if="!props.dense" class="note-excerpt">{{ note.excerpt }}</p>
         <div class="note-meta">
-          <span class="note-info-tag"><el-icon><Folder /></el-icon>{{ noteCategory(note) }}</span>
-          <span class="note-info-tag"><el-icon><Timer /></el-icon>{{ formatNoteDate(note, t) }}</span>
+          <span class="note-info-tag"><q-icon name="category" />{{ noteCategory(note) }}</span>
+          <span class="note-info-tag"><q-icon name="timer" />{{ formatNoteDate(note, t) }}</span>
         </div>
       </div>
 
@@ -77,20 +76,6 @@
 </template>
 
 <script setup lang="ts">
-import {
-  Delete,
-  Document,
-  Download,
-  Files,
-  Folder,
-  FolderOpened,
-  Monitor,
-  Notebook,
-  Timer,
-  Tickets,
-  Upload,
-} from '@element-plus/icons-vue';
-import type { Component } from 'vue';
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { NoteSummary } from '@shared/types/domain';
@@ -167,13 +152,13 @@ function noteCategory(note: NoteSummary): string {
 }
 
 /** 文件类型图标，对齐 vue2 NoteItem 的 fileIcon 映射。 */
-function fileIcon(title: string): Component {
+function fileIcon(title: string): string {
   const lower = title.toLowerCase();
-  if (lower.endsWith('.md')) return Document;
-  if (lower.endsWith('.txt')) return Tickets;
-  if (lower.endsWith('.html') || lower.endsWith('.htm')) return Monitor;
-  if (lower.endsWith('.pdf')) return Files;
-  return Notebook;
+  if (lower.endsWith('.md')) return 'description';
+  if (lower.endsWith('.txt')) return 'text_snippet';
+  if (lower.endsWith('.html') || lower.endsWith('.htm')) return 'html';
+  if (lower.endsWith('.pdf')) return 'picture_as_pdf';
+  return 'note';
 }
 
 function clearSelection(): void {
@@ -221,6 +206,11 @@ function resetPull(): void {
 </script>
 
 <style scoped>
+.batch-actions :deep(.el-button .q-icon) {
+  margin-right: 4px;
+  font-size: 14px;
+}
+
 /* 紧凑列表模式（vue2 noteListDenseMode） */
 .note-list.dense .note-item {
   padding: 6px 12px;

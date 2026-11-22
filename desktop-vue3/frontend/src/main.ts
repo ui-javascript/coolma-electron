@@ -7,6 +7,7 @@ import 'ant-design-vue/dist/reset.css';
 import * as QuasarAll from 'quasar';
 import quasarZhCN from 'quasar/lang/zh-CN';
 import 'quasar/dist/quasar.css';
+import '@quasar/extras/material-icons/material-icons.css';
 import { createApp } from 'vue';
 import App from './App.vue';
 import i18n from './i18n';
