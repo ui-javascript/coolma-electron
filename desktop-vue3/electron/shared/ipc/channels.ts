@@ -76,6 +76,8 @@ export const IPC_CHANNELS = {
     categories: 'controller/sync/categories',
     pull: 'controller/sync/pull',
     push: 'controller/sync/push',
+    conflicts: 'controller/sync/conflicts',
+    resolveConflicts: 'controller/sync/resolveConflicts',
   },
   library: {
     runes: 'controller/library/runes',

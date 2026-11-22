@@ -1,8 +1,10 @@
 import type { IpcResult } from '../shared/ipc/contract';
-import { syncLoginSchema, syncPullSchema, syncPushSchema } from '../shared/ipc/schemas';
+import { syncLoginSchema, syncPullSchema, syncPushSchema, syncResolveConflictsSchema } from '../shared/ipc/schemas';
 import { fail, ok } from '../shared/ipc/result';
 import { failFromError } from './controller-utils';
 import { syncLogRepository, type PendingSyncSummary, type SyncLogEntry } from '../service/db/sync-log-repository';
+import { notesRepository } from '../service/db/notes-repository';
+import type { SyncConflictRecord } from '../shared/types/domain';
 import {
   autoLogin,
   fetchCategories,
@@ -86,6 +88,33 @@ class SyncController {
       return ok(await push(syncPushSchema.parse(args ?? {})));
     } catch (error) {
       return failFromError(error, 'SYNC_PUSH_ERROR');
+    }
+  }
+
+  /** 冲突队列（两侧完整快照，可离线二选一）。 */
+  async conflicts(): Promise<IpcResult<{ items: SyncConflictRecord[]; total: number }>> {
+    try {
+      const items = notesRepository.listConflicts();
+      return ok({ items, total: items.length });
+    } catch (error) {
+      return failFromError(error, 'SYNC_CONFLICTS_ERROR');
+    }
+  }
+
+  /** 批量处理冲突：local=保留本地并等待下次推送覆盖；remote=用云端；skip=两边各留各的。 */
+  async resolveConflicts(args?: unknown): Promise<IpcResult<{ resolved: number; remaining: number }>> {
+    try {
+      const input = syncResolveConflictsSchema.parse(args ?? {});
+      const conflicts = new Map(notesRepository.listConflicts().map((item) => [item.noteId, item]));
+      let resolved = 0;
+      for (const item of input.resolutions) {
+        const conflict = conflicts.get(item.noteId);
+        if (!conflict) continue;
+        if (notesRepository.resolveConflict(conflict, item.resolution)) resolved += 1;
+      }
+      return ok({ resolved, remaining: notesRepository.conflictCount() });
+    } catch (error) {
+      return failFromError(error, 'SYNC_RESOLVE_CONFLICTS_ERROR');
     }
   }
 }

@@ -56,6 +56,8 @@ const INVOKE_CHANNELS = new Set<string>([
   'controller/sync/categories',
   'controller/sync/pull',
   'controller/sync/push',
+  'controller/sync/conflicts',
+  'controller/sync/resolveConflicts',
   'controller/library/runes',
   'controller/library/echoes',
   'controller/library/runeSave',

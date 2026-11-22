@@ -1,5 +1,6 @@
 import { IPC_CHANNELS } from '@shared/ipc/channels';
 import type { IpcResult } from '@shared/ipc/contract';
+import type { SyncConflictRecord, SyncConflictResolution } from '@shared/types/domain';
 import { invoke } from '@/services/ipc';
 
 export interface SyncStatus {
@@ -23,6 +24,7 @@ export interface PullResult {
   skipped: number;
   backfilled: number;
   failed: number;
+  conflicts: number;
   total: number;
   errors: string[];
 }
@@ -32,6 +34,7 @@ export interface PushResult {
   created: number;
   failed: number;
   deleted?: number;
+  conflicts: number;
   errors: string[];
 }
 
@@ -57,3 +60,12 @@ export const syncPull = (input: { category?: string; limit?: number } = {}): Pro
 
 export const syncPush = (input: { limit?: number } = {}): Promise<IpcResult<PushResult>> =>
   invoke<PushResult>(IPC_CHANNELS.sync.push, input);
+
+
+export const getSyncConflicts = (): Promise<IpcResult<{ items: SyncConflictRecord[]; total: number }>> =>
+  invoke<{ items: SyncConflictRecord[]; total: number }>(IPC_CHANNELS.sync.conflicts);
+
+export const resolveSyncConflicts = (
+  resolutions: Array<{ noteId: number; resolution: SyncConflictResolution }>,
+): Promise<IpcResult<{ resolved: number; remaining: number }>> =>
+  invoke<{ resolved: number; remaining: number }>(IPC_CHANNELS.sync.resolveConflicts, { resolutions });

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { getPendingSync } from '@/services/ipc';
-import { getSyncStatus, syncPull, syncPush, type PushResult, type PullResult } from '@/services/sync';
+import { getSyncConflicts, getSyncStatus, resolveSyncConflicts, syncPull, syncPush, type PushResult, type PullResult } from '@/services/sync';
+import type { SyncConflictRecord, SyncConflictResolution } from '@shared/types/domain';
 import { useNotesStore } from '@/stores/notes';
 import {
   AUTO_UPLOAD_KICKOFF_DELAY,
@@ -25,9 +26,37 @@ export const useSyncStore = defineStore('sync', {
     isSyncing: false,
     busyKind: '' as '' | 'push' | 'pull',
     lastError: '',
+    conflicts: [] as SyncConflictRecord[],
   }),
 
   actions: {
+    async refreshConflicts(): Promise<number> {
+      try {
+        const result = await getSyncConflicts();
+        if (!result.ok) {
+          this.lastError = result.error.message;
+          return this.conflicts.length;
+        }
+        this.conflicts = result.data.items;
+        return result.data.total;
+      } catch (error) {
+        this.lastError = error instanceof Error ? error.message : String(error);
+        return this.conflicts.length;
+      }
+    },
+
+    async resolveConflicts(resolutions: Array<{ noteId: number; resolution: SyncConflictResolution }>): Promise<number> {
+      if (!resolutions.length) return this.conflicts.length;
+      const result = await resolveSyncConflicts(resolutions);
+      if (!result.ok) {
+        this.lastError = result.error.message;
+        return this.conflicts.length;
+      }
+      const handled = new Set(resolutions.map((item) => item.noteId));
+      this.conflicts = this.conflicts.filter((item) => !handled.has(item.noteId));
+      return result.data.remaining;
+    },
+
     setLoggedIn(value: boolean): void {
       this.loggedIn = value;
       if (!value) {

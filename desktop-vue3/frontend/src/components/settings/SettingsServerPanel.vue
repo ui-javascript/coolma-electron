@@ -64,6 +64,13 @@
               @click="doPush"
             >{{ t('settings.syncPush') }}</el-button>
             <el-button :disabled="busy" @click="doCategories">{{ t('settings.syncCategories') }}</el-button>
+            <el-button
+              v-if="syncStore.conflicts.length"
+              type="warning"
+              plain
+              :disabled="busy"
+              @click="conflictVisible = true"
+            >{{ t('settings.syncConflictButton', { count: syncStore.conflicts.length }) }}</el-button>
           </div>
           <el-alert v-if="syncError" type="error" :closable="false" :title="syncError" class="sync-error" />
           <el-alert v-if="syncMessage" type="success" :closable="false" :title="syncMessage" class="sync-error" />
@@ -87,6 +94,7 @@
       </el-tab-pane>
     </el-tabs>
     <ImageUploadServiceDialog v-model="imageDialogVisible" />
+    <SyncConflictDialog v-model="conflictVisible" />
   </div>
 </template>
 
@@ -108,6 +116,7 @@ import { getSyncCategories, getSyncStatus, syncLogout } from '@/services/sync';
 import { loginDialogState, notifyLogout, openLoginDialog } from '@/services/loginDialog';
 import type { SyncCategory, SyncStatus } from '@/services/sync';
 import ImageUploadServiceDialog from '@/components/ImageUploadServiceDialog.vue';
+import SyncConflictDialog from '@/components/SyncConflictDialog.vue';
 
 const KEYS = {
   strategy: 'setting/server/cloudSyncStrategy',
@@ -124,6 +133,7 @@ const cloudSyncStrategy = ref('onlineFirst');
 const cloudSyncProvider = ref<CloudSyncProvider>(CloudSyncProviderEnum.WizNote);
 const imageUploadService = ref('none');
 const imageDialogVisible = ref(false);
+const conflictVisible = ref(false);
 const status = ref<SyncStatus>({ baseUrl: '', kbGuid: '', kbServer: '', email: '', displayName: '', userGuid: '', loggedIn: false });
 const actionBusy = ref(false);
 const syncError = ref('');
@@ -163,6 +173,7 @@ async function refreshStatus(): Promise<void> {
   if (result.ok) {
     status.value = result.data;
     syncStore.setLoggedIn(result.data.loggedIn);
+    if (result.data.loggedIn) await syncStore.refreshConflicts();
     syncStore.lastSyncAt = result.data.lastSyncAt;
   } else {
     syncStore.setLoggedIn(false);
@@ -212,6 +223,11 @@ async function doLogout(): Promise<void> {
   }
 }
 
+async function afterSyncResult(conflictCount: number): Promise<void> {
+  const total = await syncStore.refreshConflicts();
+  if (conflictCount > 0 || total > 0) conflictVisible.value = true;
+}
+
 async function doPull(): Promise<void> {
   actionBusy.value = true;
   syncError.value = '';
@@ -223,6 +239,7 @@ async function doPull(): Promise<void> {
       return;
     }
     syncMessage.value = t('settings.syncPullDone', { imported: result.imported, skipped: result.skipped, backfilled: result.backfilled, failed: result.failed });
+    await afterSyncResult(result.conflicts);
     if (result.errors.length) {
       syncError.value = result.errors.join('\n');
     }
@@ -243,6 +260,7 @@ async function doPush(): Promise<void> {
       return;
     }
     syncMessage.value = t('settings.syncPushDone', { pushed: result.pushed, created: result.created, failed: result.failed });
+    await afterSyncResult(result.conflicts);
     if (result.errors.length) {
       syncError.value = result.errors.join('\n');
     }

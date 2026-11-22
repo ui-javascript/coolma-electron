@@ -83,6 +83,18 @@ export const syncPushSchema = z.object({
   limit: z.number().int().min(1).max(500).optional(),
 });
 
+export const syncResolveConflictsSchema = z.object({
+  resolutions: z
+    .array(
+      z.object({
+        noteId: z.number().int().positive(),
+        resolution: z.enum(['local', 'remote', 'skip']),
+      }),
+    )
+    .min(1)
+    .max(500),
+});
+
 export const emptyPayloadSchema = z.union([
   z.undefined(),
   z.null(),
