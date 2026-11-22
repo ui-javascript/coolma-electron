@@ -811,7 +811,7 @@ export default {
   noteTemplateView: '查看模板',
   noteTemplateViewTitle: '查看内置模板',
   noteTemplateReadOnly: '内置模板在当前版本不可编辑或删除',
-  noteTemplateReadOnlyHint: '这是内置模板的只读视图，修改不会被保存。'
+  noteTemplateReadOnlyHint: '这是内置模板的只读视图，修改不会被保存。',
   remoteComps: '远程组件',
   remoteCompsRefreshAll: '刷新所有远程组件',
   remoteCompsRefreshAllHint: '清空本机缓存的远端产物与 meta，并重新加载当前笔记里的远程组件；对方发包后点这里即可生效。',

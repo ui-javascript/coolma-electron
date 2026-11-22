@@ -811,7 +811,7 @@ export default {
   noteTemplateView: 'View Template',
   noteTemplateViewTitle: 'View Built-in Template',
   noteTemplateReadOnly: 'Built-in templates cannot be edited or deleted in this build',
-  noteTemplateReadOnlyHint: 'This is a read-only view of a built-in template; changes will not be saved.'
+  noteTemplateReadOnlyHint: 'This is a read-only view of a built-in template; changes will not be saved.',
   remoteComps: 'Remote Components',
   remoteCompsRefreshAll: 'Refresh All Remotes',
   remoteCompsRefreshAllHint: 'Drop locally cached remote artifacts/meta and reload melt runes in the current note, so upstream releases show up without restarting.',
