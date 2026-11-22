@@ -49,7 +49,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ArrowLeft, ArrowRight } from '@element-plus/icons-vue';
 import { CalendarDateBasisEnum, type CalendarDateBasis } from '@shared/enums/app';
@@ -134,13 +134,46 @@ const cells = computed(() => {
   return result;
 });
 
+function parseDateKey(value: string): Date | null {
+  const parts = String(value ?? '').split('-').map((part) => Number(part));
+  if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) {
+    return null;
+  }
+  return new Date(parts[0], parts[1] - 1, parts[2]);
+}
+
 function select(date: string): void {
   emit('update:modelValue', date);
 }
 
+/**
+ * 对齐 vue2 onPanelChange：切月份时同时选中新月份的同一天（月末自动收窄）。
+ * 只换月份、不更新选中日期的话，右侧列表会继续停留在旧日期。
+ */
 function shiftMonth(delta: number): void {
-  cursor.value = new Date(cursor.value.getFullYear(), cursor.value.getMonth() + delta, 1);
+  const anchor = parseDateKey(props.modelValue) ?? cursor.value;
+  const target = new Date(anchor.getFullYear(), anchor.getMonth() + delta, 1);
+  const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+  const next = new Date(
+    target.getFullYear(),
+    target.getMonth(),
+    Math.min(anchor.getDate(), lastDay),
+  );
+  cursor.value = next;
+  emit('update:modelValue', dateKeyOf(next.getTime()));
 }
+
+// 外部（持久化日期/顶栏切模式）改了选中日期时，月历跳到对应月份。
+watch(
+  () => props.modelValue,
+  (value) => {
+    const date = parseDateKey(value);
+    if (date) {
+      cursor.value = new Date(date.getFullYear(), date.getMonth(), 1);
+    }
+  },
+  { immediate: true },
+);
 </script>
 
 <style scoped>

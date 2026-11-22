@@ -243,7 +243,7 @@ import { useNotesStore } from '@/stores/notes';
 import { useLibraryStore } from '@/stores/library';
 import { useSyncStore } from '@/stores/sync';
 import { createMuyaPlugins } from '@/muyaPlugins';
-import { deriveTitle, folderName, noteDateKey, noteTags, noteTimeGroup } from '@/utils/note';
+import { dateKeyOf, deriveTitle, folderName, noteDateKey, noteTags, noteTimeGroup } from '@/utils/note';
 import { buildFolderMarkdown, type FolderMarkdownNote } from '@/utils/folderMarkdown';
 import { nextPaneLayout, normalizePaneLayout, paneSizes, paneSizesFromList, paneVisibility, PANE_LAYOUT_STORAGE, PANE_SIZES_STORAGE, type PaneLayoutMode } from '@/utils/paneLayout';
 import type { SplitpanesResizedPayload } from 'splitpanes';
@@ -282,9 +282,11 @@ let hydrating = false;
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
 let pendingSave: { id: number; content: string; title: string } | null = null;
 
+const CALENDAR_DATE_STORAGE = 'coolma.calendarDate';
+
 function readIndexMode(): IndexMode {
   const saved = localStorage.getItem('coolma.indexMode');
-  if (saved === IndexModeEnum.Tag || saved === IndexModeEnum.Time) {
+  if (saved === IndexModeEnum.Tag || saved === IndexModeEnum.Calendar) {
     return saved;
   }
   return IndexModeEnum.Folder;
@@ -383,7 +385,16 @@ const readCalendarBasis = (): CalendarDateBasis => {
   return saved === 'created' ? 'created' : 'modified';
 };
 
-const calendarDate = ref('');
+/** vue2 切到日历模式会默认选中今天；这里把日期也持久化，重启后回到同一天。 */
+function readCalendarDate(): string {
+  const saved = localStorage.getItem(CALENDAR_DATE_STORAGE);
+  if (saved && /^\d{4}-\d{2}-\d{2}$/.test(saved)) {
+    return saved;
+  }
+  return readIndexMode() === IndexModeEnum.Calendar ? dateKeyOf(Date.now()) : '';
+}
+
+const calendarDate = ref(readCalendarDate());
 const calendarBasis = ref<CalendarDateBasis>(readCalendarBasis());
 
 const noteOrder = ref<string>(NoteOrderTypeEnum.TitleAsc);
@@ -449,6 +460,10 @@ const folderPaths = computed(() =>
 );
 
 const currentFilterLabel = computed(() => {
+  // 对齐 vue2 NoteList.category：日历模式优先显示选中日期 YYYY/MM/DD。
+  if (indexMode.value === IndexModeEnum.Calendar && calendarDate.value) {
+    return calendarDate.value.replace(/-/g, '/');
+  }
   if (activeFolder.value) return folderName(activeFolder.value, t('notes.rootFolder'));
   if (activeTag.value) return `#${activeTag.value}`;
   if (activeTimeGroup.value) {
@@ -954,7 +969,11 @@ function handleModeChange(mode: IndexMode): void {
     paneLayoutMode.value = 0;
     localStorage.setItem(PANE_LAYOUT_STORAGE, '0');
   }
-  handleFilterChange({ folder: '', tag: '', timeGroup: '', calendarDate: '' });
+  // vue2 从顶栏切到日历时默认选中今天；其它模式保留已选日期，切回日历时不丢。
+  const nextCalendarDate = mode === IndexModeEnum.Calendar
+    ? calendarDate.value || dateKeyOf(Date.now())
+    : calendarDate.value;
+  handleFilterChange({ folder: '', tag: '', timeGroup: '', calendarDate: nextCalendarDate });
 }
 
 function handleFilterChange(next: {
@@ -967,7 +986,14 @@ function handleFilterChange(next: {
   if (next.folder !== undefined) activeFolder.value = next.folder;
   if (next.tag !== undefined) activeTag.value = next.tag;
   if (next.timeGroup !== undefined) activeTimeGroup.value = next.timeGroup;
-  if (next.calendarDate !== undefined) calendarDate.value = next.calendarDate;
+  if (next.calendarDate !== undefined) {
+    calendarDate.value = next.calendarDate;
+    if (next.calendarDate) {
+      localStorage.setItem(CALENDAR_DATE_STORAGE, next.calendarDate);
+    } else {
+      localStorage.removeItem(CALENDAR_DATE_STORAGE);
+    }
+  }
   if (next.calendarBasis !== undefined) {
     calendarBasis.value = next.calendarBasis;
     localStorage.setItem('coolma.calendarBasis', next.calendarBasis);
