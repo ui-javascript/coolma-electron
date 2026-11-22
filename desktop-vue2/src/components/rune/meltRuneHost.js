@@ -118,7 +118,7 @@ export function getMeltLoader (config, spec) {
   let entry = depLoaderCache.get(key)
   if (!entry) {
     const { createHelLoader } = loadMeltLibs()
-    entry = { loader: createHelLoader(), spec }
+    entry = { loader: createHelLoader(), spec, dep: (config && config.dep) || {} }
     depLoaderCache.set(key, entry)
   }
   return entry
@@ -207,6 +207,21 @@ export function clearMeltRuneCaches () {
   ctorCache.clear()
   depLoaderCache.clear()
   refreshEpoch.clear()
+}
+
+// 设置面板「刷新所有远程组件」：清空全部内存缓存（资源池 / 壳 / loader / 世代），
+// 并尽力清掉涉及到的 dep 的 hel 磁盘 meta 缓存。返回清掉的 dep 数，便于提示。
+export function clearAllMeltCaches ({ clearDisk = true } = {}) {
+  const deps = []
+  depLoaderCache.forEach(entry => {
+    if (entry && entry.dep && entry.dep.name) deps.push(entry.dep)
+  })
+  resourcePool.clear()
+  ctorCache.clear()
+  depLoaderCache.clear()
+  refreshEpoch.clear()
+  if (clearDisk) deps.forEach(dep => clearHelDiskCache({ dep }))
+  return deps.length
 }
 
 // 把宿主传来的字符串/布尔值按 schema 类型强转；空值走 undefined，交给远端组件 default。
@@ -433,6 +448,7 @@ export default {
   getMeltResourceKey,
   getMeltPoolKey,
   getMeltDepKey,
+  clearAllMeltCaches,
   resetMeltDepLoader,
   resolveMeltConfig,
   buildMeltLoadSpec,

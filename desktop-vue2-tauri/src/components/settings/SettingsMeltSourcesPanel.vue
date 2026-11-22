@@ -2,6 +2,7 @@
   <div class='settings-melt-panel'>
     <SettingsSectionContent :title='$t("remoteComps")' accent-color='deep-orange-7'>
       <template v-slot:actions>
+        <q-btn dense flat no-caps icon='refresh' :label='$t("remoteCompsRefreshAll")' color='deep-orange-7' size='sm' class='q-mr-sm' @click='refreshAllRemote' />
         <q-btn dense flat no-caps icon='add' :label='$t("remoteCompsAdd")' color='deep-orange-7' size='sm' @click='addSource' />
       </template>
 
@@ -92,6 +93,7 @@
 
 <script>
 import SettingsSectionContent from 'components/settings/SettingsSectionContent'
+import appBus from 'components/common/bus.js'
 import {
   MELT_SOURCE_TYPES,
   MELT_SOURCE_TYPE_OPTIONS,
@@ -136,6 +138,13 @@ export default {
     }
   },
   methods: {
+    // 清空所有远端产物缓存并重载：换 loader + 清磁盘 meta，
+    // 再广播给编辑器重新渲染符文（不重启应用、不丢当前笔记）。
+    refreshAllRemote () {
+      this.persist()
+      // 真正的清缓存与重渲染在编辑器侧（Muya）做，面板只负责广播
+      appBus.$emit('meltCachesCleared')
+    },
     addSource () {
       this.localRows.push(toRow(createEmptyRuneSource({ type: MELT_SOURCE_TYPES.SFTP })))
       this.persist()

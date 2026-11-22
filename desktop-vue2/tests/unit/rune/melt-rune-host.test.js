@@ -47,7 +47,8 @@ const {
   buildMeltLoadSpec,
   coerceMeltProp,
   normalizeMeltEmitValue,
-  clearMeltRuneCaches
+  clearMeltRuneCaches,
+  clearAllMeltCaches
 } = require('src/components/rune/meltRuneHost')
 
 const makeRune = (config = {}) => ({
@@ -310,5 +311,15 @@ describe('配置 → hel 加载描述', () => {
     expect(coerceMeltProp('yes', { type: 'boolean' })).toBeUndefined()
     expect(coerceMeltProp('{"a":1}', { type: 'json' })).toEqual({ a: 1 })
     expect(coerceMeltProp('', { type: 'string' })).toBeUndefined()
+  })
+
+  test('clearAllMeltCaches 清 loader/世代，下一个实例重新建 loader', () => {
+    mountCtor(createMeltRuneRendererCtor(makeRune())).$destroy()
+    expect(meltLibs.createHelLoader).toHaveBeenCalledTimes(1)
+    const cleared = clearAllMeltCaches()
+    expect(cleared).toBe(1)
+    mountCtor(createMeltRuneRendererCtor(makeRune())).$destroy()
+    expect(meltLibs.createHelLoader).toHaveBeenCalledTimes(2)
+    expect(getMeltPoolKey(require('libs-muya-vue2/lib/rune/runeDefinition').parseMeltRuneConfig(makeRune()))).not.toContain('#')
   })
 })

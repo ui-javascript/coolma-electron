@@ -2,6 +2,8 @@
  * 设置 → 远程组件源：面板只做展示与编辑，拼接规则全在 runeSourceRegistry。
  * 这里锁住「空态 / 预览地址 / 新增即持久化 / 同名覆盖提示 / 删除」。
  */
+jest.mock('components/common/bus.js', () => ({ __esModule: true, default: { $emit: jest.fn() } }))
+
 const path = require('path')
 const { mount, createLocalVue } = require('@vue/test-utils')
 const {
@@ -10,6 +12,7 @@ const {
   saveRuneSources
 } = require('libs-muya-vue2/lib/rune/runeSourceRegistry')
 
+const appBus = require('components/common/bus.js').default
 const SettingsMeltSourcesPanel = require(path.resolve(
   __dirname, '../../../src/components/settings/SettingsMeltSourcesPanel.vue'
 )).default
@@ -80,5 +83,12 @@ describe('远程组件源设置面板', () => {
     const wrapper = mountPanel()
     wrapper.vm.removeSource(0)
     expect(loadRuneSources()).toHaveLength(0)
+  })
+
+  test('「刷新所有远程组件」广播清缓存事件', () => {
+    const wrapper = mountPanel()
+    appBus.$emit.mockClear()
+    wrapper.vm.refreshAllRemote()
+    expect(appBus.$emit).toHaveBeenCalledWith('meltCachesCleared')
   })
 })

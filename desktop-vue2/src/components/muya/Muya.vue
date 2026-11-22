@@ -11,7 +11,7 @@ import { createNamespacedHelpers } from 'vuex'
 import helper from 'src/utils/helper'
 import Vue from 'vue'
 import { createRuneRendererCtor } from './runeSfcRendererFactory.js'
-import { createMeltRuneRendererCtor } from 'src/components/rune/meltRuneHost.js'
+import { createMeltRuneRendererCtor, clearAllMeltCaches } from 'src/components/rune/meltRuneHost.js'
 import {
   readRuneDataAttr,
   rewriteRunePlaceholderByNodeId,
@@ -510,6 +510,17 @@ export default {
         }
         this.$q && this.$q.notify && this.$q.notify({ message, type: 'negative', position: 'top' })
       }
+    },
+    // 设置里「刷新所有远程组件」后重挂符文：ctor/资源池已清，重渲染即走新链路
+    onMeltCachesCleared () {
+      const cleared = clearAllMeltCaches({ clearDisk: true })
+      console.info(`[Muya] melt caches cleared (${cleared} deps), re-rendering runes`)
+      this.$nextTick(() => {
+        const renderer = this.contentEditor?.contentState?.stateRender
+        if (renderer && typeof renderer.renderRunes === 'function') {
+          renderer.renderRunes()
+        }
+      })
     },
     refreshEchoDefinitions () {
       this.echoRegistry.refresh(this.echoCards || [])
@@ -1048,6 +1059,7 @@ this._echoDelegate = { container: document, handler: echoCaptureHandler }
         this.updateContentsList(this.contentEditor.getTOC())
       }, 300, { leading: true }))
 
+      appBus.$on('meltCachesCleared', this.onMeltCachesCleared)
       appBus.$on(appEvents.SCROLL_TO_HEADER, this.scrollToHeaderHandler)
       appBus.$on(appEvents.PARAGRAPH_SHORTCUT_CALL, this.paragraphHandler)
       appBus.$on(appEvents.FORMAT_SHORTCUT_CALL, this.formatHandler)

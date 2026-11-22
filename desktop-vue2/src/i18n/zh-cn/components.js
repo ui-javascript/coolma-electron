@@ -813,6 +813,8 @@ export default {
   noteTemplateReadOnly: '内置模板在当前版本不可编辑或删除',
   noteTemplateReadOnlyHint: '这是内置模板的只读视图，修改不会被保存。'
   remoteComps: '远程组件',
+  remoteCompsRefreshAll: '刷新所有远程组件',
+  remoteCompsRefreshAllHint: '清空本机缓存的远端产物与 meta，并重新加载当前笔记里的远程组件；对方发包后点这里即可生效。',
   remoteCompsAdd: '新增组件',
   remoteCompsHint: '同名组件按列表顺序覆盖：越靠后优先级越高。SFTP / GitHub Pages 一般没有版本目录，版本由对方部署路径决定；只有 unpkg 支持 name@version。',
   remoteCompsCorsHint: '自建托管要允许跨域（响应头 Access-Control-Allow-Origin: *），否则浏览器模式拉 hel-meta.json 会报 Cross origin forbidden；Electron 端因 webSecurity 关闭暂不受限。',

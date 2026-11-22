@@ -11,7 +11,12 @@ import { createNamespacedHelpers } from 'vuex'
 import helper from 'src/utils/helper'
 import Vue from 'vue'
 import { createRuneRendererCtor } from './runeSfcRendererFactory.js'
-import { createMeltRuneRendererCtor } from 'src/components/rune/meltRuneHost.js'
+import { createMeltRuneRendererCtor, clearAllMeltCaches } from 'src/components/rune/meltRuneHost.js'
+import {
+  readRuneDataAttr,
+  rewriteRunePlaceholderByNodeId,
+  rewriteRunePlaceholderSizeByNodeId
+} from './runePlaceholderAttrs.js'
 import {
   default as Muya,
   TablePicker,
@@ -41,9 +46,6 @@ import { EVENTS as appEvents } from 'src/utils/const/eventsConst'
 import 'libs-muya-vue2/themes/default.css'
 import debugLogger from 'src/utils/debugLogger'
 import { attachThemeColor } from 'src/utils/theme'
-import { isTauri } from 'src/desktop/nativeFs'
-import { attachImageDrop, createImageDropHandler } from 'src/desktop/muyaImageDrop'
-import { fileToDataUrl } from 'src/desktop/files'
 import { showContextMenu as showEditorContextMenu } from 'src/components/contextMenu/muya'
 import {
   EchoRegistry,
@@ -58,13 +60,6 @@ import {
 import { CURRENT_ECHO_PLACEHOLDER_RE } from '../echo/echoBuiltinsShared.js'
 import AiProofreadService from 'src/services/AiProofreadService'
 import RuneTransformer from './runeTransformer.js'
-import { Notify } from 'quasar'
-import { i18n } from 'boot/i18n'
-import {
-  readRuneDataAttr,
-  rewriteRunePlaceholderByNodeId,
-  rewriteRunePlaceholderSizeByNodeId
-} from './runePlaceholderAttrs'
 
 const {
   mapGetters: mapServerGetters,
@@ -184,7 +179,8 @@ const RunePreviewRenderer = Vue.extend({
     rendererCtor () {
       const rune = this.rune || {}
       if (!String(rune.template || '').trim()) return null
-      // melt-js 定义在 template 里存的是 JSON 配置，必须先于 SFC 编译分流。
+      // melt-js 定义在 template 里存的是 JSON 配置，必须先于 SFC 编译分流：
+      // 交给壳工厂（同步返回 ctor，加载在 created 里异步进行）。
       try {
         const meltCtor = createMeltRuneRendererCtor(rune)
         if (meltCtor) return meltCtor
@@ -514,6 +510,17 @@ export default {
         }
         this.$q && this.$q.notify && this.$q.notify({ message, type: 'negative', position: 'top' })
       }
+    },
+    // 设置里「刷新所有远程组件」后重挂符文：ctor/资源池已清，重渲染即走新链路
+    onMeltCachesCleared () {
+      const cleared = clearAllMeltCaches({ clearDisk: true })
+      console.info(`[Muya] melt caches cleared (${cleared} deps), re-rendering runes`)
+      this.$nextTick(() => {
+        const renderer = this.contentEditor?.contentState?.stateRender
+        if (renderer && typeof renderer.renderRunes === 'function') {
+          renderer.renderRunes()
+        }
+      })
     },
     refreshEchoDefinitions () {
       this.echoRegistry.refresh(this.echoCards || [])
@@ -921,14 +928,8 @@ export default {
           return new Promise((resolve, reject) => {
             this.importImageFromLocal().then(paths => {
               debugLogger.Info(paths)
-              const path = paths ? paths[0] : ''
-              // WebView 不能直接渲染本地绝对路径，导入后转成 data URL 再插入。
-              if (!path || !isTauri()) return path
-              return fileToDataUrl(path).catch(err => {
-                debugLogger.Error(err)
-                return path
-              })
-            }).then(resolve).catch(err => {
+              resolve(paths ? paths[0] : '')
+            }).catch(err => {
               debugLogger.Error(err)
               reject(err)
             })
@@ -940,24 +941,6 @@ export default {
       this.runeTransformer = new RuneTransformer(this.contentEditor, {
         onCommit: payload => this.contentEditor?.options?.onRuneResize?.(payload)
       })
-
-      // Tauri/WebView2 里 Muya 自带的拖拽插图依赖 Electron 的 File.path，拿不到路径就哑火。
-      // 这里接管 drop：直接把 File 交给 uploadImage（与「插入图片」对话框同一条上传链路），
-      // 上传完成后用 insertImage() 插到光标处。
-      if (isTauri() && container) {
-        this._imageDrop = attachImageDrop(container, createImageDropHandler({
-          uploadImage: file => this.uploadImage(file),
-          insertImage: info => this.contentEditor.insertImage(info),
-          onError: error => {
-            debugLogger.Error(error)
-            Notify.create({
-              message: i18n.t('failToUpload'),
-              type: 'negative',
-              icon: 'clear'
-            })
-          }
-        }))
-      }
 
       attachThemeColor(this.theme)
 
@@ -1076,6 +1059,7 @@ this._echoDelegate = { container: document, handler: echoCaptureHandler }
         this.updateContentsList(this.contentEditor.getTOC())
       }, 300, { leading: true }))
 
+      appBus.$on('meltCachesCleared', this.onMeltCachesCleared)
       appBus.$on(appEvents.SCROLL_TO_HEADER, this.scrollToHeaderHandler)
       appBus.$on(appEvents.PARAGRAPH_SHORTCUT_CALL, this.paragraphHandler)
       appBus.$on(appEvents.FORMAT_SHORTCUT_CALL, this.formatHandler)
@@ -1098,10 +1082,6 @@ this._echoDelegate = { container: document, handler: echoCaptureHandler }
     })
   },
   beforeDestroy () {
-    if (this._imageDrop) {
-      this._imageDrop()
-      this._imageDrop = null
-    }
     if (this.runeTransformer && typeof this.runeTransformer.destroy === 'function') {
       this.runeTransformer.destroy()
       this.runeTransformer = null

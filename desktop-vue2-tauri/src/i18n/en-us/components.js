@@ -9,7 +9,6 @@ export default {
   signIn: 'Sign In',
   signUp: 'Sign Up',
   cancel: 'Cancel',
-  openLinkHint: 'Open the link in your browser!',
   close: 'Close',
   confirm: 'Confirm',
   fieldIsRequired: 'Field is required',
@@ -814,6 +813,8 @@ export default {
   noteTemplateReadOnly: 'Built-in templates cannot be edited or deleted in this build',
   noteTemplateReadOnlyHint: 'This is a read-only view of a built-in template; changes will not be saved.'
   remoteComps: 'Remote Components',
+  remoteCompsRefreshAll: 'Refresh All Remotes',
+  remoteCompsRefreshAllHint: 'Drop locally cached remote artifacts/meta and reload melt runes in the current note, so upstream releases show up without restarting.',
   remoteCompsAdd: 'Add Component',
   remoteCompsHint: 'Entries with the same component name resolve in list order: later wins. SFTP / GitHub Pages usually have no version directory (the deployed path decides the version); only unpkg supports name@version.',
   remoteCompsCorsHint: 'Self-hosted servers must send Access-Control-Allow-Origin: *, otherwise the browser build fails to fetch hel-meta.json with Cross origin forbidden. The Electron build currently bypasses it via webSecurity=false.',
