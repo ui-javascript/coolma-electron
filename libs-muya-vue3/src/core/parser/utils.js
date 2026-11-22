@@ -12,6 +12,7 @@ export const WHITELIST_ATTRIBUTES = [
   'data-align',
   // 符文/回响占位宿主：这些 data-* 是挂载与渲染的输入，必须放行
   'data-rune-name', 'data-rune-id', 'data-rune-node-id', 'data-rune-value',
+  'data-rune-width', 'data-rune-height',
   'data-echo-name', 'data-echo-id', 'data-echo-node-id', 'data-echo-value',
   'data-echo-definition-id', 'data-echo-inline', 'data-echo-props-json'
 ]

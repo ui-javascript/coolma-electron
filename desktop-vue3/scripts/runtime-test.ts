@@ -59,6 +59,11 @@ import { DEFAULT_LOGIN_BASE, isValidServerUrl, normalizeServerUrl, resolveSignup
 import { readEchoInstance, rewriteEchoInstance } from '../frontend/src/utils/echoToken';
 import { resolveEchoSchema } from '../frontend/src/utils/echoSchema';
 import {
+  normalizeRuneDimension,
+  readRuneDataAttr,
+  rewriteRunePlaceholderSizeByNodeId,
+} from '../frontend/src/editor/runePlaceholderAttrs';
+import {
   AUTO_UPLOAD_KICKOFF_DELAY,
   AUTO_UPLOAD_POLL_INTERVAL,
   AUTO_UPLOAD_RETRY_COOLDOWN,
@@ -352,6 +357,43 @@ async function main(): Promise<void> {
     );
     const growthSchema = resolveEchoSchema({ id: '__builtin_growth__' } as Any);
     assert('内置回响 schema 可解析', growthSchema.length === 3 && growthSchema[0]?.field === 'scope', String(growthSchema.length));
+  }
+
+  // ===== Rune 尺寸回写（RuneTransformer 落点）：只改目标 nodeId 的宽高，其它属性保留 =====
+  {
+    const hostA = '<div data-rune-name="进度条" data-rune-id="progress" data-rune-node-id="n1" data-rune-value="12" data-rune-width="320" data-rune-prop-max-height="200" max-height="180" class="x">12</div>';
+    const hostB = '<div data-rune-name="待办" data-rune-id="todo" data-rune-node-id="n2" data-rune-value="a">a</div>';
+    const md = `${hostA}\n${hostB}`;
+    const next = rewriteRunePlaceholderSizeByNodeId(md, 'n1', { width: 480.4, height: 260 });
+    assert(
+      'Rune 尺寸：目标 nodeId 宽高更新，props/自然属性/其它占位符不动',
+      /data-rune-width="480"/.test(next)
+        && /data-rune-height="260"/.test(next)
+        && /data-rune-prop-max-height="200"/.test(next)
+        && /max-height="180"/.test(next)
+        && /data-rune-value="a">a<\/div>/.test(next),
+      next,
+    );
+    const missing = rewriteRunePlaceholderSizeByNodeId(md, 'n404', { width: 200, height: 100 });
+    assert('Rune 尺寸：nodeId 不存在时原样返回', missing === md, missing);
+    const invalid = rewriteRunePlaceholderSizeByNodeId(md, 'n1', { width: -3, height: 'x' });
+    assert('Rune 尺寸：非法值不改 Markdown', invalid === md, invalid);
+    assert(
+      'Rune 尺寸：数值归一化与属性大小写读取',
+      normalizeRuneDimension('320.6') === 321
+        && normalizeRuneDimension(0) === null
+        && readRuneDataAttr(' DATA-RUNE-NODE-ID="n1"', 'data-rune-node-id') === 'n1',
+      String(normalizeRuneDimension('320.6')),
+    );
+    const { getAttributes } = (await import('../../libs-muya-vue3/src/core/parser/utils.js')) as Any;
+    const parsedAttrs = getAttributes('<div data-rune-width="320" data-rune-height="100" data-rune-node-id="n3">x</div>') as Record<string, unknown>;
+    assert(
+      'Rune 尺寸：解析白名单保留 width/height',
+      parsedAttrs['data-rune-width'] === 320
+        && parsedAttrs['data-rune-height'] === 100
+        && parsedAttrs['data-rune-node-id'] === 'n3',
+      JSON.stringify(parsedAttrs),
+    );
   }
 
   // ===== 自动上传闸门（P1-5）：常量与 vue2 一致，冷却/断网/无 pending 不推 =====

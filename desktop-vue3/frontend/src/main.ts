@@ -15,6 +15,7 @@ import router from './router';
 import { pinia } from './stores';
 import './styles/index.css';
 import './styles/rune.css';
+import './styles/rune-transformer.css';
 // 必须早于任何 echo/rune 渲染，mount 前把 jQuery 放进 window。
 import './boot/jquery';
 

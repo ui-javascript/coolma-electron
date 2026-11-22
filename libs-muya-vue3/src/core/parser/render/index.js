@@ -23,8 +23,10 @@ const normalizeRuneDimension = value => {
 
 const applyRuneHostSize = (host, dataset = {}) => {
   if (!host || !host.style) return
-  const width = normalizeRuneDimension(dataset.runeWidth)
-  const height = normalizeRuneDimension(dataset.runeHeight)
+  // 行内 raw HTML 通道只把 4 个符文键搬进 dataset，宽高仍留在普通 attrs 上；
+  // 两条来源都读，block/inline 两种宿主才能统一生效。
+  const width = normalizeRuneDimension(dataset.runeWidth ?? host.getAttribute?.('data-rune-width'))
+  const height = normalizeRuneDimension(dataset.runeHeight ?? host.getAttribute?.('data-rune-height'))
   host.style.boxSizing = 'border-box'
   host.style.width = width ? `${width}px` : ''
   host.style.height = height ? `${height}px` : ''

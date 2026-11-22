@@ -102,6 +102,7 @@
           :plugins="plugins"
           :options="editorOptions"
           class="muya-editor"
+          @ready="onMuyaReady"
           @selection-change="onMuyaSelectionChange"
         />
       </div>
@@ -180,6 +181,8 @@ import { normalizeTagName } from '@/utils/autotag';
 import { formatDocumentByPangu } from '@/utils/pangu';
 import { readEchoInstance, rewriteEchoInstance, type EchoInstancePatch, type EchoInstanceToken } from '@/utils/echoToken';
 import { ProofreadError, proofreadMarkdown } from '@/services/aiProofread';
+import { RuneTransformer, type RuneResizePayload } from '@/editor/runeTransformer';
+import { rewriteRunePlaceholderSizeByNodeId } from '@/editor/runePlaceholderAttrs';
 import type { ShortcutAction } from '@/utils/shortcuts';
 
 const props = defineProps<{
@@ -338,6 +341,7 @@ function toggleSourceMode(): void {
     pendingCursor.value = cursor ? muyaCursorToPosition(cursor) : { lineNumber: 1, column: 1 };
     // 进源码模式前冻住 Muya 的内容，切回来时再按当时正文解冻。
     muyaFrozen.value = props.content;
+    runeTransformer?.hide();
     sourceMode.value = true;
     // Monaco 是 v-if 新挂载且异步 import，等 SourceEditor 的 ready 事件再落位
     return;
@@ -361,6 +365,51 @@ function onMonacoReady(): void {
 }
 
 const muyaRef = ref<InstanceType<typeof MuyaEditor> | null>(null);
+let runeTransformer: RuneTransformer | null = null;
+
+/** Rune 拖拽落点：只改 data-rune-width/height，保留 props 与其它属性。 */
+function commitRuneResize({ nodeId, width, height }: RuneResizePayload): boolean {
+  if (locked.value || !nodeId) {
+    return false;
+  }
+  const markdown = sourceMode.value
+    ? props.content
+    : String(muyaRef.value?.getMarkdown?.() ?? props.content ?? '');
+  const next = rewriteRunePlaceholderSizeByNodeId(markdown, nodeId, { width, height });
+  if (next === markdown) {
+    return false;
+  }
+  if (sourceMode.value) {
+    emit('update:content', next);
+    return true;
+  }
+  const cursor = muyaRef.value?.getCursor?.() ?? null;
+  if (cursor && typeof muyaRef.value?.setMarkdownWithCursor === 'function') {
+    muyaRef.value.setMarkdownWithCursor(next, cursor);
+  } else {
+    muyaRef.value?.setMarkdown?.(next);
+  }
+  return true;
+}
+
+/** 引擎就绪后挂 Rune 尺寸调整器；重复 ready 时先销毁旧实例，避免重复监听。 */
+function onMuyaReady(editor: unknown): void {
+  runeTransformer?.destroy();
+  const container = (editor as { container?: HTMLElement } | null)?.container
+    ?? (muyaRef.value?.getEditor?.()?.container as HTMLElement | undefined)
+    ?? null;
+  runeTransformer = new RuneTransformer(editor, {
+    canEdit: () => !locked.value,
+    onCommit: commitRuneResize,
+    scrollContainer: container,
+  });
+}
+
+watch(locked, (value) => {
+  if (value) {
+    runeTransformer?.hide();
+  }
+});
 const selectionHint = ref<EditorSelectionHint | null>(null);
 const rewriteVisible = ref(false);
 const rewriteText = ref('');
@@ -657,6 +706,10 @@ function unregisterLuckyHandler(): void {
 }
 
 onBeforeUnmount(unregisterLuckyHandler);
+onBeforeUnmount(() => {
+  runeTransformer?.destroy();
+  runeTransformer = null;
+});
 
 /** 盘古格式化当前文档；源码模式直接回抛 update，Muya 走 setMarkdown。 */
 async function formatDocument(): Promise<boolean> {

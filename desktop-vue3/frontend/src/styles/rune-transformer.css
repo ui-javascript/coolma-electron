@@ -1,0 +1,37 @@
+/* Rune 尺寸调整控制点：移植 vue2 `runeTransformer.css`。
+   浮层挂在 body 上，拿不到 .libs-muya-host 的主题变量，这里补本地回退值。 */
+.ag-rune-transformer {
+  --themeColor: rgba(64, 158, 255, 1);
+  --editorBgColor: #fff;
+}
+html.dark .ag-rune-transformer {
+  --editorBgColor: #1b202a;
+}
+
+.ag-rune-transformer .circle {
+  position: fixed;
+  z-index: 2147483000;
+  width: 14px;
+  height: 14px;
+  display: inline-block;
+  border-radius: 50%;
+  background: var(--themeColor);
+  border: 2px solid var(--editorBgColor);
+  box-sizing: border-box;
+  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.15);
+}
+
+.ag-rune-placeholder-host {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.ag-rune-transformer .top-left,
+.ag-rune-transformer .bottom-right {
+  cursor: nwse-resize;
+}
+
+.ag-rune-transformer .top-right,
+.ag-rune-transformer .bottom-left {
+  cursor: nesw-resize;
+}
