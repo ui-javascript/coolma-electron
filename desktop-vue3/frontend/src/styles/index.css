@@ -701,13 +701,14 @@ button {
 }
 
 .note-title {
-  overflow: hidden;
-  flex: 1;
+  min-width: 0;
+  flex: 0 1 auto;
   color: #343a40;
   font-size: 15px;
   font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .note-sync-icon {
@@ -1566,13 +1567,18 @@ html.dark .editor-action-bar {
 }
 
 /* 标签矩形树图（复刻 vue2 tag treemap） */
-.tag-treemap {
+.tag-treemap-shell {
   flex: 1;
-  width: 100%;
   min-height: 0;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+.tag-treemap {
+  width: 100%;
+  height: 100%;
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
 }
 
 /* 换肤提示配色（对齐 vue2 SKIN_NOTIFY_COLORS，设置页与顶栏下拉共用） */

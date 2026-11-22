@@ -12,15 +12,17 @@
           />
         </el-select>
       </div>
-      <div class="month-nav">
-        <el-button text size="small" @click="shiftMonth(-1)">
-          <el-icon><ArrowLeft /></el-icon>
-        </el-button>
-        <span class="month-label">{{ monthLabel }}</span>
-        <el-button text size="small" @click="shiftMonth(1)">
-          <el-icon><ArrowRight /></el-icon>
-        </el-button>
-      </div>
+      <el-date-picker
+        :model-value="monthPicker"
+        type="month"
+        size="small"
+        format="YYYY年M月"
+        value-format="YYYY-MM"
+        :clearable="false"
+        class="month-picker"
+        style="width: 112px; flex: 0 0 112px"
+        @update:model-value="onMonthPickerChange"
+      />
     </div>
 
     <div class="calendar-week-head">
@@ -51,7 +53,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { ArrowLeft, ArrowRight } from '@element-plus/icons-vue';
 import { CalendarDateBasisEnum, type CalendarDateBasis } from '@shared/enums/app';
 import type { NoteSummary } from '@shared/types/domain';
 import { dateKeyOf, noteDateKey } from '@/utils/note';
@@ -88,10 +89,11 @@ const cursor = ref(new Date());
 
 const todayKey = dateKeyOf(Date.now());
 
-const monthLabel = computed(() => {
+/** 月份选择器值（YYYY-MM），对照 vue2 的 a-month-picker。 */
+const monthPicker = computed(() => {
   const y = cursor.value.getFullYear();
-  const m = cursor.value.getMonth() + 1;
-  return locale.value === 'zh-CN' ? `${y}年${m}月` : `${y}/${m}`;
+  const m = String(cursor.value.getMonth() + 1).padStart(2, '0');
+  return `${y}-${m}`;
 });
 
 const weekNames = computed(() => {
@@ -147,13 +149,23 @@ function select(date: string): void {
 }
 
 /**
- * 对齐 vue2 onPanelChange：切月份时同时选中新月份的同一天（月末自动收窄）。
+ * 对齐 vue2 onMonthPickerChange：切月份时同时选中新月份的同一天（月末自动收窄）。
  * 只换月份、不更新选中日期的话，右侧列表会继续停留在旧日期。
  */
-function shiftMonth(delta: number): void {
+function onMonthPickerChange(value: string | number | Date | null): void {
+  if (!value) {
+    return;
+  }
+  const text = value instanceof Date
+    ? `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}`
+    : String(value);
+  const [year, month] = text.split('-').map((part) => Number(part));
+  if (!Number.isFinite(year) || !Number.isFinite(month)) {
+    return;
+  }
   const anchor = parseDateKey(props.modelValue) ?? cursor.value;
-  const target = new Date(anchor.getFullYear(), anchor.getMonth() + delta, 1);
-  const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+  const target = new Date(year, month - 1, 1);
+  const lastDay = new Date(year, month, 0).getDate();
   const next = new Date(
     target.getFullYear(),
     target.getMonth(),
@@ -178,18 +190,23 @@ watch(
 
 <style scoped>
 .calendar-panel {
-  padding: 8px 10px;
-  overflow-x: hidden;
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  padding: 8px 10px 6px;
+  overflow: hidden;
 }
 
 .calendar-header {
   display: flex;
+  flex: 0 0 auto;
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: 6px 10px;
-  margin-bottom: 6px;
-  padding: 2px 0 4px;
+  margin-bottom: 2px;
+  padding: 0 4px 6px 0;
 }
 
 .basis-group {
@@ -206,25 +223,22 @@ watch(
 }
 
 .basis-select {
+  width: 108px;
+}
+
+.month-picker {
   width: 112px;
+  flex: 0 0 112px;
 }
 
-.month-nav {
-  display: flex;
-  flex: 0 0 100%;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0;
+.month-picker :deep(.el-input__wrapper) {
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 4px;
 }
 
-.month-label {
-  min-width: 0;
-  flex: 1;
-  color: var(--el-text-color-primary);
-  font-size: 13px;
-  font-weight: 600;
-  text-align: center;
-  white-space: nowrap;
+.month-picker :deep(.el-input__inner) {
+  font-size: 12px;
 }
 
 .calendar-week-head,
@@ -233,8 +247,12 @@ watch(
   grid-template-columns: repeat(7, 1fr);
 }
 
+.calendar-week-head {
+  flex: 0 0 auto;
+}
+
 .week-name {
-  padding: 3px 0 5px;
+  padding: 2px 0 4px;
   border-bottom: 1px solid var(--el-border-color-lighter, #ebeef5);
   color: var(--el-text-color-secondary);
   font-size: 11px;
@@ -242,26 +260,32 @@ watch(
 }
 
 .calendar-grid {
+  flex: 1;
+  min-height: 0;
+  grid-auto-rows: minmax(0, 1fr);
   border-top: 1px solid var(--el-border-color-lighter, #ebeef5);
-  border-left: 1px solid var(--el-border-color-lighter, #ebeef5);
 }
 
 .calendar-cell {
   position: relative;
   display: flex;
-  min-height: 32px;
+  min-height: 0;
+  height: 100%;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  padding: 4px 0;
+  justify-content: center;
+  gap: 1px;
+  padding: 0;
   border: 0;
-  border-right: 1px solid var(--el-border-color-lighter, #ebeef5);
-  border-bottom: 1px solid var(--el-border-color-lighter, #ebeef5);
-  border-radius: 0;
+  border-radius: 2px;
   background: transparent;
   color: var(--el-text-color-primary);
   cursor: pointer;
   font-size: 12px;
+}
+
+.day-num {
+  line-height: 1.2;
 }
 
 .calendar-cell:hover {
@@ -272,14 +296,25 @@ watch(
   color: var(--el-text-color-placeholder);
 }
 
-.calendar-cell.today .day-num {
+.calendar-cell.today:not(.selected) .day-num {
   color: var(--el-color-primary);
   font-weight: 700;
 }
 
 .calendar-cell.selected {
-  background: var(--el-color-primary-light-9);
-  box-shadow: inset 0 0 0 1px var(--el-color-primary-light-5);
+  background: transparent;
+}
+
+.calendar-cell.selected .day-num {
+  display: flex;
+  width: 24px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  background: var(--el-color-primary);
+  color: #fff;
+  font-weight: 600;
 }
 
 .note-dot {

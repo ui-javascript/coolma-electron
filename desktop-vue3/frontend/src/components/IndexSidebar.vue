@@ -44,7 +44,9 @@
       </template>
 
       <template v-else-if="mode === IndexModeEnum.Tag">
-        <div ref="tagChartRef" class="tag-treemap" />
+        <div class="tag-treemap-shell">
+          <div ref="tagChartRef" class="tag-treemap" />
+        </div>
         <p v-if="tags.length === 0" class="index-empty">{{ t('index.empty') }}</p>
       </template>
 

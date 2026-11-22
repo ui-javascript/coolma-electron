@@ -532,7 +532,7 @@ const currentFilterLabel = computed(() => {
     const label = keys[activeTimeGroup.value];
     return label ? t(label) : t('index.all');
   }
-  return t('index.all');
+  return t('index.myNotes');
 });
 
 function formatHeaderTitle(raw: string): string {

@@ -148,7 +148,7 @@ function handleItemClick(note: NoteSummary, event: MouseEvent): void {
 /** 笔记分类的最后一级，对齐 vue2 NoteItem 的 category 展示。 */
 function noteCategory(note: NoteSummary): string {
   const category = note.category || '/';
-  return category === '/' ? t('index.all') : folderName(category, t('index.all'));
+  return category === '/' ? t('index.myNotes') : folderName(category, t('index.myNotes'));
 }
 
 /** 文件类型图标，对齐 vue2 NoteItem 的 fileIcon 映射。 */
