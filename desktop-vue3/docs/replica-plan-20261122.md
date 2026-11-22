@@ -23,9 +23,9 @@
 | R-03 | Rune 运行时动画未逐项验收 | 成长/碎裂/天空步道/双生花等只有代码，没有逐项对照 | 每个动画至少一张静态对照 + 一次触发录屏，参数与 v2 一致 | 待办 |
 | R-04 | SFC `<style scoped>` / `less` / `scss` | 样式原样注入 head，scoped 未改写，预处理器未编译 | scoped 选择器生效且不污染全局；less/scss 模板可正常渲染 | 待办 |
 | R-05 | `mountRuneVueHosts` 重复定义 | `libs-muya-vue3/src/core/parser/render/index.js` 约 641、825 两处，后者生效 | 合并为一处，行为不变，回归 Rune 卡片与 props | 待办 |
-| R-06 | 中间位置 Mermaid 激活遮挡 | 只有文末 `last-child` 改 static，中间节点仍是 absolute 预览 | 中间 Mermaid 激活不覆盖后续正文；文末仍不被底栏遮住 | 待办 |
+| R-06 | 中间位置 Mermaid 激活遮挡 | 只有文末 `last-child` 改 static，中间节点仍是 absolute 预览 | 中间 Mermaid 激活不覆盖后续正文；文末仍不被底栏遮住 | 已修复，见 `mermaid-mid-20261122.md` |
 | R-07 | 外链图片可能落 `ag-image-fail` | 内联 data URI 实测成功；外链 GitHub 头像失败 | 外链图片能显示；失败时有不误导的占位/重试 | 待办 |
-| R-08 | 14 个内置符文模板未进新建选择器 | `builtins/data.ts` 有模板，UI 只列已保存符文 | 新建符文弹窗可选内置模板，选中后预填 SFC 源码 | 待办 |
+| R-08 | 14 个内置符文模板未进新建选择器 | **误判**：`LibraryFormDialog.vue` 已接 `runeTemplateBuiltins()` 分组与 `applyPreset()`，14 项可选 | 新建符文弹窗可选内置模板，选中后预填名称/描述/分类/源码 | 已复核关闭，见 `rune-presets-verify-20261122.md` |
 
 ## 3. Electron 真机
 
@@ -54,10 +54,12 @@
 ## 6. 下一批（按本清单推进）
 
 1. **R-01** 符文 props 链路：已提交 `abebaef`，显式 / 默认 / 自然属性 / 优先级四种状态验收完成。
-2. **R-08** 内置符文模板进新建选择器：纯功能入口，收益直接。
-3. **R-06** 中间 Mermaid 遮挡：可见错误，改动集中。
-4. R-02 → R-03：四角与动画逐项验收，放到 Rune 专项批次。
-5. E-01：等功能断点清完再进真机，避免反复开 Electron。
+2. **R-06** 中间 Mermaid 遮挡：已修复，预览回到文档流，中间与文末均无重叠。
+3. **R-08** 内置模板选择器：复核为**误判**，14 项本来就在，已关闭。
+4. **R-04** SFC `<style scoped>` / less / scss：下一项，先查当前内置模板有多少依赖 scoped 与预处理器。
+5. **R-07** 外链图片：R-04 之后处理。
+6. R-02 → R-03：四角与动画逐项验收，放到 Rune 专项批次。
+7. E-01：等功能断点清完再进真机，避免反复开 Electron。
 
 ## 7. 验收记录要求
 

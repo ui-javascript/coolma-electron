@@ -2286,10 +2286,10 @@ html.dark .ag-quick-insert .item[data-label^="echo:"] .icon-container > i.icon {
   opacity: 1;
 }
 
-/* Mermaid/流程图在文末激活时，preview 原本是 absolute，不参与文档流，
-   滚到底会被浮动操作栏压住。仅对最后一个容器块把 preview 放回文档流，
-   让它自己撑出底部空间；中间位置的容器块仍保留原来的浮层行为。 */
-#ag-editor-id > figure.ag-active.ag-container-block:last-child > div.ag-container-preview {
+/* Mermaid/流程图在激活时 preview 原本是 absolute，不参与文档流：
+   中间位置会直接盖住后续正文，文末位置则会被浮动操作栏压住。
+   所有激活态的容器预览都放回文档流，自己撑出空间；不再只处理 :last-child。 */
+#ag-editor-id > figure.ag-active.ag-container-block > div.ag-container-preview {
   position: static;
   top: auto;
   left: auto;
