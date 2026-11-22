@@ -447,3 +447,34 @@ rewriteRunePlaceholderPropByNodeId(...)          // 新：按 schema 写 data-ru
 | hel 运行时现状 | `desktop-vue2/src/boot/hel-micro-renderer.js`（只有 `Vue.prototype.$hel`） |
 | 现有远程加载示例 | `desktop-vue2/src/components/rune/runeTemplates/runeTemplatesHolyShield.js` |
 | 测试护城河 | `.agents/rules/rune-echo-test-moat.mdc`、`tests/unit/rune/*.test.js` |
+
+## 9. 落地记录（笔记侧适配，v2026-11-22）
+
+P0 的前两个单元已完成并提交（第三个单元「接远端组件」按用户要求延后，本轮只做笔记自身适配）：
+
+| 单元 | 提交 | 落点 |
+| --- | --- | --- |
+| 占位符属性读写抽纯函数 + 回写保真 | `a0b2a32` | `desktop-vue2/src/components/muya/runePlaceholderAttrs.js`（新）+ `Muya.vue`（删 98 行内联实现） |
+| 定义类型判定 + props 解析层 + 双 ABI | `acd5391` | `libs-muya-vue2/lib/rune/runeDefinition.js`、`runeProps.js`、`runePropDefs.js`（新）+ `parser/render/index.js`、`RuneTemplateService.js`、`runeSfcRendererFactory.js` |
+| tauri 侧同步 | `07c5e87` | `desktop-vue2-tauri` 同四处镜像 + 2 个纯函数测试 |
+
+与本文档原设计的偏差（均为落地时的实证修正，后续按此口径）：
+
+1. **props schema 用对象 map 而不是数组**：`props: { maxHeight: { type, default, label } }`。
+   渲染层的 `propDefs` 仍是数组，由 `listMeltPropDefs` 转换，与 SFC 解析结果形态对齐。
+2. **类型判定签名是 `detectRuneType(template)`**，不看 `rune.type`；「显式 type 优先」收敛在
+   `resolveRunePropDefs(rune)`（宿主归一化后的 `rune.type` 优先）。
+3. **props 解析层独立成 `runePropDefs.js`**：`parser/render/index.js` 顶层 import 了
+   `katex.min.css` / `boot/i18n`，Jest 跑不起来；抽出来后 props 解析与属性采集都能纯函数单测。
+4. **属性采集独立成 `runeProps.js`**：同理，脱离渲染链可在 jsdom 下单测。
+5. **自然属性黑名单（`class/style/contenteditable/hidden/spellcheck/draggable/tabindex`）**，
+   `title` 放行（用户可用它驱动 prop）。
+6. **校验返回 `[{ field, message }]`** 而不是字符串数组，便于表单按字段定位。
+
+测试口径：`cd desktop-vue2 && npx jest` → 46 suites / 1230 tests 全绿；
+`cd desktop-vue2-tauri && pnpm exec jest --config jest.tauri.config.js` → 14 suites / 103 tests 全绿。
+eslint：改动文件相对 HEAD 基线无新增 error（`Muya.vue`/`runeSfcRendererFactory.js`/`RuneTemplateService.js`
+的存量 error 仍在，未顺手改，避免混入无关改动）。
+
+下一步（仍未做，按用户"后面再接"的口径）：`@melt-js/libs-core-vue2` 引入 + `bindVueRuntime` +
+`createMeltRuneRendererCtor` + 资源池（`platform|name@version|origin|exportName` 引用计数）。
