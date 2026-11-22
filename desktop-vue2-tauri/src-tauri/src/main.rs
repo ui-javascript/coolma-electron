@@ -12,6 +12,7 @@ mod credential;
 mod crash;
 mod db;
 mod files;
+mod http_proxy;
 mod logging;
 mod sidecar;
 mod wiz_resources;
@@ -364,6 +365,7 @@ fn main() {
             files::open_external,
             wiznote::wiznote_request,
             wiznote::wiznote_upload,
+            http_proxy::http_proxy_stream,
             wiz_resources::wiznote_cache_file,
             wiz_resources::wiznote_export_resources,
             logging::append_log,

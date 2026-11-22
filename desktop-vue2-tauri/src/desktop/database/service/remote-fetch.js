@@ -1,3 +1,6 @@
+// 这个文件是 CJS（module.exports），这里用 require 保持模块形态不变
+const { httpFetch } = require('../../http')
+
 const MAX_BODY_BYTES = 5 * 1024 * 1024
 const CODE = Object.freeze({ INVALID_URL: 'INVALID_URL', FETCH_FAILED: 'FETCH_FAILED', TOO_LARGE: 'TOO_LARGE', EMPTY_BODY: 'EMPTY_BODY' })
 
@@ -18,7 +21,7 @@ async function fetchRemoteText (input) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 20000)
   try {
-    const result = await fetch(url, { redirect: 'error', credentials: 'omit', signal: controller.signal })
+    const result = await httpFetch(url, { redirect: 'error', credentials: 'omit', signal: controller.signal, maxBytes: MAX_BODY_BYTES })
     if (!result.ok) throw new Error('HTTP ' + result.status)
     const reader = result.body.getReader()
     const decoder = new TextDecoder()

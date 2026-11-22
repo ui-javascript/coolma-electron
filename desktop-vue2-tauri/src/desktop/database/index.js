@@ -11,6 +11,7 @@ import { invoke, isTauri } from '@tauri-apps/api/core'
 import { fetchRemoteText } from './service/remote-fetch'
 import { toCanonicalResources, toRenderableResources } from '../noteResources'
 import { resourceUrlBase } from '../wizResources'
+import { httpFetch } from '../http'
 
 const { DEFAULT_ROOT_CATEGORY } = require('./constants')
 const createRuneTemplateService = require('./service/rune-template-service')
@@ -138,7 +139,7 @@ async function testOpenAiCompatibleModelConfig(modelConfig) {
   const headers = parseAiModelJsonField(modelConfig.headers_json)
   const extraConfig = parseAiModelJsonField(modelConfig.extra_config_json)
   const url = `${String(modelConfig.base_url || '').replace(/\/$/, '')}/chat/completions`
-  const response = await fetch(url, {
+  const response = await httpFetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -171,6 +172,7 @@ async function testPortkeyModelConfig(modelConfig) {
     baseURL: modelConfig.base_url || undefined,
     defaultHeaders: parseAiModelJsonField(modelConfig.headers_json)
   })
+  client.fetch = httpFetch
 
   await client.chat.completions.create({
     messages: buildAiModelTestMessages(),

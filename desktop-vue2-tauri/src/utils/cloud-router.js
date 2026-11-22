@@ -2,6 +2,7 @@ import axios from 'axios'
 import bus from 'components/common/bus'
 import { EVENTS as events } from 'src/utils/const/eventsConst'
 import NeetoError from 'app/share/error'
+import { httpFetch } from 'src/desktop/http'
 
 const DEFAULT_TIMEOUT = 30000
 // 云函数 Provider 标识（Supabase 当前仅作为配置选项，适配尚未实现）
@@ -104,18 +105,22 @@ export async function callFunction ({ url, data = {}, headers = {}, timeout = DE
 
   let response
   try {
-    response = await axios({
+    const res = await httpFetch(fullUrl, {
       method: 'POST',
-      url: fullUrl,
-      data,
-      headers: buildHeaders(headers, cfg),
-      timeout
+      headers: { ...buildHeaders(headers, cfg), 'content-type': 'application/json' },
+      body: JSON.stringify(data),
+      timeoutMs: timeout
     })
+    const text = await res.text()
+    let payload = text
+    try { payload = text ? JSON.parse(text) : null } catch (_) {}
+    if (!res.ok) {
+      throw Object.assign(new Error((payload && payload.message) || `云函数返回 HTTP ${res.status}`), { status: res.status })
+    }
+    response = { data: payload }
   } catch (e) {
-    const message = (e && e.response && e.response.data && e.response.data.message)
-      || (e && e.message)
-      || '云函数网络异常'
-    const code = (e && e.response && e.response.status) || 'NETWORK_ERROR'
+    const message = (e && e.message) || '云函数网络异常'
+    const code = (e && e.status) || 'NETWORK_ERROR'
     const err = new CloudFnError(message, code)
     bus.$emit(events.REQUEST_ERROR, new NeetoError(message, code))
     throw err
@@ -177,13 +182,11 @@ export async function testConnection ({ timeout } = {}) {
   }
   if (isMagicApi(cfg)) {
     try {
-      const res = await axios.get(baseUrl, {
+      const res = await httpFetch(baseUrl, {
+        method: 'GET',
         headers: buildHeaders({}, cfg),
-        timeout: typeof timeout === 'number' ? timeout : MAGIC_API_DEFAULT_TIMEOUT,
-        // magic-api 根路径可能返回 HTML（管理后台），axios 默认会按 JSON 解析失败；
-        // 明确按 text 接收，状态码本身已足够判定可达。
-        responseType: 'text',
-        validateStatus: () => true
+        // 根路径可能返回 HTML，状态码本身已足够判定可达
+        timeoutMs: typeof timeout === 'number' ? timeout : MAGIC_API_DEFAULT_TIMEOUT
       })
       if (res.status >= 500) {
         throw new CloudFnError(`HTTP ${res.status}`, res.status)

@@ -1,6 +1,7 @@
 import Portkey from 'portkey-ai'
 import { fetchEventSource } from '@microsoft/fetch-event-source'
 import DatabaseClient from 'src/utils/DatabaseClient'
+import { httpFetch } from 'src/desktop/http'
 
 const AI_MODEL_PROVIDER_OPENAI_COMPATIBLE = 'openai-compatible'
 const AI_MODEL_PROVIDER_PORTKEY = 'portkey'
@@ -96,7 +97,7 @@ async function runOpenAiCompatibleChat(modelConfig, messages, overrides = {}) {
   }
 
   const { url, body, headers } = toOpenAiCompatibleRequest(modelConfig, messages, overrides)
-  const response = await fetch(url, {
+  const response = await httpFetch(url, {
     method: 'POST',
     headers,
     body: JSON.stringify(body)
@@ -162,6 +163,7 @@ async function runOpenAiCompatibleStream(modelConfig, messages, handlers, overri
       method: 'POST',
       headers,
       body: JSON.stringify(body),
+      fetch: httpFetch,
       signal: handlers.signal || overrides.signal,
       openWhenHidden: true,
       async onopen(response) {
@@ -235,7 +237,10 @@ const PortkeyService = {
       return null
     }
 
-    return new Portkey(clientConfig)
+    const client = new Portkey(clientConfig)
+    // Portkey SDK 内部直接用全局 fetch，WebView2 下跨域会被 CORS 拦；换成 Rust 通道
+    client.fetch = httpFetch
+    return client
   },
 
   getMissingFields (modelConfig) {

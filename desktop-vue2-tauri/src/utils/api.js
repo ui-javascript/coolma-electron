@@ -5,7 +5,8 @@ let AccountServerBaseUrl = 'https://as.wiz.cn'
 let KnowledgeBaseBaseUrl = 'https://kshttps0.wiz.cn'
 
 function execRequest (method, url, body, token, config, ...options) {
-  const wiznote = url.startsWith(AccountServerBaseUrl + '/as/') || url.startsWith(KnowledgeBaseBaseUrl + '/ks/')
+  // 自建服务器的地址同样是 /as/、/ks/ 接口，统一交给 Rust 侧发出（WebView2 下没有跨域问题）
+  const wiznote = url.includes('/as/') || url.includes('/ks/')
   const multipart = typeof FormData === 'function' && body instanceof FormData
   return request(method, url, body, token, { ...config, wiznote, ...(multipart && { multipart: true }) }, ...options)
 }
