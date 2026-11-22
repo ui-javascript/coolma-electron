@@ -11,8 +11,8 @@
 ### A1 功能缺口
 
 - [ ] C7 云函数 Supabase 分支 / 平台选择 / 示例执行——C 批仅剩这一项（C8–C12 已落地：主题目录、日志+SQLite+重置库、关闭二次确认、默认排序、博客自定义构建命令）
-- [ ] melt-js 运行时远程符文移植——vue3 前端 `melt` 命中 0；要搬 `meltRuneHost` + `runeSourceRegistry` + 远程组件源设置面板，并接启动/开笔记的懒加载预热
-- [ ] 设置项收尾：远程组件源面板（vue2 `SettingsMeltSourcesPanel` 无对应）；`SettingsGeneralPanel` 的条目与 `SettingsView` 现有卡片逐项核对，缺什么补什么
+- [x] melt-js 远程符文（已落地复核：`libs-muya-rune-vue3/src/meltRune.ts` 提供宿主与来源注册，`SettingsMeltSourcesCard` 为设置面板，插件初始化后 `setTimeout` 调 `preloadMeltRunes` 预热）
+- [x] 设置项收尾（已核对：远程组件源面板 `SettingsMeltSourcesCard`、解析严格性 `ParsingSettingsCard`、主题目录刷新/打开 `CustomThemeCard`、微应用 `MicroAppsCard`、模板 `NoteTemplateCard` 均在 `SettingsView` 内挂载）
 
 ### A2 编辑器细节（R）
 
@@ -27,7 +27,7 @@
 - [ ] E-01 弹窗 / 快捷键 / 右键 / 主题下拉真机端到端
 - [ ] E-02 次级弹窗 2px 级视觉对照
 - [ ] E-03 最大化 / 最小尺寸 / 窗口安全区
-- [~] 单测基座：已起 `pnpm test:unit`（esbuild + node:test，13 例：分类树/标签树、CDN 规则）；还缺 `stores/sync` 调度、`services/ipc` 契约、Rune/Echo 渲染插件
+- [~] 单测基座：`pnpm test:unit` 现为 3 套件 29 例（分类树/标签树、CDN 规则、SCSS 预处理）；还缺 `stores/sync` 调度、`services/ipc` 契约、Rune/Echo 渲染插件
 
 ### A4 同步边界（S）
 
