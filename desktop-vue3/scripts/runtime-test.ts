@@ -276,7 +276,7 @@ async function main(): Promise<void> {
 
   // 6) B5：插件装上之后，占位要被真正渲染成卡片
   const { createEchoPlugin } = (await import('../../libs-muya-echo-vue3/src/index')) as Any;
-  const { createRunePlugin } = (await import('../../libs-muya-rune-vue3/src/index')) as Any;
+  const { createRunePlugin, createRuneRendererCtor } = (await import('../../libs-muya-rune-vue3/src/index')) as Any;
   const { EchoRegistry } = (await import('../../libs-muya-echo-vue3/src/index')) as Any;
 
   // 应用侧库卡是 camelCase `annoSource`；只认 snake_case 会把源码归一化成空字符串。
@@ -317,6 +317,36 @@ async function main(): Promise<void> {
     if (typeof dispose === 'function') disposers.push(dispose);
   }
   assert('rune/echo 插件安装完成', disposers.length === pluginList.length, `disposers=${disposers.length}`);
+
+  // 符文 SFC 的 $emit('input') 必须桥到 onValueChange，否则输入框改值写不回 Markdown
+  const bridgeRune = {
+    id: 'bridge',
+    name: 'bridge',
+    template:
+      '<template><input class="rune-bridge-input" @input="onType" /></template>' +
+      '<script>export default { methods: { onType (event) { this.$emit("input", event.target.value) } } }</script>',
+  };
+  const bridgeCtor = createRuneRendererCtor(bridgeRune);
+  let bridgePayload: Any = null;
+  const bridgeVm = bridgeCtor?.({
+    propsData: {
+      runeId: 'bridge',
+      nodeId: 'node-bridge',
+      value: '',
+      onValueChange: (payload: Any) => { bridgePayload = payload; },
+    },
+  });
+  assert('符文 renderer 可编译输入模板', Boolean(bridgeVm?.$el));
+  document.body.appendChild(bridgeVm.$el);
+  const bridgeInput = bridgeVm.$el.querySelector('.rune-bridge-input') as HTMLInputElement;
+  bridgeInput.value = '写回';
+  bridgeInput.dispatchEvent(new (bridgeInput.ownerDocument.defaultView as Any).Event('input', { bubbles: true }));
+  assert(
+    '符文 input 事件桥接到 onValueChange',
+    bridgePayload?.value === '写回' && bridgePayload?.nodeId === 'node-bridge',
+    JSON.stringify(bridgePayload),
+  );
+  bridgeVm.$destroy();
 
   // 引擎会用 getContainer() 换掉传入的容器，真正的根是 #ag-editor-id
   const editorRoot = (): Element => document.querySelector('div#ag-editor-id') ?? container;

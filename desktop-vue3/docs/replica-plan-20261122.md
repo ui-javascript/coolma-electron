@@ -3,7 +3,7 @@
 > 基线：`desktop-vue2` 源码 + Quasar 视觉/交互；`desktop-vue3` 是长期主应用。
 > 用法：一张表就是待办池，一次只推进一项；一项一个提交，真实页面验收后再勾。**不按“文件存在”算完成。**
 
-当前提交基线：`98c3918 refactor(editor): 合并 StateRender 重复 Rune 渲染入口`
+当前提交基线：`f9009cb fix(echo): 四张内置回响恢复动画宿主与文档根`
 
 ## 1. 执行顺序
 
@@ -22,7 +22,7 @@
 | R-02 | Rune 四角缩放只验收右下角 | 四角已逐个真实拖拽；左/上控制点只改宽高、边不跟手，与 v2 `runeTransformer.js` 同源；v3 写回时选区在 Rune 内会让卡片退化成裸 HTML | 四角数据与边界记录完整；与 v2 的差异/同源限制写清；写回后卡片不消失 | 已复核，写回丢卡已修，见 `rune-four-corners-20261122.md` |
 | R-03 | Rune 运行时动画未逐项验收 | 所谓“成长/碎裂/天空步道/双生花”实为四张内置 Echo；`annoSource` 被注册表吞空、宿主被 `ag-hide` 锁 0 宽、天行健无文档根、破万法描边被重置 | 每个动画至少一张静态对照 + 一次触发录屏，参数与 v2 一致 | 已修复并验收，见 `echo-animations-20261122.md`；破万法禁用效果受单段单回响 parser 限制，未验证 |
 | R-04 | SFC `<style scoped>` / `less` / `scss` | 样式原样注入 head，scoped 未改写；v2 运行态同样不编译预处理器 | scoped 选择器生效且不污染全局；`:deep/:global/@media/@keyframes` 正确；内置 less 扁平样式正常；嵌套预处理器语法与 v2 一样不编译 | 已修复，见 `rune-scoped-20261122.md` |
-| R-05 | `mountRuneVueHosts` 重复定义 | `libs-muya-vue3/src/core/parser/render/index.js` 原有两套同名定义，后者覆盖前者 | 合并为一处；Rune 卡片、未知符文回退、props、scoped 与回响渲染均不回归 | 已修复，见 `rune-merge-20261122.md` |
+| R-05 | `mountRuneVueHosts` 重复定义 | `libs-muya-vue3/src/core/parser/render/index.js` 原有两套同名定义，后者覆盖前者；SFC `$emit('input')` 没有 `onInput` 接收方 | 合并为一处；Rune 卡片、未知符文回退、props、scoped 与回响渲染均不回归；输入框失焦能写回 `data-rune-value` | 已修复，见 `rune-merge-20261122.md`、`rune-input-bridge-20261122.md` |
 | R-06 | 中间位置 Mermaid 激活遮挡 | 只有文末 `last-child` 改 static，中间节点仍是 absolute 预览 | 中间 Mermaid 激活不覆盖后续正文；文末仍不被底栏遮住 | 已修复，见 `mermaid-mid-20261122.md` |
 | R-07 | 外链图片可能落 `ag-image-fail` | 内联 data URI 实测成功；外链 GitHub 头像失败 | 外链图片能显示；失败时有不误导的占位/重试 | 已修复，见 `image-external-20261122.md` |
 | R-08 | 14 个内置符文模板未进新建选择器 | **误判**：`LibraryFormDialog.vue` 已接 `runeTemplateBuiltins()` 分组与 `applyPreset()`，14 项可选 | 新建符文弹窗可选内置模板，选中后预填名称/描述/分类/源码 | 已复核关闭，见 `rune-presets-verify-20261122.md` |
@@ -58,7 +58,7 @@
 3. **R-08** 内置模板选择器：复核为**误判**，14 项本来就在，已关闭。
 4. **R-04** SFC scoped：已修复，作用域只命中符文内部，正文同类名不再被污染；预处理器按 v2 运行态不编译。
 5. **R-07** 外链图片：已修复，无扩展名外链不再被 HEAD 预检误判，失败态可就地重试。
-6. **R-05** `mountRuneVueHosts` 重复定义：已合并为一处，回写源改为 `memocastMuya` 并保留 `memoMuya` 回退；输入事件桥接缺口另行处理。
+6. **R-05** `mountRuneVueHosts` 重复定义：已合并；SFC `$emit('input')` 到 `onValueChange` 的桥已补，内置输入框失焦可写回 `data-rune-value`。`update:modelValue` 与整篇重渲染优化未做。
 7. **R-02** Rune 四角：已逐个拖拽记录；左/上锚点为 v2 同源限制，v3 写回后卡片消失已修。真正四角锚定需新增持久化偏移字段，待产品决策。
 8. **R-03** 四张内置回响：已修复 `annoSource` 归一化、宿主零宽、天行健文档根、破万法激活框；生长动画已录屏。破万法“禁用其它回响”受一 block 单回响 parser 限制，留作 ABI 变更。
 9. E-01：等功能断点清完再进真机，避免反复开 Electron；`E-02/E-03`、`S-01/S-02`、`C-02/C-03` 按优先级排在其后。

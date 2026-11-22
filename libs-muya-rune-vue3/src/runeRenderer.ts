@@ -295,11 +295,23 @@ export function createRuneRendererCtor(rune: AnyRecord = {}): any {
   const render = compileTemplate(template);
   if (!render) return null;
   const props = declaredProps(script);
-  const allProps = { runeId: null, nodeId: null, rune: null, value: null, onValueChange: null, ...props };
+  const allProps = { runeId: null, nodeId: null, rune: null, value: null, onValueChange: null, onInput: null, ...props };
   const component = Vue.defineComponent({ ...script, props: allProps, render });
   if (scopeId) (component as AnyRecord).__scopeId = scopeId;
   return function RuneRenderer(options: AnyRecord = {}) {
     const state = Vue.reactive({ ...(options.propsData || {}) });
+    // v2 模板只写 `this.$emit('input', next)`，挂载层也只注入 onValueChange。
+    // Vue 3 会把 emit('input') 找成 onInput，这里补一层桥，否则输入永远写不回 Markdown。
+    state.onInput = (next: unknown) => {
+      const handler = (state as AnyRecord).onValueChange;
+      if (typeof handler === 'function') {
+        handler({
+          runeId: (state as AnyRecord).runeId || '',
+          nodeId: (state as AnyRecord).nodeId || '',
+          value: next,
+        });
+      }
+    };
     const root = document.createElement('div');
     root.className = 'muya-rune-vue-host';
     const app = Vue.createApp({ render: () => Vue.h(component, state) });
