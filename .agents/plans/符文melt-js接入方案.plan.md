@@ -532,7 +532,12 @@ desktop-vue2-tauri 15 suites / 120 tests 全绿。
   写死具体版本 = 冻结。这是「我方维护版本控制」的落点，目前编码在 spec 解析里，
   暂未单独抽成策略层。
 
-### 11.2 刷新（已落地）
+### 11.2 刷新（已落地，两处入口）
+
+- 单卡入口：错误卡上的「刷新」= `forceRefresh`（见下）。
+- 全局入口：`设置 → 远程组件 → 刷新所有远程组件` → `clearAllMeltCaches({ clearDisk: true })`
+  → 广播 `meltCachesCleared` → `Muya.onMeltCachesCleared` 清理并 `renderRunes()` 重挂符文。
+  清空时旧池移入 `retiredPools`：仍挂载中的实例卸载时按原 key 释放，避免 hel 实例泄漏。
 
 错误卡按钮为「刷新」，点一次做四件事（`forceRefresh`，`meltRuneHost.js`）：
 

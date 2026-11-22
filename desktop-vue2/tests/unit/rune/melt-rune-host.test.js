@@ -322,4 +322,12 @@ describe('配置 → hel 加载描述', () => {
     expect(meltLibs.createHelLoader).toHaveBeenCalledTimes(2)
     expect(getMeltPoolKey(require('libs-muya-vue2/lib/rune/runeDefinition').parseMeltRuneConfig(makeRune()))).not.toContain('#')
   })
+
+  test('全局刷新后旧实例卸载仍会 dispose（退役池不泄漏 hel 实例）', () => {
+    const vm = mountCtor(createMeltRuneRendererCtor(makeRune()))
+    clearAllMeltCaches({ clearDisk: false })
+    expect(mockResource.dispose).not.toHaveBeenCalled()
+    vm.$destroy()
+    expect(mockResource.dispose).toHaveBeenCalledTimes(1)
+  })
 })

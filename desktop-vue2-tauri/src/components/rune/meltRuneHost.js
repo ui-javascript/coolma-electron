@@ -43,6 +43,9 @@ function loadMeltLibs () {
 // 资源池：同一依赖 + 同一导出名，N 个符文实例共享一次加载。
 // key 里的 origin 区分「同包名不同地址」（unpkg 与自建站点是两个来源）。
 const resourcePool = new Map()
+// 被「刷新所有远程组件」退役的旧池：仍挂载的实例卸载时还能按原 key 释放资源，
+// 否则清空池会让 hel 实例泄漏（引用计数永远等不到 0）。
+const retiredPools = new Map()
 // 壳组件缓存：定义（含 schema）变了才重建，避免每次 render 都 Vue.extend。
 const ctorCache = new Map()
 // dep 级 loader 缓存：同一个依赖只建一个 hel loader（自带请求合并与内存缓存）。
@@ -182,7 +185,7 @@ function acquireResource (config, onChange) {
 }
 
 function releaseResource (key, listener) {
-  const entry = resourcePool.get(key)
+  const entry = resourcePool.get(key) || retiredPools.get(key)
   if (!entry) return
   entry.listeners.delete(listener)
   entry.refs--
@@ -193,17 +196,20 @@ function releaseResource (key, listener) {
       console.warn(`${LOG_PREFIX} dispose failed`, error)
     }
     resourcePool.delete(key)
+    retiredPools.delete(key)
   }
 }
 
 // 测试钩子：清空池与缓存（不对外承诺稳定 API）
 export function clearMeltRuneCaches () {
-  resourcePool.forEach(entry => {
-    try {
-      entry.resource.dispose()
-    } catch (_error) { /* noop */ }
+  ;[resourcePool, retiredPools].forEach(pool => {
+    pool.forEach(entry => {
+      try {
+        entry.resource.dispose()
+      } catch (_error) { /* noop */ }
+    })
+    pool.clear()
   })
-  resourcePool.clear()
   ctorCache.clear()
   depLoaderCache.clear()
   refreshEpoch.clear()
@@ -216,6 +222,8 @@ export function clearAllMeltCaches ({ clearDisk = true } = {}) {
   depLoaderCache.forEach(entry => {
     if (entry && entry.dep && entry.dep.name) deps.push(entry.dep)
   })
+  // 旧池不直接 dispose：可能还有挂载中的实例在用，等它们卸载时按原 key 释放
+  resourcePool.forEach((entry, key) => retiredPools.set(key, entry))
   resourcePool.clear()
   ctorCache.clear()
   depLoaderCache.clear()

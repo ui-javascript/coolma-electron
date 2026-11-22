@@ -2,7 +2,9 @@
   <div class='settings-melt-panel'>
     <SettingsSectionContent :title='$t("remoteComps")' accent-color='deep-orange-7'>
       <template v-slot:actions>
-        <q-btn dense flat no-caps icon='refresh' :label='$t("remoteCompsRefreshAll")' color='deep-orange-7' size='sm' class='q-mr-sm' @click='refreshAllRemote' />
+        <q-btn dense flat no-caps icon='refresh' :label='$t("remoteCompsRefreshAll")' color='deep-orange-7' size='sm' class='q-mr-sm' @click='refreshAllRemote'>
+          <q-tooltip>{{ $t('remoteCompsRefreshAllHint') }}</q-tooltip>
+        </q-btn>
         <q-btn dense flat no-caps icon='add' :label='$t("remoteCompsAdd")' color='deep-orange-7' size='sm' @click='addSource' />
       </template>
 

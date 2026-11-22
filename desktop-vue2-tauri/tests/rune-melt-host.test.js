@@ -47,7 +47,8 @@ const {
   buildMeltLoadSpec,
   coerceMeltProp,
   normalizeMeltEmitValue,
-  clearMeltRuneCaches
+  clearMeltRuneCaches,
+  clearAllMeltCaches
 } = require('../src/components/rune/meltRuneHost')
 
 const makeRune = (config = {}) => ({
@@ -238,5 +239,17 @@ describe('配置 → hel 加载描述', () => {
     expect(coerceMeltProp('yes', { type: 'boolean' })).toBeUndefined()
     expect(coerceMeltProp('{"a":1}', { type: 'json' })).toEqual({ a: 1 })
     expect(coerceMeltProp('', { type: 'string' })).toBeUndefined()
+  })
+
+  test('clearAllMeltCaches 后下一个实例重建 loader，旧实例卸载仍 dispose', () => {
+    const vm = mountCtor(createMeltRuneRendererCtor(makeRune()))
+    expect(meltLibs.createHelLoader).toHaveBeenCalledTimes(1)
+    const cleared = clearAllMeltCaches({ clearDisk: false })
+    expect(cleared).toBe(1)
+    const next = mountCtor(createMeltRuneRendererCtor(makeRune()))
+    expect(meltLibs.createHelLoader).toHaveBeenCalledTimes(2)
+    vm.$destroy()
+    expect(mockResource.dispose).toHaveBeenCalledTimes(1)
+    next.$destroy()
   })
 })
