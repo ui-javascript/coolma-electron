@@ -2303,7 +2303,6 @@ html.dark .ag-quick-insert .item[data-label^="echo:"] .icon-container > i.icon {
 .ag-rune-placeholder-host {
   display: block;
   margin: 6px 0;
-  max-width: 100%;
   box-sizing: border-box;
 }
 

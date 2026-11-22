@@ -21,6 +21,9 @@ export interface RuneResizePayload {
   nodeId: string
   width: number
   height: number
+  /** 相对文档流的视觉位移，写回 data-rune-offset-x/y；0 表示无偏移。 */
+  offsetX: number
+  offsetY: number
 }
 
 export interface RuneTransformerOptions {
@@ -35,6 +38,12 @@ export interface RuneTransformerOptions {
 const toPositiveNumber = (value: unknown): number | null => {
   const number = Number(value)
   return Number.isFinite(number) && number > 0 ? number : null
+}
+
+const toInteger = (value: unknown): number | null => {
+  if (value === undefined || value === null || String(value).trim() === '') return null
+  const number = Number(value)
+  return Number.isFinite(number) ? Math.round(number) : null
 }
 
 // SVG 图表内部常有 SVG <a>；它不是 HTML 超链接，不应阻止用户选中外层 Rune。
@@ -52,11 +61,14 @@ const isInteractiveRuneTarget = (target: Element | null, host: HTMLElement): boo
   return false
 }
 
-interface OriginSize {
+interface OriginGeometry {
   widthStyle: string
   heightStyle: string
+  translateStyle: string
   widthAttr: string | null
   heightAttr: string | null
+  offsetXAttr: string | null
+  offsetYAttr: string | null
 }
 
 export class RuneTransformer {
@@ -69,9 +81,13 @@ export class RuneTransformer {
   private moved = false
   private movingAnchor: HandlePosition | null = null
   private startRect: DOMRect | null = null
+  private baseLeft = 0
+  private baseTop = 0
+  private offsetX = 0
+  private offsetY = 0
   private width = 0
   private height = 0
-  private origin: OriginSize | null = null
+  private origin: OriginGeometry | null = null
   private suppressClickUntil = 0
   private readonly scrollContainer: HTMLElement | null
 
@@ -140,11 +156,19 @@ export class RuneTransformer {
     this.startRect = this.reference.getBoundingClientRect()
     this.width = this.startRect.width
     this.height = this.startRect.height
+    this.offsetX = toInteger(this.reference.dataset.runeOffsetX) ?? 0
+    this.offsetY = toInteger(this.reference.dataset.runeOffsetY) ?? 0
+    // getBoundingClientRect 已包含 translate；减掉它得到文档流里的未偏移左上角。
+    this.baseLeft = this.startRect.left - this.offsetX
+    this.baseTop = this.startRect.top - this.offsetY
     this.origin = {
       widthStyle: this.reference.style.width,
       heightStyle: this.reference.style.height,
+      translateStyle: this.reference.style.translate,
       widthAttr: this.reference.getAttribute('data-rune-width'),
       heightAttr: this.reference.getAttribute('data-rune-height'),
+      offsetXAttr: this.reference.getAttribute('data-rune-offset-x'),
+      offsetYAttr: this.reference.getAttribute('data-rune-offset-y'),
     }
     this.resizing = true
     this.moved = false
@@ -153,24 +177,37 @@ export class RuneTransformer {
   private handleMouseMove(event: MouseEvent): void {
     if (!this.resizing || !this.startRect || !this.movingAnchor || !this.reference) return
 
-    const { left, right, top, bottom } = this.startRect
-    const rawWidth = this.movingAnchor.indexOf('left') > -1
-      ? right - event.clientX
-      : event.clientX - left
-    const rawHeight = this.movingAnchor.indexOf('top') > -1
-      ? bottom - event.clientY
-      : event.clientY - top
-
+    const { right, bottom } = this.startRect
     const boundary = this.getResizeBoundary()
-    const maxWidth = this.movingAnchor.indexOf('left') > -1
-      ? right - boundary.left
-      : boundary.right - left
 
-    this.width = Math.max(MIN_WIDTH, Math.min(Math.round(rawWidth), Math.round(maxWidth)))
-    this.height = Math.max(MIN_HEIGHT, Math.round(rawHeight))
+    if (this.movingAnchor.indexOf('left') > -1) {
+      // 左边跟手：右边界留在原地，宽度减少多少，就向左位移多少。
+      const minLeft = boundary.left
+      const maxLeft = right - MIN_WIDTH
+      const nextLeft = Math.max(minLeft, Math.min(Math.round(event.clientX), Math.round(maxLeft)))
+      this.width = Math.max(MIN_WIDTH, Math.round(right - nextLeft))
+      this.offsetX = Math.round(nextLeft - this.baseLeft)
+    } else {
+      // 右边跟手：左边保持不动，只改宽度。
+      const visualLeft = this.baseLeft + this.offsetX
+      const maxWidth = Math.max(MIN_WIDTH, Math.round(boundary.right - visualLeft))
+      this.width = Math.max(MIN_WIDTH, Math.min(Math.round(event.clientX - visualLeft), maxWidth))
+    }
+
+    if (this.movingAnchor.indexOf('top') > -1) {
+      // 上边跟手：下边界留在原地，高度减少多少，就向上位移多少。
+      const maxTop = bottom - MIN_HEIGHT
+      const nextTop = Math.max(boundary.top, Math.min(Math.round(event.clientY), Math.round(maxTop)))
+      this.height = Math.max(MIN_HEIGHT, Math.round(bottom - nextTop))
+      this.offsetY = Math.round(nextTop - this.baseTop)
+    } else {
+      // 下边跟手：上边保持不动，只改高度。
+      const visualTop = this.baseTop + this.offsetY
+      this.height = Math.max(MIN_HEIGHT, Math.round(event.clientY - visualTop))
+    }
+
     this.moved = true
-
-    this.applyHostSize(this.reference, this.width, this.height)
+    this.applyHostGeometry(this.reference, this.width, this.height, this.offsetX, this.offsetY)
     this.update()
   }
 
@@ -187,18 +224,24 @@ export class RuneTransformer {
           nodeId,
           width: this.width,
           height: this.height,
+          offsetX: this.offsetX,
+          offsetY: this.offsetY,
         })
         if (committed === false) {
-          this.restoreOriginSize(host)
+          this.restoreOriginGeometry(host)
         }
       } catch (error) {
-        this.restoreOriginSize(host)
+        this.restoreOriginGeometry(host)
         console.error('[RuneTransformer] resize commit failed', error)
       }
     }
 
     this.movingAnchor = null
     this.startRect = null
+    this.baseLeft = 0
+    this.baseTop = 0
+    this.offsetX = 0
+    this.offsetY = 0
     this.width = 0
     this.height = 0
     this.moved = false
@@ -210,39 +253,71 @@ export class RuneTransformer {
     if (this.status) this.update()
   }
 
-  private getResizeBoundary(): { left: number; right: number } {
+  private getResizeBoundary(): { left: number; right: number; top: number } {
     const host = this.reference
     const parent = host?.parentElement || this.scrollContainer
     const rect = parent?.getBoundingClientRect?.()
-    if (!rect) {
-      return { left: 0, right: document.documentElement?.clientWidth || window.innerWidth }
+    const scrollRect = this.scrollContainer?.getBoundingClientRect?.()
+    if (!rect && !scrollRect) {
+      return {
+        left: 0,
+        right: document.documentElement?.clientWidth || window.innerWidth,
+        top: 0,
+      }
+    }
+    const scrollComputed = scrollRect && this.scrollContainer
+      ? window.getComputedStyle(this.scrollContainer)
+      : null
+    const scrollPaddingLeft = parseFloat(scrollComputed?.paddingLeft || '0') || 0
+    const scrollPaddingRight = parseFloat(scrollComputed?.paddingRight || '0') || 0
+    const scrollPaddingTop = parseFloat(scrollComputed?.paddingTop || '0') || 0
+    // 横向用编辑器可视区而不是段落正文列：正文列居中留白，左/上拖拽需要这块留白才跟得动。
+    if (scrollRect) {
+      return {
+        left: scrollRect.left + scrollPaddingLeft,
+        right: scrollRect.right - scrollPaddingRight,
+        top: scrollRect.top + scrollPaddingTop,
+      }
     }
     const computed = window.getComputedStyle(parent as Element)
     const paddingLeft = parseFloat(computed.paddingLeft) || 0
     const paddingRight = parseFloat(computed.paddingRight) || 0
     return {
-      left: rect.left + paddingLeft,
-      right: rect.right - paddingRight,
+      left: rect!.left + paddingLeft,
+      right: rect!.right - paddingRight,
+      top: rect!.top,
     }
   }
 
-  private applyHostSize(host: HTMLElement, width: number, height: number): void {
+  private applyHostGeometry(
+    host: HTMLElement,
+    width: number,
+    height: number,
+    offsetX: number,
+    offsetY: number,
+  ): void {
     host.style.boxSizing = 'border-box'
     host.style.width = `${width}px`
     host.style.height = `${height}px`
     // 让 CSS 的 [data-rune-width] > * 在拖动过程中立即把内层卡片铺满。
     host.dataset.runeWidth = String(width)
     host.dataset.runeHeight = String(height)
+    host.style.translate = offsetX || offsetY ? `${offsetX}px ${offsetY}px` : ''
   }
 
-  private restoreOriginSize(host: HTMLElement): void {
+  private restoreOriginGeometry(host: HTMLElement): void {
     if (!this.origin) return
     host.style.width = this.origin.widthStyle
     host.style.height = this.origin.heightStyle
+    host.style.translate = this.origin.translateStyle
     if (this.origin.widthAttr === null) delete host.dataset.runeWidth
     else host.dataset.runeWidth = this.origin.widthAttr
     if (this.origin.heightAttr === null) delete host.dataset.runeHeight
     else host.dataset.runeHeight = this.origin.heightAttr
+    if (this.origin.offsetXAttr === null) delete host.dataset.runeOffsetX
+    else host.dataset.runeOffsetX = this.origin.offsetXAttr
+    if (this.origin.offsetYAttr === null) delete host.dataset.runeOffsetY
+    else host.dataset.runeOffsetY = this.origin.offsetYAttr
   }
 
   private show(host: HTMLElement): void {
@@ -259,8 +334,11 @@ export class RuneTransformer {
     this.nodeId = nodeId
     const width = toPositiveNumber(host.dataset.runeWidth)
     const height = toPositiveNumber(host.dataset.runeHeight)
+    const offsetX = toInteger(host.dataset.runeOffsetX) ?? 0
+    const offsetY = toInteger(host.dataset.runeOffsetY) ?? 0
     if (width) host.style.width = `${width}px`
     if (height) host.style.height = `${height}px`
+    host.style.translate = offsetX || offsetY ? `${offsetX}px ${offsetY}px` : ''
 
     if (!this.container.childElementCount) {
       HANDLE_POSITIONS.forEach((position) => {
@@ -294,6 +372,11 @@ export class RuneTransformer {
     this.resizing = false
     this.reference = null
     this.nodeId = ''
+    this.baseLeft = 0
+    this.baseTop = 0
+    this.offsetX = 0
+    this.offsetY = 0
+    this.origin = null
   }
 
   destroy(): void {

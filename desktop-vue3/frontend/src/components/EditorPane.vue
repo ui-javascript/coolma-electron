@@ -182,7 +182,7 @@ import { formatDocumentByPangu } from '@/utils/pangu';
 import { readEchoInstance, rewriteEchoInstance, type EchoInstancePatch, type EchoInstanceToken } from '@/utils/echoToken';
 import { ProofreadError, proofreadMarkdown } from '@/services/aiProofread';
 import { RuneTransformer, type RuneResizePayload } from '@/editor/runeTransformer';
-import { rewriteRunePlaceholderSizeByNodeId } from '@/editor/runePlaceholderAttrs';
+import { rewriteRunePlaceholderBoxByNodeId } from '@/editor/runePlaceholderAttrs';
 import type { ShortcutAction } from '@/utils/shortcuts';
 
 const props = defineProps<{
@@ -368,20 +368,21 @@ const muyaRef = ref<InstanceType<typeof MuyaEditor> | null>(null);
 let runeTransformer: RuneTransformer | null = null;
 
 /**
- * Rune 拖拽落点：只改 data-rune-width/height，保留 props 与其它属性。
+ * Rune 拖拽落点：写回 data-rune-width/height 与 data-rune-offset-x/y，保留 props 与其它属性。
  *
+ * 偏移是视觉位移，不改变文档流高度；左/上拖拽用它让对应边跟手。
  * 这里不用 setMarkdownWithCursor：拖拽控制点时选区通常落在 Rune 宿主内，
  * 把该光标位置带进重载会让 raw HTML 块退化成裸文本，卡片直接消失。
  * 尺寸提交不需要恢复 Rune 内选区，普通 setMarkdown 更稳定。
  */
-function commitRuneResize({ nodeId, width, height }: RuneResizePayload): boolean {
+function commitRuneResize({ nodeId, width, height, offsetX, offsetY }: RuneResizePayload): boolean {
   if (locked.value || !nodeId) {
     return false;
   }
   const markdown = sourceMode.value
     ? props.content
     : String(muyaRef.value?.getMarkdown?.() ?? props.content ?? '');
-  const next = rewriteRunePlaceholderSizeByNodeId(markdown, nodeId, { width, height });
+  const next = rewriteRunePlaceholderBoxByNodeId(markdown, nodeId, { width, height, offsetX, offsetY });
   if (next === markdown) {
     return false;
   }

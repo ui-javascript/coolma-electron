@@ -60,7 +60,9 @@ import { readEchoInstance, rewriteEchoInstance } from '../frontend/src/utils/ech
 import { resolveEchoSchema } from '../frontend/src/utils/echoSchema';
 import {
   normalizeRuneDimension,
+  normalizeRuneOffset,
   readRuneDataAttr,
+  rewriteRunePlaceholderBoxByNodeId,
   rewriteRunePlaceholderSizeByNodeId,
 } from '../frontend/src/editor/runePlaceholderAttrs';
 import {
@@ -431,6 +433,35 @@ async function main(): Promise<void> {
     assert('Rune 尺寸：nodeId 不存在时原样返回', missing === md, missing);
     const invalid = rewriteRunePlaceholderSizeByNodeId(md, 'n1', { width: -3, height: 'x' });
     assert('Rune 尺寸：非法值不改 Markdown', invalid === md, invalid);
+    const offsetMd = rewriteRunePlaceholderBoxByNodeId(md, 'n1', {
+      width: 360,
+      height: 120,
+      offsetX: -40.4,
+      offsetY: 24.6,
+    });
+    assert(
+      'Rune 偏移：写入负/正偏移且保留 props 与其它占位符',
+      /data-rune-offset-x="-40"/.test(offsetMd)
+        && /data-rune-offset-y="25"/.test(offsetMd)
+        && /data-rune-width="360"/.test(offsetMd)
+        && /data-rune-prop-max-height="200"/.test(offsetMd)
+        && !/data-rune-offset-x/.test(offsetMd.slice(offsetMd.indexOf('n2'))),
+      offsetMd,
+    );
+    const zeroOffset = rewriteRunePlaceholderBoxByNodeId(offsetMd, 'n1', { offsetX: 0, offsetY: 0 });
+    assert(
+      'Rune 偏移：归零删除属性，不写 offset=0',
+      !/data-rune-offset-x/.test(zeroOffset) && !/data-rune-offset-y/.test(zeroOffset),
+      zeroOffset,
+    );
+    assert(
+      'Rune 偏移：数值归一化允许 0 与负数，拒绝空/NaN',
+      normalizeRuneOffset('-12.6') === -13
+        && normalizeRuneOffset(0) === 0
+        && normalizeRuneOffset('') === null
+        && normalizeRuneOffset('x') === null,
+      `${normalizeRuneOffset('-12.6')}/${normalizeRuneOffset(0)}`,
+    );
     assert(
       'Rune 尺寸：数值归一化与属性大小写读取',
       normalizeRuneDimension('320.6') === 321
@@ -439,12 +470,14 @@ async function main(): Promise<void> {
       String(normalizeRuneDimension('320.6')),
     );
     const { getAttributes } = (await import('../../libs-muya-vue3/src/core/parser/utils.js')) as Any;
-    const parsedAttrs = getAttributes('<div data-rune-width="320" data-rune-height="100" data-rune-node-id="n3">x</div>') as Record<string, unknown>;
+    const parsedAttrs = getAttributes('<div data-rune-width="320" data-rune-height="100" data-rune-node-id="n3" data-rune-offset-x="-12" data-rune-offset-y="8">x</div>') as Record<string, unknown>;
     assert(
-      'Rune 尺寸：解析白名单保留 width/height',
+      'Rune 尺寸：解析白名单保留 width/height 与有符号偏移',
       parsedAttrs['data-rune-width'] === 320
         && parsedAttrs['data-rune-height'] === 100
-        && parsedAttrs['data-rune-node-id'] === 'n3',
+        && parsedAttrs['data-rune-node-id'] === 'n3'
+        && parsedAttrs['data-rune-offset-x'] === -12
+        && parsedAttrs['data-rune-offset-y'] === 8,
       JSON.stringify(parsedAttrs),
     );
     const propAttrs = getAttributes(

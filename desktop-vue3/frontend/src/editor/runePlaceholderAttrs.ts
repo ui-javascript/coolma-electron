@@ -27,6 +27,13 @@ export const normalizeRuneDimension = (value: unknown): number | null => {
   return Number.isFinite(number) && number > 0 ? Math.round(number) : null
 }
 
+/** 偏移可正可负、可为零；空串、NaN、Infinity 一律视为非法。 */
+export const normalizeRuneOffset = (value: unknown): number | null => {
+  if (value === undefined || value === null || String(value).trim() === '') return null
+  const number = Number(value)
+  return Number.isFinite(number) ? Math.round(number) : null
+}
+
 export function parseRuneAttrs(attrsSource = ''): Record<string, string> {
   const out: Record<string, string> = {}
   const re = new RegExp(ATTR_PIECE_SOURCE, 'g')
@@ -101,17 +108,38 @@ export function patchRuneOpeningTagByNodeId(
   return rewritten ? next : source
 }
 
-/** 回写尺寸：只补/改 data-rune-width / data-rune-height，其它属性全部保留。 */
+/**
+ * 回写几何：宽高（正数）与偏移（有符号，0 视为默认值并删属性）。
+ * 只 patch 命中 nodeId 的开标签，其它属性全部保留。
+ */
+export function rewriteRunePlaceholderBoxByNodeId(
+  markdown = '',
+  nodeId = '',
+  {
+    width = null,
+    height = null,
+    offsetX = null,
+    offsetY = null,
+  }: { width?: unknown; height?: unknown; offsetX?: unknown; offsetY?: unknown } = {},
+): string {
+  const nextWidth = normalizeRuneDimension(width)
+  const nextHeight = normalizeRuneDimension(height)
+  const nextOffsetX = normalizeRuneOffset(offsetX)
+  const nextOffsetY = normalizeRuneOffset(offsetY)
+  const patch: Record<string, unknown> = {}
+  if (nextWidth) patch['data-rune-width'] = nextWidth
+  if (nextHeight) patch['data-rune-height'] = nextHeight
+  if (nextOffsetX !== null) patch['data-rune-offset-x'] = nextOffsetX === 0 ? null : nextOffsetX
+  if (nextOffsetY !== null) patch['data-rune-offset-y'] = nextOffsetY === 0 ? null : nextOffsetY
+  if (!Object.keys(patch).length) return String(markdown || '')
+  return patchRuneOpeningTagByNodeId(markdown, nodeId, patch)
+}
+
+/** 兼容旧调用：只回写宽高，不碰偏移。 */
 export function rewriteRunePlaceholderSizeByNodeId(
   markdown = '',
   nodeId = '',
   { width = null, height = null }: { width?: unknown; height?: unknown } = {},
 ): string {
-  const nextWidth = normalizeRuneDimension(width)
-  const nextHeight = normalizeRuneDimension(height)
-  if (!nextWidth && !nextHeight) return String(markdown || '')
-  const patch: Record<string, unknown> = {}
-  if (nextWidth) patch['data-rune-width'] = nextWidth
-  if (nextHeight) patch['data-rune-height'] = nextHeight
-  return patchRuneOpeningTagByNodeId(markdown, nodeId, patch)
+  return rewriteRunePlaceholderBoxByNodeId(markdown, nodeId, { width, height })
 }

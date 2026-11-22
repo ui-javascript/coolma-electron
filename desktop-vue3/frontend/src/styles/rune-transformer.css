@@ -22,7 +22,7 @@ html.dark .ag-rune-transformer {
 }
 
 .ag-rune-placeholder-host {
-  max-width: 100%;
+  /* 宽高由拖拽写入；宽度上限交给 editor 边界，不再被正文列 390.7px 钳住。 */
   overflow: hidden;
 }
 

@@ -21,15 +21,27 @@ const normalizeRuneDimension = value => {
   return Number.isFinite(number) && number > 0 ? Math.round(number) : null
 }
 
-const applyRuneHostSize = (host, dataset = {}) => {
+// 偏移允许负数与 0，表示相对文档流的 translate 位移。
+const normalizeRuneOffset = value => {
+  if (value === undefined || value === null || value === '') return null
+  const number = Number(value)
+  return Number.isFinite(number) ? Math.round(number) : null
+}
+
+const applyRuneHostGeometry = (host, dataset = {}) => {
   if (!host || !host.style) return
-  // 行内 raw HTML 通道只把 4 个符文键搬进 dataset，宽高仍留在普通 attrs 上；
+  // 行内 raw HTML 通道只把符文系统键搬进 dataset，宽高/偏移仍留在普通 attrs 上；
   // 两条来源都读，block/inline 两种宿主才能统一生效。
   const width = normalizeRuneDimension(dataset.runeWidth ?? host.getAttribute?.('data-rune-width'))
   const height = normalizeRuneDimension(dataset.runeHeight ?? host.getAttribute?.('data-rune-height'))
+  const offsetX = normalizeRuneOffset(dataset.runeOffsetX ?? host.getAttribute?.('data-rune-offset-x')) ?? 0
+  const offsetY = normalizeRuneOffset(dataset.runeOffsetY ?? host.getAttribute?.('data-rune-offset-y')) ?? 0
   host.style.boxSizing = 'border-box'
   host.style.width = width ? `${width}px` : ''
   host.style.height = height ? `${height}px` : ''
+  // 用独立的 translate 属性做视觉位移，不覆盖用户/卡片可能已有的 transform，
+  // 也不改变文档流高度：拖上/左只挪视觉左边界，不把后续正文一起推走。
+  host.style.translate = offsetX || offsetY ? `${offsetX}px ${offsetY}px` : ''
 }
 
 // 解析 SFC 字符串里的 props 块，返回 [{ name, default }] 数组。
@@ -141,7 +153,7 @@ const escapeAttrString = (value = '') => String(value)
 const RUNE_PROP_SYSTEM_ATTRS = new Set([
   'class', 'style', 'contenteditable', 'hidden', 'spellcheck', 'draggable', 'tabindex',
   'data-rune-name', 'data-rune-id', 'data-rune-node-id', 'data-rune-value',
-  'data-rune-width', 'data-rune-height'
+  'data-rune-width', 'data-rune-height', 'data-rune-offset-x', 'data-rune-offset-y'
 ])
 
 const readRuneRawAttrs = (host) => {
@@ -365,7 +377,7 @@ class StateRender {
       const rune = runeMap.get(runeName) || null
       host.classList.add(RUNE_HOST_CLASS)
       host.setAttribute('contenteditable', 'false')
-      applyRuneHostSize(host, dataset)
+      applyRuneHostGeometry(host, dataset)
       const cacheKey = JSON.stringify({
         runeName,
         instanceId,
@@ -524,7 +536,7 @@ class StateRender {
       const rune = runeMap.get(runeName) || null
       host.classList.add(RUNE_HOST_CLASS)
       host.setAttribute('contenteditable', 'false')
-      applyRuneHostSize(host, dataset)
+      applyRuneHostGeometry(host, dataset)
       const cacheKey = JSON.stringify({
         runeName,
         runeId,

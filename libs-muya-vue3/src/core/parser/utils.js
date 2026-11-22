@@ -12,7 +12,7 @@ export const WHITELIST_ATTRIBUTES = [
   'data-align',
   // 符文/回响占位宿主：这些 data-* 是挂载与渲染的输入，必须放行
   'data-rune-name', 'data-rune-id', 'data-rune-node-id', 'data-rune-value',
-  'data-rune-width', 'data-rune-height',
+  'data-rune-width', 'data-rune-height', 'data-rune-offset-x', 'data-rune-offset-y',
   'data-echo-name', 'data-echo-id', 'data-echo-node-id', 'data-echo-value',
   'data-echo-definition-id', 'data-echo-inline', 'data-echo-props-json'
 ]
@@ -55,6 +55,12 @@ const validWidthAndHeight = value => {
   return value >= 0 ? value : ''
 }
 
+// 符文偏移是有符号整数像素，0 合法；空串/小数/非数字一律丢弃。
+const validSignedOffset = value => {
+  if (!/^-?\d{1,}$/.test(value)) return ''
+  return parseInt(value, 10)
+}
+
 export const lowerPriority = (src, offset, rules) => {
   let i
   const ignoreIndex = []
@@ -95,6 +101,8 @@ export const getAttributes = html => {
     // 必须保留原始值，不能被 validWidthAndHeight 洗成空串。
     if (attr === 'width' || attr === 'height' || attr === 'data-rune-width' || attr === 'data-rune-height') {
       attrs[attr] = validWidthAndHeight(target.getAttribute(attr))
+    } else if (attr === 'data-rune-offset-x' || attr === 'data-rune-offset-y') {
+      attrs[attr] = validSignedOffset(target.getAttribute(attr))
     } else {
       attrs[attr] = target.getAttribute(attr)
     }
