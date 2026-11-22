@@ -799,15 +799,18 @@ figure[data-role] svg use[fill='#000000'] {
 }
 
 
-  /* R-07：失败图片上的“重试”按钮，位置贴着图片右下角 */
+  /* R-07：失败图片上的“重试”按钮。失败态是整行 100% × 50px 的条，
+     右上角 hover 时还会冒出 20×20 的“删除图片”按钮（index.css 里是
+     right:15px / top:15px），所以重试不能贴在右下角，必须把这一格让出来，
+     否则重试 z-index 更高，会把删除整个盖住。 */
   #ag-editor-id .ag-inline-image {
     position: relative;
   }
 
   #ag-editor-id .ag-image-retry {
     position: absolute;
-    right: 6px;
-    bottom: 6px;
+    right: 44px;
+    top: 14px;
     z-index: 2;
     padding: 2px 8px;
     font-size: 12px;
@@ -821,4 +824,9 @@ figure[data-role] svg use[fill='#000000'] {
 
   #ag-editor-id .ag-image-retry:hover {
     background: rgba(0, 0, 0, 0.82);
+  }
+
+  /* 重试占了右侧那一格，失败文案同样让出这段，避免长 alt 被按钮压住 */
+  #ag-editor-id .ag-inline-image.ag-image-fail::before {
+    width: calc(100% - 146px);
   }
