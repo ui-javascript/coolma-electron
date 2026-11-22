@@ -35,9 +35,15 @@ describe('远程组件源拼接规则', () => {
     expect(gh.warnings.join()).toContain('不支持版本目录')
   })
 
-  test('github pages：去掉 scope，按仓库目录拼', () => {
-    const { url } = buildSourceEntryUrl({ name: '@melt-js/comps-vue2-meme', type: MELT_SOURCE_TYPES.GITHUB, base: 'https://org.github.io/melt-dist/' })
-    expect(url).toBe('https://org.github.io/melt-dist/comps-vue2-meme/hel_dist/hel-meta.json')
+  test('github pages：组织根 + 去 scope 的包名（对齐 melt-js 真实部署）', () => {
+    // 实测：https://melt-js.github.io/comps-vue2-meme/hel_dist/hel-meta.json → 200
+    const { url } = buildSourceEntryUrl({ name: '@melt-js/comps-vue2-meme', type: MELT_SOURCE_TYPES.GITHUB, base: 'https://melt-js.github.io' })
+    expect(url).toBe('https://melt-js.github.io/comps-vue2-meme/hel_dist/hel-meta.json')
+  })
+
+  test('github pages：base 已是仓库根时只补产物目录，不重复拼包名', () => {
+    const { url } = buildSourceEntryUrl({ name: '@melt-js/comps-vue2-meme', type: MELT_SOURCE_TYPES.GITHUB, base: 'https://melt-js.github.io/comps-vue2-meme/' })
+    expect(url).toBe('https://melt-js.github.io/comps-vue2-meme/hel_dist/hel-meta.json')
   })
 
   test('直连产物地址原样使用（含 index.html）', () => {

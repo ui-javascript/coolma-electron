@@ -824,6 +824,8 @@ export default {
   remoteCompType_direct: '直连产物地址',
   remoteCompBase: '站点根 / 产物地址',
   remoteCompBaseHint: 'sftp 填站点根（如 http://ip），也可直接填 .../hel-meta.json；unpkg 不需要填',
+  remoteCompBaseHintGithub: 'GitHub Pages 填组织根（如 https://org.github.io），包名去掉 scope 作为仓库名；也可直接填仓库根',
+  remoteCompBaseHintUnpkg: 'unpkg 由包名 + 版本决定地址，不需要站点根',
   remoteCompVersion: '版本',
   remoteCompVersionHint: '留空按 latest 解析',
   remoteCompNoVersion: '该来源不支持版本目录',

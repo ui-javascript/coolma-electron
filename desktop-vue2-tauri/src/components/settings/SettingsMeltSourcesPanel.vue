@@ -47,7 +47,7 @@
               class='col'
               :disable='item.row.type === "unpkg"'
               :label='$t("remoteCompBase")'
-              :hint='$t("remoteCompBaseHint")'
+              :hint='baseHintFor(item.row)'
               placeholder='http://82.156.212.243'
               @change='persist'
             />
@@ -148,6 +148,11 @@ export default {
       const item = list.splice(index, 1)[0]
       list.splice(target, 0, item)
       this.persist()
+    },
+    baseHintFor (row) {
+      if (row.type === MELT_SOURCE_TYPES.GITHUB) return this.$t('remoteCompBaseHintGithub')
+      if (row.type === MELT_SOURCE_TYPES.UNPKG) return this.$t('remoteCompBaseHintUnpkg')
+      return this.$t('remoteCompBaseHint')
     },
     onTypeChange (row) {
       // 切到非 unpkg 时清掉版本，避免留下「已忽略」的脏值

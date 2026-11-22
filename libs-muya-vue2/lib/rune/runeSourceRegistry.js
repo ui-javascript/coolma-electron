@@ -111,6 +111,16 @@ export function buildSourceEntryUrl (source) {
     warnings.push('该来源需要填写组件名')
     return { url: '', warnings }
   }
+  if (src.type === MELT_SOURCE_TYPES.GITHUB) {
+    // GitHub Pages 的实测形态（melt-js demo-vue2）：
+    //   base 给组织根 https://<org>.github.io，每个包一个仓库 → base/<包名>/hel_dist/...
+    // 也允许 base 直接给到仓库根（末尾段名 == 包名），此时只补产物目录。
+    const lastSegment = src.base.slice(src.base.lastIndexOf('/') + 1)
+    if (lastSegment === pkgPath) {
+      return { url: `${src.base}/${src.distDir}/hel-meta.json`, warnings }
+    }
+    return { url: `${src.base}/${pkgPath}/${src.distDir}/hel-meta.json`, warnings }
+  }
   return { url: `${src.base}/${pkgPath}/${src.distDir}/hel-meta.json`, warnings }
 }
 

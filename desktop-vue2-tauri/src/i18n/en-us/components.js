@@ -824,6 +824,8 @@ export default {
   remoteCompType_direct: 'Direct artifact URL',
   remoteCompBase: 'Site root / artifact URL',
   remoteCompBaseHint: 'For sftp use the site root (e.g. http://ip) or a direct .../hel-meta.json; not required for unpkg',
+  remoteCompBaseHintGithub: 'For GitHub Pages use the org root (e.g. https://org.github.io); the scope-stripped name becomes the repo. A repo root also works.',
+  remoteCompBaseHintUnpkg: 'unpkg resolves by package name + version, no site root needed',
   remoteCompVersion: 'Version',
   remoteCompVersionHint: 'Empty means latest',
   remoteCompNoVersion: 'This source has no version directory',

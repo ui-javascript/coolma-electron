@@ -564,6 +564,11 @@ schema props 落进 `$attrs` 且从不透传 → **「HTML 属性 ≈ props」�
   其 meta 里 `src_map.webDirPath` = `http://82.156.212.243/@melt-js/comps-vue2-meme/hel_dist`。
 - 该服务器**没有版本目录**：`.../comps-vue2-meme@2026.11.18/hel_dist/hel-meta.json` → 404，
   所以 sftp 上的「版本」= 对方部署路径，写 version 只会拼出 404。
+- GitHub Pages 版 demo（`https://melt-js.github.io/demo-vue2/dist/`）deps 实测：
+  `host: "https://melt-js.github.io/comps-vue2-meme/hel_dist/hel-meta.json"` ——
+  **组织根 + 去 scope 的包名（= 仓库名）**，一包一仓库，同样没有版本目录
+  （`/comps-vue2-meme@2026.11.18/...` 与 `/@melt-js/comps-vue2-meme/...` 均 404）。
+  这条已按实测写进 `buildSourceEntryUrl` 的 github 分支（含「base 已是仓库根」的兼容）。
 
 ### 12.2 配置模型（`libs-muya-vue2/lib/rune/runeSourceRegistry.js`）
 
