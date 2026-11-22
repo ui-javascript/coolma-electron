@@ -609,3 +609,15 @@ schema props 落进 `$attrs` 且从不透传 → **「HTML 属性 ≈ props」�
 
 desktop-vue2 49 suites / 1271 tests 绿；desktop-vue2-tauri 15 suites / 120 tests 绿。
 真机待验收项不变（云主机无 GUI）。
+
+### 12.6 端到端实测（jsdom，2026-11-22）
+
+- 用 `jsdom`（`runScripts:dangerously`、`resources:usable`）+ 真实 `@melt-js/libs-core-vue2`
+  与 `hel-micro`，按注册表解析出的
+  `http://82.156.212.243/@melt-js/comps-vue2-meme/hel_dist/hel-meta.json` 拉包：
+  **成功**，导出 `TierRanking`（object）。
+- 同一次跑在跨源 origin（`http://localhost:8080`）下失败：`Error: Cross origin ... forbidden`。
+  原因是该服务器**没有 `Access-Control-Allow-Origin` 响应头**。
+  影响面：浏览器/纯 Web 模式会失败；Electron 主窗口 `webSecurity: false`，所以当前不受限。
+  结论：自建托管上线前请让对方补 CORS 头（`Access-Control-Allow-Origin: *`），
+  或后续用 `createHelLoader(fetchLib)` 走主进程请求 meta（未做）。

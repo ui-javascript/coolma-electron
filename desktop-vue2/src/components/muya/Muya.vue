@@ -160,6 +160,12 @@ const RunePreviewRenderer = Vue.extend({
     onValueChange: {
       type: Function,
       default: null
+    },
+    runeProps: {
+      // 用户手写的 data-rune-prop-* / 自然属性（已按 propDefs 归一），
+      // 由 mountRuneVueHosts 采集后整包传来，这里再摊给真正的符文组件。
+      type: Object,
+      default: null
     }
     // 注：SFC 自定义的 props（如 inheritFromPrevious）由 mountRuneVueHosts
     // 通过三优先级合并写到 host.dataset，再按 Vue props 规则显式传入。
@@ -202,6 +208,8 @@ const RunePreviewRenderer = Vue.extend({
     const self = this
     return h(this.rendererCtor, {
       props: {
+        // 用户 props 先摊开，运行时字段后写，保证 runeId/nodeId/value 不被覆盖
+        ...(this.runeProps || {}),
         runeId: this.runeId,
         nodeId: this.nodeId,
         rune: this.rune,

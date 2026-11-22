@@ -8,6 +8,9 @@
       <div class='text-caption text-grey-7 q-mb-sm melt-hint'>
         {{ $t('remoteCompsHint') }}
       </div>
+      <div class='text-caption text-grey-7 q-mb-sm melt-hint'>
+        {{ $t('remoteCompsCorsHint') }}
+      </div>
 
       <div v-if='decorated.length === 0' class='text-center text-grey q-pa-lg'>
         <q-icon name='extension' size='2.5rem' />

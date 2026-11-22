@@ -155,8 +155,8 @@ export const createRuneRendererCtor = (rune = {}) => {
   }
 
   // melt-js 定义不是 SFC：template 是 JSON 配置，交给远端组件渲染器处理。
-  // 远端渲染器还没接（当前只做「笔记侧属性 ABI 适配」），这里返回 null，
-  // 上层 mountRuneVueHosts 会退回占位卡片，不会尝试把 JSON 当 SFC 编译。
+  // 这里返回 null，由 Muya.vue 先走 melt 壳、再回落到本工厂，绝不把 JSON 当 SFC 编译。
+  // 老 SFC 符文走原逻辑，一行不改。
   if (detectRuneType(templateSource) === RUNE_TYPE_MELT_JS) {
     runeRendererCtorCache.set(cacheKey, null)
     return null

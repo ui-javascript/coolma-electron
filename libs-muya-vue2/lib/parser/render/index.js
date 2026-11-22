@@ -585,7 +585,12 @@ class StateRender {
         mountedVm.rune = rune
         mountedVm.value = runeValue
         mountedVm.onValueChange = onValueChange
-        // 把变化后的 prop 集合同步到 SFC
+        // 用户手写的 props 打包成一个对象 prop 透传：宿主渲染层（RunePreviewRenderer）
+        // 再摊到真正的符文组件上。未声明的 prop 直接赋到实例上不会触发 Vue props 更新。
+        if (mountedVm.$options.props && mountedVm.$options.props.runeProps) {
+          mountedVm.runeProps = sfcProps
+        }
+        // 老路径：SFC 自己声明过的 prop 仍逐个赋值（保持原有行为）
         Object.keys(mountedVm.$options.props || {}).forEach((propName) => {
           if (Object.prototype.hasOwnProperty.call(sfcProps, propName)) {
             mountedVm[propName] = sfcProps[propName]
@@ -604,6 +609,8 @@ class StateRender {
           runeId,
           nodeId,
           rune,
+          // 整包透传（跨渲染层），老的逐 prop 展开保留以兼容 SFC 路径
+          runeProps: sfcProps,
           ...sfcProps,
           value: runeValue,
           onValueChange
@@ -782,6 +789,9 @@ class StateRender {
         mountedVm.rune = rune
         mountedVm.value = runeValue
         mountedVm.onValueChange = onValueChange
+        if (mountedVm.$options.props && mountedVm.$options.props.runeProps) {
+          mountedVm.runeProps = sfcProps
+        }
         Object.keys(mountedVm.$options.props || {}).forEach((propName) => {
           if (Object.prototype.hasOwnProperty.call(sfcProps, propName)) {
             mountedVm[propName] = sfcProps[propName]
@@ -807,6 +817,8 @@ class StateRender {
           runeId,
           nodeId,
           rune,
+          // 整包透传（跨渲染层），老的逐 prop 展开保留以兼容 SFC 路径
+          runeProps: sfcProps,
           ...sfcProps,
           value: runeValue,
           onValueChange

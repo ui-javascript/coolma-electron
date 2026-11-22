@@ -815,6 +815,7 @@ export default {
   remoteComps: 'Remote Components',
   remoteCompsAdd: 'Add Component',
   remoteCompsHint: 'Entries with the same component name resolve in list order: later wins. SFTP / GitHub Pages usually have no version directory (the deployed path decides the version); only unpkg supports name@version.',
+  remoteCompsCorsHint: 'Self-hosted servers must send Access-Control-Allow-Origin: *, otherwise the browser build fails to fetch hel-meta.json with Cross origin forbidden. The Electron build currently bypasses it via webSecurity=false.',
   remoteCompName: 'Component name',
   remoteCompType: 'Source type',
   remoteCompType_sftp: 'SFTP / self-hosted',

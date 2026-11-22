@@ -816,6 +816,7 @@ export default {
   remoteComps: '远程组件',
   remoteCompsAdd: '新增组件',
   remoteCompsHint: '同名组件按列表顺序覆盖：越靠后优先级越高。SFTP / GitHub Pages 一般没有版本目录，版本由对方部署路径决定；只有 unpkg 支持 name@version。',
+  remoteCompsCorsHint: '自建托管要允许跨域（响应头 Access-Control-Allow-Origin: *），否则浏览器模式拉 hel-meta.json 会报 Cross origin forbidden；Electron 端因 webSecurity 关闭暂不受限。',
   remoteCompName: '组件名',
   remoteCompType: '来源类型',
   remoteCompType_sftp: 'SFTP / 自建静态托管',
