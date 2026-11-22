@@ -510,3 +510,45 @@ desktop-vue2-tauri 15 suites / 120 tests 全绿。
 
 真机待验收（环境无 GUI，未做）：真实 CDN 拉 `comps-vue2-meme` 的端到端渲染、
 加载失败重试、断网回落错误卡、同一笔记内多实例共享一次加载。
+
+## 11. P0-4 远端产物按需加载 + 用户 props 透传（本轮）
+
+用户口径修正：**组件产物必须从对方远端拉**，我方只维护「指向（host/dep）+ 版本」。
+因此壳不再把产物打进本地依赖，改成每次（命中缓存外）用 loader 去远端取。
+
+### 11.1 加载策略
+
+- 资源获取从 `{ dep }` 改为 `{ loader: () => loader.loadHelLib(spec) }`，
+  `spec` 由 `buildMeltLoadSpec(config)` 产出。
+- **dep 级 loader 缓存**（`depLoaderCache`，key = `platform|name|version|host|type`）：
+  同一个 dep 只建一个 `createHelLoader` 实例，引用计数与「同笔记多实例只拉一次」都靠它兜住。
+- **host 三种写法**（`resolveHelDep` 实跑确认）：
+  1. 直连 `.../hel-meta.json` 或 `.../index.html` → 原样当 dep 用，name 由路径推导，不拼版本；
+  2. 自建站点根（如 `https://ip/tools`）→ 拼 `https://ip/tools/@scope/name@version/hel_dist/hel-meta.json`
+     （base 里若已含包目录会重复拼，属误用）；
+  3. unpkg → `comps-*` 走 `hel_dist/`，`tpl-*`/`demo-*` 同，其余走 `dist/`。
+  自建 host 最省事的接法是直接给到 `.../hel-meta.json`，版本由对方部署路径决定。
+- **版本语义**：`dep.version` 为空或 `latest` = 浮动（每次重新解析最新 meta）；
+  写死具体版本 = 冻结。这是「我方维护版本控制」的落点，目前编码在 spec 解析里，
+  暂未单独抽成策略层。
+
+### 11.2 刷新
+
+错误卡按钮由「重试」改为「刷新」：换 dep loader（连带 hel/melt 进程内缓存）
++ `refreshEpoch` 世代 +1（池 key = `${base}#N`）→ 重新拉产物；旧实例继续用旧产物，
+卸载时再释放。踩坑：方法直接挂 `v-on` 会丢 `this`（Vue 报 handler ReferenceError），
+已改箭头函数包一层。
+
+### 11.3 用户 props 透传（链路真实缺口）
+
+`mountRuneVueHosts` 采集到的宿主属性此前塞进 `propsData`，但渲染的是
+`RunePreviewRenderer` 这层包装组件，它只声明 `runeId/nodeId/rune/value/onValueChange`，
+schema props 落进 `$attrs` 且从不透传 → **「HTML 属性 ≈ props」在实环境里传不到**。
+修法：采集结果打包成单个对象 prop `runeProps` 传下去，`RunePreviewRenderer.render`
+里 `...(this.runeProps || {})` 摊到真正组件（运行时字段后写，避免被覆盖）；
+复用分支同时保留老的逐 prop 赋值以兼容 SFC 路径。
+
+### 11.4 状态
+
+- desktop-vue2 47 suites / 1250 tests 绿；desktop-vue2-tauri 15 suites / 123 tests 绿。
+- 真机仍未验收（云主机无 GUI）。等用户给 SFTP 自建静态托管地址后按其形态配 host 实测。
