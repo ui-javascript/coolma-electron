@@ -17,6 +17,11 @@ export const WHITELIST_ATTRIBUTES = [
   'data-echo-definition-id', 'data-echo-inline', 'data-echo-props-json'
 ]
 
+// 符文 props 用 data-rune-prop-<kebab> 前缀，数量由 SFC props 声明决定，
+// 不能靠枚举；只放行这个前缀，其它任意 data-* 仍然丢弃。
+export const isWhitelistedAttribute = attr =>
+  WHITELIST_ATTRIBUTES.includes(attr) || /^data-rune-prop-[a-z0-9-]+$/.test(attr)
+
 // export const unicodeZsCategory = [
 //   '\u0020', '\u00A0', '\u1680', '\u2000', '\u2001', '\u2001',
 //   '\u2002', '\u2003', '\u2004', '\u2005', '\u2006', '\u2007',
@@ -85,8 +90,10 @@ export const getAttributes = html => {
     })
   }
   for (const attr of target.getAttributeNames()) {
-    if (!WHITELIST_ATTRIBUTES.includes(attr)) continue
-    if (/width|height/.test(attr)) {
+    if (!isWhitelistedAttribute(attr)) continue
+    // 只把真正的宽高数字归一化；符文自定义 prop（如 data-rune-prop-max-width）
+    // 必须保留原始值，不能被 validWidthAndHeight 洗成空串。
+    if (attr === 'width' || attr === 'height' || attr === 'data-rune-width' || attr === 'data-rune-height') {
       attrs[attr] = validWidthAndHeight(target.getAttribute(attr))
     } else {
       attrs[attr] = target.getAttribute(attr)

@@ -394,6 +394,17 @@ async function main(): Promise<void> {
         && parsedAttrs['data-rune-node-id'] === 'n3',
       JSON.stringify(parsedAttrs),
     );
+    const propAttrs = getAttributes(
+      '<div data-rune-prop-inherit-from-previous="1" data-rune-prop-title="A &amp; B" data-rune-prop-max-width="auto" data-unknown="x">y</div>',
+    ) as Record<string, unknown>;
+    assert(
+      'Rune props：解析保留 data-rune-prop-*，不洗宽高值、不放行任意 data-*',
+      propAttrs['data-rune-prop-inherit-from-previous'] === '1'
+        && propAttrs['data-rune-prop-title'] === 'A & B'
+        && propAttrs['data-rune-prop-max-width'] === 'auto'
+        && !Object.prototype.hasOwnProperty.call(propAttrs, 'data-unknown'),
+      JSON.stringify(propAttrs),
+    );
   }
 
   // ===== 自动上传闸门（P1-5）：常量与 vue2 一致，冷却/断网/无 pending 不推 =====

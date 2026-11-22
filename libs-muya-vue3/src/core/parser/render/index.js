@@ -133,25 +133,56 @@ const escapeAttrString = (value = '') => String(value)
   .replace(/</g, '&lt;')
   .replace(/>/g, '&gt;')
 
-// 从 host.dataset 按 prop 名收集"用户显式写过"的 prop 值（按 Vue props 解析规则）：
-//   - 有 dataset → 当作显式 prop 传入 SFC
-//   - 没 dataset → 不传，SFC 自己用 props.default
-// 这样：
-//   - 用户手写在 Markdown 里的 data-rune-prop-* 是最高优先级
-//   - SFC 自己的 props.default 由 Vue 兜底
-//   - 占位符 div 上不会自动出现 data-rune-prop-*，Markdown 体积不会膨胀
+// 从 host.dataset 与原始 Markdown 标签按 prop 名收集"用户显式写过"的 prop 值：
+//   - data-rune-prop-* 优先（历史 ABI）
+//   - 自然属性兜底（maxHeight → max-height），原始标签不会被解析白名单洗掉
+//   - 都没写 → 不传，SFC 自己用 props.default
+// 系统属性（class/style/contenteditable 等）不参与映射，避免和宿主标记撞车。
+const RUNE_PROP_SYSTEM_ATTRS = new Set([
+  'class', 'style', 'contenteditable', 'hidden', 'spellcheck', 'draggable', 'tabindex',
+  'data-rune-name', 'data-rune-id', 'data-rune-node-id', 'data-rune-value',
+  'data-rune-width', 'data-rune-height'
+])
+
+const readRuneRawAttrs = (host) => {
+  const raw = host && host.getAttribute ? host.getAttribute('data-raw') : ''
+  if (!raw) return null
+  try {
+    const doc = new DOMParser().parseFromString(raw, 'text/html')
+    const el = doc.body && doc.body.firstElementChild
+    if (!el) return null
+    const attrs = {}
+    for (const attr of el.getAttributeNames()) attrs[attr] = el.getAttribute(attr)
+    return attrs
+  } catch (_e) {
+    return null
+  }
+}
+
 const collectRunePropsFromHost = (host, propDefs) => {
   const dataset = host && host.dataset ? host.dataset : {}
+  const rawAttrs = readRuneRawAttrs(host)
   const out = {}
   for (const def of propDefs) {
+    const kebab = camelToKebab(def.name)
+    if (RUNE_PROP_SYSTEM_ATTRS.has(def.name) || RUNE_PROP_SYSTEM_ATTRS.has(kebab)) continue
     const attr = toRunePropAttr(def.name)
     let raw
     if (Object.prototype.hasOwnProperty.call(dataset, attr)) {
       raw = dataset[attr]
     } else if (Object.prototype.hasOwnProperty.call(dataset, attr.toLowerCase())) {
       raw = dataset[attr.toLowerCase()]
+    } else if (rawAttrs && Object.prototype.hasOwnProperty.call(rawAttrs, kebab)) {
+      raw = rawAttrs[kebab]
+    } else if (host && host.hasAttribute && host.hasAttribute(kebab)) {
+      raw = host.getAttribute(kebab)
     }
     if (raw === undefined || raw === null) continue
+    // 空属性（<div disabled>）按属性存在语义归一为 true，与 Vue 布尔属性一致。
+    if (raw === '') {
+      out[def.name] = true
+      continue
+    }
     // 把字符串归一化回 JS 值
     if (raw === '1') out[def.name] = true
     else if (raw === '0') out[def.name] = false

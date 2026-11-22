@@ -22,7 +22,9 @@
 > 2026-11-22 三库混用接入：`main.ts` 已全局注册 Element Plus、Ant Design Vue 和 Quasar。Ant 以 `app.use(Antd)` 全量注册（135 个组件），并用 `a-config-provider` 注入 `zh_CN` 和暗色算法；Quasar 裸 Vue 不会自动注册组件，改为从 `quasar` 命名空间收集全部 `Q*` 组件（122 个），同时挂 `Ripple/ClosePopup/Scroll` 等指令和 `Notify/Dialog/Loading/Dark` 等插件，语言包为 `zh-CN`。真实页面核对 `AButton/ACalendar/QBtn/QDate` 均可解析，`$q.notify/dialog/loading` 已注入。Quasar 的 `body` 字体、14px 行高和 `#121212` 暗色背景已用更高优先级选择器压回 Coolma 基线。三库全量注册后默认 2GB 堆会 OOM，已按库拆 `vendor-antd`/`vendor-quasar`/`vendor-element` chunk，并新增 `scripts/build-frontend.mjs` 自动给 4GB 堆，`pnpm build-frontend` 可直接出包。
 
 
-> 2026-11-22 Rune 尺寸拖拽：移植 vue2 `RuneTransformer`，点击符文宿主显示四角控制点，拖动写回 `data-rune-width/height`，最小 80×40，保留 `data-rune-prop-*` 与其它占位符。同步修引擎两处断点：`WHITELIST_ATTRIBUTES` 放行符文宽高，`applyRuneHostSize` 兼容普通 attr。真实 1123×748 验收 390.6875×56 → 391×226 → 263×156 → 80×40，详见 `rune-resize-20261122.md`。仍未做：`data-rune-prop-*` 持久化与 SFC props 消费链路。
+> 2026-11-22 Rune 尺寸拖拽：移植 vue2 `RuneTransformer`，点击符文宿主显示四角控制点，拖动写回 `data-rune-width/height`，最小 80×40，保留 `data-rune-prop-*` 与其它占位符。同步修引擎两处断点：`WHITELIST_ATTRIBUTES` 放行符文宽高，`applyRuneHostSize` 兼容普通 attr。真实 1123×748 验收 390.6875×56 → 391×226 → 263×156 → 80×40，详见 `rune-resize-20261122.md`。同日补齐 `data-rune-prop-*` 与自然属性的解析/SFC props 消费（dataset 优先、自然属性兜底、未写走 default），详见 `rune-props-20261122.md`；仍无 props 编辑回写 UI。
+>
+> 2026-11-22 复刻执行清单：剩余缺口按 `replica-plan-20261122.md` 的 R/E/S/C 编号推进，不再散落在各文档里。
 
 ## P0：流程断点
 
