@@ -39,7 +39,7 @@ alwaysApply: false
 - PowerShell 默认禁止多语句 `;`/`&&`/`||` 拼接。所有命令链**分多条 Shell 调用**。
 - 如果必须用 `cmd /c`，参数必须**单语句、不含变量替换**：
   - 允许：`cmd /c "dir C:\Users"`
-  - 禁止：`cmd /c "for /d %i in (C:\Users\COLORFUL\AppData\Local\Temp\memocast-blog-smoke-*) do rd /s /q \"%i\""`
+  - 禁止：`cmd /c "for /d %i in (C:\Users\<you>\AppData\Local\Temp\memocast-blog-smoke-*) do rd /s /q \"%i\""`
   - 禁止：连用 `&` 拼接多条命令：`cmd /c "mkdir X 2>nul & dir /b X"` —— 必须分两次调用
 - 跨平台路径必须用 `path.join(...)` 拼接，不允许在 shell 字符串里手工拼 `..\`。
 
