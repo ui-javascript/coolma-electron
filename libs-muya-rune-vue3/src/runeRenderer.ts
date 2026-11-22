@@ -3,12 +3,230 @@ import { compile } from '@vue/compiler-dom';
 
 type AnyRecord = Record<string, any>;
 
+const STYLE_BLOCK_RE = /<style\b([^>]*)>([\s\S]*?)<\/style>/i;
+
 function section(source: string, tag: string): string {
   const open = source.indexOf('<' + tag);
   if (open < 0) return '';
   const start = source.indexOf('>', open);
   const end = source.indexOf('</' + tag + '>', start);
   return start < 0 || end < 0 ? '' : source.slice(start + 1, end).trim();
+}
+
+/** 稳定 scopeId：同一 rune 每次编译得到同一个 data-v-*。 */
+function runeScopeId(rune: AnyRecord): string {
+  const key = String(rune.id || rune.name || 'default');
+  let hash = 2166136261;
+  for (let i = 0; i < key.length; i++) {
+    hash ^= key.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `data-v-${(hash >>> 0).toString(36)}`;
+}
+
+function splitTopLevel(source: string, separator: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let quote = '';
+  let start = 0;
+  for (let i = 0; i < source.length; i++) {
+    const ch = source[i];
+    if (quote) {
+      if (ch === '\\') i++;
+      else if (ch === quote) quote = '';
+      continue;
+    }
+    if (ch === '"' || ch === "'") { quote = ch; continue; }
+    if (ch === '(' || ch === '[') depth++;
+    else if (ch === ')' || ch === ']') depth--;
+    else if (ch === separator && depth === 0) {
+      parts.push(source.slice(start, i));
+      start = i + 1;
+    }
+  }
+  parts.push(source.slice(start));
+  return parts;
+}
+
+/** 找到 :deep()/::v-deep() 调用的括号范围，返回 head 与内部选择器位置。 */
+function findDeepCall(source: string): { head: string; inner: string } | null {
+  for (const marker of [':deep(', '::v-deep(']) {
+    const start = source.indexOf(marker);
+    if (start < 0) continue;
+    let depth = 0;
+    let quote = '';
+    for (let i = start + marker.length - 1; i < source.length; i++) {
+      const ch = source[i];
+      if (quote) {
+        if (ch === '\\') i++;
+        else if (ch === quote) quote = '';
+        continue;
+      }
+      if (ch === '"' || ch === "'") quote = ch;
+      else if (ch === '(') depth++;
+      else if (ch === ')') {
+        depth--;
+        if (depth === 0) {
+          return { head: source.slice(0, start).trim(), inner: source.slice(start + marker.length, i).trim() };
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/** 给单个选择器的最后一个 compound 加 [data-v-*]，伪类/伪元素前插入。 */
+export function scopeSelector(selector: string, scopeId: string): string {
+  const source = selector.trim();
+  if (!source) return source;
+  const globalMatch = source.match(/^:global\(([\s\S]*)\)$/);
+  if (globalMatch) return globalMatch[1];
+  const attr = `[${scopeId}]`;
+  // :deep()/::v-deep() 表示作用域到此为止：头部照常加 data-v，内部选择器保持全局命中。
+  const deep = findDeepCall(source);
+  if (deep) {
+    const head = deep.head ? scopeSelector(deep.head, scopeId) : attr;
+    return deep.inner ? `${head} ${deep.inner}` : head;
+  }
+
+  let depth = 0;
+  let lastCombinator = -1;
+  let quote = '';
+  for (let i = 0; i < source.length; i++) {
+    const ch = source[i];
+    if (quote) {
+      if (ch === '\\') i++;
+      else if (ch === quote) quote = '';
+      continue;
+    }
+    if (ch === '"' || ch === "'") { quote = ch; continue; }
+    if (ch === '(' || ch === '[') depth++;
+    else if (ch === ')' || ch === ']') depth--;
+    else if (depth === 0 && (ch === ' ' || ch === '\t' || ch === '\n' || ch === '>' || ch === '+' || ch === '~')) {
+      lastCombinator = i;
+    }
+  }
+  const prefix = source.slice(0, lastCombinator + 1);
+  const compound = source.slice(lastCombinator + 1);
+  if (!compound) return source;
+
+  let insertion = compound.length;
+  depth = 0;
+  quote = '';
+  for (let i = 0; i < compound.length; i++) {
+    const ch = compound[i];
+    if (quote) {
+      if (ch === '\\') i++;
+      else if (ch === quote) quote = '';
+      continue;
+    }
+    if (ch === '"' || ch === "'") { quote = ch; continue; }
+    if (ch === '(' || ch === '[') depth++;
+    else if (ch === ')' || ch === ']') depth--;
+    else if (depth === 0 && ch === ':') { insertion = i; break; }
+  }
+  return `${prefix}${compound.slice(0, insertion)}${attr}${compound.slice(insertion)}`;
+}
+
+function findMatchingBrace(source: string, openIndex: number): number {
+  let depth = 1;
+  let quote = '';
+  for (let i = openIndex + 1; i < source.length; i++) {
+    const ch = source[i];
+    if (quote) {
+      if (ch === '\\') i++;
+      else if (ch === quote) quote = '';
+      continue;
+    }
+    if (ch === '"' || ch === "'") { quote = ch; continue; }
+    if (ch === '/' && source[i + 1] === '*') {
+      const end = source.indexOf('*/', i + 2);
+      i = end < 0 ? source.length : end + 1;
+      continue;
+    }
+    if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return source.length;
+}
+
+function scopeBlock(source: string, scopeId: string): string {
+  let out = '';
+  let i = 0;
+  while (i < source.length) {
+    if (/\s/.test(source[i])) { out += source[i++]; continue; }
+    if (source[i] === '/' && source[i + 1] === '*') {
+      const end = source.indexOf('*/', i + 2);
+      const stop = end < 0 ? source.length : end + 2;
+      out += source.slice(i, stop);
+      i = stop;
+      continue;
+    }
+    if (source[i] === '@') {
+      let j = i;
+      let depth = 0;
+      while (j < source.length) {
+        const ch = source[j];
+        if (ch === '(') depth++;
+        else if (ch === ')') depth--;
+        else if (depth === 0 && (ch === ';' || ch === '{')) break;
+        j++;
+      }
+      const prelude = source.slice(i, j);
+      if (source[j] === ';') {
+        out += `${prelude};`;
+        i = j + 1;
+        continue;
+      }
+      if (j >= source.length) { out += prelude; break; }
+      const close = findMatchingBrace(source, j);
+      const body = source.slice(j + 1, close);
+      if (/^@(?:-[a-z]+-)?keyframes\b/i.test(prelude)) {
+        out += `${prelude}{${body}}`;
+      } else if (/^@(?:media|supports|layer|container|document)\b/i.test(prelude)) {
+        out += `${prelude}{${scopeBlock(body, scopeId)}}`;
+      } else {
+        out += `${prelude}{${body}}`;
+      }
+      i = close + 1;
+      continue;
+    }
+
+    let j = i;
+    let depth = 0;
+    let quote = '';
+    while (j < source.length) {
+      const ch = source[j];
+      if (quote) {
+        if (ch === '\\') j++;
+        else if (ch === quote) quote = '';
+        j++;
+        continue;
+      }
+      if (ch === '"' || ch === "'") { quote = ch; j++; continue; }
+      if (ch === '(' || ch === '[') depth++;
+      else if (ch === ')' || ch === ']') depth--;
+      else if (depth === 0 && ch === '{') break;
+      j++;
+    }
+    if (j >= source.length) { out += source.slice(i); break; }
+    const selectors = splitTopLevel(source.slice(i, j), ',')
+      .map((item) => scopeSelector(item, scopeId))
+      .join(',');
+    const close = findMatchingBrace(source, j);
+    out += `${selectors}{${source.slice(j + 1, close)}}`;
+    i = close + 1;
+  }
+  return out;
+}
+
+/** 复刻 Vue `<style scoped>`：只保留命中 `[data-v-*]` 的节点。 */
+export function scopeCss(css: string, scopeId: string): string {
+  if (!css || !scopeId) return css;
+  return scopeBlock(css, scopeId);
 }
 
 /**
@@ -66,13 +284,20 @@ export function createRuneRendererCtor(rune: AnyRecord = {}): any {
   const source = String(rune.template || '');
   const template = section(source, 'template');
   const script = evaluateScript(section(source, 'script'));
-  const style = section(source, 'style');
-  ensureRuneStyle(rune, style);
+  const styleMatch = source.match(STYLE_BLOCK_RE);
+  const styleAttrs = styleMatch ? styleMatch[1] : '';
+  const style = styleMatch ? styleMatch[2].trim() : '';
+  const scoped = /\bscoped\b/i.test(styleAttrs);
+  const scopeId = scoped ? runeScopeId(rune) : '';
+  // `<style lang="less|scss">` 目前没有预处理器，内置模板的 less 块本身是扁平 CSS，
+  // 直接按 CSS 使用；真正的嵌套语法仍属于单独缺口，不能在这里假装编译了。
+  ensureRuneStyle(rune, scoped ? scopeCss(style, scopeId) : style);
   const render = compileTemplate(template);
   if (!render) return null;
   const props = declaredProps(script);
   const allProps = { runeId: null, nodeId: null, rune: null, value: null, onValueChange: null, ...props };
   const component = Vue.defineComponent({ ...script, props: allProps, render });
+  if (scopeId) (component as AnyRecord).__scopeId = scopeId;
   return function RuneRenderer(options: AnyRecord = {}) {
     const state = Vue.reactive({ ...(options.propsData || {}) });
     const root = document.createElement('div');

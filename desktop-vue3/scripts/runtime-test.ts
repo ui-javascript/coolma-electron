@@ -405,6 +405,26 @@ async function main(): Promise<void> {
         && !Object.prototype.hasOwnProperty.call(propAttrs, 'data-unknown'),
       JSON.stringify(propAttrs),
     );
+    const { scopeCss } = (await import('../../libs-muya-rune-vue3/src/runeRenderer')) as Any;
+    const scoped = String(scopeCss(
+      '.a, .b:hover { color: red }\n.x::before, .y > .z { content: "" }\n.a :deep(.el-input__inner) { color: teal }\n.a:deep(.x) { color: gold }\n@keyframes glow { 0% { opacity: 0 } 100% { opacity: 1 } }\n@media (min-width: 600px) { .m { color: blue } }\n:global(.g) { color: green }',
+      'data-v-test',
+    ));
+    assert(
+      'Rune scoped：选择器加 data-v，伪类/伪元素与后代组合正确',
+      scoped.includes('.a[data-v-test],.b[data-v-test]:hover')
+        && scoped.includes('.x[data-v-test]::before,.y > .z[data-v-test]')
+        && scoped.includes('.a[data-v-test] .el-input__inner{ color: teal }')
+        && scoped.includes('.a[data-v-test] .x{ color: gold }'),
+      scoped,
+    );
+    assert(
+      'Rune scoped：keyframes 不加作用域，media 内部加，global 保持全局',
+      /@keyframes glow \{ 0% \{ opacity: 0 \} 100% \{ opacity: 1 \} \}/.test(scoped)
+        && /@media \(min-width: 600px\) \{\s*\.m\[data-v-test\]\{\s*color: blue\s*\}\s*\}/.test(scoped)
+        && scoped.includes(':global') === false,
+      scoped,
+    );
   }
 
   // ===== 自动上传闸门（P1-5）：常量与 vue2 一致，冷却/断网/无 pending 不推 =====

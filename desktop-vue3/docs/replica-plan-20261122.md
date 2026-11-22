@@ -21,7 +21,7 @@
 | R-01 | 符文 props 链路 | `data-rune-prop-*` 曾被解析白名单丢弃；渲染层已有 dataset→SFC props 的消费代码 | Markdown 手写 props 能进 host dataset、进 SFC props；未写的走 SFC default；编辑后 `getMarkdown()` 原样保留 | 已提交 `abebaef` |
 | R-02 | Rune 四角缩放只验收右下角 | 左上/右上/左下共用同一套公式，未逐个手动拖拽 | 四角各拖一次，记录宽高与边界；左/上控制点行为与 vue2 一致 | 待办 |
 | R-03 | Rune 运行时动画未逐项验收 | 成长/碎裂/天空步道/双生花等只有代码，没有逐项对照 | 每个动画至少一张静态对照 + 一次触发录屏，参数与 v2 一致 | 待办 |
-| R-04 | SFC `<style scoped>` / `less` / `scss` | 样式原样注入 head，scoped 未改写，预处理器未编译 | scoped 选择器生效且不污染全局；less/scss 模板可正常渲染 | 待办 |
+| R-04 | SFC `<style scoped>` / `less` / `scss` | 样式原样注入 head，scoped 未改写；v2 运行态同样不编译预处理器 | scoped 选择器生效且不污染全局；`:deep/:global/@media/@keyframes` 正确；内置 less 扁平样式正常；嵌套预处理器语法与 v2 一样不编译 | 已修复，见 `rune-scoped-20261122.md` |
 | R-05 | `mountRuneVueHosts` 重复定义 | `libs-muya-vue3/src/core/parser/render/index.js` 约 641、825 两处，后者生效 | 合并为一处，行为不变，回归 Rune 卡片与 props | 待办 |
 | R-06 | 中间位置 Mermaid 激活遮挡 | 只有文末 `last-child` 改 static，中间节点仍是 absolute 预览 | 中间 Mermaid 激活不覆盖后续正文；文末仍不被底栏遮住 | 已修复，见 `mermaid-mid-20261122.md` |
 | R-07 | 外链图片可能落 `ag-image-fail` | 内联 data URI 实测成功；外链 GitHub 头像失败 | 外链图片能显示；失败时有不误导的占位/重试 | 待办 |
@@ -56,8 +56,8 @@
 1. **R-01** 符文 props 链路：已提交 `abebaef`，显式 / 默认 / 自然属性 / 优先级四种状态验收完成。
 2. **R-06** 中间 Mermaid 遮挡：已修复，预览回到文档流，中间与文末均无重叠。
 3. **R-08** 内置模板选择器：复核为**误判**，14 项本来就在，已关闭。
-4. **R-04** SFC `<style scoped>` / less / scss：下一项，先查当前内置模板有多少依赖 scoped 与预处理器。
-5. **R-07** 外链图片：R-04 之后处理。
+4. **R-04** SFC scoped：已修复，作用域只命中符文内部，正文同类名不再被污染；预处理器按 v2 运行态不编译。
+5. **R-07** 外链图片：下一项。
 6. R-02 → R-03：四角与动画逐项验收，放到 Rune 专项批次。
 7. E-01：等功能断点清完再进真机，避免反复开 Electron。
 
