@@ -38,6 +38,7 @@
   "dependencies": {
     "@electron/remote": "^2.1.3",
     "@hfelix/electron-localshortcut": "4.0.1",
+    "@melt-js/libs-core-vue2": "2026.11.16",
     "@vue/compiler-sfc": "2.7.16",
     "consola": "^3.4.2",
     "electron-log": "4.4.8",

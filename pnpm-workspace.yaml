@@ -41,6 +41,7 @@ allowBuilds:
   esbuild@0.14.7: true
   esbuild@0.21.5: true
   esbuild@0.28.2: true
+  esbuild@0.25.12: true
   highlight.js@9.18.5: false
   lzma-native: false
   ssh2: false

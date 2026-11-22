@@ -23,6 +23,7 @@
     "plugin:muya:status": "node -p \"require.resolve('libs-muya-vue2')\""
   },
   "dependencies": {
+    "@melt-js/libs-core-vue2": "2026.11.16",
     "@tauri-apps/api": "2.12.5",
     "@tauri-apps/plugin-dialog": "2.8.4",
     "@tauri-apps/plugin-updater": "^2.14.1",
