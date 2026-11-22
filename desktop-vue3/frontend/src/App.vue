@@ -24,7 +24,7 @@ import UpdateDialog from '@/components/UpdateDialog.vue';
 import { useAppStore } from '@/stores/app';
 import { useNotesStore } from '@/stores/notes';
 import { useSyncStore } from '@/stores/sync';
-import { hasIpc } from '@/services/ipc';
+import { hasIpc, getWindowState } from '@/services/ipc';
 import antdZhCN from 'ant-design-vue/es/locale/zh_CN';
 import { theme as antdTheme } from 'ant-design-vue';
 import { useQuasar } from 'quasar';
@@ -54,6 +54,24 @@ const router = useRouter();
 const { t } = useI18n();
 const updateVisible = ref(false);
 let updatePrompted = false;
+let windowFrameTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** 无边框窗口：标记 body，并跟随最大化状态切换边缘安全区。 */
+async function syncWindowFrame(): Promise<void> {
+  const result = await getWindowState();
+  if (result.ok) {
+    document.body.classList.toggle('is-maximized', result.data.maximized);
+  }
+}
+
+function scheduleWindowFrame(): void {
+  if (windowFrameTimer) {
+    clearTimeout(windowFrameTimer);
+  }
+  windowFrameTimer = setTimeout(() => {
+    void syncWindowFrame();
+  }, 80);
+}
 
 function updaterVersion(info: unknown): string {
   if (info && typeof info === 'object' && 'version' in info) {
@@ -136,6 +154,9 @@ onMounted(() => {
   // 对齐 vue2 boot/cdn-deps.js：DOM 就绪后异步注入，不阻塞首屏。
   void loadCdnDeps();
   if (hasIpc()) {
+    document.body.classList.add('win-frameless');
+    void syncWindowFrame();
+    window.addEventListener('resize', scheduleWindowFrame);
     syncStore.startAutoUpload();
     void bootstrapLogin();
     // 对齐 vue2 App.vue mounted 的 checkUpdate()；只在有 preload 的桌面端触发。
@@ -144,6 +165,11 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  if (windowFrameTimer) {
+    clearTimeout(windowFrameTimer);
+  }
+  window.removeEventListener('resize', scheduleWindowFrame);
+  document.body.classList.remove('win-frameless', 'is-maximized');
   syncStore.stopAutoUpload();
   stopUpdater();
 });

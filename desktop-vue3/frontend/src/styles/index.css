@@ -11,10 +11,14 @@
   --coolma-primary-soft: #ecf5ff;
   --coolma-hover: #f2f5fa;
   --coolma-shadow: 0 10px 30px rgb(31 35 41 / 8%);
+  --scrollBarBgColor: rgb(225 231 237 / 75%);
+  --win-edge-safe: 0px;
+  --coolma-font-family: HarmonyOS Sans SC, "Helvetica Neue", Helvetica, "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "微软雅黑", Arial, sans-serif;
 
   --el-color-primary: #409eff;
   --el-border-radius-base: 8px;
-  --el-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+  --el-font-family: var(--coolma-font-family);
 }
 
 html.dark {
@@ -30,6 +34,7 @@ html.dark {
   --coolma-primary-soft: #1c3250;
   --coolma-hover: #232a36;
   --coolma-shadow: 0 16px 40px rgb(0 0 0 / 28%);
+  --scrollBarBgColor: rgb(225 231 237 / 75%);
 
   --el-color-primary: #409eff;
   --el-bg-color: #1b202a;
@@ -72,6 +77,54 @@ html body.body--light,
 html body.body--dark {
   background: var(--coolma-bg);
   color: var(--coolma-text);
+}
+
+/* ---------- scrollbar（对齐 vue2 style.css）---------- */
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 1px;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 10px;
+  background: var(--scrollBarBgColor);
+}
+
+::-webkit-scrollbar-track {
+  border-radius: 10px;
+  background: transparent;
+}
+
+/* =========================================================
+ * Windows 无边框窗口：窗口边缘安全区（对齐 vue2 style.css）
+ * frame:false 时系统会保留 ~8px 的 resize 热区，贴边的滚动条
+ * 与抽屉关闭按钮会被“拖窗口”抢走；最大化时不需要让位。
+ * ========================================================= */
+body.win-frameless {
+  --win-edge-safe: 8px;
+}
+
+body.win-frameless.is-maximized {
+  --win-edge-safe: 0px;
+}
+
+body.win-frameless .editor-scroll {
+  padding-right: calc(clamp(34px, 6vw, 92px) + var(--win-edge-safe));
+}
+
+body.win-frameless .el-drawer.rtl {
+  margin-right: var(--win-edge-safe);
+  border-radius: 10px 0 0 10px;
+}
+
+/* 浮层不继承标题栏的拖拽区，避免点关闭/切标签变成拖窗口。 */
+.el-drawer,
+.el-dialog,
+.el-dialog__wrapper,
+.q-dialog,
+.q-menu {
+  -webkit-app-region: no-drag;
 }
 
 button {
@@ -1408,22 +1461,7 @@ html.dark .editor-action-bar {
 
 /* ---------- scrollbars ---------- */
 
-.note-list::-webkit-scrollbar,
-.editor-scroll::-webkit-scrollbar,
-.settings-page::-webkit-scrollbar,
-.sidebar::-webkit-scrollbar {
-  width: 8px;
-}
-
-.note-list::-webkit-scrollbar-thumb,
-.editor-scroll::-webkit-scrollbar-thumb,
-.settings-page::-webkit-scrollbar-thumb,
-.sidebar::-webkit-scrollbar-thumb {
-  border: 2px solid transparent;
-  border-radius: 99px;
-  background: color-mix(in srgb, var(--coolma-muted) 34%, transparent);
-  background-clip: padding-box;
-}
+/* 全局 5px 规则见文件顶部；这里只保留需要独立滚动的容器语义。 */
 
 @media (max-width: 1100px) {
   .brand-tagline {
