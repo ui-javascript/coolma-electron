@@ -12,6 +12,11 @@ import helper from 'src/utils/helper'
 import Vue from 'vue'
 import { createRuneRendererCtor } from './runeSfcRendererFactory.js'
 import {
+  readRuneDataAttr,
+  rewriteRunePlaceholderByNodeId,
+  rewriteRunePlaceholderSizeByNodeId
+} from './runePlaceholderAttrs.js'
+import {
   default as Muya,
   TablePicker,
   QuickInsert,
@@ -67,104 +72,6 @@ const {
 } = createNamespacedHelpers('client')
 
 const EMPTY_RUNE_TEMPLATE = '<div></div>'
-// 匹配 <div ...>...</div>，用于按 nodeId 精准定位符文占位符并替换 value/innerText
-// group 1 = 整段属性（不含 <div），group 2 = 占位符内的 innerText
-const RUNE_PLACEHOLDER_FULL_TAG_RE = /<div(\s+[^>]*?)>([\s\S]*?)<\/div>/gi
-// 把字符串里的不安全字符转成可在 HTML 属性 / 文本中安全出现的形式（与 quickInsert 侧的 escapeHtmlAttribute 对齐）
-const escapeRuneAttrValue = (value = '') => String(value)
-  .replace(/&/g, '&amp;')
-  .replace(/"/g, '&quot;')
-  .replace(/</g, '&lt;')
-  .replace(/>/g, '&gt;')
-
-const escapeRuneInnerText = (value = '') => String(value)
-  .replace(/&/g, '&amp;')
-  .replace(/</g, '&lt;')
-  .replace(/>/g, '&gt;')
-
-// 从 <div data-rune-name="X" ...> 整段属性里抽取指定 data-* 属性（顺序无关）
-const readRuneDataAttr = (attrsSource = '', attrName = '') => {
-  const needle = String(attrName || '').trim()
-  if (!needle) return ''
-  const re = new RegExp(`${needle}\\s*=\\s*"([^"]*)"`, 'i')
-  const match = re.exec(String(attrsSource || ''))
-  return match ? match[1] : ''
-}
-
-// 按 nodeId 找到对应的 <div ...>...</div> 并返回新的 markdown
-// 如果传入 value，则同步更新 data-rune-value 与 innerText（保持与 quickInsert 插入时一致）
-const rewriteRunePlaceholderByNodeId = (markdown = '', nodeId = '', nextValue = null) => {
-  const source = String(markdown || '')
-  const targetNodeId = String(nodeId || '').trim()
-  if (!source || !targetNodeId) return source
-
-  let rewritten = false
-  let nextMarkdown = source
-  RUNE_PLACEHOLDER_FULL_TAG_RE.lastIndex = 0
-  nextMarkdown = source.replace(RUNE_PLACEHOLDER_FULL_TAG_RE, (match, attrsSource = '', _innerText = '') => {
-    if (rewritten) return match
-    if (readRuneDataAttr(attrsSource, 'data-rune-node-id') !== targetNodeId) return match
-    const runeName = readRuneDataAttr(attrsSource, 'data-rune-name') || 'Rune'
-    const runeId = readRuneDataAttr(attrsSource, 'data-rune-id') || ''
-    const normalizedValue = nextValue == null ? '' : String(nextValue).trim()
-    const escapedName = escapeRuneAttrValue(runeName)
-    const escapedId = escapeRuneAttrValue(runeId)
-    const escapedValue = escapeRuneAttrValue(normalizedValue)
-    const escapedInner = escapeRuneInnerText(normalizedValue || runeName)
-    rewritten = true
-    return `<div data-rune-name="${escapedName}" data-rune-id="${escapedId}" data-rune-node-id="${escapeRuneAttrValue(targetNodeId)}" data-rune-value="${escapedValue}">${escapedInner}</div>`
-  })
-
-  return rewritten ? nextMarkdown : source
-}
-
-const normalizeRuneDimension = value => {
-  const number = Number(value)
-  return Number.isFinite(number) && number > 0 ? Math.round(number) : null
-}
-
-const rewriteRunePlaceholderSizeByNodeId = (markdown = '', nodeId = '', { width = null, height = null } = {}) => {
-  const source = String(markdown || '')
-  const targetNodeId = String(nodeId || '').trim()
-  const nextWidth = normalizeRuneDimension(width)
-  const nextHeight = normalizeRuneDimension(height)
-  if (!source || !targetNodeId || (!nextWidth && !nextHeight)) return source
-
-  const setAttr = (attrsSource, attrName, attrValue) => {
-    const escapedValue = escapeRuneAttrValue(attrValue)
-    const attrRe = new RegExp(`(${attrName}\\s*=\\s*")([^"]*)(")`, 'i')
-    if (attrRe.test(attrsSource)) {
-      return attrsSource.replace(attrRe, `$1${escapedValue}$3`)
-    }
-    return `${attrsSource} ${attrName}="${escapedValue}"`
-  }
-
-  let rewritten = false
-  console.info('[Muya] rewriteRunePlaceholderSizeByNodeId:start', {
-    nodeId: targetNodeId,
-    width: nextWidth,
-    height: nextHeight,
-    markdownPreview: source.slice(0, 260)
-  })
-  // Only rewrite the Rune opening tag. The content can contain nested divs or newlines.
-  const runeOpeningTagRe = /<div\b([^>]*\bdata-rune-node-id\s*=\s*"[^"]*"[^>]*)>/gi
-  const nextMarkdown = source.replace(runeOpeningTagRe, (match, attrsSource = '') => {
-    if (rewritten || readRuneDataAttr(attrsSource, 'data-rune-node-id') !== targetNodeId) return match
-    let nextAttrs = attrsSource
-    if (nextWidth) nextAttrs = setAttr(nextAttrs, 'data-rune-width', nextWidth)
-    if (nextHeight) nextAttrs = setAttr(nextAttrs, 'data-rune-height', nextHeight)
-    rewritten = true
-    return `<div${nextAttrs}>`
-  })
-
-  console.info('[Muya] rewriteRunePlaceholderSizeByNodeId:result', {
-    nodeId: targetNodeId,
-    rewritten,
-    changed: nextMarkdown !== source,
-    resultPreview: nextMarkdown.slice(0, 320)
-  })
-  return rewritten ? nextMarkdown : source
-}
 const RUNE_TEXT_SLOT = 'default'
 
 const createRuneInstanceId = () => uuidv4()
