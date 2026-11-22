@@ -2265,6 +2265,38 @@ div.ag-show-quick-insert-hint #ag-editor-id p.ag-paragraph.ag-active
   color: var(--editorColor30, rgba(0, 0, 0, 0.3));
 }
 
+/* @ 面板自定义图标（笔记/符文/回响）是 64×64 的 SVG 字块，
+   quickInsert 只给 i.icon 设了 background:url(...)，background-size 回到 auto，
+   16×16 的容器实际只裁出左上角一小块。这里按容器铺满，并抬到 24px。 */
+.ag-quick-insert .item[data-label^="note:"] .icon-container > i.icon,
+.ag-quick-insert .item[data-label^="rune:"] .icon-container > i.icon,
+.ag-quick-insert .item[data-label^="echo:"] .icon-container > i.icon {
+  width: 24px;
+  height: 24px;
+  opacity: 0.92;
+  border-radius: 4px;
+  background-size: 100% 100% !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+}
+
+html.dark .ag-quick-insert .item[data-label^="note:"] .icon-container > i.icon,
+html.dark .ag-quick-insert .item[data-label^="rune:"] .icon-container > i.icon,
+html.dark .ag-quick-insert .item[data-label^="echo:"] .icon-container > i.icon {
+  opacity: 1;
+}
+
+/* Mermaid/流程图在文末激活时，preview 原本是 absolute，不参与文档流，
+   滚到底会被浮动操作栏压住。仅对最后一个容器块把 preview 放回文档流，
+   让它自己撑出底部空间；中间位置的容器块仍保留原来的浮层行为。 */
+#ag-editor-id > figure.ag-active.ag-container-block:last-child > div.ag-container-preview {
+  position: static;
+  top: auto;
+  left: auto;
+  transform: none;
+  margin: 20px auto 0;
+}
+
 /* ── Rune 卡片占位壳（移植 vue2 Muya.vue） ─────────────────────────
    真实 SFC 挂载后由 .muya-rune-vue-host 占满宿主；未匹配到模板或编译失败时，
    仍显示紫底卡片标题，避免正文里剩一个裸 div。 */
