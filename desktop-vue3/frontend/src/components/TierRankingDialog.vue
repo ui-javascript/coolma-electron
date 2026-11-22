@@ -74,7 +74,7 @@
             @dragenter.prevent="onGalleryOver"
             @dragover.prevent="onGalleryOver"
             @dragleave="onGalleryLeave"
-            @drop.prevent="onGalleryDrop"
+            @drop.prevent="onGalleryDrop($event)"
           >
             <div
               v-for="img in unassignedImages"
@@ -539,29 +539,35 @@ function onTierAreaDrop(index: number): void {
   tierDragOver.value = -1;
 }
 
+/** 候选区既是「内部图片回图库」的落点，也是「外部图片文件拖进来」的落点，两种情况都要给落点反馈。 */
 function onGalleryOver(): void {
-  if (dragging.value) {
-    galleryOver.value = true;
-  }
+  galleryOver.value = true;
 }
 
 function onGalleryLeave(): void {
   galleryOver.value = false;
 }
 
-function onGalleryDrop(): void {
-  const current = dragging.value;
+async function onGalleryDrop(event: DragEvent): Promise<void> {
   galleryOver.value = false;
-  if (!current) {
+  const current = dragging.value;
+  // 1) 内部图片：从档位拖回候选区
+  if (current) {
+    if (current.tierIndex === -1) {
+      dragging.value = null;
+      return;
+    }
+    removeImage(current.image);
+    unassignedImages.value.push(current.image);
+    dragging.value = null;
+    void saveState();
     return;
   }
-  if (current.tierIndex === -1) {
-    return;
+  // 2) 外部文件：从资源管理器/桌面直接拖图片进来，行为与「+」一致
+  const files = Array.from(event.dataTransfer?.files ?? []);
+  if (files.length > 0) {
+    await addFiles(files);
   }
-  removeImage(current.image);
-  unassignedImages.value.push(current.image);
-  dragging.value = null;
-  void saveState();
 }
 
 function onDeleteDrop(): void {
