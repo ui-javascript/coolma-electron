@@ -552,3 +552,55 @@ schema props 落进 `$attrs` 且从不透传 → **「HTML 属性 ≈ props」�
 
 - desktop-vue2 47 suites / 1250 tests 绿；desktop-vue2-tauri 15 suites / 123 tests 绿。
 - 真机仍未验收（云主机无 GUI）。等用户给 SFTP 自建静态托管地址后按其形态配 host 实测。
+
+## 12. 远程组件源设置（设置 → 远程组件）
+
+### 12.1 已实测的真实部署（对方 demo-vue2 / demo-vue3）
+
+- `http://82.156.212.243/@melt-js/demo-vue2/dist/index.html` 里的启动代码：
+  `preloadHelLibs({ deps: [{ name, host: "http://82.156.212.243/@melt-js/<pkg>/hel_dist/hel-meta.json", requiredExports }] })`
+  + `bindVueRuntime({ Vue })`。**host 直接给 hel-meta.json、不带版本**，与我们壳的直连分支一致。
+- 该服务器上存在 `@melt-js/comps-vue2-meme@2026.11.18`（npm/unpkg 都没有），
+  其 meta 里 `src_map.webDirPath` = `http://82.156.212.243/@melt-js/comps-vue2-meme/hel_dist`。
+- 该服务器**没有版本目录**：`.../comps-vue2-meme@2026.11.18/hel_dist/hel-meta.json` → 404，
+  所以 sftp 上的「版本」= 对方部署路径，写 version 只会拼出 404。
+
+### 12.2 配置模型（`libs-muya-vue2/lib/rune/runeSourceRegistry.js`）
+
+一条来源 = `{ name, type, base, version, distDir, enabled, note }`：
+
+| type | 拼接规则 | version |
+| --- | --- | --- |
+| sftp | `base/name/hel_dist/hel-meta.json`（name 保留 scope） | 忽略（清空 + warning） |
+| github | `base/<去掉 scope 的 name>/hel_dist/hel-meta.json` | 忽略 |
+| unpkg | `https://unpkg.com/<name>@<version 或 latest>/<distDir>/hel-meta.json` | 支持 |
+| direct | `base` 原样（`.../hel-meta.json` 或 `.../index.html`） | 由对方部署决定 |
+
+- `distDir` 留空自动推断：`comps-* / tpl-* / demo-*` → `hel_dist`，其余 `dist`。
+- **同名覆盖**：按数组顺序解析，**从末尾往前找**，后面的覆盖前面的；`enabled=false` 跳过。
+- 定义里显式写了 `dep.host` 时**定义优先**，注册表不覆盖（保留「单个符文写死地址」的能力）。
+
+### 12.3 界面
+
+- 新一级 tab：`设置 → 远程组件`（`settingsTabEnum.RemoteComps`，icon `extension`）。
+- 面板 `src/components/settings/SettingsMeltSourcesPanel.vue`：
+  行内可编辑 组件名 / 来源类型 / 站点根 / 版本（仅 unpkg 可编辑）/ 产物目录 / 启用，
+  支持上移下移、删除、新增；每行实时显示**拼接后的产物地址**与 warning；
+  被后面同名条目压住的行会标「已被后面的同名条目覆盖」。
+- 改动即时写入 localStorage（key `melt.rune.sources`），无需点保存。
+- desktop-vue2 与 desktop-vue2-tauri 两份同步（含 i18n zh/en 文案）。
+
+### 12.4 运行时接线
+
+`meltRuneHost.resolveMeltConfig(config)`：
+1. `dep.host` 存在 → 原样；
+2. 否则查注册表同名来源 → 补 `host` / 平台版本（非 unpkg 清空 version）；
+3. 都没有 → 原样交给默认 unpkg 流程。
+
+`getMeltResourceKey` / `buildMeltLoadSpec` 都先经过它，所以池 key 天然区分来源，
+错误卡文案也会带上解析后的 host + 来源 warning。
+
+### 12.5 状态
+
+desktop-vue2 49 suites / 1271 tests 绿；desktop-vue2-tauri 15 suites / 120 tests 绿。
+真机待验收项不变（云主机无 GUI）。

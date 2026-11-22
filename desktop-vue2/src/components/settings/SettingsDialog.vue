@@ -125,6 +125,11 @@
                 />
               </q-tab-panel>
 
+              <!-- 远程组件（melt-js 产物来源） -->
+              <q-tab-panel name='remoteComps' class='q-pa-none'>
+                <SettingsMeltSourcesPanel />
+              </q-tab-panel>
+
             </q-tab-panels>
           </div>
         </div>
@@ -224,6 +229,7 @@ import SettingsServerPanel from './SettingsServerPanel'
 import SettingsCloudFnPanel from './SettingsCloudFnPanel'
 import SettingsRunePanel from './SettingsRunePanel'
 import SettingsEchoPanel from './SettingsEchoPanel'
+import SettingsMeltSourcesPanel from './SettingsMeltSourcesPanel'
 import SettingsAiModelDialog from './SettingsAiModelDialog'
 import SettingsAiSkillDialog from './SettingsAiSkillDialog'
 
@@ -265,6 +271,7 @@ export default {
     SettingsCloudFnPanel,
     SettingsRunePanel,
     SettingsEchoPanel,
+    SettingsMeltSourcesPanel,
     SettingsAiModelDialog,
     SettingsAiSkillDialog
   },

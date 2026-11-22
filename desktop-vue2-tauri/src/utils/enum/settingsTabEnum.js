@@ -139,6 +139,15 @@ export const SettingsTabEnum = Enum({
     accentTheme: 'purple',
     tabClass: 'text-purple-7',
     subEnum: null
+  },
+  RemoteComps: {
+    value: 'remoteComps',
+    label: 'remoteComps',
+    icon: 'extension',
+    accent: 'deep-orange-7',
+    accentTheme: 'deep-orange',
+    tabClass: 'text-deep-orange-7',
+    subEnum: null
   }
 })
 
