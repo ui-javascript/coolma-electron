@@ -20,7 +20,9 @@ export default class EchoRegistry {
     this.echoMap = this.echoCards.reduce((acc, echo) => {
       const id = norm(echo?.id)
       const name = norm(echo?.name)
-      const normalized = { ...echo, id, name, anno_source: echo?.anno_source || echo?.template || '' }
+      // 应用侧库/数据库用 camelCase `annoSource`；包导入/Pack 用 snake_case `anno_source`。
+      // 两种都接受，否则 createEchoPlugin 拿到的卡片会被归一化成空源码，render/afterRender 全部失效。
+      const normalized = { ...echo, id, name, anno_source: echo?.anno_source || echo?.annoSource || echo?.template || '' }
       if (id) this.echoIdMap.set(id, normalized)
       if (name) acc.set(name, normalized)
       return acc

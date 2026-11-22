@@ -72,6 +72,8 @@
 .ag-rune-shatter-active {
   outline: 1px dashed #E53935;
   outline-offset: 1px;
+  /* v3 的 [contenteditable] 重置会把 outline 压成 none，补一层 box-shadow 保证激活态可见 */
+  box-shadow: 0 0 0 1px #E53935;
   background: rgba(229, 57, 53, 0.08);
 }
 

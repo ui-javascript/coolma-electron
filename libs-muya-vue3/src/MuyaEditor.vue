@@ -3,6 +3,7 @@
     ref="host"
     class="libs-muya-host"
     :class="`libs-muya-theme-${theme}`"
+    data-echo-document
     @beforeinput.capture="guardEdit"
     @paste.capture="guardEdit"
     @cut.capture="guardEdit"

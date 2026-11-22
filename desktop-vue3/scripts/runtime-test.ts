@@ -277,6 +277,29 @@ async function main(): Promise<void> {
   // 6) B5：插件装上之后，占位要被真正渲染成卡片
   const { createEchoPlugin } = (await import('../../libs-muya-echo-vue3/src/index')) as Any;
   const { createRunePlugin } = (await import('../../libs-muya-rune-vue3/src/index')) as Any;
+  const { EchoRegistry } = (await import('../../libs-muya-echo-vue3/src/index')) as Any;
+
+  // 应用侧库卡是 camelCase `annoSource`；只认 snake_case 会把源码归一化成空字符串。
+  const camelRegistry = new EchoRegistry([
+    {
+      id: 'camel',
+      name: 'camel',
+      annoSource:
+        "export default { render () { return '<span class=\"camel-echo\">ok</span>' }, " +
+        'afterRender () { return () => {} } }',
+    },
+  ]);
+  const camelDefinition = camelRegistry.runtime.compileDefinition(camelRegistry.getByName('camel'));
+  assert(
+    '回响注册表：接受应用侧 camelCase annoSource',
+    typeof camelDefinition?.render === 'function' && typeof camelDefinition?.afterRender === 'function',
+    String((camelRegistry.getByName('camel') as Any)?.anno_source || '').slice(0, 40),
+  );
+
+  const editorSfc = await fs.readFile(path.resolve(process.cwd(), '../libs-muya-vue3/src/MuyaEditor.vue'), 'utf8');
+  assert('回响文档根：MuyaEditor 挂 data-echo-document', /data-echo-document/.test(editorSfc));
+  const appStyles = await fs.readFile(path.resolve(process.cwd(), 'frontend/src/styles/index.css'), 'utf8');
+  assert('回响宿主：覆盖 ag-hide 的零宽规则', appStyles.includes('span.ag-echo-placeholder-host'));
 
   // anno_source 的 render 必须返回 HTML 字符串；afterRender 拿到的是 host 本身
   const echoSource =

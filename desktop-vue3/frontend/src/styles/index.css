@@ -2398,6 +2398,30 @@ html.dark .ag-quick-insert .item[data-label^="echo:"] .icon-container > i.icon {
   color: rgba(229, 57, 53, 0.92);
 }
 
+/* 回响宿主本身带 ag-hide（源码折叠态），但 v2 用后置规则把它还原成行内可见元素。
+   v3 缺这条覆盖时宿主宽高都被 .ag-hide 锁成 0，回响胶囊只剩 0px。 */
+span.ag-echo-placeholder-host,
+span.ag-echo-inline-host {
+  display: inline;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  vertical-align: baseline;
+  margin: 0 2px;
+}
+
+.ag-echo-anno-token {
+  display: inline;
+  vertical-align: baseline;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ag-echo-inline-preview {
+  display: inline;
+  vertical-align: baseline;
+}
+
 /* 符文/回响的原始 HTML 包裹标签由 Muya 输出为 ag-html-tag.ag-output-remove。
    卡片已完整表达该节点，保留标签会在正文里露出 <div data-rune-name=...> 与 </div>。 */
 span.ag-html-tag.ag-output-remove:has(+ .ag-rune-placeholder-host),
