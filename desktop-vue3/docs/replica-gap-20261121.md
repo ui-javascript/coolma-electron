@@ -30,10 +30,10 @@
 
 | # | 缺口 | vue2 实际行为 | vue3 现状 |
 |---|---|---|---|
-| 1 | 回响实例编辑链路缺失 | 点击正文 `@回响{}()` 打开 `EchoInstanceDialog`：按 schema 编辑 props/value、继承参数、展示实例 ID、跳转“编辑定义”，保存后回写当前实例 | 只有 `echoRegistry / echoPropsParser / echoPayloadCodec`；无 `EchoInstanceDialog`，无点击回响打开实例弹窗的回调 |
+| 1 | 回响实例编辑链路缺失 | 点击正文 `@回响{}()` 打开 `EchoInstanceDialog`：按 schema 编辑 props/value、继承参数、展示实例 ID、跳转“编辑定义”，保存后回写当前实例 | ✅ 已补：`EditorPane.vue` 点击回响 emit `echo-instance` → `HomeView.openEchoInstance` → `EchoInstanceDialog`；schema props/value、继承参数、实例 ID、跳转定义与保存回写 token 全部接通 |
 | 2 | 当前笔记手动标签入口不可达 | 顶栏点击笔记标题打开 `TagDialog`，选择/新建/删除标签，标题旁展示当前标签 | ✅ 已补：顶栏标题打开 `TagEditorDialog`；本轮改为即点即存，chip 可删除标签并在确认后摘掉所有笔记引用 |
-| 3 | 文件夹右键“导入”接错弹窗 | 文件夹右键导入 `.md`，`ImportDialog` 多选后逐篇建笔记 | 文件夹“导入…”复用 `PackImportDialog`，默认导入符文 pack；`NoteImportDialog` 只在设置页数据卡，且未把当前文件夹作为 `category` |
-| 4 | “豆包”AI 助手模式是死设置 | AI provider 选 `doubao` 时打开 `AiDoubaoDrawer`，选 `builtin` 开内置助手 | `SettingsView` 只把 `coolma.aiProvider` 写进 localStorage，全前端无消费；无 `AiDoubaoDrawer` |
+| 3 | 文件夹右键“导入”接错弹窗 | 文件夹右键导入 `.md`，`ImportDialog` 多选后逐篇建笔记 | ✅ 已补：文件夹右键与编辑器导入都走 `NoteImportDialog`，`category` 取当前文件夹；不再复用 `PackImportDialog` |
+| 4 | “豆包”AI 助手模式是死设置 | AI provider 选 `doubao` 时打开 `AiDoubaoDrawer`，选 `builtin` 开内置助手 | ✅ 已补：`HomeView` 顶栏 AI 入口读 `coolma.aiProvider`；doubao 走 `AiDoubaoDrawer`（wujie 挂 `_plugins/doubao-input/dist`），builtin 走内置 AI 面板，缺 `doubaoUrl` 时给提示 |
 
 ## P1：主路径缺口
 
