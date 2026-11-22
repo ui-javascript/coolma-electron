@@ -37,7 +37,7 @@ function buildCsp(): string {
       `style-src 'self' 'unsafe-inline' ${remote}`,
       `img-src 'self' data: blob: ${remote}`,
       `font-src 'self' data: ${remote}`,
-      `connect-src 'self' ${DEV_CONNECT_SOURCES}`,
+      `connect-src 'self' ${DEV_CONNECT_SOURCES} https: http: ws: wss:`,
     ].join('; ');
   }
 
@@ -47,7 +47,7 @@ function buildCsp(): string {
     `style-src 'self' 'unsafe-inline' ${remote}`,
     `img-src 'self' data: blob: ${remote}`,
     `font-src 'self' data: ${remote}`,
-    "connect-src 'self' https:",
+    "connect-src 'self' https: http:",
     "object-src 'none'",
     "base-uri 'none'",
     "form-action 'none'",

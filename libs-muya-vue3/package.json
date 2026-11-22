@@ -26,6 +26,7 @@
     "html-tags": "^3.3.1",
     "joplin-turndown-plugin-gfm": "^1.0.12",
     "katex": "^0.16.11",
+    "libs-rune-core": "workspace:*",
     "mermaid": "^10.6.1",
     "popper.js": "^1.16.1",
     "prismjs": "^1.29.0",

@@ -372,6 +372,15 @@
       </el-tabs>
     </el-card>
 
+    <el-card v-if="tabMounted('remoteComps')" v-show="groupTab === 'remoteComps'" class="settings-card" shadow="never">
+      <template #header>
+        <div class="card-heading">
+          <span>{{ t('settings.remoteComps') }}</span>
+        </div>
+      </template>
+      <SettingsMeltSourcesCard />
+    </el-card>
+
     <el-card v-if="tabMounted('ai')" v-show="groupTab === 'ai'" class="settings-card" shadow="never">
       <template #header>
         <div class="card-heading">
@@ -499,6 +508,7 @@ import {
   InfoFilled,
   MagicStick,
   Setting,
+  Link,
   Download,
   FolderOpened,
   Refresh,
@@ -534,6 +544,7 @@ import SettingsCdnDepsCard from '@/components/settings/SettingsCdnDepsCard.vue';
 import SettingsProfileCard from '@/components/settings/SettingsProfileCard.vue';
 import SettingsServerPanel from '@/components/settings/SettingsServerPanel.vue';
 import SettingsCloudFnPanel from '@/components/settings/SettingsCloudFnPanel.vue';
+import SettingsMeltSourcesCard from '@/components/settings/SettingsMeltSourcesCard.vue';
 import NoteImportDialog from '@/components/NoteImportDialog.vue';
 import UpdateDialog from '@/components/UpdateDialog.vue';
 import type { AppLocale } from '@/i18n';
@@ -574,7 +585,7 @@ function saveAiProvider(value: AiAssistantProvider): void {
 const noteImportVisible = ref(false);
 const updateVisible = ref(false);
 const updateChecking = ref(false);
-const groupTab = ref<'general' | 'editor' | 'database' | 'library' | 'ai' | 'apps' | 'server' | 'cloudFn' | 'about'>('general');
+const groupTab = ref<'general' | 'editor' | 'database' | 'library' | 'ai' | 'apps' | 'server' | 'cloudFn' | 'remoteComps' | 'about'>('general');
 const visitedTabs = ref(new Set<string>(['general']));
 const dbLoaded = ref(false);
 
@@ -587,6 +598,7 @@ const settingsGroups = [
   { value: 'editor', label: 'settings.groupEditor', icon: markRaw(EditPen) },
   { value: 'database', label: 'settings.groupDatabase', icon: markRaw(Coin) },
   { value: 'library', label: 'settings.groupLibrary', icon: markRaw(Collection) },
+  { value: 'remoteComps', label: 'settings.groupRemoteComps', icon: markRaw(Link) },
   { value: 'ai', label: 'settings.groupAi', icon: markRaw(MagicStick) },
   { value: 'apps', label: 'settings.groupApps', icon: markRaw(Grid) },
   { value: 'server', label: 'settings.groupServer', icon: markRaw(Cloudy) },

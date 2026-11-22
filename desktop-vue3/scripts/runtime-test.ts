@@ -59,6 +59,18 @@ import { DEFAULT_LOGIN_BASE, isValidServerUrl, normalizeServerUrl, resolveSignup
 import { readEchoInstance, rewriteEchoInstance } from '../frontend/src/utils/echoToken';
 import { resolveEchoSchema } from '../frontend/src/utils/echoSchema';
 import {
+  MELT_SOURCES_STORAGE_KEY,
+  buildSourceEntryUrl,
+  detectRuneType,
+  listMeltPropDefs,
+  loadRuneSources,
+  normalizeMeltRuneConfig,
+  parseMeltRuneConfig,
+  resolveDepFromSources,
+  saveRuneSources,
+  validateMeltRuneConfig,
+} from '../../libs-rune-core/src/index';
+import {
   normalizeRuneDimension,
   normalizeRuneOffset,
   readRuneDataAttr,
@@ -120,7 +132,7 @@ function setupDom(): void {
     'HTMLDivElement', 'HTMLSpanElement', 'HTMLTableElement', 'HTMLCanvasElement',
     'DOMParser', 'XMLSerializer', 'MutationObserver', 'Event', 'KeyboardEvent',
     'MouseEvent', 'CustomEvent', 'UIEvent', 'FocusEvent', 'InputEvent', 'ClipboardEvent',
-    'Range', 'Selection', 'ShadowRoot', 'CSSStyleDeclaration', 'DOMRect',
+    'Range', 'Selection', 'ShadowRoot', 'CSSStyleDeclaration', 'DOMRect', 'localStorage', 'sessionStorage',
   ]) {
     if ((w as Any)[key] !== undefined) {
       define(key, (w as Any)[key]);
@@ -2275,6 +2287,51 @@ async function main(): Promise<void> {
       g.XMLHttpRequest = origXhr;
       g.Image = origImage;
     }
+  }
+
+  // ===== Melt 远程符文：定义解析 + 来源拼接 + 覆盖顺序 =====
+  {
+    const meltJson = JSON.stringify({
+      $type: 'melt-js',
+      dep: { name: '@melt-js/comps-vue2-meme', type: 'sftp', host: 'https://x.test/meta/hel-meta.json' },
+      exportName: 'MemeCard',
+      props: { title: { type: 'string' }, count: { type: 'number' }, open: { type: 'boolean' }, data: { type: 'json' } },
+    });
+    assert('melt：JSON 定义识别为 melt-js', detectRuneType(meltJson) === 'melt-js', detectRuneType(meltJson));
+    assert('melt：SFC 仍识别为 vue-sfc', detectRuneType('<template><div>x</div></template>') === 'vue-sfc');
+    const parsed = parseMeltRuneConfig(meltJson);
+    assert('melt：解析出导出名与依赖', parsed?.exportName === 'MemeCard' && parsed?.dep.name === '@melt-js/comps-vue2-meme');
+    assert('melt：合法定义零错误', validateMeltRuneConfig(normalizeMeltRuneConfig(parsed)).length === 0);
+    assert('melt：props schema 转 propDefs', listMeltPropDefs(parsed).find((item) => item.name === 'count')?.type === 'number');
+    assert('melt：缺 exportName 报错', validateMeltRuneConfig({ dep: { name: 'x' } }).some((item) => item.field === 'exportName'));
+
+    saveRuneSources([
+      { name: '@melt-js/comps-vue2-meme', type: 'sftp', base: 'https://a.test' },
+      { name: 'comps-vue2-meme', type: 'github', base: 'https://org.github.io' },
+    ]);
+    const loaded = loadRuneSources();
+    assert('melt：来源落 localStorage 并规范化', loaded.length === 2 && loaded.every((item) => item.base));
+    const resolved = resolveDepFromSources(loaded, { name: 'comps-vue2-meme' });
+    assert(
+      'melt：后面的同名来源覆盖前面的',
+      resolved.dep.host === 'https://org.github.io/comps-vue2-meme/hel_dist/hel-meta.json',
+      String(resolved.dep.host),
+    );
+    const unpkg = buildSourceEntryUrl({ name: 'some-lib', type: 'unpkg', version: '1.2.3' });
+    assert('melt：unpkg 拼版本目录', unpkg.url === 'https://unpkg.com/some-lib@1.2.3/dist/hel-meta.json', unpkg.url);
+    const direct = buildSourceEntryUrl({ name: 'x', type: 'sftp', base: 'https://x.test/hel-meta.json' });
+    assert('melt：直连 meta 不改写', direct.url === 'https://x.test/hel-meta.json', direct.url);
+    const bad = buildSourceEntryUrl({ name: 'x', type: 'sftp', base: '' });
+    assert('melt：缺失站点根给出警告', bad.url === '' && bad.warnings.length > 0);
+
+    localStorage.removeItem(MELT_SOURCES_STORAGE_KEY);
+    const { createMeltRuneRendererCtor, coerceMeltProp, normalizeMeltEmitValue } = (await import('../../libs-muya-rune-vue3/src/meltRune')) as Any;
+    assert('melt：coerce 数字/布尔/json', coerceMeltProp('12', { type: 'number' }) === 12 &&
+      coerceMeltProp('false', { type: 'boolean' }) === false &&
+      coerceMeltProp('{"a":1}', { type: 'json' }).a === 1);
+    assert('melt：emit 事件对象取值', normalizeMeltEmitValue({ target: { value: 'ok' } }) === 'ok');
+    assert('melt：非 melt 定义不返回宿主', createMeltRuneRendererCtor({ template: '<div>x</div>' }) === null);
+    assert('melt：melt 定义返回同步宿主', typeof createMeltRuneRendererCtor({ template: meltJson }) === 'function');
   }
 
   console.log(failed === 0 ? '\n全部通过' : `\n失败 ${failed} 项`);

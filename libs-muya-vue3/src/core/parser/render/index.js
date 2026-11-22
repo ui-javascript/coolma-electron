@@ -7,6 +7,7 @@ import renderInlines from './renderInlines'
 import renderBlock from './renderBlock'
 import { tokenizer } from '../index'
 import { i18n } from '../../i18n'
+import { resolveRuneDefinition, listMeltPropDefs } from 'libs-rune-core'
 
 const RUNE_PLACEHOLDER_SELECTOR = '[data-rune-name][data-rune-id][data-rune-node-id]'
 // Support both named (@name{...}(...)) and anonymous (@{...}(...)) echo annotations
@@ -788,10 +789,11 @@ class StateRender {
         })
       }
 
-      // 占位符 div 上只携带 4 个系统级 data-rune-* 属性（name/id/node-id/value）。
-      // SFC 的 props 由 Vue 自己按 props.default 处理；用户在 Markdown 里手写的
-      // data-rune-prop-* 仍然以"显式 prop"形式传入 SFC（最高优先级）。
-      const propDefs = parseSfcPropsDef(rune?.template || '')
+      // melt-js 的 props 来自定义里的 props schema；SFC 才走模板解析。
+      const definition = resolveRuneDefinition(rune)
+      const propDefs = definition.type === 'melt-js' && definition.config
+        ? listMeltPropDefs(definition.config)
+        : parseSfcPropsDef(rune?.template || '')
       const sfcProps = collectRunePropsFromHost(host, propDefs)
 
       if (mountedVm && mountedVm.$el && mountedVm.$el.parentNode === host && mountedVm.__runeRenderKey === renderKey) {

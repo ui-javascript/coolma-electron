@@ -1,5 +1,11 @@
 import { defineMuyaPlugin, type MuyaPlugin } from 'libs-muya-vue3';
 import { createRuneRendererCtor } from './runeRenderer';
+import {
+  createMeltRuneRendererCtor,
+  preloadMeltRunes,
+  clearAllMeltCaches,
+  clearMeltRuneCaches,
+} from './meltRune';
 
 export interface RuneCard {
   id?: string;
@@ -45,10 +51,14 @@ export function createRunePlugin(options: RunePluginOptions = {}): MuyaPlugin {
         };
       }
       editor.setMarkdown(editor.getMarkdown());
+      // 打开笔记/启动后 idle 预热 melt 依赖；失败只记日志，不阻塞编辑。
+      setTimeout(() => {
+        void preloadMeltRunes(cards);
+      }, 0);
       return () => {};
     },
   });
 }
 
-export { createRuneRendererCtor };
+export { createRuneRendererCtor, createMeltRuneRendererCtor, preloadMeltRunes, clearAllMeltCaches, clearMeltRuneCaches };
 export default createRunePlugin;

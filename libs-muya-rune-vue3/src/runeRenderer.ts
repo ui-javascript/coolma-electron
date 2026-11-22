@@ -1,5 +1,7 @@
 import * as Vue from 'vue';
 import { compile } from '@vue/compiler-dom';
+import { detectRuneType, RUNE_TYPE_MELT_JS } from 'libs-rune-core';
+import { createMeltRuneRendererCtor } from './meltRune';
 
 type AnyRecord = Record<string, any>;
 
@@ -277,6 +279,10 @@ function declaredProps(component: AnyRecord): AnyRecord {
 }
 
 export function createRuneRendererCtor(rune: AnyRecord = {}): any {
+  // melt-js 的 template 是 JSON 配置，绝不能当 SFC 编译；先分流给远端组件壳。
+  if (!(rune && rune.propsData) && detectRuneType(rune?.template) === RUNE_TYPE_MELT_JS) {
+    return createMeltRuneRendererCtor(rune);
+  }
   if (rune && rune.propsData) {
     const ctor = createRuneRendererCtor(rune.propsData.rune || {});
     return ctor ? ctor(rune) : null;

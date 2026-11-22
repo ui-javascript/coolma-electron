@@ -1,3 +1,6 @@
+export * from './runeDefinition';
+export * from './runeSources';
+
 /**
  * Rune 的纯逻辑层：不依赖 Muya 或 Vue。
  *

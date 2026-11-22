@@ -857,10 +857,20 @@ const editorOptions = {
   },
 };
 
+/** 设置页「刷新全部远程组件」后，用当前 Markdown 重渲染，保留正文与光标上下文。 */
+function onMeltCachesCleared(): void {
+  const markdown = String(muyaRef.value?.getMarkdown?.() ?? props.content ?? '');
+  muyaRef.value?.setMarkdown?.(markdown);
+}
+onBeforeUnmount(() => {
+  window.removeEventListener('coolma:melt-caches-cleared', onMeltCachesCleared);
+});
+
 onMounted(() => {
   registerLuckyHandler();
   void libraryStore.load();
   void appStore.loadPrefs();
+  window.addEventListener('coolma:melt-caches-cleared', onMeltCachesCleared);
 });
 /** 右键：把坐标与「选区是否为空」交给父级——菜单项启用条件按 vue2 依赖这个。 */
 function onContextMenu(event: MouseEvent): void {
