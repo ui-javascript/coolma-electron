@@ -26,6 +26,27 @@ export function extraTagCount(note: Pick<NoteSummary, 'tags'>): number {
   return Math.max(0, noteTags(note).length - 1);
 }
 
+/** 根目录的历史写法，与主进程 `normalizeCategory` 保持同一份别名表。 */
+const ROOT_FOLDER_ALIASES = new Set(['', '/', 'OFFLINE_ROOT_CATEGORY', '/我的笔记/', '/My Notes/']);
+
+/**
+ * 目录路径归一化（前端比较专用）。
+ *
+ * 侧栏树的 key 形如 `/My Notes/【2】算法/排序/`（首尾都带斜杠，照 vue2 的
+ * `buildCategoryNodeTree`），而 SQLite 里 notes.category 是 `/My Notes/【2】算法/排序`
+ * （主进程 `normalizeCategory` 会砍掉尾斜杠）。两边直接 `===` 永远不相等，
+ * 表现为「点了文件夹，列表一条都查不出来」。所有跨层比较都必须先过这里。
+ */
+export function normalizeFolderPath(category?: string | null): string {
+  const raw = String(category ?? '').trim();
+  if (ROOT_FOLDER_ALIASES.has(raw)) {
+    return '/';
+  }
+  const withPrefix = raw.startsWith('/') ? raw : `/${raw}`;
+  const trimmed = withPrefix.replace(/\/+$/g, '');
+  return trimmed || '/';
+}
+
 /** 只取路径最后一段做展示，完整路径仍由 category 字段承载。 */
 export function folderName(category: string, rootLabel: string): string {
   const parts = String(category ?? '')

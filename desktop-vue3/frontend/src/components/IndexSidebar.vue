@@ -91,7 +91,7 @@ import { IndexModeEnum, type CalendarDateBasis, type IndexMode } from '@shared/e
 import { useNotesStore } from '@/stores/notes';
 import { useAppStore } from '@/stores/app';
 import { buildCategoryTree, buildTagTreemapData, type CategoryTreeNode } from '@/utils/categoryTree';
-import { folderName, joinFolderPath, noteTags, noteTimeGroup } from '@/utils/note';
+import { folderName, joinFolderPath, normalizeFolderPath, noteTags, noteTimeGroup } from '@/utils/note';
 import CalendarPanel from './CalendarPanel.vue';
 
 use([TreemapChart, TooltipComponent, CanvasRenderer]);
@@ -459,7 +459,7 @@ async function removeFolder(category: string): Promise<void> {
     ElMessage.error(notesStore.error || t('folder.deleteFailed'));
     return;
   }
-  if (props.folderFilter === category) {
+  if (normalizeFolderPath(props.folderFilter) === normalizeFolderPath(category)) {
     emit('update:filter', { folder: '' });
   }
   ElMessage.success(t('folder.deleteSuccess'));

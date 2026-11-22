@@ -297,7 +297,15 @@ import { useNotesStore } from '@/stores/notes';
 import { useLibraryStore } from '@/stores/library';
 import { useSyncStore } from '@/stores/sync';
 import { createMuyaPlugins } from '@/muyaPlugins';
-import { dateKeyOf, deriveTitle, folderName, noteDateKey, noteTags, noteTimeGroup } from '@/utils/note';
+import {
+  dateKeyOf,
+  deriveTitle,
+  folderName,
+  noteDateKey,
+  normalizeFolderPath,
+  noteTags,
+  noteTimeGroup,
+} from '@/utils/note';
 import { buildFolderMarkdown, type FolderMarkdownNote } from '@/utils/folderMarkdown';
 import { nextPaneLayout, normalizePaneLayout, normalizeSplitterWidth, normalizeLeftInnerHeight, paneGeometry, MIN_SPLITTER_WIDTH, MIN_LEFT_INNER_HEIGHT, MIN_EDITOR_WIDTH, PANE_LAYOUT_STORAGE, SPLITTER_WIDTH_STORAGE, LEFT_INNER_HEIGHT_STORAGE, type PaneLayoutMode } from '@/utils/paneLayout';
 
@@ -476,7 +484,10 @@ const filteredNotes = computed(() => {
   return notesStore.notes.filter((note) => {
     const noteTagList = noteTags(note);
     const tagMatch = !activeTag.value || noteTagList.includes(activeTag.value);
-    const folderMatch = !activeFolder.value || note.category === activeFolder.value;
+    // 侧栏树 key 带首尾斜杠，SQLite 的 category 不带尾斜杠，必须归一后比较。
+    const folderMatch =
+      !activeFolder.value ||
+      normalizeFolderPath(note.category) === normalizeFolderPath(activeFolder.value);
     const timeMatch = !activeTimeGroup.value || noteTimeGroup(note) === activeTimeGroup.value;
     const calendarMatch =
       indexMode.value !== IndexModeEnum.Calendar ||
@@ -1109,7 +1120,13 @@ async function requestDeleteFolder(category: string): Promise<void> {
     return;
   }
   // vue2：只有当前选中目录属于被删子树时才重置筛选，笔记仍在原分类下。
-  if (activeFolder.value && (activeFolder.value === category || activeFolder.value.startsWith(`${category}/`))) {
+  const currentFolder = normalizeFolderPath(activeFolder.value);
+  const deletedFolder = normalizeFolderPath(category);
+  if (
+    activeFolder.value &&
+    deletedFolder !== '/' &&
+    (currentFolder === deletedFolder || currentFolder.startsWith(`${deletedFolder}/`))
+  ) {
     activeFolder.value = '';
   }
   ElMessage.success(t('folder.deleteSuccess'));
