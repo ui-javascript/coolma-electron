@@ -705,6 +705,7 @@ button {
   flex: 0 0 auto;
   color: var(--coolma-muted);
   font-size: 16px;
+  line-height: 1;
 }
 
 .note-title {
@@ -839,6 +840,7 @@ button {
 
 .note-info-tag .el-icon {
   font-size: 13px;
+  line-height: 1;
 }
 
 .note-info-tag:first-child {

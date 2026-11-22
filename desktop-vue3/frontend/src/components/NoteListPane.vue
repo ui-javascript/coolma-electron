@@ -233,13 +233,15 @@ function resetPull(): void {
 .note-file-icon {
   flex: 0 0 auto;
   color: var(--coolma-muted);
-  font-size: 14px;
+  font-size: 16px;
+  line-height: 1;
 }
 
 .note-sync-icon {
   flex: 0 0 auto;
   color: var(--coolma-primary);
   font-size: 12px;
+  line-height: 1;
 }
 
 .notes-toolbar-actions {

@@ -338,8 +338,14 @@ function onAccountCommand(command: string): void {
 }
 
 .header-icon-btn .icon-custom {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
   color: var(--coolma-muted, #6b737b);
   font-size: 18px;
+  line-height: 1;
   transition: all 0.2s ease;
 }
 
@@ -395,9 +401,12 @@ function onAccountCommand(command: string): void {
 }
 
 .workspace-mode-btn .mode-icon {
+  width: 17px;
+  height: 17px;
   margin: 0;
   color: var(--themeColor, #409eff);
   font-size: 17px;
+  line-height: 1;
 }
 
 .workspace-mode-label {
@@ -449,26 +458,28 @@ function onAccountCommand(command: string): void {
 
 .header-avatar {
   display: flex;
-  width: 28px;
-  height: 28px;
+  width: 20px;
+  height: 20px;
   align-items: center;
   justify-content: center;
   margin: 0 4px;
-  border: 1px solid rgb(0 0 0 / 10%);
+  border: 0;
   border-radius: 50%;
-  background: rgb(0 0 0 / 6%);
+  background: linear-gradient(145deg, rgb(64 158 255 / 35%), var(--themeColor, #409eff));
   color: #fff;
   cursor: pointer;
   -webkit-app-region: no-drag;
-  transition: background 0.2s ease;
+  transition: box-shadow 0.2s ease;
 }
 
 .header-avatar:hover {
-  background: rgb(0 0 0 / 12%);
+  box-shadow: 0 0 0 1px rgb(64 158 255 / 40%);
+  background: linear-gradient(145deg, rgb(64 158 255 / 35%), var(--themeColor, #409eff));
 }
 
 .header-avatar .el-icon {
-  font-size: 16px;
+  font-size: 11px;
+  line-height: 1;
 }
 
 .ai-entry-btn {
