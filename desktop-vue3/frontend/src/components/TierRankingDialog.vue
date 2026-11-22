@@ -16,8 +16,9 @@
             class="tier-row"
             :data-tier="tier.id"
             :class="{ 'is-over': tierDragOver === tierIndex, 'is-fixed': fixedHeight }"
+            @dragenter.prevent="tierDragOver = tierIndex"
             @dragover.prevent="tierDragOver = tierIndex"
-            @dragleave="tierDragOver = tierDragOver === tierIndex ? -1 : tierDragOver"
+            @dragleave="onRowDragLeave(tierIndex, $event)"
             @drop.prevent="onTierAreaDrop(tierIndex)"
           >
             <div class="tier-label" :style="{ backgroundColor: tier.color }">
@@ -42,6 +43,7 @@
             <div
               class="tier-content"
               :style="{ overflowY: imageClass(tier) === 'multi-row' ? 'auto' : 'hidden' }"
+              @dragenter.prevent.stop="onTierContentDragOver(tierIndex, $event)"
               @dragover.prevent.stop="onTierContentDragOver(tierIndex, $event)"
               @dragleave.stop="onTierContentDragLeave(tierIndex, $event)"
               @drop.prevent.stop="onTierContentDrop(tierIndex)"
@@ -69,6 +71,7 @@
           <div
             class="tier-gallery"
             :class="{ 'is-over': galleryOver }"
+            @dragenter.prevent="onGalleryOver"
             @dragover.prevent="onGalleryOver"
             @dragleave="onGalleryLeave"
             @drop.prevent="onGalleryDrop"
@@ -100,6 +103,7 @@
                 class="tier-tool tier-upload"
                 :class="{ 'is-over': uploadOver }"
                 @click="fileInput?.click()"
+                @dragenter.prevent="uploadOver = true"
                 @dragover.prevent="uploadOver = true"
                 @dragleave="uploadOver = false"
                 @drop.prevent="onUploadDrop"
@@ -108,6 +112,7 @@
                 type="button"
                 class="tier-tool tier-delete"
                 :class="{ 'is-over': deleteOver }"
+                @dragenter.prevent="deleteOver = true"
                 @dragover.prevent="deleteOver = true"
                 @dragleave="deleteOver = false"
                 @drop.prevent="onDeleteDrop"
@@ -456,6 +461,21 @@ function onFixedHeightChange(): void {
   void saveState();
 }
 
+/**
+ * 整档 dragleave：光标只是从行移到行内的子元素（label / content）时不算离开，
+ * 否则每跨一次子元素都把高亮清掉，界面会闪成「没反应」。
+ */
+function onRowDragLeave(index: number, event: DragEvent): void {
+  const current = event.currentTarget as HTMLElement | null;
+  const related = event.relatedTarget as Node | null;
+  if (current && related && current.contains(related)) {
+    return;
+  }
+  if (tierDragOver.value === index) {
+    tierDragOver.value = -1;
+  }
+}
+
 function onTierContentDragOver(index: number, event: DragEvent): void {
   tierDragOver.value = index;
   const target = (event.target as HTMLElement | null)?.closest('.tier-image') as HTMLElement | null;
@@ -761,7 +781,10 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeyDown));
 }
 
 .tier-row:hover { background: #2e2e2e; }
-.tier-row.is-over { background: #3a3a3a; }
+.tier-row.is-over {
+  background: #24384c;
+  box-shadow: inset 0 0 0 2px #5aa9e6;
+}
 
 .tier-row.is-fixed {
   height: 130px;
