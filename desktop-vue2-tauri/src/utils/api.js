@@ -355,14 +355,10 @@ const KnowledgeBaseApi = {
 
       let rawResponse
       try {
-        const res = await fetch(url, {
-          headers: {
-            'X-Wiz-Token': token
-          }
-        })
-        const data = await res.json()
-        if (data.returnCode !== 200) {
-          throw new Error(data.returnMessage)
+        // 走统一请求通道（tauri 下由 Rust 侧发出），避免在 WebView2 里被 CORS 拦掉
+        const data = await execRequest('GET', url, {}, token, {}, true, true)
+        if (!data || data.returnCode !== 200) {
+          throw new Error(data?.returnMessage || 'request failed')
         }
         rawResponse = data.result
       } catch (err) {
