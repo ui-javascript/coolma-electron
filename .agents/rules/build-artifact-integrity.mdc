@@ -1,0 +1,43 @@
+---
+description: 打包产物完整性级别（Low IL）校验与处理规则
+alwaysApply: false
+---
+
+# 打包产物完整性级别（Low IL）
+
+> 目的：避免交付「打包能过、用户装不上 / 起不来」的产物。在受限沙箱、代理运行时或
+> 容器化环境里执行打包命令时，生成的可执行文件可能被标成 Windows 低完整性级别。
+
+## 1. 症状（记住这两条，别误判成业务 bug）
+
+- **安装包**：NSIS 弹「不能打开要写入的文件：…\uninstallerIcon.ico」，重试/忽略都别扭。
+- **免安装版**：双击无反应，进程立刻退出，退出码 `0x80000003`（STATUS_BREAKPOINT），
+  日志文件、stderr、Windows 事件日志全是空的。
+- **反证特征**：把同一个 exe（SHA256 一致）复制到别的目录就能正常启动，只有原始目录里不行。
+
+## 2. 判别
+
+```powershell
+icacls '<path>\app.exe'
+# 有 Mandatory Label\Low Mandatory Level:(I)(NW) 即为命中
+# 同时常伴随 Everyone:(I)(CI)(DENY)(DC) 与沙箱 SID（S-1-4-…）ACE
+```
+
+对照一份能跑的同类二进制（例如 `node_modules\electron\dist\electron.exe`）：
+它没有该标签，就能解释「同样的代码、同样的 Electron，换个目录就好」。
+
+## 3. 处理
+
+- **首选**：打包时把输出目录指到仓库外（electron-builder 用
+  `--config.directories.output=<仓库外路径>`），产物继承正常 ACL。
+- **已产出**：整份 `Copy-Item <产物> <仓库外目录> -Recurse`。副本按目标目录继承 ACL，
+  标签自然消失；不要 `Move-Item`（会保留源 ACL）。
+- **不要**依赖 `icacls /reset` 或 `/setintegritylevel` 原地修：受限环境通常拒绝改 SACL，
+  会返回一堆 `Access is denied`。
+- 仓库内输出目录（如 `desktop-vue3/out/**`）的可执行产物一律视为中间产物，不交付。
+
+## 4. 交付前必做
+
+1. `icacls` 确认交付路径下 exe 无 Low 标签；
+2. 实际启动一次免安装目录里的 exe，确认进程存活且有主窗口；
+3. 报给用户的路径必须是已经验证过能跑的那个，不要把「构建目录里的原始产物」当交付路径。

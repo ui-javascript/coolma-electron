@@ -67,6 +67,7 @@ adjust
 | Git 提交、依赖与 workspace | [中文提交](.agents/rules/commit-message.mdc)、[包管理](.agents/rules/package-manager.mdc) |
 | 版本号 +1、升版、日期版本叠加 | [version-bump 技能](.agents/skills/version-bump/SKILL.md) |
 | 启动 desktop-vue3 桌面端 | [desktop-vue3 启动技能](.agents/skills/desktop-vue3-dev-start/SKILL.md) |
+| 打包 desktop-vue3 / 出安装包 | [桌面端打包技能](.agents/skills/desktop-vue3-package/SKILL.md)、[产物完整性规则](.agents/rules/build-artifact-integrity.mdc) |
 | 文件操作、脚本编写 | [Shell 与文件操作安全](.agents/rules/safe-shell.mdc)、[脚本位置](.agents/rules/script-file-location.mdc) |
 | Vue 组件与界面 | [命名](.agents/rules/component-naming.mdc)、[Vue 版本](.agents/rules/plugin-vue-version.mdc)、[UI 库](.agents/rules/ui-library-mix.mdc)、[弹层组件](.agents/rules/vue-dialog-component.mdc)、[Mixin](.agents/rules/no-mixins.mdc) |
 | JS 类型判断、Quasar 依赖转译 | [类型判断](.agents/rules/type-check-with-lodash.mdc)、[依赖转译](.agents/rules/quasar-transpile-dependencies.mdc) |
