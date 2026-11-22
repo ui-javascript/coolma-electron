@@ -1078,7 +1078,135 @@ html.dark .editor-action-bar {
   font-size: 11px;
 }
 
+/* ── Muya 正文变量：移植 vue2 assets/css/muya.css ─────────────────────
+   vue3 之前只接了 Muya 主题，没有带 v2 的编辑器变量，导致引用色、代码块底色、
+   浮动工具条阴影等 var(--editorColor*) 全部失效。这里按 v2 原值挂在主题宿主上。 */
+.libs-muya-host.libs-muya-theme-light {
+  --titleBarHeight: 32px;
+  --editorAreaWidth: 90%;
+  --themeColor: rgba(64, 158, 255, 1);
+  --themeColor90: rgba(64, 158, 255, 0.9);
+  --themeColor80: rgba(64, 158, 255, 0.8);
+  --themeColor70: rgba(64, 158, 255, 0.7);
+  --themeColor60: rgba(64, 158, 255, 0.6);
+  --themeColor50: rgba(64, 158, 255, 0.5);
+  --themeColor40: rgba(64, 158, 255, 0.4);
+  --themeColor30: rgba(64, 158, 255, 0.3);
+  --themeColor20: rgba(64, 158, 255, 0.2);
+  --themeColor10: rgba(64, 158, 255, 0.1);
+  --highlightColor: rgba(64, 158, 255, 0.4);
+  --selectionColor: rgba(0, 0, 0, 0.1);
+  --editorBgColor: #fff;
+  --editorColor: rgba(0, 0, 0, 0.7);
+  --editorColor80: rgba(0, 0, 0, 0.8);
+  --editorColor60: rgba(0, 0, 0, 0.6);
+  --editorColor50: rgba(0, 0, 0, 0.5);
+  --editorColor40: rgba(0, 0, 0, 0.4);
+  --editorColor30: rgba(0, 0, 0, 0.3);
+  --editorColor10: rgba(0, 0, 0, 0.1);
+  --editorColor04: rgba(0, 0, 0, 0.03);
+  --deleteColor: #ff6969;
+  --iconColor: #6b737b;
+  --codeBgColor: #d8d8d869;
+  --codeBlockBgColor: rgba(0, 0, 0, 0.03);
+  --inputBgColor: rgba(0, 0, 0, 0.06);
+  --buttonBgColor: #fff;
+  --buttonBorderColor: rgba(0, 0, 0, 0.2);
+  --buttonShadow: rgba(0, 0, 0, 0.12);
+  --buttonHover: #f2f2f2;
+  --buttonActive: #e5e5e5;
+  --sideBarColor: rgba(0, 0, 0, 0.6);
+  --sideBarTitleColor: rgba(0, 0, 0, 1);
+  --sideBarTextColor: rgba(0, 0, 0, 0.4);
+  --sideBarBgColor: rgba(242, 242, 242, 0.9);
+  --sideBarItemHoverBgColor: rgba(0, 0, 0, 0.03);
+  --itemBgColor: rgba(255, 255, 255, 0.6);
+  --floatBgColor: #fff;
+  --floatHoverColor: rgba(0, 0, 0, 0.04);
+  --floatBorderColor: rgba(0, 0, 0, 0.1);
+  --floatShadow:
+    rgba(15, 15, 15, 0.03) 0 0 0 1px, rgba(15, 15, 15, 0.04) 0 3px 6px,
+    rgba(15, 15, 15, 0.05) 0 9px 24px;
+  --maskColor: rgba(255, 255, 255, 0.7);
+  --tableBorderColor: #9e9e9e;
+}
+
+.libs-muya-host.libs-muya-theme-dark {
+  --editorBgColor: #1b202a;
+  --editorColor: rgba(255, 255, 255, 0.85);
+  --editorColor80: rgba(255, 255, 255, 0.8);
+  --editorColor60: rgba(255, 255, 255, 0.6);
+  --editorColor50: rgba(255, 255, 255, 0.5);
+  --editorColor40: rgba(255, 255, 255, 0.4);
+  --editorColor30: rgba(255, 255, 255, 0.3);
+  --editorColor10: rgba(255, 255, 255, 0.1);
+  --editorColor04: rgba(255, 255, 255, 0.04);
+  --codeBgColor: rgba(255, 255, 255, 0.08);
+  --codeBlockBgColor: rgba(255, 255, 255, 0.05);
+  --inputBgColor: rgba(255, 255, 255, 0.1);
+  --floatBgColor: #232a36;
+  --floatHoverColor: rgba(255, 255, 255, 0.08);
+  --floatBorderColor: rgba(255, 255, 255, 0.1);
+  --maskColor: rgba(0, 0, 0, 0.7);
+  --tableBorderColor: #3a424f;
+}
+
+/* ── 抵抗 layui CDN 全局 reset ───────────────────────────────────────
+   layui.css 由 CDN 依赖统一注入，里面有裸选择器：
+   blockquote, h1…p, pre, ul, ol { margin:0; padding:0 } 与 li { list-style:none }。
+   它排在 Muya 主题之后，会清掉引用左边条、列表符号和标题/段落间距。
+   只在 #ag-editor-id 内恢复，避免影响 layui 微应用本身。 */
+#ag-editor-id :is(h1, h2, h3, h4, h5, h6) {
+  margin: 1rem 0;
+  padding: 0;
+}
+
+#ag-editor-id :is(p, blockquote, ul, ol, dl) {
+  margin: 0.5em 0;
+}
+
+#ag-editor-id blockquote {
+  position: relative;
+  padding: 0 30px;
+  color: var(--editorColor50);
+}
+
+#ag-editor-id blockquote::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 15px;
+  display: block;
+  width: 2px;
+  height: 100%;
+  background: var(--themeColor);
+}
+
+#ag-editor-id :is(ul, ol) {
+  padding-left: 30px;
+}
+
+#ag-editor-id li.ag-bullet-list-item {
+  list-style-type: disc;
+}
+
+#ag-editor-id li.ag-order-list-item {
+  list-style-type: decimal;
+}
+
+/* 编辑器正文宿主：必须自己吃掉剩余高度，Muya 的 height:100% 才有参照。
+   之前这里是普通块，长文会把宿主撑到内容高度，内部滚动条失效。 */
+.editor-context-host {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .muya-editor {
+  width: 100%;
+  height: 100%;
   min-height: 0;
   flex: 1;
 }
