@@ -447,5 +447,36 @@ export const markImageActionFailed = (wrapper) => {
   wrapper.classList.add('ag-image-fail')
   const image = wrapper.querySelector('img')
   if (image) image.remove()
+  showImageRetry(wrapper)
+  return true
+}
+
+export const IMAGE_RETRY_CLASS = 'ag-image-retry'
+
+/**
+ * 失败态上的“重试”按钮：只挂给内联图片容器（span.ag-inline-image），
+ * 引用式图片失败态是行内标记，绝对定位会跑出父级，仍走“点标记直接重试”。
+ * 同一容器重复调用不会叠加按钮。
+ */
+export const showImageRetry = (wrapper) => {
+  if (!wrapper || typeof document === 'undefined' || !document.createElement) return false
+  if (!wrapper.classList || !wrapper.classList.contains('ag-inline-image')) return false
+  if (wrapper.querySelector(`.${IMAGE_RETRY_CLASS}`)) return false
+  const button = document.createElement('span')
+  button.className = IMAGE_RETRY_CLASS
+  button.setAttribute('role', 'button')
+  button.setAttribute('aria-label', '重新加载图片')
+  button.setAttribute('title', '重新加载图片')
+  button.setAttribute('contenteditable', 'false')
+  button.textContent = '重试'
+  wrapper.appendChild(button)
+  return true
+}
+
+export const hideImageRetry = (wrapper) => {
+  if (!wrapper || !wrapper.querySelector) return false
+  const button = wrapper.querySelector(`.${IMAGE_RETRY_CLASS}`)
+  if (!button) return false
+  button.remove()
   return true
 }

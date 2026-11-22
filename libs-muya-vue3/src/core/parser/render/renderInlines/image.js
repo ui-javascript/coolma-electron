@@ -138,6 +138,15 @@ export default function image (h, cursor, block, token, outerClass) {
       : [
         h(wrapperSelector, data, [
           ...imageIcons,
+          // R-07：失败态挂一个可见的“重试”按钮，点击按原地址重载。
+          h('span.ag-image-retry', {
+            attrs: {
+              contenteditable: 'false',
+              role: 'button',
+              'aria-label': '重新加载图片',
+              title: '重新加载图片'
+            }
+          }, '重试'),
           renderImageContainer()
         ])
       ]

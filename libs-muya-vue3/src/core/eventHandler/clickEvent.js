@@ -103,6 +103,14 @@ class ClickEvent {
       const codeCopy = target.closest('.ag-code-copy')
       const footnoteBackLink = target.closest('.ag-footnote-backlink')
       const imageDelete = target.closest('.ag-image-icon-delete') || target.closest('.ag-image-icon-close')
+      const imageRetry = target.closest('.ag-image-retry')
+      if (imageRetry && imageWrapper) {
+        // R-07 残余：失败态上的“重试”按钮，直接按原地址清缓存重载，不再绕弹窗确认。
+        contentState.stateRender.retryImage(getImageInfo(imageWrapper))
+        event.preventDefault()
+        event.stopPropagation()
+        return
+      }
       const mathText = mathRender && mathRender.previousElementSibling
       const rubyText = rubyRender && rubyRender.previousElementSibling
       if (markedImageText && markedImageText.classList.contains(CLASS_OR_ID.AG_IMAGE_MARKED_TEXT)) {

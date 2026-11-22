@@ -1,4 +1,4 @@
-import { getUniqueId, loadImage } from '../../../utils'
+import { getUniqueId, loadImage, showImageRetry, hideImageRetry } from '../../../utils'
 import { insertAfter, operateClassName } from '../../../utils/domManipulate'
 import { CLASS_OR_ID } from '../../../config'
 
@@ -44,6 +44,7 @@ export default function loadImageAsync (imageInfo, attrs, className, imageClass,
             imageText.classList.remove('ag-image-loading')
             imageText.classList.remove('ag-image-fail')
             imageText.classList.add('ag-image-success')
+            hideImageRetry(imageText)
           } else {
             imageText.classList.remove(CLASS_OR_ID.AG_IMAGE_LOADING, CLASS_OR_ID.AG_IMAGE_FAIL)
             insertAfter(img, imageText)
@@ -70,6 +71,7 @@ export default function loadImageAsync (imageInfo, attrs, className, imageClass,
           if (image) {
             image.remove()
           }
+          showImageRetry(imageText)
         }
         if (this.urlMap.has(src)) {
           this.urlMap.delete(src)

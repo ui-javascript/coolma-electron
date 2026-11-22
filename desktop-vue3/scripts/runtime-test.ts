@@ -2596,6 +2596,27 @@ async function main(): Promise<void> {
           !wrapper.querySelector('img'),
         wrapper.className,
       );
+      const retryButton = wrapper.querySelector('.ag-image-retry');
+      assert(
+        '图片失败态：内联图片上出现“重试”按钮，重复标记不叠加',
+        !!retryButton && retryButton.textContent === '重试' &&
+          wrapper.querySelectorAll('.ag-image-retry').length === 1 &&
+          (markImageActionFailed(wrapper), wrapper.querySelectorAll('.ag-image-retry').length === 1),
+        retryButton?.outerHTML || 'missing',
+      );
+      const { hideImageRetry } = (await import('../../libs-muya-vue3/src/core/utils/index.js')) as Any;
+      assert(
+        '图片失败态：重试开始/成功后按钮撤掉',
+        hideImageRetry(wrapper) && !wrapper.querySelector('.ag-image-retry'),
+        wrapper.innerHTML,
+      );
+      const plain = document.createElement('span');
+      plain.className = 'ag-image-fail';
+      assert(
+        '图片失败态：引用式标记不挂绝对定位按钮，仍走点标记重试',
+        markImageActionFailed(plain) && !plain.querySelector('.ag-image-retry'),
+        plain.innerHTML,
+      );
     } finally {
       g.XMLHttpRequest = origXhr;
       g.Image = origImage;

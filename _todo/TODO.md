@@ -20,7 +20,7 @@
 - [x] R-03 运行动画逐项对照（成长 / 碎裂 / 天空步道 / 双生花等）；破万法禁用同块回响见 `desktop-vue3/docs/echo-shatter-20261122.md`
 - [x] R-04 残余：scss 高级语法已真正编译（`@mixin`/`@include`、`@extend`、`#{}` 插值、darken/lighten/rgba/mix 等颜色函数、嵌套拍平），变量路径保持轻量；缩进式 sass 与 less 的高级指令仍原样注入并告警
 - [x] R-05 渲染路径收口（`mountRuneVueHosts` 实测已只剩 1 处定义，无重复；摘掉 7 条 `console.log` 调试输出，保留 4 条错误级 `console.warn`，并加回归断言）
-- [ ] R-07 残余：已加 no-referrer 二次解码（防盗链热链图能救回）；两次都失败后仍是 `ag-image-fail` + 点击弹选择器，没有再试按钮
+- [x] R-07 残余：失败态补“重试”按钮（内联图片直接按原地址清缓存重载；引用式图片保持点标记重试），no-referrer 二次解码仍在
 
 ### A3 验收与测试
 

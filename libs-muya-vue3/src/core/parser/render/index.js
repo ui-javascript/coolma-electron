@@ -1,6 +1,6 @@
 import loadRenderer from '../../renderers'
 import { CLASS_OR_ID } from '../../config'
-import { conflict, mixins, camelToSnake, getImageInfo } from '../../utils'
+import { conflict, mixins, camelToSnake, getImageInfo, hideImageRetry } from '../../utils'
 import { patch, toVNode, toHTML, h } from './snabbdom'
 import { beginRules } from '../rules'
 import renderInlines from './renderInlines'
@@ -1074,6 +1074,7 @@ class StateRender {
     this.loadImageMap.delete(attrs.src)
     wrapper.classList.remove(CLASS_OR_ID.AG_IMAGE_FAIL, CLASS_OR_ID.AG_IMAGE_SUCCESS)
     wrapper.classList.add(CLASS_OR_ID.AG_IMAGE_LOADING)
+    hideImageRetry(wrapper)
     this.loadImageAsync(getImageInfo(attrs.src), attrs, className, imageClass, id)
     return true
   }
