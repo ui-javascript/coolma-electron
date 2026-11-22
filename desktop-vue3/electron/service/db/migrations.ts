@@ -1,6 +1,7 @@
 import type { SqlDatabase } from './connection';
 import { echoBuiltins } from '../../shared/builtins/catalog';
 import { syncBuiltinCatalog } from './builtins';
+import { hashSyncPayload } from '../sync/sync-merge';
 
 type DB = SqlDatabase;
 
@@ -383,7 +384,56 @@ const migration6: Migration = {
   },
 };
 
-export const MIGRATIONS: readonly Migration[] = [migration1, migration2, migration3, migration4, migration5, migration6];
+/**
+ * 迁移 7：同步基线 + 冲突队列。
+ * - notes 记「上次成功同步时的内容 hash / 远端修改时间」，用于判断单边改动（自动）还是双边改动（冲突）；
+ * - 老库按当前正文回填一次基线，避免升级后把所有笔记误判成冲突；
+ * - sync_conflicts 存冲突时两侧的完整快照，用户可离线二选一，不必再联网取一遍。
+ */
+const migration7: Migration = {
+  version: 7,
+  name: 'sync-baseline-and-conflicts',
+  up(db) {
+    ensureColumn(db, 'notes', 'synced_hash', 'TEXT');
+    ensureColumn(db, 'notes', 'synced_server_modified', 'INTEGER');
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS sync_conflicts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        note_id INTEGER NOT NULL UNIQUE,
+        doc_guid TEXT,
+        kb_guid TEXT,
+        direction TEXT NOT NULL CHECK(direction IN ('pull', 'push')),
+        local_hash TEXT,
+        remote_modified INTEGER,
+        local_title TEXT,
+        local_content TEXT,
+        remote_title TEXT,
+        remote_content TEXT,
+        remote_category TEXT DEFAULT '/',
+        remote_tags TEXT DEFAULT '',
+        created_at INTEGER,
+        FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE CASCADE
+      )
+    `);
+    const rows = db
+      .prepare('SELECT id, title, content, category, tags, server_modified FROM notes')
+      .all() as Array<{ id: number; title: string; content: string; category: string; tags: string; server_modified: number | null }>;
+    const update = db.prepare(
+      'UPDATE notes SET synced_hash = ?, synced_server_modified = COALESCE(synced_server_modified, ?) WHERE id = ?',
+    );
+    for (const row of rows) {
+      const hash = hashSyncPayload({
+        title: row.title ?? '',
+        content: row.content ?? '',
+        category: row.category ?? '/',
+        tags: row.tags ?? '',
+      });
+      update.run(hash, row.server_modified ?? null, row.id);
+    }
+  },
+};
+
+export const MIGRATIONS: readonly Migration[] = [migration1, migration2, migration3, migration4, migration5, migration6, migration7];
 
 export function runMigrations(db: DB): number {
   db.exec(`

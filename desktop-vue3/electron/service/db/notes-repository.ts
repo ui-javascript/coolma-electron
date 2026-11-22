@@ -4,9 +4,11 @@ import type {
   NoteRecord,
   NoteStats,
   NoteSummary,
+  SyncConflictRecord,
 } from '../../shared/types/domain';
 import { getDatabase } from './connection';
 import { syncLogRepository } from './sync-log-repository';
+import { hashSyncPayload } from '../sync/sync-merge';
 
 interface NoteRow {
   id: number;
@@ -20,6 +22,8 @@ interface NoteRow {
   data_modified: number | null;
   local_modified: number | null;
   server_modified: number | null;
+  synced_hash: string | null;
+  synced_server_modified: number | null;
   created_at: number | null;
   updated_at: number | null;
   dirty: number;
@@ -150,7 +154,18 @@ function toRecord(row: NoteRow): NoteRecord {
     dataModified: row.data_modified,
     localModified: row.local_modified,
     serverModified: row.server_modified,
+    syncedHash: row.synced_hash ?? null,
+    syncedRemoteModified: row.synced_server_modified ?? null,
   };
+}
+
+function hashPayload(payload: { title: string; content: string; category?: string | null; tags?: string | null }): string {
+  return hashSyncPayload({
+    title: payload.title ?? '',
+    content: payload.content ?? '',
+    category: payload.category ?? '/',
+    tags: payload.tags ?? '',
+  });
 }
 
 function splitTags(raw: string | undefined): string[] {
@@ -409,7 +424,11 @@ export const notesRepository = {
           current.title !== note.title || current.category !== note.category || current.tags !== note.tags) {
         return;
       }
-      db.prepare('UPDATE notes SET server_modified = ?, dirty = 0 WHERE id = ?').run(Date.now(), note.id);
+      const syncedAt = Date.now();
+      db.prepare(
+        `UPDATE notes SET server_modified = ?, dirty = 0, synced_hash = ?, synced_server_modified = ?
+         WHERE id = ?`,
+      ).run(syncedAt, hashPayload(note), syncedAt, note.id);
       syncLogRepository.markNoteSynced(note.id);
     });
     acknowledge();
@@ -530,6 +549,157 @@ export const notesRepository = {
       return removed;
     });
     return remove();
+  },
+
+  /** 记下“这次内容已与远端对齐”：hash 用于判本地改动，远端时间用于判远端改动。 */
+  setSyncBaseline(noteId: number, hash: string, remoteModified: number | null): void {
+    getDatabase()
+      .prepare('UPDATE notes SET synced_hash = ?, synced_server_modified = ? WHERE id = ?')
+      .run(hash, remoteModified, noteId);
+  },
+
+  /** 冲突入队：同一篇只留一条，重复同步覆盖快照而不是叠一堆。 */
+  upsertConflict(input: {
+    noteId: number;
+    docGuid?: string | null;
+    kbGuid?: string | null;
+    direction: 'pull' | 'push';
+    localHash?: string | null;
+    remoteModified?: number | null;
+    localTitle: string;
+    localContent: string;
+    remoteTitle: string;
+    remoteContent: string;
+    remoteCategory?: string;
+    remoteTags?: string;
+  }): void {
+    getDatabase()
+      .prepare(
+        `INSERT INTO sync_conflicts (
+           note_id, doc_guid, kb_guid, direction, local_hash, remote_modified,
+           local_title, local_content, remote_title, remote_content,
+           remote_category, remote_tags, created_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(note_id) DO UPDATE SET
+           doc_guid = excluded.doc_guid,
+           kb_guid = excluded.kb_guid,
+           direction = excluded.direction,
+           local_hash = excluded.local_hash,
+           remote_modified = excluded.remote_modified,
+           local_title = excluded.local_title,
+           local_content = excluded.local_content,
+           remote_title = excluded.remote_title,
+           remote_content = excluded.remote_content,
+           remote_category = excluded.remote_category,
+           remote_tags = excluded.remote_tags,
+           created_at = excluded.created_at`,
+      )
+      .run(
+        input.noteId,
+        input.docGuid ?? null,
+        input.kbGuid ?? null,
+        input.direction,
+        input.localHash ?? null,
+        input.remoteModified ?? null,
+        input.localTitle,
+        input.localContent,
+        input.remoteTitle,
+        input.remoteContent,
+        normalizeCategory(input.remoteCategory),
+        splitTags(input.remoteTags).join(','),
+        Date.now(),
+      );
+  },
+
+  listConflicts(kbGuid?: string): SyncConflictRecord[] {
+    const rows = (kbGuid
+      ? getDatabase()
+        .prepare(
+          `SELECT c.*, n.title AS note_title
+             FROM sync_conflicts c JOIN notes n ON n.id = c.note_id
+            WHERE c.kb_guid = ? ORDER BY c.created_at ASC`,
+        )
+        .all(kbGuid)
+      : getDatabase()
+        .prepare(
+          `SELECT c.*, n.title AS note_title
+             FROM sync_conflicts c JOIN notes n ON n.id = c.note_id
+            ORDER BY c.created_at ASC`,
+        )
+        .all()) as Array<Record<string, unknown>>;
+    return rows.map((row) => ({
+      id: Number(row.id),
+      noteId: Number(row.note_id),
+      title: String(row.note_title ?? row.local_title ?? ''),
+      direction: String(row.direction) === 'pull' ? 'pull' : 'push',
+      docGuid: (row.doc_guid as string | null) ?? null,
+      kbGuid: (row.kb_guid as string | null) ?? null,
+      localHash: (row.local_hash as string | null) ?? null,
+      localTitle: String(row.local_title ?? ''),
+      localContent: String(row.local_content ?? ''),
+      remoteTitle: String(row.remote_title ?? ''),
+      remoteContent: String(row.remote_content ?? ''),
+      remoteCategory: String(row.remote_category ?? '/'),
+      remoteTags: String(row.remote_tags ?? ''),
+      remoteModified: row.remote_modified == null ? null : Number(row.remote_modified),
+      createdAt: Number(row.created_at) || 0,
+    }));
+  },
+
+  conflictCount(kbGuid?: string): number {
+    const row = (kbGuid
+      ? getDatabase().prepare('SELECT COUNT(*) AS count FROM sync_conflicts WHERE kb_guid = ?').get(kbGuid)
+      : getDatabase().prepare('SELECT COUNT(*) AS count FROM sync_conflicts').get()) as { count: number };
+    return Number(row?.count) || 0;
+  },
+
+  /**
+   * 处理冲突：
+   * - local：保留本地，把远端当前版本当基线，下一次推送即可覆盖云端；
+   * - remote：用快照覆盖本地，基线同步更新；
+   * - skip：两边各留各的，基线按当前两侧写死，直到任一侧再改才重新判定。
+   */
+  resolveConflict(conflict: SyncConflictRecord, resolution: 'local' | 'remote' | 'skip'): boolean {
+    const db = getDatabase();
+    const now = Date.now();
+    const existing = this.get(conflict.noteId);
+    if (!existing) {
+      db.prepare('DELETE FROM sync_conflicts WHERE id = ?').run(conflict.id);
+      return false;
+    }
+    const run = db.transaction(() => {
+      if (resolution === 'remote') {
+        this.upsertRemote({
+          docGuid: conflict.docGuid ?? existing.docGuid ?? '',
+          kbGuid: conflict.kbGuid ?? existing.kbGuid,
+          title: conflict.remoteTitle || 'Untitled',
+          content: conflict.remoteContent,
+          category: conflict.remoteCategory,
+          tags: conflict.remoteTags,
+          serverModified: conflict.remoteModified ?? now,
+        });
+        this.setSyncBaseline(conflict.noteId, hashPayload({
+          title: conflict.remoteTitle || 'Untitled',
+          content: conflict.remoteContent,
+          category: conflict.remoteCategory,
+          tags: conflict.remoteTags,
+        }), conflict.remoteModified ?? now);
+      } else {
+        // 保留本地：标脏等待推送；本地/跳过都把「远端当前版本」当作基线。
+        const localHash = hashPayload({
+          title: existing.title,
+          content: existing.content,
+          category: existing.category,
+          tags: existing.tags,
+        });
+        db.prepare(
+          'UPDATE notes SET dirty = ?, local_modified = ?, synced_hash = ?, synced_server_modified = ? WHERE id = ?',
+        ).run(resolution === 'local' ? 1 : 0, resolution === 'local' ? now : existing.localModified, localHash, conflict.remoteModified ?? now, conflict.noteId);
+      }
+      db.prepare('DELETE FROM sync_conflicts WHERE id = ?').run(conflict.id);
+    });
+    run();
+    return true;
   },
 
   stats(): NoteStats {

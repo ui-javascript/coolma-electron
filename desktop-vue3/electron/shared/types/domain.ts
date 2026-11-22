@@ -17,6 +17,9 @@ export interface NoteRecord extends NoteSummary {
   dataModified: number | null;
   localModified: number | null;
   serverModified: number | null;
+  /** 上次成功同步时的内容指纹与远端修改时间；同步冲突判定用 */
+  syncedHash: string | null;
+  syncedRemoteModified: number | null;
 }
 
 export interface NoteListResult {
@@ -171,3 +174,25 @@ export interface RestoreResult {
   schemaVersion: number;
   previousSchemaVersion: number;
 }
+
+/** 同步冲突：两侧快照都留在库里，用户可离线二选一。 */
+export interface SyncConflictRecord {
+  id: number;
+  noteId: number;
+  title: string;
+  direction: 'pull' | 'push';
+  docGuid: string | null;
+  kbGuid: string | null;
+  localHash: string | null;
+  localTitle: string;
+  localContent: string;
+  remoteTitle: string;
+  remoteContent: string;
+  remoteCategory: string;
+  remoteTags: string;
+  remoteModified: number | null;
+  createdAt: number;
+}
+
+/** 冲突处理动作：保留本地、用云端覆盖本地、跳过（两侧各留各的直到下次改动）。 */
+export type SyncConflictResolution = 'local' | 'remote' | 'skip';

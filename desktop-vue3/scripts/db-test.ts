@@ -39,12 +39,25 @@ setDatabase(handle.database);
 const schemaVersion = runMigrations(handle.database);
 
 // ===== 迁移 =====
-assert('迁移：version 走到 6', schemaVersion === 6, String(schemaVersion));
+assert('迁移：version 走到 7', schemaVersion === 7, String(schemaVersion));
 const tables = handle.database
   .prepare("SELECT name FROM sqlite_master WHERE type='table'")
   .all()
   .map((row: { name: string }) => row.name);
-assert('迁移：核心表齐全', ['notes', 'tags', 'note_tags', 'local_categories', 'sync_log', 'runes', 'echoes', 'settings'].every((t) => tables.includes(t)), tables.join(','));
+assert(
+  '迁移：核心表齐全',
+  ['notes', 'tags', 'note_tags', 'local_categories', 'sync_log', 'runes', 'echoes', 'settings', 'sync_conflicts'].every((t) => tables.includes(t)),
+  tables.join(','),
+);
+const noteColumns = handle.database
+  .prepare('PRAGMA table_info(notes)')
+  .all()
+  .map((row) => String(row.name));
+assert(
+  '迁移：notes 带同步基线列',
+  noteColumns.includes('synced_hash') && noteColumns.includes('synced_server_modified'),
+  noteColumns.join(','),
+);
 
 // ===== 内置符文/回响播种 =====
 const runes = runesRepository.list();
@@ -86,6 +99,41 @@ const elsewhere = notesRepository.create({ title: '测试笔记', content: 'othe
 assert('笔记：跨分类不撞名', elsewhere.title === '测试笔记', elsewhere.title);
 const onlineNote = notesRepository.create({ title: '在线笔记', content: 'online', category: '/工作', kbGuid: 'kb-1' });
 assert('笔记：在线创建带当前账号', onlineNote.kbGuid === 'kb-1', String(onlineNote.kbGuid));
+
+// ===== S-02 冲突队列 =====
+const conflictNote = notesRepository.create({ title: '冲突笔记', content: 'local-body', category: '/工作' });
+notesRepository.setSyncBaseline(conflictNote.id, 'baseline-hash', 1000);
+notesRepository.upsertConflict({
+  noteId: conflictNote.id,
+  docGuid: 'doc-conflict',
+  kbGuid: 'kb-1',
+  direction: 'pull',
+  localHash: 'local-hash',
+  remoteModified: 2000,
+  localTitle: '冲突笔记',
+  localContent: 'local-body',
+  remoteTitle: '冲突笔记-云端',
+  remoteContent: 'remote-body',
+  remoteCategory: '/工作',
+  remoteTags: '#x',
+});
+assert('冲突：入队后计数为 1', notesRepository.conflictCount() === 1, String(notesRepository.conflictCount()));
+const queued = notesRepository.listConflicts();
+assert('冲突：快照带两侧正文', queued[0]?.localContent === 'local-body' && queued[0]?.remoteContent === 'remote-body');
+assert('冲突：带笔记标题兜底', queued[0]?.title === '冲突笔记', queued[0]?.title);
+notesRepository.upsertConflict({
+  noteId: conflictNote.id,
+  direction: 'push',
+  localTitle: '冲突笔记',
+  localContent: 'local-body-2',
+  remoteTitle: '冲突笔记-云端',
+  remoteContent: 'remote-body-2',
+});
+assert('冲突：同一篇重复入队只留一条并覆盖快照', notesRepository.conflictCount() === 1 && notesRepository.listConflicts()[0].remoteContent === 'remote-body-2');
+notesRepository.resolveConflict(notesRepository.listConflicts()[0], 'remote');
+const afterRemote = notesRepository.get(conflictNote.id);
+assert('冲突：选云端后本地正文被覆盖', afterRemote?.content === 'remote-body-2', afterRemote?.content);
+assert('冲突：处理完队列清空', notesRepository.conflictCount() === 0, String(notesRepository.conflictCount()));
 
 // 拉取去重：分类 + 标题 + 当前账号（NULL 归当前）
 const matchedLocal = notesRepository.findByTitleCategory({ category: '/工作', title: first.title, kbGuid: 'kb-1' });

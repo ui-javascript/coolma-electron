@@ -4,6 +4,7 @@ import { app } from 'electron';
 import * as wizMarkdown from '@altairwei/wiz-markdown';
 import { settingsRepository } from '../db/settings-repository';
 import { notesRepository, normalizeCategory } from '../db/notes-repository';
+import { decideSyncAction, hashSyncPayload } from './sync-merge';
 import { syncLogRepository } from '../db/sync-log-repository';
 import { categoriesRepository } from '../db/categories-repository';
 import { ATTACHMENT_ROOT_NAME, parseCoolmaUrl } from '../attachments';
@@ -722,6 +723,8 @@ export interface PullResult {
   skipped: number;
   backfilled: number;
   failed: number;
+  /** 本次判成冲突、已进队列等待用户二选一的笔记数 */
+  conflicts: number;
   total: number;
   errors: string[];
 }
@@ -788,6 +791,7 @@ export async function pull(input: { category?: string; limit?: number } = {}): P
   let skipped = 0;
   let backfilled = 0;
   let failed = 0;
+  let conflicts = 0;
   const errors: string[] = [];
   let tagMaps = emptyTagMaps();
   try {
@@ -806,8 +810,26 @@ export async function pull(input: { category?: string; limit?: number } = {}): P
 
     const existing = notesRepository.getByDocGuid(docGuid);
     if (existing && existing.docGuid && !existing.docGuid.startsWith('local_')) {
-      // vue2 对已存在的云端笔记不覆盖；只有本地正文为空时才回填。
-      if (String(existing.content ?? '').trim()) {
+      // 单边改动自动处理：只有远端改 → 直接拉；只有本地改 → 留给 push。
+      // 两边都改 → 记冲突、两边都不覆盖，等用户在冲突弹框里二选一。
+      const remoteModified = Number(summary.dataModified) || null;
+      const localEmpty = !String(existing.content ?? '').trim();
+      const decision = localEmpty
+        ? 'pull'
+        : decideSyncAction({
+          local: {
+            title: existing.title,
+            content: existing.content,
+            category: existing.category,
+            tags: existing.tags,
+          },
+          syncedHash: existing.syncedHash,
+          remoteModified,
+          syncedRemoteModified: existing.syncedRemoteModified,
+          dirty: Number(existing.dirty) > 0,
+          remoteKnown: true,
+        });
+      if (decision === 'noop' || decision === 'push') {
         skipped += 1;
         continue;
       }
@@ -819,8 +841,34 @@ export async function pull(input: { category?: string; limit?: number } = {}): P
         }
         const remoteCategory = String(note.info?.category ?? summary.category);
         const remoteTitle = stripWizMarkdownSuffix(note.info?.title ?? summary.title) || 'Untitled';
-        const conflict = notesRepository.findByTitleCategory({ category: remoteCategory, title: remoteTitle, kbGuid: config.kbGuid });
-        if (conflict && conflict.docGuid !== docGuid) {
+        const remoteTags = cloudTagsToNames(String(note.info?.tags ?? ''), tagMaps.guidToName);
+        const remoteServerModified = Number(note.info?.dataModified ?? summary.dataModified) || null;
+        if (decision === 'conflict') {
+          notesRepository.upsertConflict({
+            noteId: existing.id,
+            docGuid,
+            kbGuid: config.kbGuid,
+            direction: 'pull',
+            localHash: hashSyncPayload({
+              title: existing.title,
+              content: existing.content,
+              category: existing.category,
+              tags: existing.tags,
+            }),
+            remoteModified: remoteServerModified,
+            localTitle: existing.title,
+            localContent: existing.content,
+            remoteTitle,
+            remoteContent: content,
+            remoteCategory,
+            remoteTags,
+          });
+          conflicts += 1;
+          skipped += 1;
+          continue;
+        }
+        const titleConflict = notesRepository.findByTitleCategory({ category: remoteCategory, title: remoteTitle, kbGuid: config.kbGuid });
+        if (titleConflict && titleConflict.docGuid !== docGuid) {
           skipped += 1;
           continue;
         }
@@ -830,9 +878,15 @@ export async function pull(input: { category?: string; limit?: number } = {}): P
           title: remoteTitle,
           content,
           category: remoteCategory,
-          tags: cloudTagsToNames(String(note.info?.tags ?? ''), tagMaps.guidToName),
-          serverModified: Number(note.info?.dataModified ?? summary.dataModified) || null,
+          tags: remoteTags,
+          serverModified: remoteServerModified,
         });
+        notesRepository.setSyncBaseline(existing.id, hashSyncPayload({
+          title: remoteTitle,
+          content,
+          category: remoteCategory,
+          tags: remoteTags,
+        }), remoteServerModified);
         backfilled += 1;
       } catch (error) {
         failed += 1;
@@ -883,7 +937,7 @@ export async function pull(input: { category?: string; limit?: number } = {}): P
     }
   }
   saveConfig({ lastSyncAt: Date.now() });
-  return { imported, skipped, backfilled, failed, total: list.length, errors: errors.slice(0, 10) };
+  return { imported, skipped, backfilled, failed, conflicts, total: list.length, errors: errors.slice(0, 10) };
 }
 
 export interface PushResult {
@@ -891,6 +945,8 @@ export interface PushResult {
   created: number;
   failed: number;
   deleted?: number;
+  /** 本次判成冲突、已进队列的笔记数（这些笔记不会覆盖云端） */
+  conflicts: number;
   errors: string[];
 }
 
@@ -917,6 +973,17 @@ async function findCloudNoteInCategory(
     cache.set(key, await listCategoryNotes(key));
   }
   return findCloudNoteByTitle(cache.get(key) ?? [], input);
+}
+
+async function listCategoryCached(
+  cache: Map<string, WizNoteSummary[]>,
+  category: string,
+): Promise<WizNoteSummary[]> {
+  const key = category || '/';
+  if (!cache.has(key)) {
+    cache.set(key, await listCategoryNotes(key));
+  }
+  return cache.get(key) ?? [];
 }
 
 async function deleteRemoteNote(docGuid: string, kbGuid: string): Promise<void> {
@@ -980,6 +1047,7 @@ export async function push(input: { limit?: number } = {}): Promise<PushResult> 
   let created = 0;
   let failed = 0;
   let deleted = 0;
+  let conflicts = 0;
   const errors: string[] = [];
 
   // vue2 推送顺序：先补目录，再删云端笔记，最后推 dirty 笔记。
@@ -1025,6 +1093,51 @@ export async function push(input: { limit?: number } = {}): Promise<PushResult> 
     const isRemote = Boolean(docGuid) && !docGuid.startsWith('local_');
     const isLite = isLiteCategory(note.category);
     const category = toWizRemoteCategory(note.category);
+
+    // 推送前先确认远端有没有比上次同步更新的版本：有就判冲突，绝不覆盖云端。
+    // 本地 dirty 说明本地也改过；两边都动过才进队列，单边改动照旧自动推送。
+    if (isRemote && note.syncedRemoteModified != null) {
+      try {
+        const summaries = await listCategoryCached(cloudCache, category);
+        const remoteSummary = summaries.find((item) => item.docGuid === docGuid) ?? null;
+        const remoteModified = remoteSummary ? Number(remoteSummary.dataModified) || null : null;
+        if (remoteSummary && remoteModified !== null && remoteModified > note.syncedRemoteModified) {
+          const remoteNote = await download(docGuid);
+          const remoteMd = await toMarkdown(remoteNote, config, docGuid);
+          const remoteTitle = stripWizMarkdownSuffix(remoteNote.info?.title ?? remoteSummary.title) || 'Untitled';
+          const remoteCategory = String(remoteNote.info?.category ?? remoteSummary.category);
+          const remoteTagsRaw = String(remoteNote.info?.tags ?? '');
+          const remoteTags = tagsReady ? cloudTagsToNames(remoteTagsRaw, tagMaps.guidToName) : remoteTagsRaw;
+          notesRepository.upsertConflict({
+            noteId: note.id,
+            docGuid,
+            kbGuid: config.kbGuid,
+            direction: 'push',
+            localHash: hashSyncPayload({
+              title: note.title,
+              content: note.content,
+              category: note.category,
+              tags: note.tags,
+            }),
+            remoteModified,
+            localTitle: note.title,
+            localContent: note.content,
+            remoteTitle,
+            remoteContent: remoteMd.content,
+            remoteCategory,
+            remoteTags,
+          });
+          conflicts += 1;
+          continue;
+        }
+      } catch (error) {
+        // 判定失败就保守跳过这篇，避免在信息不全时覆盖云端。
+        failed += 1;
+        errors.push(`${note.title}: 冲突判定失败 ${(error as Error).message}`);
+        continue;
+      }
+    }
+
     const { html, names } = toWizHtml(note.content ?? '', isLite, config, docGuid, isRemote ? docGuid : '');
     const resources = names.map((name) => ({ name }));
     let cloudTags: string | undefined;
@@ -1149,7 +1262,7 @@ export async function push(input: { limit?: number } = {}): Promise<PushResult> 
     }
   }
   saveConfig({ lastSyncAt: Date.now() });
-  return { pushed, created, failed, deleted, errors: errors.slice(0, 10) };
+  return { pushed, created, failed, deleted, conflicts, errors: errors.slice(0, 10) };
 }
 
 /** 清掉遗留的密码（记住密码关闭时用）。 */
