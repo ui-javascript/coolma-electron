@@ -20,6 +20,7 @@
 // ============================================================================
 
 import Vue from 'vue'
+import { loadRuneSources, resolveDepFromSources } from 'libs-muya-vue2/lib/rune/runeSourceRegistry'
 import {
   parseMeltRuneConfig,
   validateMeltRuneConfig,
@@ -52,22 +53,49 @@ const stableStringify = value => {
   return `{${keys.map(key => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(',')}}`
 }
 
+// 配置 → 真实依赖：定义里写了 host 就用定义（定义级覆盖），
+// 否则按设置里的「远程组件源」注册表找同名条目（后面的覆盖前面的）。
+// 返回带 warnings 的配置副本，错误卡可直接把来源问题显示出来。
+export function resolveMeltConfig (config) {
+  if (!config || !config.dep) return config
+  const { dep, warnings } = resolveDepFromSources(loadRuneSources(), config.dep)
+  if (!warnings.length) return { ...config, dep }
+  return { ...config, dep, sourceWarnings: warnings }
+}
+
 // 配置 → 资源池 key（platform 也参与，因为 hel 的 platform 决定拉哪份产物）
-export function getMeltResourceKey (config) {
-  if (!config) return ''
+export function getMeltResourceKey (rawConfig) {
+  if (!rawConfig) return ''
+  const config = resolveMeltConfig(rawConfig)
   const dep = config.dep || {}
   const origin = dep.host || dep.type || ''
   return [dep.platform || '', dep.name || '', dep.version || '', origin, config.exportName || ''].join('|')
 }
 
+// 直连产物入口：给到 .../hel-meta.json 或 .../index.html 时整包原样使用。
+// 这条路径不能用「ref + base」拼，否则会得到 <meta 地址>/<包名>/hel_dist/hel-meta.json
+// 这种重复路径（已用真包实测）。这也正是对方 demo 的写法：host 直接给 meta 地址、不带版本。
+const DIRECT_ENTRY_RE = /\/(?:hel-meta\.json|index\.html)$/i
+
 // 配置 → hel 的加载描述（先解析地址，再补 platform / requiredExports）
-export function buildMeltLoadSpec (config) {
+export function buildMeltLoadSpec (rawConfig) {
+  const config = resolveMeltConfig(rawConfig)
   const { resolveHelDep } = loadMeltLibs()
   const dep = config.dep || {}
+  const host = typeof dep.host === 'string' ? dep.host.trim() : ''
   const ref = dep.version ? `${dep.name}@${dep.version}` : dep.name
-  const options = { type: dep.type || 'unpkg' }
-  if (dep.host) options.base = dep.host
-  const spec = resolveHelDep(ref, options)
+  let spec
+  if (host && DIRECT_ENTRY_RE.test(host)) {
+    // 直连：版本由对方部署路径决定，我方只维护指向
+    spec = resolveHelDep({ name: dep.name, host })
+  } else if (host) {
+    // 站点根：name 必须带 scope（@scope/name），version 写进 ref 才会拼出版本目录
+    // 有 host 时按 custom 语义走；解析层默认塞进来的 unpkg 不能带过来
+    const siteType = dep.type && dep.type !== 'unpkg' ? dep.type : 'custom'
+    spec = resolveHelDep(ref, { type: siteType, base: host })
+  } else {
+    spec = resolveHelDep(ref, { type: dep.type || 'unpkg' })
+  }
   if (dep.platform) spec.platform = dep.platform
   if (dep.requiredExports && dep.requiredExports.length) spec.requiredExports = dep.requiredExports.slice()
   return spec
@@ -189,8 +217,10 @@ function renderMessage (h, { style, text, retry, state = 'loading' }) {
 
 // 主工厂：melt 定义 → Vue 组件构造器；不是 melt 定义返回 null
 export function createMeltRuneRendererCtor (rune = {}) {
-  const config = parseMeltRuneConfig(rune)
-  if (!config) return null
+  const parsed = parseMeltRuneConfig(rune)
+  if (!parsed) return null
+  // 先把「来源」解析出来：定义写死 host 优先，否则查设置里的远程组件源
+  const config = resolveMeltConfig(parsed)
   const cacheKey = `${rune.id || rune.name || 'default'}:${stableStringify(config)}`
   if (ctorCache.has(cacheKey)) return ctorCache.get(cacheKey)
 
@@ -293,7 +323,14 @@ export function createMeltRuneRendererCtor (rune = {}) {
       }
       if (state.status === 'error') {
         const errorText = state.error && state.error.message ? state.error.message : String(state.error || '加载失败')
-        return renderMessage(h, { style: ERROR_STYLE, text: `${config.exportName} 加载失败：${errorText}`, retry: this.retryLoad, state: 'error' })
+        const origin = (config.dep && (config.dep.host || config.dep.name)) || ''
+        const sourceWarn = config.sourceWarnings && config.sourceWarnings.length ? `（${config.sourceWarnings.join('；')}）` : ''
+        return renderMessage(h, {
+          style: ERROR_STYLE,
+          text: `${config.exportName} 加载失败（${origin}）：${errorText}${sourceWarn}`,
+          retry: this.retryLoad,
+          state: 'error'
+        })
       }
 
       const mismatch = describeFrameworkMismatch(state.component)
@@ -321,6 +358,7 @@ export const MELT_RUNE_TYPE = RUNE_TYPE_MELT_JS
 export default {
   createMeltRuneRendererCtor,
   getMeltResourceKey,
+  resolveMeltConfig,
   buildMeltLoadSpec,
   coerceMeltProp,
   normalizeMeltEmitValue,

@@ -114,7 +114,7 @@ describe('加载态', () => {
     mockResource.getState.mockReturnValue(entryState)
     vm.state = entryState
     await vm.$nextTick()
-    expect(vm.$el.textContent).toContain('加载失败：meta 404')
+    expect(vm.$el.textContent).toContain('加载失败（comps-vue2-meme）：meta 404')
     const button = vm.$el.querySelector('button')
     expect(button).not.toBeNull()
     button.click()

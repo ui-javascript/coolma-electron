@@ -113,7 +113,7 @@ describe('加载态', () => {
     mockResource.getState.mockReturnValue(entryState)
     vm.state = entryState
     await vm.$nextTick()
-    expect(vm.$el.textContent).toContain('加载失败：meta 404')
+    expect(vm.$el.textContent).toContain('加载失败（comps-vue2-meme）：meta 404')
     const button = vm.$el.querySelector('button')
     expect(button).not.toBeNull()
     button.click()
@@ -209,6 +209,51 @@ describe('配置 → hel 加载描述', () => {
       })
     })
     expect(buildMeltLoadSpec(config).base).toBe('https://my.example.com/tools')
+  })
+
+  test('直连 hel-meta.json 原样作为 dep，不拼 ref 路径', () => {
+    const config = require('libs-muya-vue2/lib/rune/runeDefinition').parseMeltRuneConfig({
+      template: JSON.stringify({
+        $type: 'melt-js',
+        dep: { name: 'comps-vue2-meme', host: 'http://82.156.212.243/@melt-js/comps-vue2-meme/hel_dist/hel-meta.json' },
+        exportName: 'TierRanking'
+      })
+    })
+    buildMeltLoadSpec(config)
+    const firstArg = meltLibs.resolveHelDep.mock.calls.pop()[0]
+    expect(typeof firstArg).toBe('object')
+    expect(firstArg.host).toBe('http://82.156.212.243/@melt-js/comps-vue2-meme/hel_dist/hel-meta.json')
+    expect(firstArg.name).toBe('comps-vue2-meme')
+  })
+
+  test('站点根 + scoped 名，版本写进 ref', () => {
+    const config = require('libs-muya-vue2/lib/rune/runeDefinition').parseMeltRuneConfig({
+      template: JSON.stringify({
+        $type: 'melt-js',
+        dep: { name: '@melt-js/comps-vue2-meme', host: 'http://82.156.212.243', version: '2026.11.18' },
+        exportName: 'TierRanking'
+      })
+    })
+    buildMeltLoadSpec(config)
+    const last = meltLibs.resolveHelDep.mock.calls.pop()
+    expect(last[0]).toBe('@melt-js/comps-vue2-meme@2026.11.18')
+    expect(last[1].base).toBe('http://82.156.212.243')
+    expect(last[1].type).toBe('custom')
+  })
+
+  test('设置里的远程组件源命中时补上 host（同名后者覆盖前者）', () => {
+    const { saveRuneSources, MELT_SOURCES_STORAGE_KEY } = require('libs-muya-vue2/lib/rune/runeSourceRegistry')
+    saveRuneSources([
+      { name: 'comps-vue2-meme', type: 'sftp', base: 'https://old.example.com' },
+      { name: '@melt-js/comps-vue2-meme', type: 'sftp', base: 'http://82.156.212.243' }
+    ])
+    const config = require('libs-muya-vue2/lib/rune/runeDefinition').parseMeltRuneConfig({
+      template: JSON.stringify({ $type: 'melt-js', dep: { name: 'comps-vue2-meme' }, exportName: 'TierRanking' })
+    })
+    buildMeltLoadSpec(config)
+    const spec = meltLibs.resolveHelDep.mock.calls.pop()[0]
+    expect(spec.host).toBe('http://82.156.212.243/@melt-js/comps-vue2-meme/hel_dist/hel-meta.json')
+    localStorage.removeItem(MELT_SOURCES_STORAGE_KEY)
   })
 
   test('资源池 key 区分 origin', () => {
