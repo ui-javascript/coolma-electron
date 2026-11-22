@@ -58,7 +58,9 @@ const { pickSkin, skinName } = useSkinPick();
 }
 
 .skin-compact-trigger .icon-custom {
-  color: var(--coolma-muted, #6b737b);
+  /* 换肤皮肤（哪吒 / INFP）下顶栏图标统一走 --coolma-header-icon，
+     否则这个 palette 图标会停在 --coolma-muted 的灰色，和隔壁一圈图标不同色 */
+  color: var(--coolma-header-icon, var(--coolma-muted, #6b737b));
   font-size: 18px;
   transition: all 0.2s ease;
 }

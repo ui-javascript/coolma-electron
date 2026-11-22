@@ -246,12 +246,16 @@ function onAccountCommand(command: string): void {
 }
 
 .header--skin-nezha {
+  /* 皮肤下的图标前景色：SkinDropdown 里的 palette 图标是独立子组件，
+     拿不到本组件 scoped 的 skin 选择器，只能靠这个变量继承下去 */
+  --coolma-header-icon: #2c2c2c;
   background: #b5817d !important;
   border-bottom-color: rgb(0 0 0 / 10%);
   color: #2c2c2c;
 }
 
 .header--skin-infp {
+  --coolma-header-icon: #2c2c2c;
   background: #a3b5a6 !important;
   border-bottom-color: rgb(0 0 0 / 10%);
   color: #2c2c2c;
