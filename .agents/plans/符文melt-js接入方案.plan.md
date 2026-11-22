@@ -478,3 +478,35 @@ eslint：改动文件相对 HEAD 基线无新增 error（`Muya.vue`/`runeSfcRend
 
 下一步（仍未做，按用户"后面再接"的口径）：`@melt-js/libs-core-vue2` 引入 + `bindVueRuntime` +
 `createMeltRuneRendererCtor` + 资源池（`platform|name@version|origin|exportName` 引用计数）。
+
+## 10. 落地记录（P0-3 接远端组件，v2026-11-22）
+
+| 单元 | 提交 | 落点 |
+| --- | --- | --- |
+| 引入依赖 | `50cf7d6` | `@melt-js/libs-core-vue2@2026.11.16`（desktop-vue2 / desktop-vue2-tauri）+ `pnpm-workspace.yaml` allowBuilds 补 `esbuild@0.25.12` |
+| 壳组件 + 资源池 + 分流 | `6b433c2` | `desktop-vue2/src/components/rune/meltRuneHost.js`（新）+ `Muya.vue`（RunePreviewRenderer 先 melt 后 SFC）+ `boot/hel-micro-renderer.js`（`bindVueRuntime({Vue})`） |
+| tauri 镜像 | `c8d30f1` | `desktop-vue2-tauri` 同三处 + `tests/rune-melt-host.test.js` |
+
+实现口径（与 4.3 伪代码的差异，均以实测/可维护性为准）：
+
+1. **不直接用 `defineHelComponent`**，用 `createHelComponentResource` 自己做壳：需要
+   类型强转、引用计数、loading/error 视觉；地址解析 / 导出校验仍交给上游。
+2. **依赖懒加载**（函数内 `require('@melt-js/libs-core-vue2')`）：该包是纯 ESM，
+   Jest 默认不转译 node_modules；懒加载让「不碰 melt 路径」的测试完全不受影响，
+   测试里用 `jest.mock(..., factory)` 替身。生产由 webpack 4.47 打进 bundle，实测 0 error。
+3. **壳缓存 key** = `${rune.id|name}:${stableStringify(config)}`；**资源池 key** =
+   `platform|name@version|origin|exportName`（origin = `host || type`，区分 unpkg 与自建站点）。
+4. **配置不合法不返回 null**，而是返回「错误卡 ctor」：直接把 `dep.name:` / `exportName:`
+   等字段级错误显示出来，比退回空白占位卡片好排查。
+5. **Vue 3 包判定**：导出对象带 `setup` 或 `__vccOpts` → 错误卡提示「请换 comps-vue2-*」。
+6. **`value` 始终注入 `valueProp`**（默认 `value`），其余 schema prop 只在宿主写过时下发，
+   空值/非法值走 `undefined`，交给远端组件自己的 `default`。
+7. **系统保留名防护**：schema 里出现 `runeId/nodeId/rune/value/onValueChange` 时跳过声明，
+   避免和壳自己的 props 撞车。
+8. 壳名统一 `MeltRune + PascalCase(exportName)`（Vue 会校验组件名，不接受括号）。
+
+测试口径：desktop-vue2 47 suites / 1247 tests 全绿（新增 melt 壳 17 例）；
+desktop-vue2-tauri 15 suites / 120 tests 全绿。
+
+真机待验收（环境无 GUI，未做）：真实 CDN 拉 `comps-vue2-meme` 的端到端渲染、
+加载失败重试、断网回落错误卡、同一笔记内多实例共享一次加载。

@@ -210,8 +210,10 @@ export function createMeltRuneRendererCtor (rune = {}) {
     value: { type: [String, Number], default: '' },
     onValueChange: { type: Function, default: null }
   }
+  // 系统保留名不能当 schema prop 声明，否则会和壳自己的 props 撞车
+  const RESERVED_PROP_NAMES = ['runeId', 'nodeId', 'rune', 'value', 'onValueChange']
   propNames.forEach(name => {
-    if (name === valueProp) return
+    if (name === valueProp || RESERVED_PROP_NAMES.includes(name)) return
     propsDefinition[name] = { default: undefined }
   })
 
@@ -251,6 +253,7 @@ export function createMeltRuneRendererCtor (rune = {}) {
       buildProps () {
         const out = {}
         propNames.forEach(name => {
+          if (RESERVED_PROP_NAMES.includes(name)) return
           const coerced = coerceMeltProp(this[name], schema[name] || {})
           if (coerced !== undefined) out[name] = coerced
         })
