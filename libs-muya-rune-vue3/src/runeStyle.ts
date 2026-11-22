@@ -1,16 +1,17 @@
 /**
- * 符文 SFC 里 `<style lang="scss|less">` 的最小预处理：变量替换 + `//` 行注释剥离。
+ * 符文 SFC 里 `<style lang="scss|less">` 的预处理入口。
  *
- * 刻意不做的部分：
- * - **嵌套**：Chromium 140+（Electron 39）已支持原生 CSS Nesting，`.a { .b {} }` 与 `&`
- *   直接交给浏览器，不再自己拍平，避免和原生规则打架。
- * - **mixin / @extend / 函数**（`darken()` 之类）：要在运行时跑整套预处理器，包体代价过大；
- *   原样注入（浏览器会忽略未知 at-rule），并打一条告警。
- * - 只替换能解析出的变量声明（支持链式引用，最多 5 轮）；未声明的变量原样保留，
- *   让作者能看出自己漏了声明，而不是被静默清空。
+ * 两条路径：
+ * - **普通样式**（只有变量/嵌套）：本文件做变量替换 + `//` 行注释剥离，嵌套交给
+ *   Chromium 原生 CSS Nesting（Electron 39 已支持），保持轻量。
+ * - **高级语法**（出现 `@mixin`/`@include`/`@extend`/`#{}`，仅 scss/sass）：交给
+ *   `runeScss.ts` 真正编译成扁平的普通 CSS。
  *
+ * 未声明的变量原样保留，让作者能看出自己漏了声明，而不是被静默清空。
  * 纯函数、不碰 DOM，单测直接覆盖。
  */
+
+import { compileRuneScss, hasAdvancedScss } from './runeScss';
 
 export function preprocessRuneStyle(css: string, lang = ''): string {
   const source = String(css || '');
@@ -40,16 +41,27 @@ export function preprocessRuneStyle(css: string, lang = ''): string {
     cleaned += ch;
   }
 
+  // 高级语法走真正的编译器：混入展开、@extend 合并、插值/颜色函数求值、嵌套拍平。
+  // 只对 scss 生效；缩进式 sass 语法没有花括号，编译器会解析错，仍按原样保留并告警。
+  if (language === 'scss' && hasAdvancedScss(cleaned)) {
+    const compiled = compileRuneScss(cleaned, sigil);
+    compiled.warnings.forEach((message) => console.warn(message));
+    return compiled.css;
+  }
+  if (language === 'sass' && hasAdvancedScss(cleaned)) {
+    console.warn('[muya-rune] 缩进式 sass 语法暂不编译高级指令，已按原样注入');
+  }
+  // Less 的高级语法（.mixin()/@extend 语义不同）暂不编译，保留原样并告警。
+  if (sigil === '@' && /@(mixin|include|extend)\b/.test(cleaned)) {
+    console.warn('[muya-rune] less 的 mixin/@extend 暂不编译，已按原样注入');
+  }
+
   const variableRe = new RegExp(`(^|[;{}\\n])\\s*\\${sigil}([A-Za-z0-9_-]+)\\s*:\\s*([^;{}]+);`, 'g');
   const variables = new Map<string, string>();
   cleaned = cleaned.replace(variableRe, (_match: string, lead: string, name: string, value: string) => {
     variables.set(name, value.replace(/!\s*(default|global)\b/gi, '').trim());
     return lead;
   });
-
-  if (/@(mixin|include|extend|function)\b/.test(cleaned)) {
-    console.warn('[muya-rune] style 里出现 mixin/@extend/函数，运行时不做预处理，已按原样注入');
-  }
 
   // 链式变量最多展开 5 轮，避免 A→B→A 的循环引用把字符串撑爆。
   for (let round = 0; round < 5 && variables.size; round++) {
