@@ -381,8 +381,12 @@
       <el-form label-width="110px" label-position="left">
         <el-form-item :label="t('aiAssistantProviderLabel')">
           <el-select v-model="aiProvider" class="ai-provider-select" @change="saveAiProvider">
-            <el-option :label="t('aiAssistantProviderBuiltin')" value="builtin" />
-            <el-option :label="t('aiAssistantProviderDoubao')" value="doubao" />
+            <el-option
+              v-for="item in AiAssistantProviderEnum.items"
+              :key="item.value"
+              :label="t(item.label)"
+              :value="item.value"
+            />
           </el-select>
           <span class="pref-hint">{{ t('aiAssistantEntryHint') }}</span>
         </el-form-item>
@@ -505,7 +509,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, markRaw, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
-import { AppLocaleEnum, AppThemeEnum, BootStatusEnum } from '@shared/enums/app';
+import { AiAssistantProviderEnum, AppLocaleEnum, AppThemeEnum, BootStatusEnum, type AiAssistantProvider } from '@shared/enums/app';
 import type {
   BackupEntry,
   DatabaseStatus,
@@ -556,11 +560,14 @@ const appStore = useAppStore();
 const notesStore = useNotesStore();
 const libraryStore = useLibraryStore();
 
-const aiProvider = ref<'builtin' | 'doubao'>(
-  localStorage.getItem('coolma.aiProvider') === 'doubao' ? 'doubao' : 'builtin',
+const storedAiProvider = localStorage.getItem('coolma.aiProvider') ?? '';
+const aiProvider = ref<AiAssistantProvider>(
+  AiAssistantProviderEnum.has(storedAiProvider)
+    ? storedAiProvider as AiAssistantProvider
+    : AiAssistantProviderEnum.Builtin,
 );
 
-function saveAiProvider(value: string): void {
+function saveAiProvider(value: AiAssistantProvider): void {
   localStorage.setItem('coolma.aiProvider', value);
 }
 
