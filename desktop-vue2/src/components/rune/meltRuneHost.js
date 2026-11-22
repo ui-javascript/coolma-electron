@@ -45,6 +45,11 @@ function loadMeltLibs () {
 const resourcePool = new Map()
 // 壳组件缓存：定义（含 schema）变了才重建，避免每次 render 都 Vue.extend。
 const ctorCache = new Map()
+// dep 级 loader 缓存：同一个依赖只建一个 hel loader（自带请求合并与内存缓存）。
+// key = platform|name|version|host，刷新某个 dep 时只丢它自己的 loader。
+const depLoaderCache = new Map()
+// 刷新世代：每次点「刷新」+1，资源池 key 变新，旧实例继续用旧产物直到卸载。
+const refreshEpoch = new Map()
 
 const stableStringify = value => {
   if (value === null || typeof value !== 'object') return JSON.stringify(value)
@@ -101,16 +106,68 @@ export function buildMeltLoadSpec (rawConfig) {
   return spec
 }
 
+// 配置 → dep key（同一依赖不同来源算两个 dep）
+export function getMeltDepKey (config) {
+  const dep = (config && config.dep) || {}
+  return [dep.platform || '', dep.name || '', dep.version || '', dep.host || dep.type || ''].join('|')
+}
+
+// 取（并按需创建）该 dep 的 hel loader；刷新时丢掉这一个，等价于清掉进程内缓存。
+export function getMeltLoader (config, spec) {
+  const key = getMeltDepKey(config)
+  let entry = depLoaderCache.get(key)
+  if (!entry) {
+    const { createHelLoader } = loadMeltLibs()
+    entry = { loader: createHelLoader(), spec }
+    depLoaderCache.set(key, entry)
+  }
+  return entry
+}
+
+// 刷新世代 + 基础 key = 本次加载真正用的池 key
+export function getMeltPoolKey (config) {
+  const base = getMeltResourceKey(config)
+  if (!base) return ''
+  const epoch = refreshEpoch.get(base) || 0
+  return epoch ? `${base}#${epoch}` : base
+}
+
+// 清掉该 dep 的 loader（连带 hel 的请求合并/内存缓存）
+export function resetMeltDepLoader (config) {
+  depLoaderCache.delete(getMeltDepKey(config))
+}
+
+// hel 的磁盘 meta 缓存（IndexedDB/localStorage）。拿不到 API 就静默跳过，
+// 不阻断刷新（网络可达时会重新拉 meta）。
+function clearHelDiskCache (config) {
+  const dep = (config && config.dep) || {}
+  if (!dep.name) return
+  try {
+    // eslint-disable-next-line global-require
+    const hel = require('hel-micro')
+    const srv = (hel && hel.appMetaSrv) || (hel.default && hel.default.appMetaSrv)
+    if (srv && typeof srv.clearDiskCachedApp === 'function') {
+      const result = srv.clearDiskCachedApp(dep.name, undefined, dep.platform || undefined)
+      if (result && typeof result.catch === 'function') result.catch(() => {})
+    }
+  } catch (error) {
+    // hel-micro 未接入（如单测环境）时忽略
+  }
+}
+
 function acquireResource (config, onChange) {
-  const key = getMeltResourceKey(config)
+  const key = getMeltPoolKey(config)
   let entry = resourcePool.get(key)
   if (entry) {
     entry.refs++
   } else {
     const { createHelComponentResource } = loadMeltLibs()
+    const spec = buildMeltLoadSpec(config)
+    const { loader } = getMeltLoader(config, spec)
     const resource = createHelComponentResource({
-      dep: buildMeltLoadSpec(config),
-      exportName: config.exportName
+      exportName: config.exportName,
+      // 用 loader 而不是 dep：产物每次都由 loader 去远端取，刷新可换 loader 换缓存
+      loader: () => loader.loadHelLib(spec)
     }, state => {
       const current = resourcePool.get(key)
       if (current) current.state = state
@@ -148,6 +205,8 @@ export function clearMeltRuneCaches () {
   })
   resourcePool.clear()
   ctorCache.clear()
+  depLoaderCache.clear()
+  refreshEpoch.clear()
 }
 
 // 把宿主传来的字符串/布尔值按 schema 类型强转；空值走 undefined，交给远端组件 default。
@@ -207,7 +266,7 @@ function renderMessage (h, { style, text, retry, state = 'loading' }) {
       attrs: { type: 'button', contenteditable: 'false' },
       style: 'border:none;background:transparent;color:inherit;text-decoration:underline;cursor:pointer;font-size:12px;padding:0;',
       on: { click: retry }
-    }, '重试'))
+    }, '刷新'))
   }
   return h('div', {
     attrs: { contenteditable: 'false', 'data-melt-rune-state': state },
@@ -304,11 +363,25 @@ export function createMeltRuneRendererCtor (rune = {}) {
         }
         this.$emit('input', nextValue)
       },
-      retryLoad () {
-        const entry = resourcePool.get(getMeltResourceKey(config))
-        if (entry && typeof entry.resource.retry === 'function') {
-          this.state = { status: 'loading', component: null, error: null }
-          entry.resource.retry()
+      // 强制刷新：丢该 dep 的 loader（= 清 hel 进程内缓存）+ 世代 +1 换新池 key，
+      // 再拉一次产物。旧实例继续用旧产物，卸载时再释放，避免白屏。
+      forceRefresh () {
+        const oldKey = this.__meltResourceKey
+        const oldListener = this.__meltResourceListener
+        this.failureReason = ''
+        this.state = { status: 'loading', component: null, error: null }
+        resetMeltDepLoader(config)
+        const base = getMeltResourceKey(config)
+        refreshEpoch.set(base, (refreshEpoch.get(base) || 0) + 1)
+        clearHelDiskCache(config)
+        try {
+          const acquired = acquireResource(config, state => { this.state = state })
+          this.__meltResourceKey = acquired.key
+          this.__meltResourceListener = acquired.listener
+          acquired.entry.resource.load()
+          if (oldKey) releaseResource(oldKey, oldListener || null)
+        } catch (error) {
+          this.failureReason = `刷新失败：${error && error.message ? error.message : error}`
         }
       }
     },
@@ -328,7 +401,7 @@ export function createMeltRuneRendererCtor (rune = {}) {
         return renderMessage(h, {
           style: ERROR_STYLE,
           text: `${config.exportName} 加载失败（${origin}）：${errorText}${sourceWarn}`,
-          retry: this.retryLoad,
+          retry: () => this.forceRefresh(),
           state: 'error'
         })
       }
@@ -358,6 +431,9 @@ export const MELT_RUNE_TYPE = RUNE_TYPE_MELT_JS
 export default {
   createMeltRuneRendererCtor,
   getMeltResourceKey,
+  getMeltPoolKey,
+  getMeltDepKey,
+  resetMeltDepLoader,
   resolveMeltConfig,
   buildMeltLoadSpec,
   coerceMeltProp,

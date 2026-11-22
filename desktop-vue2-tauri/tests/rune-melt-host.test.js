@@ -23,15 +23,27 @@ const mockResource = {
   getState: jest.fn(() => ({ status: 'loading', component: null, error: null }))
 }
 
+const mockLoader = {
+  loadHelLib: jest.fn(() => Promise.resolve({ TierRanking: {} })),
+  loadHelLibsSerial: jest.fn(),
+  preloadHelLibs: jest.fn()
+}
+
 jest.mock('@melt-js/libs-core-vue2', () => ({
   createHelComponentResource: jest.fn(() => mockResource),
+  createHelLoader: jest.fn(() => mockLoader),
   resolveHelDep: jest.fn((ref, options = {}) => ({ name: ref, host: `https://unpkg.com/${ref}/dist/hel-meta.json`, ...options }))
+}))
+
+jest.mock('hel-micro', () => ({
+  appMetaSrv: { clearDiskCachedApp: jest.fn(() => Promise.resolve()) }
 }))
 
 const meltLibs = require('@melt-js/libs-core-vue2')
 const {
   createMeltRuneRendererCtor,
   getMeltResourceKey,
+  getMeltPoolKey,
   buildMeltLoadSpec,
   coerceMeltProp,
   normalizeMeltEmitValue,
@@ -107,7 +119,7 @@ describe('加载态', () => {
     vm.$destroy()
   })
 
-  test('error 渲染原因与重试按钮，点重试回到 loading', async () => {
+  test('error 渲染原因与刷新按钮，点刷新重建加载', async () => {
     const Ctor = createMeltRuneRendererCtor(makeRune())
     const vm = mountCtor(Ctor)
     const entryState = { status: 'error', component: null, error: new Error('meta 404') }
@@ -118,7 +130,8 @@ describe('加载态', () => {
     const button = vm.$el.querySelector('button')
     expect(button).not.toBeNull()
     button.click()
-    expect(mockResource.retry).toHaveBeenCalled()
+    expect(meltLibs.createHelLoader).toHaveBeenCalledTimes(2)
+    expect(getMeltPoolKey(require('libs-muya-vue2/lib/rune/runeDefinition').parseMeltRuneConfig(makeRune()))).toContain('#1')
     vm.$destroy()
   })
 })

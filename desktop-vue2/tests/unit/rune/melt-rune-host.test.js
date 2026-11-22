@@ -22,15 +22,28 @@ const mockResource = {
   getState: jest.fn(() => ({ status: 'loading', component: null, error: null }))
 }
 
+const mockLoader = {
+  loadHelLib: jest.fn(() => Promise.resolve({ TierRanking: {} })),
+  loadHelLibsSerial: jest.fn(),
+  preloadHelLibs: jest.fn()
+}
+
 jest.mock('@melt-js/libs-core-vue2', () => ({
   createHelComponentResource: jest.fn(() => mockResource),
+  createHelLoader: jest.fn(() => mockLoader),
   resolveHelDep: jest.fn((ref, options = {}) => ({ name: ref, host: `https://unpkg.com/${ref}/dist/hel-meta.json`, ...options }))
+}))
+
+jest.mock('hel-micro', () => ({
+  appMetaSrv: { clearDiskCachedApp: jest.fn(() => Promise.resolve()) }
 }))
 
 const meltLibs = require('@melt-js/libs-core-vue2')
 const {
   createMeltRuneRendererCtor,
   getMeltResourceKey,
+  getMeltPoolKey,
+  getMeltDepKey,
   buildMeltLoadSpec,
   coerceMeltProp,
   normalizeMeltEmitValue,
@@ -117,7 +130,10 @@ describe('加载态', () => {
     const button = vm.$el.querySelector('button')
     expect(button).not.toBeNull()
     button.click()
-    expect(mockResource.retry).toHaveBeenCalled()
+    // 刷新 = 换该 dep 的 loader（清 hel 内存缓存）+ 世代 +1 换新池 key
+    expect(meltLibs.createHelLoader).toHaveBeenCalledTimes(2)
+    expect(mockResource.load).toHaveBeenCalledTimes(2)
+    expect(getMeltPoolKey(require('libs-muya-vue2/lib/rune/runeDefinition').parseMeltRuneConfig(makeRune()))).toContain('#1')
     vm.$destroy()
   })
 })
@@ -182,6 +198,31 @@ describe('资源池引用计数', () => {
     mountCtor(createMeltRuneRendererCtor(makeRune({ exportName: 'Other' })))
     mountCtor(createMeltRuneRendererCtor(makeRune({ dep: { name: 'comps-vue2-meme', type: 'custom', host: 'https://my.example.com' } })))
     expect(meltLibs.createHelComponentResource).toHaveBeenCalledTimes(3)
+    // 前两个同 dep 共用一个 loader，第三个是不同来源 → 第二个 loader
+    expect(meltLibs.createHelLoader).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('远端产物的加载方式', () => {
+  test('资源用 loader 拉产物，而不是把 dep 交给上游', () => {
+    mountCtor(createMeltRuneRendererCtor(makeRune()))
+    const options = meltLibs.createHelComponentResource.mock.calls[0][0]
+    expect(typeof options.loader).toBe('function')
+    expect(options.dep).toBeUndefined()
+    // 真调用一次 loader，确认它确实走 hel 的 loadHelLib
+    return options.loader().then(lib => {
+      expect(mockLoader.loadHelLib).toHaveBeenCalled()
+      expect(lib).toEqual({ TierRanking: {} })
+    })
+  })
+
+  test('同 dep 多实例只建一个 loader（自带请求合并）', () => {
+    const A = mountCtor(createMeltRuneRendererCtor(makeRune()))
+    const B = mountCtor(createMeltRuneRendererCtor(makeRune()))
+    expect(meltLibs.createHelLoader).toHaveBeenCalledTimes(1)
+    expect(getMeltDepKey({ dep: { name: 'x' } })).toContain('x')
+    A.$destroy()
+    B.$destroy()
   })
 })
 

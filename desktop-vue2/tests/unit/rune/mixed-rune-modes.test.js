@@ -13,6 +13,9 @@ jest.mock('@melt-js/libs-core-vue2', () => {
       retry: jest.fn(),
       dispose: jest.fn()
     })),
+    createHelLoader: jest.fn(() => ({
+      loadHelLib: jest.fn(() => Promise.resolve({ TierRanking: {} }))
+    })),
     resolveHelDep: jest.fn(dep => (typeof dep === 'string' ? { name: dep } : { ...dep }))
   }
 })

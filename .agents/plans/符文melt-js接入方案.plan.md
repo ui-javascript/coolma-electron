@@ -532,11 +532,20 @@ desktop-vue2-tauri 15 suites / 120 tests 全绿。
   写死具体版本 = 冻结。这是「我方维护版本控制」的落点，目前编码在 spec 解析里，
   暂未单独抽成策略层。
 
-### 11.2 刷新
+### 11.2 刷新（已落地）
 
-错误卡按钮由「重试」改为「刷新」：换 dep loader（连带 hel/melt 进程内缓存）
-+ `refreshEpoch` 世代 +1（池 key = `${base}#N`）→ 重新拉产物；旧实例继续用旧产物，
-卸载时再释放。踩坑：方法直接挂 `v-on` 会丢 `this`（Vue 报 handler ReferenceError），
+错误卡按钮为「刷新」，点一次做四件事（`forceRefresh`，`meltRuneHost.js`）：
+
+1. `resetMeltDepLoader(config)`：删掉该 dep 的 `createHelLoader` 实例 —— 连带清掉
+   hel 的请求合并与进程内 meta/资源缓存，这是「对方发新包后能拿到」的主开关；
+2. `refreshEpoch + 1`：池 key 从 `base` 变成 `base#N`，新实例走新 key，旧实例
+   继续用旧产物，卸载时引用计数归零再 `dispose`，不会白屏；
+3. `clearHelDiskCache(config)`：尽力调 `hel-micro.appMetaSrv.clearDiskCachedApp(name, undefined, platform)`
+   清 IndexedDB/localStorage 的 meta 磁盘缓存（`hel-micro` 未接入或单测环境时静默跳过，
+   网络可达时本来也会重新拉 meta，所以不阻断刷新）；
+4. 重新 `acquireResource` 并 `load()`，失败则错误卡可直接再刷。
+
+踩坑：方法直接挂 `v-on` 会丢 `this`（Vue 报 handler ReferenceError），
 已改箭头函数包一层。
 
 ### 11.3 用户 props 透传（链路真实缺口）
@@ -550,7 +559,7 @@ schema props 落进 `$attrs` 且从不透传 → **「HTML 属性 ≈ props」�
 
 ### 11.4 状态
 
-- desktop-vue2 47 suites / 1250 tests 绿；desktop-vue2-tauri 15 suites / 123 tests 绿。
+- 刷新能力补齐后：desktop-vue2 50 suites / 1279 tests 绿；desktop-vue2-tauri 15 suites / 120 tests 绿。
 - 真机仍未验收（云主机无 GUI）。等用户给 SFTP 自建静态托管地址后按其形态配 host 实测。
 
 ## 12. 远程组件源设置（设置 → 远程组件）
