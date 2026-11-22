@@ -198,36 +198,87 @@ button {
   overflow: hidden;
 }
 
-.workspace .splitpanes__pane {
+.workspace-splitter {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.workspace .q-splitter__panel,
+.workspace .q-splitter__before,
+.workspace .q-splitter__after {
   min-width: 0;
+  min-height: 0;
   overflow: hidden;
 }
 
-.workspace .splitpanes__splitter {
-  position: relative;
-  z-index: 2;
-  width: 5px;
-  flex: 0 0 5px;
-  background: transparent;
-  cursor: col-resize;
+.left-panel-wrapper {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
 }
 
-.workspace .splitpanes__splitter::after {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 2px;
-  width: 1px;
-  background: #dfe3ea;
+.left-inner-splitter {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.editor-splitter-after {
+  min-height: 0;
+}
+
+.workspace-splitter.is-left-collapsed > .q-splitter__separator {
+  display: none;
+}
+
+/* QSplitter：separatorClass 加在 .q-splitter__separator 自身，勿写子选择器 */
+.q-splitter.q-splitter--vertical > .q-splitter__separator.custom-splitter {
+  background-color: #dfe3ea;
+  transition: background-color 0.15s ease, width 0.15s ease, box-shadow 0.15s ease;
   box-shadow: inset 0 0 0 1px rgb(0 0 0 / 6%);
-  content: "";
 }
 
-.workspace .splitpanes__splitter:hover::after {
-  left: 1px;
+.q-splitter.q-splitter--vertical > .q-splitter__separator.custom-splitter:hover,
+.q-splitter.q-splitter--vertical.q-splitter--active > .q-splitter__separator.custom-splitter {
   width: 3px;
-  background: var(--coolma-primary);
+  background-color: var(--themeColor);
   box-shadow: 0 0 0 1px var(--themeColor30, rgb(64 158 255 / 35%));
+}
+
+.q-splitter.q-splitter--dark.q-splitter--vertical > .q-splitter__separator.custom-splitter {
+  background-color: rgb(255 255 255 / 14%);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 8%);
+}
+
+.q-splitter.q-splitter--dark.q-splitter--vertical > .q-splitter__separator.custom-splitter:hover,
+.q-splitter.q-splitter--dark.q-splitter--vertical.q-splitter--active > .q-splitter__separator.custom-splitter {
+  background-color: var(--themeColor);
+}
+
+.q-splitter.q-splitter--horizontal > .q-splitter__separator.custom-splitter {
+  background-color: #dfe3ea;
+  transition: background-color 0.15s ease, height 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 6%);
+}
+
+.q-splitter.q-splitter--horizontal > .q-splitter__separator.custom-splitter:hover,
+.q-splitter.q-splitter--horizontal.q-splitter--active > .q-splitter__separator.custom-splitter {
+  height: 3px;
+  background-color: var(--themeColor);
+  box-shadow: 0 0 0 1px var(--themeColor30, rgb(64 158 255 / 35%));
+}
+
+.q-splitter.q-splitter--dark.q-splitter--horizontal > .q-splitter__separator.custom-splitter {
+  background-color: rgb(255 255 255 / 14%);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 8%);
+}
+
+.q-splitter.q-splitter--dark.q-splitter--horizontal > .q-splitter__separator.custom-splitter:hover,
+.q-splitter.q-splitter--dark.q-splitter--horizontal.q-splitter--active > .q-splitter__separator.custom-splitter {
+  background-color: var(--themeColor);
 }
 
 .sidebar {

@@ -28,83 +28,138 @@
           :tags="headerTags"
         />
 
-    <Splitpanes class="workspace" @resized="onPanesResized">
-      <Pane v-if="paneVisible.sidebar" :size="paneLayoutSizes.sidebar" :min-size="14" :max-size="25">
-        <IndexSidebar
-          ref="sidebarRef"
-          :mode="indexMode"
-          :folder-filter="activeFolder"
-          :tag-filter="activeTag"
-          :calendar-date="calendarDate"
-          :calendar-basis="calendarBasis"
-          :time-group-filter="activeTimeGroup"
-          :total="notesStore.total"
-          @update:mode="handleModeChange"
-          @update:filter="handleFilterChange"
-          @create-note="openCreateNote"
-          @export-folder="exportFolder"
-          @request-delete-folder="requestDeleteFolder"
-          @open-folder-menu="openFolderMenu"
-        />
-      </Pane>
+    <div ref="workspaceRef" class="workspace">
+      <q-splitter
+        class="workspace-splitter"
+        :class="{ 'is-left-collapsed': paneLayoutMode === 2 }"
+        unit="px"
+        :model-value="layoutWidth"
+        :limits="outerLimits"
+        :disable="paneLayoutMode === 2"
+        :dark="isDark"
+        separator-class="custom-splitter"
+        before-class="overflow-hidden left-panel-wrapper"
+        after-class="overflow-hidden editor-splitter-after"
+        @update:model-value="setLayoutWidth"
+      >
+        <template #before>
+          <q-splitter
+            v-if="paneLayoutMode === 0"
+            class="left-inner-splitter"
+            unit="px"
+            horizontal
+            :model-value="leftInnerHeight"
+            :limits="innerLimits"
+            :dark="isDark"
+            separator-class="custom-splitter"
+            before-class="overflow-hidden"
+            after-class="overflow-hidden"
+            @update:model-value="setLeftInnerHeight"
+          >
+            <template #before>
+              <IndexSidebar
+                ref="sidebarRef"
+                class="full-height"
+                :mode="indexMode"
+                :folder-filter="activeFolder"
+                :tag-filter="activeTag"
+                :calendar-date="calendarDate"
+                :calendar-basis="calendarBasis"
+                :time-group-filter="activeTimeGroup"
+                :total="notesStore.total"
+                @update:mode="handleModeChange"
+                @update:filter="handleFilterChange"
+                @create-note="openCreateNote"
+                @export-folder="exportFolder"
+                @request-delete-folder="requestDeleteFolder"
+                @open-folder-menu="openFolderMenu"
+              />
+            </template>
 
-      <Pane v-if="paneVisible.list" :size="paneLayoutSizes.list" :min-size="20" :max-size="40">
-        <NoteListPane
-          :dense="denseMode"
-          :notes="filteredNotes"
-          :active-id="activeId"
-          :selected-ids="selectedIds"
-          :loading="notesStore.loading"
-          :refreshing="refreshing"
-          :filter-label="currentFilterLabel"
-          :total="notesStore.total"
-          :batch-pending="batchPending"
-          @update:selected="selectedIds = $event"
-          @select="selectNote"
-          @open-menu="openMenu"
-          @create-note="openCreateNote"
-          @refresh="refreshNotes"
-          @batch-move="openBatchMove"
-          @batch-export="exportSelected"
-          @batch-delete="deleteSelected"
-        />
-      </Pane>
+            <template #after>
+              <NoteListPane
+                class="full-height"
+                :dense="denseMode"
+                :notes="filteredNotes"
+                :active-id="activeId"
+                :selected-ids="selectedIds"
+                :loading="notesStore.loading"
+                :refreshing="refreshing"
+                :filter-label="currentFilterLabel"
+                :total="notesStore.total"
+                :batch-pending="batchPending"
+                @update:selected="selectedIds = $event"
+                @select="selectNote"
+                @open-menu="openMenu"
+                @create-note="openCreateNote"
+                @refresh="refreshNotes"
+                @batch-move="openBatchMove"
+                @batch-export="exportSelected"
+                @batch-delete="deleteSelected"
+              />
+            </template>
+          </q-splitter>
 
-      <Pane :size="paneLayoutSizes.editor">
-        <EditorPane
-          ref="editorPaneRef"
-          v-model:content="activeContent"
-          :summary="activeSummary"
-          :theme="appStore.theme"
-          :plugins="muyaPlugins"
-          :save-hint="saveHint"
-          :saving="notesStore.saving"
-          :status-label="statusLabel"
-          :status-type="statusType"
-          :status-error="appStore.error"
-          :app-info="appStore.appInfo"
-          :show-add="indexMode === IndexModeEnum.Folder"
-          :add-root="!activeFolder"
-          @delete="deleteActiveNote"
-          @save="flushSave"
-          @edit-tags="openActiveTags"
-          @echo-instance="openEchoInstance"
-          @context-menu="openEditorMenu"
-          @mind-map="mindMapVisible = true"
-          @ppt-preview="pptPreviewVisible = true"
-          @create-note="openCreateNote"
-          @create-category="createFolderFromEditor"
-          @import-notes="openImportFromEditor"
-          @outline="outlineVisible = true"
-        />
-        <PreviewPptDialog v-model="pptPreviewVisible" :markdown="activeContent" />
-        <MindMapDialog
-          v-model="mindMapVisible"
-          :markdown="activeContent"
-          :note-id="activeSummary?.id ?? null"
-        />
-      </Pane>
-    </Splitpanes>
+          <NoteListPane
+            v-else-if="paneLayoutMode === 1"
+            class="full-height"
+            :dense="denseMode"
+            :notes="filteredNotes"
+            :active-id="activeId"
+            :selected-ids="selectedIds"
+            :loading="notesStore.loading"
+            :refreshing="refreshing"
+            :filter-label="currentFilterLabel"
+            :total="notesStore.total"
+            :batch-pending="batchPending"
+            @update:selected="selectedIds = $event"
+            @select="selectNote"
+            @open-menu="openMenu"
+            @create-note="openCreateNote"
+            @refresh="refreshNotes"
+            @batch-move="openBatchMove"
+            @batch-export="exportSelected"
+            @batch-delete="deleteSelected"
+          />
+        </template>
+
+        <template #after>
+          <EditorPane
+            ref="editorPaneRef"
+            class="full-height"
+            v-model:content="activeContent"
+            :summary="activeSummary"
+            :theme="appStore.theme"
+            :plugins="muyaPlugins"
+            :save-hint="saveHint"
+            :saving="notesStore.saving"
+            :status-label="statusLabel"
+            :status-type="statusType"
+            :status-error="appStore.error"
+            :app-info="appStore.appInfo"
+            :show-add="indexMode === IndexModeEnum.Folder"
+            :add-root="!activeFolder"
+            @delete="deleteActiveNote"
+            @save="flushSave"
+            @edit-tags="openActiveTags"
+            @echo-instance="openEchoInstance"
+            @context-menu="openEditorMenu"
+            @mind-map="mindMapVisible = true"
+            @ppt-preview="pptPreviewVisible = true"
+            @create-note="openCreateNote"
+            @create-category="createFolderFromEditor"
+            @import-notes="openImportFromEditor"
+            @outline="outlineVisible = true"
+          />
+          <PreviewPptDialog v-model="pptPreviewVisible" :markdown="activeContent" />
+          <MindMapDialog
+            v-model="mindMapVisible"
+            :markdown="activeContent"
+            :note-id="activeSummary?.id ?? null"
+          />
+        </template>
+      </q-splitter>
+    </div>
 
     <ContextMenu
       :visible="menuVisible"
@@ -188,11 +243,10 @@
 
 <script setup lang="ts">
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Pane, Splitpanes } from 'splitpanes';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
-import { IndexModeEnum, NoteOrderTypeEnum, type CalendarDateBasis, type IndexMode } from '@shared/enums/app';
+import { AppThemeEnum, IndexModeEnum, NoteOrderTypeEnum, type CalendarDateBasis, type IndexMode } from '@shared/enums/app';
 import type { NoteSummary } from '@shared/types/domain';
 import type { EchoCard } from '@shared/types/domain';
 import type { EchoInstancePatch, EchoInstanceToken } from '@/utils/echoToken';
@@ -245,8 +299,7 @@ import { useSyncStore } from '@/stores/sync';
 import { createMuyaPlugins } from '@/muyaPlugins';
 import { dateKeyOf, deriveTitle, folderName, noteDateKey, noteTags, noteTimeGroup } from '@/utils/note';
 import { buildFolderMarkdown, type FolderMarkdownNote } from '@/utils/folderMarkdown';
-import { nextPaneLayout, normalizePaneLayout, paneSizes, paneSizesFromList, paneVisibility, PANE_LAYOUT_STORAGE, PANE_SIZES_STORAGE, type PaneLayoutMode } from '@/utils/paneLayout';
-import type { SplitpanesResizedPayload } from 'splitpanes';
+import { nextPaneLayout, normalizePaneLayout, normalizeSplitterWidth, normalizeLeftInnerHeight, paneGeometry, MIN_SPLITTER_WIDTH, MIN_LEFT_INNER_HEIGHT, MIN_EDITOR_WIDTH, PANE_LAYOUT_STORAGE, SPLITTER_WIDTH_STORAGE, LEFT_INNER_HEIGHT_STORAGE, type PaneLayoutMode } from '@/utils/paneLayout';
 
 const { t } = useI18n();
 const router = useRouter();
@@ -299,12 +352,44 @@ function readPaneLayout(): PaneLayoutMode {
 }
 
 const paneLayoutMode = ref<PaneLayoutMode>(readPaneLayout());
-const paneVisible = computed(() => paneVisibility(paneLayoutMode.value));
-const paneSizeStore = ref<Record<string, number[]>>(readPaneSizeStore());
-const paneLayoutSizes = computed(() => {
-  return paneSizesFromList(paneLayoutMode.value, paneSizeStore.value[String(paneLayoutMode.value)])
-    ?? paneSizes(paneLayoutMode.value);
+const isDark = computed(() => appStore.theme === AppThemeEnum.Dark);
+
+const workspaceRef = ref<HTMLElement | null>(null);
+const workspaceWidth = ref(0);
+const splitterWidthSetting = ref<number>(
+  normalizeSplitterWidth(localStorage.getItem(SPLITTER_WIDTH_STORAGE)),
+);
+const leftInnerHeightSetting = ref<number>(
+  normalizeLeftInnerHeight(localStorage.getItem(LEFT_INNER_HEIGHT_STORAGE)),
+);
+
+const availableWidth = computed(() => (workspaceWidth.value > 0 ? workspaceWidth.value : window.innerWidth));
+const outerMaxWidth = computed(() => Math.max(0, availableWidth.value - MIN_EDITOR_WIDTH));
+const outerLimits = computed<[number, number]>(() => {
+  if (paneLayoutMode.value === 2) {
+    return [0, 0];
+  }
+  const max = outerMaxWidth.value;
+  return [Math.min(MIN_SPLITTER_WIDTH, max), max];
 });
+const innerLimits = computed<[number, number]>(() => [
+  MIN_LEFT_INNER_HEIGHT,
+  Number.POSITIVE_INFINITY,
+]);
+
+const layoutWidth = computed(() => paneGeometry(
+  paneLayoutMode.value,
+  splitterWidthSetting.value,
+  leftInnerHeightSetting.value,
+  availableWidth.value,
+).splitterWidth);
+const leftInnerHeight = computed(() => paneGeometry(
+  paneLayoutMode.value,
+  splitterWidthSetting.value,
+  leftInnerHeightSetting.value,
+  availableWidth.value,
+).leftInnerHeight);
+
 const paneLayoutTitle = computed(() => {
   const key = paneLayoutMode.value === 0
     ? 'view.threePane'
@@ -319,65 +404,36 @@ function cyclePaneLayout(): void {
   localStorage.setItem(PANE_LAYOUT_STORAGE, String(paneLayoutMode.value));
 }
 
-function readPaneSizeStore(): Record<string, number[]> {
-  try {
-    const raw = localStorage.getItem(PANE_SIZES_STORAGE);
-    const parsed = raw ? JSON.parse(raw) : {};
-    if (!parsed || typeof parsed !== 'object') {
-      return {};
-    }
-    const result: Record<string, number[]> = {};
-    for (const key of ['0', '1']) {
-      const mode = Number(key) as PaneLayoutMode;
-      const list = normalizePaneSizeListFromStore(mode, (parsed as Record<string, unknown>)[key]);
-      if (list) {
-        result[key] = list;
-      }
-    }
-    return result;
-  } catch {
-    return {};
+function setLayoutWidth(value: number): void {
+  if (paneLayoutMode.value === 2) {
+    return;
   }
+  splitterWidthSetting.value = normalizeSplitterWidth(value, outerMaxWidth.value);
+  localStorage.setItem(SPLITTER_WIDTH_STORAGE, String(splitterWidthSetting.value));
 }
 
-function normalizePaneSizeListFromStore(mode: PaneLayoutMode, values: unknown): number[] | null {
-  // 复用纯函数的校验，但这里只需要数组本身。
-  const sizes = paneSizesFromList(mode, values);
-  if (!sizes) {
-    return null;
+function setLeftInnerHeight(value: number): void {
+  if (paneLayoutMode.value !== 0) {
+    return;
   }
-  return mode === 0
-    ? [sizes.sidebar, sizes.list, sizes.editor]
-    : [sizes.list, sizes.editor];
+  leftInnerHeightSetting.value = normalizeLeftInnerHeight(value);
+  localStorage.setItem(LEFT_INNER_HEIGHT_STORAGE, String(leftInnerHeightSetting.value));
 }
 
-let paneSizeSaveTimer: ReturnType<typeof setTimeout> | undefined;
+function measureWorkspace(): void {
+  const width = workspaceRef.value?.clientWidth ?? 0;
+  workspaceWidth.value = width > 0 ? width : window.innerWidth;
+}
 
-function onPanesResized(payload: SplitpanesResizedPayload): void {
-  // 只在真实拖拽结束时落库；切模式/挂载卸载也会触发 resized，但没有 event。
-  if (!payload.event) {
+let workspaceObserver: ResizeObserver | null = null;
+
+function observeWorkspace(): void {
+  measureWorkspace();
+  if (!workspaceRef.value || typeof ResizeObserver === 'undefined') {
     return;
   }
-  const mode = paneLayoutMode.value;
-  if (mode === 2 || payload.panes.length !== (mode === 0 ? 3 : 2)) {
-    return;
-  }
-  const values = payload.panes.map((pane) => Number(pane.size));
-  const sizes = paneSizesFromList(mode, values);
-  if (!sizes) {
-    return;
-  }
-  paneSizeStore.value = {
-    ...paneSizeStore.value,
-    [String(mode)]: mode === 0 ? [sizes.sidebar, sizes.list, sizes.editor] : [sizes.list, sizes.editor],
-  };
-  if (paneSizeSaveTimer) {
-    clearTimeout(paneSizeSaveTimer);
-  }
-  paneSizeSaveTimer = setTimeout(() => {
-    localStorage.setItem(PANE_SIZES_STORAGE, JSON.stringify(paneSizeStore.value));
-    paneSizeSaveTimer = undefined;
-  }, 400);
+  workspaceObserver = new ResizeObserver(() => measureWorkspace());
+  workspaceObserver.observe(workspaceRef.value);
 }
 
 const readCalendarBasis = (): CalendarDateBasis => {
@@ -1270,6 +1326,7 @@ const skinEffectsRef = ref<any>(null);
 let detachSkinEffect: (() => void) | null = null;
 
 onMounted(async () => {
+  observeWorkspace();
   // 内置微应用条目只注册一次（幂等），再取「删除特效」当前配置给 overlay 用
   installMicroAppsBuiltins();
   // 首页首屏稳定后预取设置页 chunk，避免第一次点齿轮时现下载现挂载
@@ -1295,11 +1352,8 @@ onBeforeUnmount(() => {
     clearTimeout(saveTimer);
     saveTimer = undefined;
   }
-  if (paneSizeSaveTimer) {
-    clearTimeout(paneSizeSaveTimer);
-    paneSizeSaveTimer = undefined;
-    localStorage.setItem(PANE_SIZES_STORAGE, JSON.stringify(paneSizeStore.value));
-  }
+  workspaceObserver?.disconnect();
+  workspaceObserver = null;
   void flushSave();
 });
 onMounted(async () => {

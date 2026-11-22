@@ -1541,14 +1541,42 @@ async function main(): Promise<void> {
   }
 
   paneLayout: {
-    const { normalizePaneLayout, nextPaneLayout, paneVisibility, paneSizes } = await import('@/utils/paneLayout');
+    const {
+      normalizePaneLayout,
+      nextPaneLayout,
+      paneVisibility,
+      paneGeometry,
+      normalizeSplitterWidth,
+      normalizeLeftInnerHeight,
+      DEFAULT_SPLITTER_WIDTH,
+      DEFAULT_LEFT_INNER_HEIGHT,
+    } = await import('@/utils/paneLayout');
     assert('常规视图：布局循环 0→1→2→0（对齐 vue2 cyclePaneLayout）', nextPaneLayout(0) === 1 && nextPaneLayout(1) === 2 && nextPaneLayout(2) === 0, 'cycle');
     assert('常规视图：三态可见性与 vue2 一致（2 只剩正文）', paneVisibility(0).sidebar && paneVisibility(0).list && paneVisibility(1).list && !paneVisibility(2).list, JSON.stringify([paneVisibility(0), paneVisibility(1), paneVisibility(2)]));
     assert('常规视图：非法/越界值归一成三栏', normalizePaneLayout('9') === 0 && normalizePaneLayout(null) === 0 && normalizePaneLayout(2) === 2, 'normalize');
-    assert('常规视图：单栏正文占满、两栏列表 30%', paneSizes(2).editor === 100 && paneSizes(1).list === 30, JSON.stringify([paneSizes(1), paneSizes(2)]));
-    const { normalizePaneSizeList, paneSizesFromList } = await import('@/utils/paneLayout');
-    assert('常规视图：拖拽宽度合法值可还原（三栏/两栏）', normalizePaneSizeList(0, [20, 25, 55])?.length === 3 && paneSizesFromList(1, [35, 65])?.list === 35, 'sizes');
-    assert('常规视图：宽度长度不符/总和越界/负数一律判损坏', normalizePaneSizeList(0, [20, 80]) === null && normalizePaneSizeList(0, [20, 20, 20]) === null && normalizePaneSizeList(1, [-1, 101]) === null, 'invalid');
+    assert(
+      '常规视图：默认几何对齐 vue2（左栏 580、上块 240）',
+      normalizeSplitterWidth(null) === DEFAULT_SPLITTER_WIDTH
+        && normalizeLeftInnerHeight(null) === DEFAULT_LEFT_INNER_HEIGHT
+        && paneGeometry(0, 580, 240).splitterWidth === 580
+        && paneGeometry(0, 580, 240).leftInnerHeight === 240,
+      JSON.stringify([normalizeSplitterWidth(null), normalizeLeftInnerHeight(null), paneGeometry(0, 580, 240)]),
+    );
+    assert(
+      '常规视图：模式 1 不留上块空槽，模式 2 左栏归零',
+      paneGeometry(1, 580, 240).leftInnerHeight === 0
+        && paneGeometry(2, 580, 240).splitterWidth === 0
+        && paneGeometry(2, 580, 240).leftInnerHeight === 0,
+      JSON.stringify([paneGeometry(1, 580, 240), paneGeometry(2, 580, 240)]),
+    );
+    assert(
+      '常规视图：左栏最小 300、上块最小 120，窗口过窄优先保编辑器',
+      normalizeSplitterWidth(100) === 300
+        && normalizeLeftInnerHeight(50) === 120
+        && normalizeSplitterWidth(580, 400) === 400
+        && paneGeometry(1, 580, 240, 800).splitterWidth === 480,
+      JSON.stringify([normalizeSplitterWidth(100), normalizeLeftInnerHeight(50), normalizeSplitterWidth(580, 400), paneGeometry(1, 580, 240, 800)]),
+    );
   }
 
   indexViews: {
