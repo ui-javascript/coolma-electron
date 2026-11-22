@@ -17,7 +17,9 @@
 >
 > 2026-11-21 批 C/收尾：P2-13~18 已落地；C8 自定义主题目录（主题扫描/默认主题落盘/加载 CSS/打开目录）、C9 日志/SQLite/重置入口、C10 标题栏与系统关闭（Alt+F4/系统 X）二次确认、C11 默认排序 `TitleAsc` 均已落地并推送。P2-19 云函数按用户要求**暂停，待方案**；P2-24 博客 `customBuildCommand` 经复核 v3 已实现，本条记录过期。剩余主要是 Electron 真机端到端验收与次级弹窗视觉对照。补充：标签弹窗已改为即点即存且 chip 可删除标签；右键“复制笔记”已改为选择目标目录，并按目标目录去重标题（同目录重名生成 ` (n)`，不再固定加“副本”）。
 >
-> 2026-11-22 三视图/日历流程收口：`IndexMode` 现在能恢复 `Calendar`，旧的 `Time` 持久化值回落 `Folder`，避免进入顶栏没有入口的模式；`coolma.calendarDate` 持久化选中日期，日历模式无记录时默认今天；列表标题在日历模式显示 `YYYY/MM/DD`；月份切换对齐 vue2 `onPanelChange`，选中新月份同一天（月末自动收窄），月历也监听外部日期跳月。真实页面验收：登录态切日历默认 `2026/11/22`，列表只留当天两篇；切文件夹恢复 4 篇；切回日历仍是 `2026/11/22`；切 12 月列表变 `2026/12/22` 空态，切回 11 月恢复。依赖核对：`element-plus`、`ant-design-vue`、`quasar` 均已安装，运行时只注册 `element-plus`；日历是 Element Plus 手写网格，未用 vue2 的 `a-calendar`/Quasar 组件。
+> 2026-11-22 三视图/日历流程收口：`IndexMode` 现在能恢复 `Calendar`，旧的 `Time` 持久化值回落 `Folder`，避免进入顶栏没有入口的模式；`coolma.calendarDate` 持久化选中日期，日历模式无记录时默认今天；列表标题在日历模式显示 `YYYY/MM/DD`；月份切换对齐 vue2 `onPanelChange`，选中新月份同一天（月末自动收窄），月历也监听外部日期跳月。真实页面验收：登录态切日历默认 `2026/11/22`，列表只留当天两篇；切文件夹恢复 4 篇；切回日历仍是 `2026/11/22`；切 12 月列表变 `2026/12/22` 空态，切回 11 月恢复。依赖核对：`element-plus`、`ant-design-vue`、`quasar` 均已安装，接入前运行时只注册 `element-plus`；日历是 Element Plus 手写网格，未用 vue2 的 `a-calendar`/Quasar 组件。
+>
+> 2026-11-22 三库混用接入：`main.ts` 已全局注册 Element Plus、Ant Design Vue 和 Quasar。Ant 以 `app.use(Antd)` 全量注册（135 个组件），并用 `a-config-provider` 注入 `zh_CN` 和暗色算法；Quasar 裸 Vue 不会自动注册组件，改为从 `quasar` 命名空间收集全部 `Q*` 组件（122 个），同时挂 `Ripple/ClosePopup/Scroll` 等指令和 `Notify/Dialog/Loading/Dark` 等插件，语言包为 `zh-CN`。真实页面核对 `AButton/ACalendar/QBtn/QDate` 均可解析，`$q.notify/dialog/loading` 已注入。Quasar 的 `body` 字体、14px 行高和 `#121212` 暗色背景已用更高优先级选择器压回 Coolma 基线。三库全量注册后默认 2GB 堆会 OOM，已按库拆 `vendor-antd`/`vendor-quasar`/`vendor-element` chunk，并新增 `scripts/build-frontend.mjs` 自动给 4GB 堆，`pnpm build-frontend` 可直接出包。
 
 
 ## P0：流程断点

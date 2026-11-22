@@ -1,5 +1,5 @@
 <template>
-  <a-config-provider :locale="antdLocale">
+  <a-config-provider :locale="antdLocale" :theme="antdThemeConfig">
     <div class="app-frame" :class="{ 'has-window-controls': hasControls }">
       <router-view />
       <WindowControls :skin="appStore.skin" />
@@ -14,7 +14,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
@@ -26,6 +26,9 @@ import { useNotesStore } from '@/stores/notes';
 import { useSyncStore } from '@/stores/sync';
 import { hasIpc } from '@/services/ipc';
 import antdZhCN from 'ant-design-vue/es/locale/zh_CN';
+import { theme as antdTheme } from 'ant-design-vue';
+import { useQuasar } from 'quasar';
+import { AppThemeEnum } from '@shared/enums/app';
 import { installBusDialogs } from '@/services/busDialogEntries';
 import { closeLoginDialog, loginDialogState, notifyLoginSuccess } from '@/services/loginDialog';
 import { getSyncStatus, syncAutoLogin } from '@/services/sync';
@@ -35,6 +38,16 @@ import { loadCdnDeps } from '@/utils/cdnDeps';
 const hasControls = hasIpc();
 const antdLocale = antdZhCN;
 const appStore = useAppStore();
+const antdThemeConfig = computed(() => ({
+  algorithm: appStore.theme === AppThemeEnum.Dark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
+}));
+const $q = useQuasar();
+// Quasar 组件靠 body--dark 走暗色变量；应用主题在 html 上，必须同步过去。
+watch(
+  () => appStore.theme,
+  (theme) => $q.dark.set(theme === AppThemeEnum.Dark),
+  { immediate: true },
+);
 const notesStore = useNotesStore();
 const syncStore = useSyncStore();
 const router = useRouter();
