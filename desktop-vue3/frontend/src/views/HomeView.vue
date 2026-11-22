@@ -542,7 +542,9 @@ function formatHeaderTitle(raw: string): string {
   return `${raw.slice(0, 9)}...${raw.slice(-12)}`;
 }
 
-const headerTitle = computed(() => formatHeaderTitle(activeSummary.value?.title || t('notes.untitled')));
+const headerTitle = computed(() =>
+  activeSummary.value ? formatHeaderTitle(activeSummary.value.title || t('notes.untitled')) : '',
+);
 const headerTags = computed(() => (activeSummary.value ? noteTags(activeSummary.value) : []));
 const headerDirty = computed(() => notesStore.saving || activeSummary.value?.dirty === 1);
 const aiProvider = ref<AiAssistantProvider>(
@@ -921,8 +923,10 @@ async function onFolderMenuCommand(command: string): Promise<void> {
 watch(
   filteredNotes,
   (list) => {
-    if (!list.some((note) => note.id === activeId.value)) {
-      activeId.value = list[0]?.id ?? null;
+    // 照 vue2：加载/切换分类后不自动打开首条，编辑器保留空态插画；
+    // 仅当当前打开的笔记已被删除或过滤掉时清空。
+    if (activeId.value !== null && !list.some((note) => note.id === activeId.value)) {
+      activeId.value = null;
     }
     const alive = new Set(list.map((note) => note.id));
     const kept = selectedIds.value.filter((id) => alive.has(id));

@@ -40,7 +40,7 @@
     <div class="header-spacer" />
 
     <div
-      v-if="tags.length > 0"
+      v-if="title && tags.length > 0"
       class="header-note-title"
       @click="emit('tags')"
     >
@@ -55,7 +55,7 @@
       </el-tooltip>
     </div>
     <div
-      v-else
+      v-else-if="title"
       class="header-note-title"
       @click="emit('tags')"
     >
@@ -237,7 +237,7 @@ function onAccountCommand(command: string): void {
   min-height: 44px;
   flex: 0 0 6.5vh;
   align-items: center;
-  padding: 0 6px;
+  padding: 0 12px;
   border-bottom: 1px solid var(--coolma-border, rgb(0 0 0 / 10%));
   background: var(--coolma-panel, #fff);
   color: var(--coolma-text, rgb(0 0 0 / 70%));
