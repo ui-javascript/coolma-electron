@@ -36,6 +36,7 @@ export default {
     time: '时间',
     calendar: '日历',
     all: '全部笔记',
+    myNotes: '我的笔记',
     empty: '暂无索引项',
     folderMode: '文件夹模式',
     tagMode: 'Tag 模式',

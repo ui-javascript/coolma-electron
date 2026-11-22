@@ -1,17 +1,5 @@
 <template>
   <aside class="sidebar">
-    <button
-      v-if="mode === IndexModeEnum.Folder"
-      type="button"
-      class="index-row index-all"
-      :class="{ active: isAllScope }"
-      @click="clearFilters"
-    >
-      <el-icon><Document /></el-icon>
-      <span class="index-label">{{ t('index.all') }}</span>
-      <span class="side-count">{{ total }}</span>
-    </button>
-
     <div class="index-panel" @contextmenu="onPanelContextMenu">
       <template v-if="mode === IndexModeEnum.Folder">
         <el-tree
@@ -20,9 +8,10 @@
           :data="folderTree"
           node-key="key"
           :props="{ children: 'children', label: 'label' }"
-          :current-node-key="folderFilter || undefined"
+          :current-node-key="folderFilter || '/'"
           :default-expanded-keys="expandedKeys"
           :expand-on-click-node="false"
+          :indent="20"
           highlight-current
           @node-click="onFolderClick"
           @node-contextmenu="onFolderContextMenu"
@@ -30,7 +19,10 @@
           @node-collapse="onFolderCollapse"
         >
           <template #default="{ node, data }">
-            <span class="folder-node" :class="{ active: folderFilter === data.key }">
+            <span
+              class="folder-node"
+              :class="{ active: (data.isRoot && isAllScope) || folderFilter === data.key }"
+            >
               <el-icon class="folder-node-icon">
                 <FolderOpened v-if="node.expanded || folderFilter === data.key" />
                 <Folder v-else />
@@ -38,7 +30,7 @@
               <span class="folder-node-label">{{ data.label }}</span>
               <span class="side-count">{{ data.count }}</span>
               <button
-                v-if="data.key !== '/'"
+                v-if="!data.isRoot"
                 type="button"
                 class="index-delete folder-node-delete"
                 :title="t('folder.delete')"
@@ -49,7 +41,6 @@
             </span>
           </template>
         </el-tree>
-        <p v-if="folderTree.length === 0" class="index-empty">{{ t('index.empty') }}</p>
       </template>
 
       <template v-else-if="mode === IndexModeEnum.Tag">
@@ -86,7 +77,7 @@
 </template>
 
 <script setup lang="ts">
-import { Clock, Delete, Document, Folder, FolderOpened } from '@element-plus/icons-vue';
+import { Clock, Delete, Folder, FolderOpened } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox, ElTree } from 'element-plus';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -155,11 +146,21 @@ const folderTree = computed<CategoryTreeNode[]>(() => {
 
   const rawPos = appStore.prefs['setting/sync/categoryPos'];
   const pos = rawPos && typeof rawPos === 'object' ? (rawPos as Record<string, number>) : {};
-  return buildCategoryTree(
+  const children = buildCategoryTree(
     Array.from(counts, ([category, count]) => ({ category, count })),
     (_path, segment) => segment,
     pos,
   );
+  // 照 vue2：分类树外面永远套一层可选择的“我的笔记”，点击它等价于全部笔记。
+  return [
+    {
+      key: '/',
+      label: t('index.myNotes'),
+      count: props.total,
+      children,
+      isRoot: true,
+    },
+  ];
 });
 
 const folderTreeRef = ref<InstanceType<typeof ElTree> | null>(null);
@@ -183,6 +184,10 @@ function persistExpandedKeys(): void {
 }
 
 function onFolderClick(data: CategoryTreeNode): void {
+  if (data.isRoot) {
+    clearFilters();
+    return;
+  }
   const next = props.folderFilter === data.key ? '' : data.key;
   emit('update:filter', { folder: next, tag: '', timeGroup: '' });
 }
@@ -219,15 +224,22 @@ function onFolderCollapse(data: CategoryTreeNode): void {
 /** vue2 挂载时会把所有根节点展开，并默认展开 /My Notes/。 */
 function ensureRootsExpanded(): void {
   const roots = folderTree.value.map((node) => node.key);
-  const merged = new Set([...expandedKeys.value, ...roots]);
+  const pathKeys: string[] = [];
+  if (props.folderFilter) {
+    const segments = props.folderFilter.split('/').filter(Boolean);
+    let path = '';
+    for (const segment of segments) {
+      path += `/${segment}`;
+      pathKeys.push(`${path}/`);
+    }
+  }
+  const merged = new Set([...expandedKeys.value, ...roots, ...pathKeys]);
   if (merged.size !== expandedKeys.value.length) {
     expandedKeys.value = Array.from(merged);
     persistExpandedKeys();
   }
   void nextTick(() => {
-    if (props.folderFilter) {
-      folderTreeRef.value?.setCurrentKey(props.folderFilter);
-    }
+    folderTreeRef.value?.setCurrentKey(props.folderFilter || '/');
   });
 }
 

@@ -410,14 +410,6 @@ button {
   white-space: nowrap;
 }
 
-.index-all {
-  margin-top: 8px;
-}
-
-.index-all .el-icon {
-  font-size: 16px;
-}
-
 .index-panel {
   display: flex;
   flex-direction: column;
@@ -1554,7 +1546,7 @@ html.dark .editor-action-bar {
 
 .folder-node-label {
   overflow: hidden;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.4;
   text-overflow: ellipsis;
   white-space: nowrap;

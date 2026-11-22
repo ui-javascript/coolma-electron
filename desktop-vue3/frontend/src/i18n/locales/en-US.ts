@@ -36,6 +36,7 @@ export default {
     time: 'Time',
     calendar: 'Calendar',
     all: 'All notes',
+    myNotes: 'My Notes',
     empty: 'No index items',
     folderMode: 'Folder mode',
     tagMode: 'Tag mode',

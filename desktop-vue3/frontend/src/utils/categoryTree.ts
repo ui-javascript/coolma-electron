@@ -13,6 +13,8 @@ export interface CategoryTreeNode {
   label: string;
   count: number;
   children: CategoryTreeNode[];
+  /** v2 的“我的笔记”虚拟根节点，仅用于侧栏展示。 */
+  isRoot?: boolean;
 }
 
 export interface TagTreemapItem {
