@@ -18,7 +18,7 @@
 
 | ID | 缺口 | 当前事实 | 完成标准 | 状态 |
 |---|---|---|---|---|
-| R-01 | 符文 props 链路 | `data-rune-prop-*` 曾被解析白名单丢弃；渲染层已有 dataset→SFC props 的消费代码 | Markdown 手写 props 能进 host dataset、进 SFC props；未写的走 SFC default；编辑后 `getMarkdown()` 原样保留 | 本轮完成 |
+| R-01 | 符文 props 链路 | `data-rune-prop-*` 曾被解析白名单丢弃；渲染层已有 dataset→SFC props 的消费代码 | Markdown 手写 props 能进 host dataset、进 SFC props；未写的走 SFC default；编辑后 `getMarkdown()` 原样保留 | 已提交 `abebaef` |
 | R-02 | Rune 四角缩放只验收右下角 | 左上/右上/左下共用同一套公式，未逐个手动拖拽 | 四角各拖一次，记录宽高与边界；左/上控制点行为与 vue2 一致 | 待办 |
 | R-03 | Rune 运行时动画未逐项验收 | 成长/碎裂/天空步道/双生花等只有代码，没有逐项对照 | 每个动画至少一张静态对照 + 一次触发录屏，参数与 v2 一致 | 待办 |
 | R-04 | SFC `<style scoped>` / `less` / `scss` | 样式原样注入 head，scoped 未改写，预处理器未编译 | scoped 选择器生效且不污染全局；less/scss 模板可正常渲染 | 待办 |
@@ -53,7 +53,7 @@
 
 ## 6. 下一批（按本清单推进）
 
-1. **R-01** 符文 props 链路：已做完，待提交。
+1. **R-01** 符文 props 链路：已提交 `abebaef`，显式 / 默认 / 自然属性 / 优先级四种状态验收完成。
 2. **R-08** 内置符文模板进新建选择器：纯功能入口，收益直接。
 3. **R-06** 中间 Mermaid 遮挡：可见错误，改动集中。
 4. R-02 → R-03：四角与动画逐项验收，放到 Rune 专项批次。
