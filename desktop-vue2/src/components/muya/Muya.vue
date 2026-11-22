@@ -11,6 +11,7 @@ import { createNamespacedHelpers } from 'vuex'
 import helper from 'src/utils/helper'
 import Vue from 'vue'
 import { createRuneRendererCtor } from './runeSfcRendererFactory.js'
+import { createMeltRuneRendererCtor } from 'src/components/rune/meltRuneHost.js'
 import {
   readRuneDataAttr,
   rewriteRunePlaceholderByNodeId,
@@ -172,6 +173,15 @@ const RunePreviewRenderer = Vue.extend({
     rendererCtor () {
       const rune = this.rune || {}
       if (!String(rune.template || '').trim()) return null
+      // melt-js 定义在 template 里存的是 JSON 配置，必须先于 SFC 编译分流：
+      // 交给壳工厂（同步返回 ctor，加载在 created 里异步进行）。
+      try {
+        const meltCtor = createMeltRuneRendererCtor(rune)
+        if (meltCtor) return meltCtor
+      } catch (meltError) {
+        console.warn('[Muya.RunePreviewRenderer] melt-js ctor failed:', meltError)
+        return null
+      }
       try {
         // 工厂内部已含缓存：同 cacheKey 直接命中 map，无重复编译。
         return createRuneRendererCtor(rune) || null
