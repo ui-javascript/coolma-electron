@@ -1,6 +1,6 @@
 {
   "name": "desktop-vue3",
-  "version": "0.1.0",
+  "version": "2026.11.22",
   "private": true,
   "description": "Coolma Vue3 desktop app rebuilt on electron-egg TypeScript",
   "main": "./public/electron/main.js",
