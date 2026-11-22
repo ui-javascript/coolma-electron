@@ -811,10 +811,14 @@ figure[data-role] svg use[fill='#000000'] {
     position: absolute;
     right: 44px;
     top: 14px;
+    /* .libs-muya-host [contenteditable] 会给带 contenteditable="false" 的元素
+       套 height:100%，不显式 auto 的话按钮会被撑成整条 50px 高，文字顶在最上面 */
+    height: auto;
     z-index: 2;
     padding: 2px 8px;
     font-size: 12px;
     line-height: 18px;
+    white-space: nowrap;
     color: #fff;
     background: rgba(0, 0, 0, 0.62);
     border-radius: 3px;
