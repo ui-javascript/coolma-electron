@@ -66,3 +66,45 @@ export const NoteOrderTypeEnum = Enum({
 });
 
 export type NoteOrderType = (typeof NoteOrderTypeEnum)['values'][number];
+
+/** AI 助手入口（复刻 vue2 AiAssistantProviderEnum，默认端内助手）。 */
+export const AiAssistantProviderEnum = Enum({
+  Builtin: {
+    value: 'builtin',
+    label: 'aiAssistantProviderBuiltin',
+    icon: 'auto_awesome',
+    tooltip: 'aiAssistant',
+    tagType: 'primary',
+  },
+  Doubao: {
+    value: 'doubao',
+    label: 'aiAssistantProviderDoubao',
+    icon: 'mic',
+    tooltip: 'aiAssistantEntryDoubaoTooltip',
+    tagType: 'positive',
+  },
+});
+
+export type AiAssistantProvider = (typeof AiAssistantProviderEnum)['values'][number];
+
+export const DEFAULT_AI_ASSISTANT_PROVIDER = AiAssistantProviderEnum.Builtin;
+
+/** 云同步方式（复刻 vue2 CloudSyncProviderEnum，默认为知官方服务）。 */
+export const CloudSyncProviderEnum = Enum({
+  WizNote: {
+    value: 'wiznote',
+    label: 'settings.providerWiznote',
+    icon: 'cloud_circle',
+    tagType: 'success',
+  },
+  CustomFn: {
+    value: 'customFn',
+    label: 'settings.providerCustomFn',
+    icon: 'functions',
+    tagType: 'info',
+  },
+});
+
+export type CloudSyncProvider = (typeof CloudSyncProviderEnum)['values'][number];
+
+export const DEFAULT_CLOUD_SYNC_PROVIDER = CloudSyncProviderEnum.WizNote;

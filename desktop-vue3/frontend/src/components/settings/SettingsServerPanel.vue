@@ -16,12 +16,13 @@
           <div class="field-title">{{ t('settings.cloudSyncProvider') }}</div>
           <div class="field-hint">{{ t('settings.cloudSyncProviderHint') }}</div>
           <el-radio-group v-model="cloudSyncProvider">
-            <el-radio value="wiznote">{{ t('settings.providerWiznote') }}</el-radio>
-            <el-radio value="customFn">{{ t('settings.providerCustomFn') }}</el-radio>
+            <el-radio v-for="item in CloudSyncProviderEnum.items" :key="item.value" :value="item.value">
+              {{ t(item.label) }}
+            </el-radio>
           </el-radio-group>
         </div>
         <el-divider />
-        <div v-if="cloudSyncProvider !== 'wiznote'" class="sync-state">
+        <div v-if="cloudSyncProvider !== CloudSyncProviderEnum.WizNote" class="sync-state">
           <el-icon class="sync-icon"><Cloudy /></el-icon>
           <div class="sync-title">{{ t('settings.syncCustomFnNotReady') }}</div>
           <div class="field-hint">{{ t('settings.syncCustomFnNotReadyHint') }}</div>
@@ -99,6 +100,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { ElMessageBox } from 'element-plus';
 import { Cloudy } from '@element-plus/icons-vue';
+import { CloudSyncProviderEnum, type CloudSyncProvider } from '@shared/enums/app';
 import { useAppStore } from '@/stores/app';
 import { useNotesStore } from '@/stores/notes';
 import { useSyncStore } from '@/stores/sync';
@@ -119,7 +121,7 @@ const notesStore = useNotesStore();
 const syncStore = useSyncStore();
 const subTab = ref<'sync' | 'image'>('sync');
 const cloudSyncStrategy = ref('onlineFirst');
-const cloudSyncProvider = ref('wiznote');
+const cloudSyncProvider = ref<CloudSyncProvider>(CloudSyncProviderEnum.WizNote);
 const imageUploadService = ref('none');
 const imageDialogVisible = ref(false);
 const status = ref<SyncStatus>({ baseUrl: '', kbGuid: '', kbServer: '', email: '', displayName: '', userGuid: '', loggedIn: false });
@@ -133,7 +135,10 @@ const busy = computed(() => syncStore.isSyncing || actionBusy.value);
 function bindPrefs(): void {
   const prefs = appStore.prefs;
   cloudSyncStrategy.value = String(prefs[KEYS.strategy] ?? 'onlineFirst');
-  cloudSyncProvider.value = String(prefs[KEYS.provider] ?? 'wiznote');
+  const provider = String(prefs[KEYS.provider] ?? CloudSyncProviderEnum.WizNote);
+  cloudSyncProvider.value = CloudSyncProviderEnum.has(provider)
+    ? provider as CloudSyncProvider
+    : CloudSyncProviderEnum.WizNote;
   imageUploadService.value = String(prefs[KEYS.image] ?? 'none');
   loaded.value = true;
 }

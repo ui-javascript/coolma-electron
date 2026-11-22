@@ -125,15 +125,15 @@
 
       <span
         class="header-icon-btn ai-entry-btn"
-        :class="{ 'is-doubao': aiProvider === 'doubao' }"
+        :class="{ 'is-doubao': aiProvider === AiAssistantProviderEnum.Doubao }"
         :title="t('aiHelper.title')"
         @click="emit('ai')"
       >
         <el-icon class="icon-custom">
-          <Mic v-if="aiProvider === 'doubao'" />
+          <Mic v-if="aiProvider === AiAssistantProviderEnum.Doubao" />
           <MagicStick v-else />
         </el-icon>
-        <span v-if="aiProvider === 'doubao'" class="ai-entry-badge">{{ t('aiAssistantProviderDoubao') }}</span>
+        <span v-if="aiProvider === AiAssistantProviderEnum.Doubao" class="ai-entry-badge">{{ t('aiAssistantProviderDoubao') }}</span>
       </span>
 
       <span
@@ -176,7 +176,7 @@ import {
 } from '@element-plus/icons-vue';
 import { computed, type Component } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { IndexModeEnum, type IndexMode } from '@shared/enums/app';
+import { AiAssistantProviderEnum, IndexModeEnum, type AiAssistantProvider, type IndexMode } from '@shared/enums/app';
 import SkinDropdown from '@/components/SkinDropdown.vue';
 import type { Skin } from '@/utils/skin';
 
@@ -195,7 +195,7 @@ const props = defineProps<{
   paneLayoutMode: number;
   paneLayoutTitle: string;
   skin: Skin;
-  aiProvider: string;
+  aiProvider: AiAssistantProvider;
   syncPushTooltip: string;
   syncPullTooltip: string;
   tags: string[];

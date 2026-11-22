@@ -246,7 +246,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
-import { AppThemeEnum, IndexModeEnum, NoteOrderTypeEnum, type CalendarDateBasis, type IndexMode } from '@shared/enums/app';
+import { AppThemeEnum, AiAssistantProviderEnum, IndexModeEnum, NoteOrderTypeEnum, type AiAssistantProvider, type CalendarDateBasis, type IndexMode } from '@shared/enums/app';
 import type { NoteSummary } from '@shared/types/domain';
 import type { EchoCard } from '@shared/types/domain';
 import type { EchoInstancePatch, EchoInstanceToken } from '@/utils/echoToken';
@@ -545,7 +545,11 @@ function formatHeaderTitle(raw: string): string {
 const headerTitle = computed(() => formatHeaderTitle(activeSummary.value?.title || t('notes.untitled')));
 const headerTags = computed(() => (activeSummary.value ? noteTags(activeSummary.value) : []));
 const headerDirty = computed(() => notesStore.saving || activeSummary.value?.dirty === 1);
-const aiProvider = ref(localStorage.getItem('coolma.aiProvider') === 'doubao' ? 'doubao' : 'builtin');
+const aiProvider = ref<AiAssistantProvider>(
+  localStorage.getItem('coolma.aiProvider') === AiAssistantProviderEnum.Doubao
+    ? AiAssistantProviderEnum.Doubao
+    : AiAssistantProviderEnum.Builtin,
+);
 
 const saveHint = computed(() => {
   if (notesStore.saving) return t('notes.saving');
@@ -815,7 +819,7 @@ function openActiveTags(): void {
 
 /** 顶栏 AI 入口按设置里的 provider 分流：doubao → 豆包 WebApp，builtin → 内置助手。 */
 function openAiAssistant(): void {
-  if (localStorage.getItem('coolma.aiProvider') === 'doubao') {
+  if (localStorage.getItem('coolma.aiProvider') === AiAssistantProviderEnum.Doubao) {
     if (appStore.appInfo?.doubaoUrl) {
       doubaoDrawerVisible.value = true;
       return;
