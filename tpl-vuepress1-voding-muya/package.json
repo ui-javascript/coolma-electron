@@ -14,20 +14,21 @@
     "markdown-it-mark": "4.0.0",
     "markdown-it-sub": "2.0.0",
     "markdown-it-sup": "2.0.0",
-    "markdown-it-texmath": "1.0.0",
     "markdown-it-task-lists": "2.1.1",
+    "markdown-it-texmath": "1.0.0",
+    "vue": "2.7.16",
+    "vue-template-compiler": "2.7.16",
     "vuepress": "1.9.10",
     "vuepress-plugin-code-copy": "1.0.6",
     "vuepress-plugin-demo-block": "0.7.2",
     "vuepress-plugin-flowchart": "1.5.0",
-    "vuepress-theme-vdoing": "1.12.9",
-    "vue": "2.7.16",
-    "vue-template-compiler": "2.7.16"
+    "vuepress-theme-vdoing": "1.12.9"
   },
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
+    "@melt-js/libs-core-vue2": "2026.11.16",
     "libs-echo-core": "workspace:*",
     "libs-muya-vue2": "workspace:*",
     "libs-rune-core": "workspace:*"

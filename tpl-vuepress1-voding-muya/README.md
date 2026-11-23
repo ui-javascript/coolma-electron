@@ -14,4 +14,17 @@ pnpm --filter tpl-vuepress1-voding-muya build
 
 与 Teek 模板共用 `docs/guide/markdown.md` 和 `docs/guide/muya-fixture.md` 作为同源渲染对照；后者专门覆盖嵌套、转义和源码围栏。
 
-后续接入 Muya 时，在本包声明 `libs-muya-vue2: workspace:*`，用 VuePress 1 的 `extendMarkdown` 钩子注册本地 markdown-it 插件。由插件识别需要 Muya 处理的语法，再调用适合构建环境的 AST 解析和渲染入口；普通 Markdown 继续走 VuePress 和 Vdoing 的现有流程。本模板目前没有接入 Muya。
+## 符文 / 回响运行时（POC）
+
+本模板已经接入 `libs-muya-vue2` 的实机编辑器（`docs/guide/muya-live.md`），并在 `docs/guide/rune-live.md` 跑通真正的符文组件：
+
+- **本地 SFC 符文**：`vue-template-compiler` 在浏览器里拆 SFC、编模板、执行 `export default`，再 `Vue.extend` 成组件，输入可回写；
+- **melt-js 远程符文**：`@melt-js/libs-core-vue2` 按 `hel-meta.json` 加载 `comps-vue2` 的 Vue2 组件，`bindVueRuntime` 绑定宿主 Vue；
+- **SSR 双阶段**：构建期只输出静态卡片，`mounted` 之后才编译 / 拉远端，失败保留静态卡片并可重试。
+
+运行时在 `docs/.vuepress/rune/`，全局注册在 `docs/.vuepress/enhanceApp.js`，Markdown 里直接用 `<RuneHost name="…" value="…" />` 和 `<EchoHost name="…" attrs="…" />`。
+
+远端示例走 jsDelivr（GitHub Pages 的 `hel-meta.json` 不带 CORS 头，浏览器直接取会被拦）。真实站点应把远程产物放同域或 CORS 可控的 CDN，并加信任域名确认。
+
+已知边界：SFC 的 `less/sass` 样式不编译；`<script>` 暂不支持 `import` / 具名 export；回响的 `afterRender`（依赖 jQuery 操作前一段文本）尚未接，当前只落可点锚点。
+

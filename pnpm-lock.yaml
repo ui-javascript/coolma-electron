@@ -1670,6 +1670,9 @@ importers:
 
   tpl-vuepress1-voding-muya:
     dependencies:
+      '@melt-js/libs-core-vue2':
+        specifier: 2026.11.16
+        version: 2026.11.16(hel-html-parser@1.1.2)(hel-micro-core@4.13.1(hel-types@4.3.10))(hel-types@4.3.10)(supports-color@8.1.1)(vue@2.7.16(patch_hash=d8f24c4ba46eec36c8e112edba9ee6612be94030c7b3bbbcbae5b7cca8b64e02))
       libs-echo-core:
         specifier: workspace:*
         version: link:../libs-echo-core
@@ -19944,6 +19947,16 @@ snapshots:
       - hel-types
       - supports-color
 
+  '@melt-js/libs-core-vue2@2026.11.16(hel-html-parser@1.1.2)(hel-micro-core@4.13.1(hel-types@4.3.10))(hel-types@4.3.10)(supports-color@8.1.1)(vue@2.7.16(patch_hash=d8f24c4ba46eec36c8e112edba9ee6612be94030c7b3bbbcbae5b7cca8b64e02))':
+    dependencies:
+      '@melt-js/libs-core': 2026.11.16-1(hel-html-parser@1.1.2)(hel-micro-core@4.13.1(hel-types@4.3.10))(hel-types@4.3.10)(supports-color@8.1.1)
+      vue: 2.7.16(patch_hash=d8f24c4ba46eec36c8e112edba9ee6612be94030c7b3bbbcbae5b7cca8b64e02)
+    transitivePeerDependencies:
+      - hel-html-parser
+      - hel-micro-core
+      - hel-types
+      - supports-color
+
   '@melt-js/libs-core-vue3@2026.11.16-1(hel-html-parser@1.1.2)(hel-micro-core@4.13.1(hel-types@4.3.10))(hel-types@4.3.10)(supports-color@8.1.1)(vue@3.5.45(typescript@5.9.3))':
     dependencies:
       '@melt-js/libs-core': 2026.11.16-2(hel-html-parser@1.1.2)(hel-micro-core@4.13.1(hel-types@4.3.10))(hel-types@4.3.10)(supports-color@8.1.1)
@@ -19957,6 +19970,30 @@ snapshots:
   '@melt-js/libs-core@2026.11.16-1(hel-html-parser@1.1.2)(hel-micro-core@4.13.1(hel-types@4.3.10))(hel-types@4.3.10)(supports-color@6.1.0)':
     dependencies:
       '@babel/core': 7.29.13(supports-color@6.1.0)
+      '@babel/generator': 7.29.13
+      '@babel/parser': 7.29.13
+      '@babel/types': 7.29.11
+      '@vue/compiler-sfc': 2.7.14
+      acorn: 8.19.0
+      doctrine: 3.0.0
+      dotenv: 16.6.1
+      dotenv-expand: 12.0.3
+      esbuild: 0.25.12
+      hel-lib-proxy: 4.12.3(hel-micro-core@4.13.1(hel-types@4.3.10))(hel-types@4.3.10)
+      hel-micro: 4.15.3(hel-html-parser@1.1.2)(hel-lib-proxy@4.12.3(hel-micro-core@4.13.1(hel-types@4.3.10))(hel-types@4.3.10))(hel-micro-core@4.13.1(hel-types@4.3.10))(hel-types@4.3.10)
+      javascript-obfuscator: 4.2.2
+      rollup: 4.67.5
+      typescript: 5.9.3
+      vue-tsc: 3.3.11(typescript@5.9.3)
+    transitivePeerDependencies:
+      - hel-html-parser
+      - hel-micro-core
+      - hel-types
+      - supports-color
+
+  '@melt-js/libs-core@2026.11.16-1(hel-html-parser@1.1.2)(hel-micro-core@4.13.1(hel-types@4.3.10))(hel-types@4.3.10)(supports-color@8.1.1)':
+    dependencies:
+      '@babel/core': 7.29.13(supports-color@8.1.1)
       '@babel/generator': 7.29.13
       '@babel/parser': 7.29.13
       '@babel/types': 7.29.11

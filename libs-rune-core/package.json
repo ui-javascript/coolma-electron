@@ -15,7 +15,7 @@
   "module": "lib/index.esm.js",
   "types": "src/index.ts",
   "scripts": {
-    "build": "esbuild src/index.ts --outfile=lib/index.esm.js --format=esm && esbuild src/index.ts --outfile=lib/index.cjs --format=cjs"
+    "build": "esbuild src/index.ts --bundle --outfile=lib/index.esm.js --format=esm && esbuild src/index.ts --bundle --outfile=lib/index.cjs --format=cjs"
   },
   "devDependencies": {
     "esbuild": "0.28.2"

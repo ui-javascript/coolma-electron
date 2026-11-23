@@ -56,10 +56,13 @@
 
 ### C3 博客部署
 
-- [ ] `base` 合法性校验（`#`、`?` 非法字符未拦）
+- [x] `base` 合法性校验：`validateBaseInput` 拦 `#`、`?`、空白、反斜杠、`://` 与非 `/`、`./`、`../` 开头；构建前置抛 `BLOG_BASE_INVALID`
 - [ ] 菜单项 i18n 英文 key 补全
 - [x] 博客端符文/回响静态渲染：导出期把 `<div data-rune-*>` 与 `@name{attrs}(id)` 改写成 `ag-rune`/`ag-echo` 卡片，带 `data-*-action` 锚点；纯 HTML+内联样式，VuePress 1.x / VuePress 2 / VitePress 通用，零新依赖
-- [ ] 博客端运行时挂载：把卡片锚点接到真实 Vue3 符文组件或远程组件（可点击/实时），需 VuePress 2 或 VitePress 作为 Vue3 宿主
+- [x] VuePress 1.x（Vue2 宿主）运行时挂载 POC：`tpl-vuepress1-voding-muya` 加 `RuneHost` / `EchoHost`；SFC 符文运行时编译、melt-js 远程 Vue2 组件经 hel 加载，SSR 只出静态卡片，mounted 后替换；headless 构建产物实测远端组件真实渲染
+- [ ] VitePress / VuePress 2（Vue3 宿主）运行时挂载：复用同一 Markdown 语法，注册 Vue3 版 `RuneHost`
+- [ ] 回响运行时：接 `anno_source` 的 `render / afterRender`（打字机等依赖 jQuery 操作前一段文本）
+- [ ] Vue2 宿主边界补全：SFC `less/sass` 编译、`<script setup>`、Vue3 专属语法（fragment / Teleport / defineModel）的 AST 改写或降级判定
 - [ ] 打包后自动 `vuepress dev` 预览
 - [ ] Gitee / GitLab 支持
 

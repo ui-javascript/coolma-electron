@@ -68,7 +68,8 @@ module.exports = {
         'markdown.html',
         'technical.html',
         'theme.html',
-        'muya-fixture.html'
+        'muya-fixture.html',
+        'rune-live.html'
       ]
     }
   }
