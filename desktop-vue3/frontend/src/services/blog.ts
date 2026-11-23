@@ -18,6 +18,26 @@ export interface BlogExportOutput {
   workflows: { written: string[]; skipped: string[] };
 }
 
+export type BlogDeployKind = 'build' | 'github' | 'sftp';
+export type BlogDeployStatus = 'success' | 'failed' | 'cancelled';
+
+export interface BlogHistoryItem {
+  id: number;
+  kind: BlogDeployKind;
+  target: string;
+  status: BlogDeployStatus;
+  blogDir: string;
+  detail: string;
+  startedAt: number;
+  finishedAt: number | null;
+}
+
+export const blogHistory = (limit = 20): Promise<IpcResult<{ total: number; items: BlogHistoryItem[] }>> =>
+  invoke<{ total: number; items: BlogHistoryItem[] }>(IPC_CHANNELS.blog.history, { limit });
+
+export const clearBlogHistory = (): Promise<IpcResult<{ cleared: number }>> =>
+  invoke<{ cleared: number }>(IPC_CHANNELS.blog.historyClear, {});
+
 export const exportBlog = (input: BlogExportInput): Promise<IpcResult<BlogExportOutput>> =>
   invoke<BlogExportOutput>(IPC_CHANNELS.blog.export, input);
 

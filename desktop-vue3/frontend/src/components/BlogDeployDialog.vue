@@ -231,6 +231,28 @@
         <span>{{ buildEnv.installed ? t('blog.envInstalled') : t('blog.envReused') }}</span>
       </div>
 
+      <div class="blog-history">
+        <div class="blog-history-head">
+          <span class="blog-history-title">{{ t('blog.historyTitle') }}</span>
+          <div>
+            <el-button text size="small" :loading="historyLoading" @click="loadHistory">{{ t('blog.historyRefresh') }}</el-button>
+            <el-button v-if="historyItems.length" text size="small" type="danger" @click="clearHistory">{{ t('blog.historyClear') }}</el-button>
+          </div>
+        </div>
+        <div v-if="!historyItems.length" class="blog-history-empty">{{ t('blog.historyEmpty') }}</div>
+        <ul v-else class="blog-history-list">
+          <li v-for="item in historyItems" :key="item.id">
+            <el-tag size="small" :type="item.status === 'success' ? 'success' : item.status === 'cancelled' ? 'info' : 'danger'">
+              {{ statusLabel(item.status) }}
+            </el-tag>
+            <span class="blog-history-kind">{{ kindLabel(item.kind) }}</span>
+            <span class="blog-history-target" :title="item.target">{{ item.target || item.blogDir }}</span>
+            <span class="blog-history-detail" :title="item.detail">{{ item.detail }}</span>
+            <span class="blog-history-time">{{ formatTime(item.startedAt) }}</span>
+          </li>
+        </ul>
+      </div>
+
       <div v-if="lastResult" class="blog-result">
         <div class="blog-result-title">{{ t('blog.resultTitle') }}</div>
         <ul>
@@ -297,10 +319,12 @@ import {
   onBlogProgress,
   pickDirectory,
   pickFile,
+  blogHistory,
+  clearBlogHistory,
   testBlogSftp,
   uploadBlogSftp,
 } from '@/services/blog';
-import type { BlogBuildEnv, BlogBuildProgress, BlogExportOutput, BlogSftpConfig, BlogTheme } from '@/services/blog';
+import type { BlogBuildEnv, BlogBuildProgress, BlogDeployKind, BlogDeployStatus, BlogExportOutput, BlogHistoryItem, BlogSftpConfig, BlogTheme } from '@/services/blog';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -360,6 +384,8 @@ const sftp = reactive<Required<BlogSftpConfig>>({
   backupEnabled: true,
 });
 const lastResult = ref<BlogExportOutput | null>(null);
+const historyItems = ref<BlogHistoryItem[]>([]);
+const historyLoading = ref(false);
 
 const visible = computed({
   get: () => props.modelValue,
@@ -378,6 +404,7 @@ watch(
   (open) => {
     if (open) {
       void loadConfig();
+      void loadHistory();
       offProgress?.();
       offProgress = onBlogProgress((event) => {
         progress.value.push(event);
@@ -528,6 +555,7 @@ async function runSftpUpload(): Promise<boolean> {
     return true;
   } finally {
     uploading.value = false;
+    void loadHistory();
   }
 }
 
@@ -559,6 +587,51 @@ function buildScriptName(): string | undefined {
   }
   const matched = command.match(/^(?:npm|yarn|pnpm)(?:\s+run)?\s+([A-Za-z0-9:_-]+)/);
   return matched?.[1] || command;
+}
+
+const KIND_KEYS: Record<BlogDeployKind, string> = {
+  build: 'blog.historyKindBuild',
+  github: 'blog.historyKindGithub',
+  sftp: 'blog.historyKindSftp',
+};
+
+const STATUS_KEYS: Record<BlogDeployStatus, string> = {
+  success: 'blog.historyStatusSuccess',
+  failed: 'blog.historyStatusFailed',
+  cancelled: 'blog.historyStatusCancelled',
+};
+
+function kindLabel(kind: BlogDeployKind): string {
+  return t(KIND_KEYS[kind] || 'blog.historyKindBuild');
+}
+
+function statusLabel(status: BlogDeployStatus): string {
+  return t(STATUS_KEYS[status] || 'blog.historyStatusFailed');
+}
+
+function formatTime(value: number): string {
+  if (!value) return '';
+  const date = new Date(value);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+async function loadHistory(): Promise<void> {
+  historyLoading.value = true;
+  try {
+    const result = await blogHistory(20);
+    if (result.ok) historyItems.value = result.data.items;
+  } finally {
+    historyLoading.value = false;
+  }
+}
+
+async function clearHistory(): Promise<void> {
+  const result = await clearBlogHistory();
+  if (result.ok) {
+    historyItems.value = [];
+    ElMessage.success(t('blog.historyCleared', { count: result.data.cleared }));
+  }
 }
 
 async function runBuild(): Promise<void> {
@@ -596,6 +669,7 @@ async function runBuild(): Promise<void> {
     ElMessage.success(t('blog.buildDone'));
   } finally {
     building.value = false;
+    void loadHistory();
   }
 }
 
@@ -615,6 +689,7 @@ async function runDispatch(): Promise<void> {
     ElMessage.success(t('blog.githubDone'));
   } finally {
     dispatching.value = false;
+    void loadHistory();
   }
 }
 
@@ -1118,5 +1193,63 @@ html.dark .password-eye {
 
 .token-hint code {
   background: rgb(255 255 255 / 8%);
+}
+
+.blog-history {
+  margin-top: 14px;
+  border-top: 1px solid var(--el-border-color-lighter);
+  padding-top: 10px;
+}
+.blog-history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.blog-history-title {
+  font-weight: 600;
+  font-size: 13px;
+}
+.blog-history-empty {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  padding: 6px 0;
+}
+.blog-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.blog-history-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.blog-history-kind {
+  min-width: 44px;
+  color: var(--el-text-color-secondary);
+}
+.blog-history-target {
+  flex: 0 1 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.blog-history-detail {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--el-text-color-secondary);
+}
+.blog-history-time {
+  color: var(--el-text-color-placeholder);
+  white-space: nowrap;
 }
 </style>

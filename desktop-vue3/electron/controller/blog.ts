@@ -1,9 +1,10 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { IpcResult } from '../shared/ipc/contract';
-import { blogBuildSchema, blogDispatchSchema, blogExportCiSchema, blogExportSchema, blogSftpTestSchema, blogSftpUploadSchema } from '../shared/ipc/schemas';
+import { blogBuildSchema, blogDispatchSchema, blogExportCiSchema, blogExportSchema, blogHistorySchema, blogSftpTestSchema, blogSftpUploadSchema } from '../shared/ipc/schemas';
 import { fail, ok } from '../shared/ipc/result';
 import { notesRepository } from '../service/db/notes-repository';
+import { blogHistoryRepository } from '../service/db/blog-history-repository';
 import { exportCIWorkflows, ensureReadme, generateSidebarJson, writeBlogPosts } from '../service/blog/deploy';
 import type { BlogNote } from '../service/blog/deploy';
 import { cancelBlogBuild, runBlogBuild, sendBlogProgress } from '../service/blog/build';
@@ -92,14 +93,22 @@ class BlogController {
 
   /** 在博客目录跑构建脚本；进度通过 `blog-deploy-progress` 事件推送。 */
   async build(args?: unknown): Promise<IpcResult<{ distDir: string; script: string; env: BlogBuildEnv }>> {
+    let historyId = 0;
     try {
       const input = blogBuildSchema.parse(args);
+      historyId = blogHistoryRepository.begin('build', input.blogDir, input.blogDir);
       const result = await runBlogBuild(input);
       if (!result.ok || !result.env) {
+        const cancelled = result.error === 'BLOG_BUILD_CANCELLED';
+        blogHistoryRepository.finish(historyId, cancelled ? 'cancelled' : 'failed', result.error || 'build failed');
         return fail(result.error || 'BLOG_BUILD_ERROR', result.error || 'build failed', result.details);
       }
+      blogHistoryRepository.finish(historyId, 'success', result.distDir ? `dist: ${result.distDir}` : 'built');
       return ok({ distDir: result.distDir || '', script: result.script || '', env: result.env });
     } catch (error) {
+      if (historyId) {
+        blogHistoryRepository.finish(historyId, 'failed', String((error as Error)?.message || error));
+      }
       if ((error as { code?: string }).code === 'BLOG_BASE_INVALID') {
         return fail('BLOG_BASE_INVALID', String((error as Error).message));
       }
@@ -109,14 +118,21 @@ class BlogController {
 
   /** 触发 GitHub Actions workflow（对应 vue2「部署」里的 dispatch 分支）。 */
   async dispatchGitHub(args?: unknown): Promise<IpcResult<{ dispatched: boolean }>> {
+    let historyId = 0;
     try {
       const input = blogDispatchSchema.parse(args);
+      historyId = blogHistoryRepository.begin('github', `${input.owner}/${input.repo}`, '');
       const result = await dispatchWorkflow(input);
       if (!result.ok) {
+        blogHistoryRepository.finish(historyId, 'failed', result.error || 'dispatch failed');
         return fail('BLOG_DISPATCH_ERROR', result.error || 'dispatch failed');
       }
+      blogHistoryRepository.finish(historyId, 'success', `${input.workflowId} @ ${input.branch || 'default'}`);
       return ok({ dispatched: true });
     } catch (error) {
+      if (historyId) {
+        blogHistoryRepository.finish(historyId, 'failed', String((error as Error)?.message || error));
+      }
       return failFromError(error, 'BLOG_DISPATCH_ERROR');
     }
   }
@@ -134,8 +150,10 @@ class BlogController {
 
   /** 备份远程目录并上传构建产物；进度复用 `blog-deploy-progress`。 */
   async sftpUpload(args?: unknown): Promise<IpcResult<{ uploaded: number; total: number; backupPath?: string }>> {
+    let historyId = 0;
     try {
       const input = blogSftpUploadSchema.parse(args);
+      historyId = blogHistoryRepository.begin('sftp', `${input.config.host}:${input.config.remotePath}`, input.localDir);
       let backupPath: string | undefined;
 
       if (input.config.backupEnabled !== false) {
@@ -163,9 +181,33 @@ class BlogController {
         });
       });
       sendBlogProgress({ stage: 'sftp', message: 'upload done', percent: 100 });
+      blogHistoryRepository.finish(historyId, 'success', `${result.uploaded}/${result.total} files${backupPath ? ', backed up' : ''}`);
       return ok({ ...result, backupPath });
     } catch (error) {
+      if (historyId) {
+        blogHistoryRepository.finish(historyId, 'failed', String((error as Error)?.message || error));
+      }
       return fail('BLOG_SFTP_UPLOAD_ERROR', String((error as Error)?.message || error));
+    }
+  }
+
+  /** 部署历史（构建 / GitHub dispatch / SFTP 上传）。 */
+  async history(args?: unknown): Promise<IpcResult<{ total: number; items: ReturnType<typeof blogHistoryRepository.list> }>> {
+    try {
+      const input = blogHistorySchema.parse(args ?? {});
+      const items = blogHistoryRepository.list(input.limit ?? 20);
+      return ok({ total: items.length, items });
+    } catch (error) {
+      return failFromError(error, 'BLOG_HISTORY_ERROR');
+    }
+  }
+
+  async historyClear(args?: unknown): Promise<IpcResult<{ cleared: number }>> {
+    try {
+      blogHistorySchema.parse(args ?? {});
+      return ok({ cleared: blogHistoryRepository.clear() });
+    } catch (error) {
+      return failFromError(error, 'BLOG_HISTORY_CLEAR_ERROR');
     }
   }
 

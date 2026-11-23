@@ -62,6 +62,10 @@ export const blogSftpTestSchema = z.object({
   config: sftpConfigSchema,
 });
 
+export const blogHistorySchema = z.object({
+  limit: z.number().int().min(1).max(200).optional(),
+});
+
 export const blogSftpUploadSchema = z.object({
   localDir: z.string().min(1),
   config: sftpConfigSchema,

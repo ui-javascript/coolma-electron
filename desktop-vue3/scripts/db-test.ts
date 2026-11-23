@@ -17,6 +17,7 @@ import { previewImport, commitImport } from '../electron/service/packs-service';
 import { aiModelsRepository, aiSkillsRepository } from '../electron/service/db/ai-repository';
 import { getDatabase } from '../electron/service/db/connection';
 import { syncLogRepository } from '../electron/service/db/sync-log-repository';
+import { blogHistoryRepository } from '../electron/service/db/blog-history-repository';
 import { runIntegrityCheck } from '../electron/service/db/diagnostics';
 import { backupFileName, isManagedBackupFile, listBackups, pruneBackups } from '../electron/service/db/backup-files';
 import fs from 'node:fs';
@@ -39,14 +40,14 @@ setDatabase(handle.database);
 const schemaVersion = runMigrations(handle.database);
 
 // ===== 迁移 =====
-assert('迁移：version 走到 7', schemaVersion === 7, String(schemaVersion));
+assert('迁移：version 走到 8', schemaVersion === 8, String(schemaVersion));
 const tables = handle.database
   .prepare("SELECT name FROM sqlite_master WHERE type='table'")
   .all()
   .map((row: { name: string }) => row.name);
 assert(
   '迁移：核心表齐全',
-  ['notes', 'tags', 'note_tags', 'local_categories', 'sync_log', 'runes', 'echoes', 'settings', 'sync_conflicts'].every((t) => tables.includes(t)),
+  ['notes', 'tags', 'note_tags', 'local_categories', 'sync_log', 'runes', 'echoes', 'settings', 'sync_conflicts', 'blog_deploy_history'].every((t) => tables.includes(t)),
   tables.join(','),
 );
 const noteColumns = handle.database
@@ -99,6 +100,18 @@ const elsewhere = notesRepository.create({ title: '测试笔记', content: 'othe
 assert('笔记：跨分类不撞名', elsewhere.title === '测试笔记', elsewhere.title);
 const onlineNote = notesRepository.create({ title: '在线笔记', content: 'online', category: '/工作', kbGuid: 'kb-1' });
 assert('笔记：在线创建带当前账号', onlineNote.kbGuid === 'kb-1', String(onlineNote.kbGuid));
+
+// ===== 博客部署历史 =====
+const buildId = blogHistoryRepository.begin('build', '/tmp/blog', '/tmp/blog');
+blogHistoryRepository.finish(buildId, 'success', 'dist: /tmp/blog/.vuepress/dist');
+const sftpId = blogHistoryRepository.begin('sftp', 'host:/var/www', '/tmp/blog/.vuepress/dist');
+blogHistoryRepository.finish(sftpId, 'failed', 'connection refused');
+const history = blogHistoryRepository.list();
+assert('部署历史：两条记录按时间倒序', history.length === 2 && history[0].kind === 'sftp', history.map((h) => h.kind).join(','));
+assert('部署历史：状态与详情落库', history[0].status === 'failed' && history[0].detail === 'connection refused', history[0].detail);
+assert('部署历史：成功记录带完成时间', history[1].status === 'success' && typeof history[1].finishedAt === 'number');
+assert('部署历史：limit 生效', blogHistoryRepository.list(1).length === 1, String(blogHistoryRepository.list(1).length));
+assert('部署历史：清空返回删除条数', blogHistoryRepository.clear() === 2 && blogHistoryRepository.list().length === 0);
 
 // ===== S-02 冲突队列 =====
 const conflictNote = notesRepository.create({ title: '冲突笔记', content: 'local-body', category: '/工作' });

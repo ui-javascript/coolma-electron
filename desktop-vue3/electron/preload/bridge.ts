@@ -74,6 +74,8 @@ const INVOKE_CHANNELS = new Set<string>([
   'controller/blog/sftpTest',
   'controller/blog/sftpUpload',
   'controller/blog/sftpCancel',
+  'controller/blog/history',
+  'controller/blog/historyClear',
   'controller/cloudfn/invoke',
   'controller/ai/models',
   'controller/ai/saveModel',

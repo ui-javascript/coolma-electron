@@ -98,6 +98,8 @@ export const IPC_CHANNELS = {
     sftpTest: 'controller/blog/sftpTest',
     sftpUpload: 'controller/blog/sftpUpload',
     sftpCancel: 'controller/blog/sftpCancel',
+    history: 'controller/blog/history',
+    historyClear: 'controller/blog/historyClear',
   },
   cloudfn: {
     invoke: 'controller/cloudfn/invoke',

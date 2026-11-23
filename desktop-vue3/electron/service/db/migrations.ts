@@ -433,7 +433,27 @@ const migration7: Migration = {
   },
 };
 
-export const MIGRATIONS: readonly Migration[] = [migration1, migration2, migration3, migration4, migration5, migration6, migration7];
+const migration8: Migration = {
+  version: 8,
+  name: 'blog-deploy-history',
+  up(db) {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS blog_deploy_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        kind TEXT NOT NULL CHECK(kind IN ('build', 'github', 'sftp')),
+        target TEXT DEFAULT '',
+        status TEXT NOT NULL CHECK(status IN ('success', 'failed', 'cancelled')),
+        blog_dir TEXT DEFAULT '',
+        detail TEXT DEFAULT '',
+        started_at INTEGER NOT NULL,
+        finished_at INTEGER
+      )
+    `);
+    db.exec('CREATE INDEX IF NOT EXISTS idx_blog_history_time ON blog_deploy_history(started_at DESC)');
+  },
+};
+
+export const MIGRATIONS: readonly Migration[] = [migration1, migration2, migration3, migration4, migration5, migration6, migration7, migration8];
 
 export function runMigrations(db: DB): number {
   db.exec(`
