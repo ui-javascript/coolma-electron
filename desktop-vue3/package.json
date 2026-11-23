@@ -29,7 +29,7 @@
     "test:db": "node -e \"require('esbuild').buildSync({entryPoints:['scripts/db-test.ts'],bundle:true,format:'cjs',platform:'node',outfile:'/tmp/coolma-db-test.js',logLevel:'error'})\" && node /tmp/coolma-db-test.js",
     "sync:builtins": "node scripts/sync-builtins-from-vue2.mjs && node scripts/gen-builtins.mjs",
     "gen:builtins": "node scripts/gen-builtins.mjs",
-    "test:unit": "node -e \"const e=require('esbuild');e.buildSync({entryPoints:['tests/unit/category-tree.test.ts','tests/unit/cdn-rules.test.ts','tests/unit/rune-style.test.ts','tests/unit/sync-merge.test.ts','tests/unit/blog-export.test.ts'],bundle:true,format:'cjs',platform:'node',outdir:'scripts/.unit-dist',logLevel:'error'})\" && node scripts/.unit-dist/category-tree.test.js && node scripts/.unit-dist/cdn-rules.test.js && node scripts/.unit-dist/rune-style.test.js && node scripts/.unit-dist/sync-merge.test.js && node scripts/.unit-dist/blog-export.test.js",
+    "test:unit": "node -e \"const e=require('esbuild');e.buildSync({entryPoints:['tests/unit/category-tree.test.ts','tests/unit/cdn-rules.test.ts','tests/unit/rune-style.test.ts','tests/unit/sync-merge.test.ts','tests/unit/blog-export.test.ts','tests/unit/rune-echo-blog.test.ts'],bundle:true,format:'cjs',platform:'node',outdir:'scripts/.unit-dist',logLevel:'error'})\" && node scripts/.unit-dist/category-tree.test.js && node scripts/.unit-dist/cdn-rules.test.js && node scripts/.unit-dist/rune-style.test.js && node scripts/.unit-dist/sync-merge.test.js && node scripts/.unit-dist/blog-export.test.js && node scripts/.unit-dist/rune-echo-blog.test.js",
     "test:runtime": "vite build --config scripts/vite-runtime.config.mts && NODE_PATH=./node_modules node scripts/.rt-dist/rt.mjs"
   },
   "dependencies": {

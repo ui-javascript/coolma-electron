@@ -5,6 +5,8 @@ import { blogBuildSchema, blogDispatchSchema, blogExportCiSchema, blogExportSche
 import { fail, ok } from '../shared/ipc/result';
 import { notesRepository } from '../service/db/notes-repository';
 import { blogHistoryRepository } from '../service/db/blog-history-repository';
+import { echoesRepository, runesRepository } from '../service/db/library-repository';
+import { transformRuneEcho } from '../service/blog/runeEcho';
 import { exportCIWorkflows, ensureReadme, generateSidebarJson, writeBlogPosts } from '../service/blog/deploy';
 import type { BlogNote } from '../service/blog/deploy';
 import { cancelBlogBuild, runBlogBuild, sendBlogProgress } from '../service/blog/build';
@@ -19,6 +21,8 @@ export interface BlogExportResult {
   writtenFiles: number;
   skippedFiles: number;
   shortlinkCount: number;
+  runeCards: number;
+  echoCards: number;
   workflows: { written: string[]; skipped: string[] };
 }
 
@@ -44,11 +48,19 @@ class BlogController {
         return fail('BLOG_NO_NOTES', 'No notes to export');
       }
 
+      // 符文/回响在导出期就落成静态卡片：博客端不依赖 markdown-it 插件或主题钩子。
+      const catalog = { runes: runesRepository.list(), echoes: echoesRepository.list() };
+      let runeCards = 0;
+      let echoCards = 0;
       const notes: BlogNote[] = rows.map((summary) => {
         const record = notesRepository.get(summary.id);
+        const source = record?.content ?? '';
+        const transformed = transformRuneEcho(source, catalog);
+        runeCards += transformed.stats.runes;
+        echoCards += transformed.stats.echoes;
         return {
           title: summary.title,
-          content: record?.content ?? '',
+          content: transformed.content,
           docGuid: summary.docGuid ?? '',
         };
       });
@@ -68,6 +80,8 @@ class BlogController {
         writtenFiles: written.writtenFiles,
         skippedFiles: written.skippedFiles,
         shortlinkCount: written.shortlinkCount,
+        runeCards,
+        echoCards,
         workflows,
       });
     } catch (error) {

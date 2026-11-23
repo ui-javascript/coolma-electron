@@ -258,6 +258,7 @@
         <ul>
           <li>{{ t('blog.resultFiles', { count: lastResult.writtenFiles, skipped: lastResult.skippedFiles ?? 0 }) }}</li>
           <li>{{ t('blog.resultShortlinks', { count: lastResult.shortlinkCount }) }}</li>
+          <li v-if="lastResult.runeCards || lastResult.echoCards">{{ t('blog.resultRuneEcho', { runes: lastResult.runeCards, echoes: lastResult.echoCards }) }}</li>
           <li v-if="lastResult.workflows.written.length">{{ t('blog.resultWorkflows', { names: lastResult.workflows.written.join(', ') }) }}</li>
           <li v-if="lastResult.workflows.skipped.length">{{ t('blog.resultSkipped', { names: lastResult.workflows.skipped.join(', ') }) }}</li>
           <li v-if="distDir" class="blog-result-dist">{{ t('blog.distDir', { dir: distDir }) }}</li>

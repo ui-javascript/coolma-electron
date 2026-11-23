@@ -15,6 +15,8 @@ export interface BlogExportOutput {
   writtenFiles: number;
   skippedFiles: number;
   shortlinkCount: number;
+  runeCards: number;
+  echoCards: number;
   workflows: { written: string[]; skipped: string[] };
 }
 

@@ -58,7 +58,8 @@
 
 - [ ] `base` 合法性校验（`#`、`?` 非法字符未拦）
 - [ ] 菜单项 i18n 英文 key 补全
-- [ ] 博客端符文/回响渲染——设计见 `参考/vuepress符文回响-设计.md`
+- [x] 博客端符文/回响静态渲染：导出期把 `<div data-rune-*>` 与 `@name{attrs}(id)` 改写成 `ag-rune`/`ag-echo` 卡片，带 `data-*-action` 锚点；纯 HTML+内联样式，VuePress 1.x / VuePress 2 / VitePress 通用，零新依赖
+- [ ] 博客端运行时挂载：把卡片锚点接到真实 Vue3 符文组件或远程组件（可点击/实时），需 VuePress 2 或 VitePress 作为 Vue3 宿主
 - [ ] 打包后自动 `vuepress dev` 预览
 - [ ] Gitee / GitLab 支持
 

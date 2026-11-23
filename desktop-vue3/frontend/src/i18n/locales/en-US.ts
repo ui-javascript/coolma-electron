@@ -896,6 +896,7 @@ export default {
     "blog.historyStatusSuccess": "Success",
     "blog.historyStatusFailed": "Failed",
     "blog.historyStatusCancelled": "Cancelled",
+    "blog.resultRuneEcho": "{runes} runes and {echoes} echoes rendered as static cards",
     "blog.resultFiles": "Wrote {count} _posts/<shortlink>.md, skipped {skipped} unchanged",
     "blog.resultShortlinks": "shortlink-map total: {count}",
     "blog.resultWorkflows": "Workflows written: {names}",

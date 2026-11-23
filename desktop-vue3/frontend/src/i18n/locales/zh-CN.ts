@@ -896,6 +896,7 @@ export default {
     "blog.historyStatusSuccess": "成功",
     "blog.historyStatusFailed": "失败",
     "blog.historyStatusCancelled": "已取消",
+    "blog.resultRuneEcho": "符文 {runes} 个、回响 {echoes} 个已渲染为静态卡片",
     "blog.resultFiles": "写出 {count} 篇 _posts/<shortlink>.md，跳过 {skipped} 篇未变",
     "blog.resultShortlinks": "shortlink-map 累计 {count} 条",
     "blog.resultWorkflows": "写入 workflow：{names}",
