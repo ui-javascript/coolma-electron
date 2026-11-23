@@ -100,7 +100,8 @@ const config = withMermaid(defineConfig({
             { text: 'Markdown 语法', link: '/guide/markdown' },
             { text: '技术文档与图表', link: '/guide/technical' },
             { text: 'Teek 主题能力', link: '/guide/theme' },
-            { text: 'Muya 对照样例', link: '/guide/muya-fixture' }
+            { text: 'Muya 对照样例', link: '/guide/muya-fixture' },
+            { text: '符文 / 回响运行时', link: '/guide/rune-live' }
           ]
         }
       ]

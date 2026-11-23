@@ -83,6 +83,10 @@ export async function createSfcCtor (rune = {}) {
   const options = evalScript(parsed.script && parsed.script.content)
   const scopeId = hashScopeId(rune.id || rune.name)
   const compiled = compiler.compileToFunctions(injectScopedAttribute(templateCode, scopeId))
+  if (compiled && Array.isArray(compiled.errors) && compiled.errors.length) {
+    const first = compiled.errors[0]
+    throw new Error(`SFC 模板编译失败：${typeof first === 'string' ? first : (first && first.msg) || '未知错误'}`)
+  }
 
   options.name = options.name || `RuneSfc${String(rune.name || 'Rune').replace(/[^A-Za-z0-9]/g, '')}`
   options.render = compiled.render

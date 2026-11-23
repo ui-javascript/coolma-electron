@@ -15,4 +15,15 @@ pnpm --filter tpl-vitepress1-teek-muya preview
 
 与 Vdoing 模板共用 `docs/guide/markdown.md` 和 `docs/guide/muya-fixture.md` 作为同源渲染对照；后者专门覆盖嵌套、转义和源码围栏。
 
-后续接入 Muya 时，在本包添加 `libs-muya-vue2: workspace:*`，通过 `defineTeekConfig` 的 `markdown.config` 注册适配插件。插件在构建时调用可独立运行的 Muya AST 解析和渲染入口，并保留 Teek 的 Markdown 扩展。当前 `libs-muya-vue2` 的编辑器入口依赖 Vue 2，接入时需要将解析和渲染与编辑器运行时分开。
+## 符文 / 回响运行时（POC）
+
+`docs/guide/rune-live.md` 在 VitePress 里跑真正的符文组件：
+
+- 本地 SFC 符文复用 `libs-muya-rune-vue3` 的 `createRuneRendererCtor`（`@vue/compiler-dom` 编译 + `createApp` 挂载）；
+- melt-js 符文复用同包的 `createMeltRuneRendererCtor`，从 `comps-vue3` 的 `hel-meta.json` 加载 Vue3 远程组件；
+- SSR 构建期只输出静态卡片，`mounted` 之后才动态导入运行时并加载远端，失败保留卡片可重试。
+
+扩展方式：在 `docs/.vitepress/theme/index.ts` 注册 `RuneHost` / `EchoHost`，Markdown 里写 `<RuneHost name="…" value="…" />`。和 VuePress 1.x 模板共用同一套 Markdown 语法与导出产物。
+
+已知边界：回响 `afterRender` 未接（当前只落锚点）；VuePress 2 宿主尚未单独验证（组件接口与 VitePress 相同）。
+

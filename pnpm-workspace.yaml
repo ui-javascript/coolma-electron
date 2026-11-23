@@ -18,6 +18,11 @@ packageExtensions:
   'vue-template-compiler@2.7.16':
     dependencies:
       vue: 2.7.16
+  # vue-server-renderer 在 Node 侧 require('vue')，会解析到 pnpm 提升的 Vue3；
+  # 显式给它一份 Vue2，避免 VuePress 1.x 构建时报版本不匹配。
+  'vue-server-renderer@2.7.16':
+    dependencies:
+      vue: 2.7.16
 
 overrides:
   '@types/minimatch': 5.1.2

@@ -5,7 +5,10 @@
   "type": "module",
   "description": "Rune (Vue 3 SFC card) plugin for libs-muya-vue3",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./runeRenderer": "./src/runeRenderer.ts",
+    "./meltRune": "./src/meltRune.ts",
+    "./runeStyle": "./src/runeStyle.ts"
   },
   "peerDependencies": {
     "libs-muya-vue3": "workspace:*",

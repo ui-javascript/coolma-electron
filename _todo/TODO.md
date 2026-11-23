@@ -60,7 +60,8 @@
 - [ ] 菜单项 i18n 英文 key 补全
 - [x] 博客端符文/回响静态渲染：导出期把 `<div data-rune-*>` 与 `@name{attrs}(id)` 改写成 `ag-rune`/`ag-echo` 卡片，带 `data-*-action` 锚点；纯 HTML+内联样式，VuePress 1.x / VuePress 2 / VitePress 通用，零新依赖
 - [x] VuePress 1.x（Vue2 宿主）运行时挂载 POC：`tpl-vuepress1-voding-muya` 加 `RuneHost` / `EchoHost`；SFC 符文运行时编译、melt-js 远程 Vue2 组件经 hel 加载，SSR 只出静态卡片，mounted 后替换；headless 构建产物实测远端组件真实渲染
-- [ ] VitePress / VuePress 2（Vue3 宿主）运行时挂载：复用同一 Markdown 语法，注册 Vue3 版 `RuneHost`
+- [x] VitePress（Vue3 宿主）运行时挂载 POC：`tpl-vitepress1-teek-muya` 加 `RuneHost`，复用 `libs-muya-rune-vue3`（`@vue/compiler-dom` SFC 编译 + `comps-vue3` 远程组件）；构建产物 headless 实测 3 个符文全 ready、远端 HelloWorld 真实渲染
+- [ ] VuePress 2（Vue3 宿主）验证：组件接口与 VitePress 相同，重点验主题 `enhanceApp` 注册与 SSR
 - [ ] 回响运行时：接 `anno_source` 的 `render / afterRender`（打字机等依赖 jQuery 操作前一段文本）
 - [ ] Vue2 宿主边界补全：SFC `less/sass` 编译、`<script setup>`、Vue3 专属语法（fragment / Teleport / defineModel）的 AST 改写或降级判定
 - [ ] 打包后自动 `vuepress dev` 预览

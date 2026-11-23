@@ -23,6 +23,7 @@
     "vitepress-plugin-mermaid": "2.0.17",
     "vitepress-plugin-tabs": "0.9.1",
     "vitepress-theme-teek": "1.6.3",
-    "libs-rune-core": "workspace:*"
+    "libs-rune-core": "workspace:*",
+    "libs-muya-rune-vue3": "workspace:*"
   }
 }

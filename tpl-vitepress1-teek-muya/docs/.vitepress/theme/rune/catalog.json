@@ -1,0 +1,33 @@
+{
+  "format": "memocast.rune-pack",
+  "version": 1,
+  "runes": [
+    {
+      "id": "输入框",
+      "name": "输入框",
+      "desc": "",
+      "category": "general",
+      "color": "#7E57C2",
+      "icon": "whatshot",
+      "template": "<template>\n  <div class=\"rune-echo-demo\">\n    \n    <input\n      class=\"rune-echo-demo__input\"\n      :value=\"text\"\n      placeholder=\"输入内容，触发 input 事件把 value 写回 MD\"\n      @input=\"handleInput\"\n    />\n    \n    </div>\n</template>\n\n<script>\nexport default {\n  props: {\n    value: {\n      type: [String, Number],\n      default: null\n    },\n    runeId: {\n      type: String,\n      default: ''\n    },\n    nodeId: {\n      type: String,\n      default: ''\n    },\n    rune: {\n      type: Object,\n      default: null\n    }\n  },\n  data() {\n    return {\n      text: this.value == null ? '' : String(this.value)\n    }\n  },\n  watch: {\n    value (next) {\n      const normalized = next == null ? '' : String(next)\n      if (normalized !== this.text) {\n        this.text = normalized\n      }\n    }\n  },\n  methods: {\n    handleInput (event) {\n      const next = event && event.target ? String(event.target.value || '') : ''\n      this.text = next\n      // 与 TODO 中 RuneValue { runeId, nodeId, value } 的字段对齐；\n      // 外层 RunePreviewRenderer 会捕获 input 事件并通过 onValueChange 回写到 MD。\n      this.$emit('input', next)\n    }\n  }\n}\n</script>\n\n<style lang=\"less\" scoped>\n.rune-echo-demo {\n  display: flex;\n  flex-direction: column;\n  gap: 8px;\n  padding: 12px 14px;\n  border-radius: 10px;\n  background: rgba(126, 87, 194, 0.08);\n  border: 1px dashed rgba(126, 87, 194, 0.42);\n  font-family: inherit;\n  color: inherit;\n}\n.rune-echo-demo__label {\n  font-size: 12px;\n  font-weight: 600;\n  letter-spacing: 0.4px;\n  color: rgba(126, 87, 194, 0.85);\n}\n.rune-echo-demo__display {\n  font-size: 13px;\n  line-height: 1.5;\n  word-break: break-word;\n  min-height: 20px;\n  color: rgba(0, 0, 0, 0.78);\n}\n.rune-echo-demo__input {\n  width: 100%;\n  box-sizing: border-box;\n  padding: 7px 10px;\n  border-radius: 8px;\n  border: 1px solid rgba(126, 87, 194, 0.4);\n  background: rgba(255, 255, 255, 0.9);\n  font: inherit;\n  outline: none;\n  transition: border-color 0.15s, box-shadow 0.15s;\n}\n.rune-echo-demo__input:focus {\n  border-color: #7E57C2;\n  box-shadow: 0 0 0 2px rgba(126, 87, 194, 0.2);\n}\n.rune-echo-demo__meta {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 12px;\n  font-size: 11px;\n  color: rgba(0, 0, 0, 0.55);\n}\n.rune-echo-demo__meta code {\n  font-family: Consolas, Monaco, monospace;\n  background: rgba(126, 87, 194, 0.12);\n  padding: 1px 5px;\n  border-radius: 4px;\n}\n</style>"
+    },
+    {
+      "id": "演示符文",
+      "name": "演示符文",
+      "desc": "",
+      "category": "general",
+      "color": "#7E57C2",
+      "icon": "whatshot",
+      "template": "<template>\n  <div class=\"rune-inherit-demo\">\n    <!-- props.inheritFromPrevious 决定 placeholder 提示用户这一行的预设来源 -->\n    <textarea\n      :value=\"text\"\n      :placeholder=\"placeholderText\"\n      @blur=\"handleBlur\"\n    />\n  </div>\n</template>\n\n<script>\nexport default {\n  name: 'RuneInheritDemo',\n  props: {\n    value: { type: [String, Number], default: '' },\n    runeId: { type: String, default: '' },\n    nodeId: { type: String, default: '' },\n    rune: { type: Object, default: () => ({}) },\n    inheritFromPrevious: { type: [Boolean, Number, String], default: true },\n    onValueChange: { type: Function, default: null }\n  },\n  computed: {\n    placeholderText () {\n      return this.inheritFromPrevious === true || this.inheritFromPrevious === 1 || this.inheritFromPrevious === '1'\n        ? '符文卡片开启了 inherit_from_previous —— 插入时 value 会自动填为上一非空行文本'\n        : '符文卡片未开启 inherit_from_previous —— value 由你手动输入'\n    }\n  },\n  data() {\n    return {\n      text: this.value == null ? '' : String(this.value)\n    }\n  },\n  watch: {\n    value(next) {\n      const s = next == null ? '' : String(next)\n      if (s !== this.text) this.text = s\n    },\n    // 想监听开关变化自己处理也行，比如动态切换 preset / 重置 text\n    inheritFromPrevious(next) {\n      // 示例：开关被父组件更新时，把当前 text 标记一下\n      this._lastInheritFlag = next\n    }\n  },\n  methods: {\n    handleBlur(event) {\n      const next = event && event.target ? String(event.target.value || '') : ''\n      this.text = next\n      this.$emit('input', next)\n    },\n    // 想在 SFC 内\"切换开关\"也能：\n    //   toggleInherit () {\n    //     this.$emit('update:inheritFromPrevious', !this.inheritFromPrevious)\n    //   }\n  }\n}\n</script>\n\n<style lang=\"less\" scoped>\n.rune-inherit-demo textarea {\n  width: 100%;\n  min-height: 60px;\n  resize: vertical;\n  box-sizing: border-box;\n  padding: 8px 10px;\n  border-radius: 8px;\n  border: 1px solid rgba(126, 87, 194, 0.35);\n  background: rgba(255, 255, 255, 0.9);\n  font: inherit;\n  font-size: 13px;\n  outline: none;\n}\n.rune-inherit-demo textarea:focus {\n  border-color: #7E57C2;\n  box-shadow: 0 0 0 2px rgba(126, 87, 194, 0.2);\n}\n</style>"
+    },
+    {
+      "id": "demo-melt-hello-vue3",
+      "name": "melt-hello-vue3",
+      "desc": "hel-micro 远程 Vue3 组件（comps-vue3/HelloWorld）",
+      "category": "demo",
+      "color": "#26A69A",
+      "icon": "cloud",
+      "template": "{\"$type\":\"melt-js\",\"version\":1,\"dep\":{\"name\":\"comps-vue3\",\"type\":\"custom\",\"version\":\"\",\"host\":\"https://cdn.jsdelivr.net/gh/melt-js/comps-vue3@master/hel_dist/hel-meta.json\",\"requiredExports\":[\"HelloWorld\"]},\"exportName\":\"HelloWorld\",\"valueProp\":\"value\",\"valueEvent\":\"input\",\"props\":{}}"
+    }
+  ]
+}
