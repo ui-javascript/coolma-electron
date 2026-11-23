@@ -25,5 +25,7 @@ pnpm --filter tpl-vitepress1-teek-muya preview
 
 扩展方式：在 `docs/.vitepress/theme/index.ts` 注册 `RuneHost` / `EchoHost`，Markdown 里写 `<RuneHost name="…" value="…" />`。和 VuePress 1.x 模板共用同一套 Markdown 语法与导出产物。
 
-已知边界：回响 `afterRender` 未接（当前只落锚点）；VuePress 2 宿主尚未单独验证（组件接口与 VitePress 相同）。
+回响运行时与 VuePress 版共用 `libs-echo-runtime`（纯 DOM，无 jQuery）：`typewriter` 逐字展开、`barrage` 克隆飘过；不 eval `anno_source`，只读 `field` 元信息。
+
+已知边界：`anno_source` 里非内置 `field` 的自定义 `render/afterRender` 尚未执行；VuePress 2 宿主尚未单独验证（组件接口与 VitePress 相同）。
 

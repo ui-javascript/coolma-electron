@@ -1394,6 +1394,8 @@ importers:
         specifier: 0.28.2
         version: 0.28.2
 
+  libs-echo-runtime: {}
+
   libs-muya-echo-vue3:
     dependencies:
       libs-echo-core:
@@ -1628,6 +1630,9 @@ importers:
       libs-echo-core:
         specifier: workspace:*
         version: link:../libs-echo-core
+      libs-echo-runtime:
+        specifier: workspace:*
+        version: link:../libs-echo-runtime
       libs-muya-rune-vue3:
         specifier: workspace:*
         version: link:../libs-muya-rune-vue3
@@ -1679,6 +1684,9 @@ importers:
       libs-echo-core:
         specifier: workspace:*
         version: link:../libs-echo-core
+      libs-echo-runtime:
+        specifier: workspace:*
+        version: link:../libs-echo-runtime
       libs-muya-vue2:
         specifier: workspace:*
         version: link:../libs-muya-vue2

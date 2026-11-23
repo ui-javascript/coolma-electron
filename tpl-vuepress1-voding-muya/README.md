@@ -26,5 +26,7 @@ pnpm --filter tpl-vuepress1-voding-muya build
 
 远端示例走 jsDelivr（GitHub Pages 的 `hel-meta.json` 不带 CORS 头，浏览器直接取会被拦）。真实站点应把远程产物放同域或 CORS 可控的 CDN，并加信任域名确认。
 
-已知边界：SFC 的 `less/sass` 样式不编译；`<script>` 暂不支持 `import` / 具名 export；回响的 `afterRender`（依赖 jQuery 操作前一段文本）尚未接，当前只落可点锚点。
+回响运行时由 `libs-echo-runtime` 提供（纯 DOM，无 jQuery）：`typewriter` 取标记上一个块逐字展开并隐藏占位防抖，`barrage` 克隆文本从右向左飘过。SSR 只输出锚点，效果在 mounted 后执行，不 eval `anno_source` 里的 JS。
+
+已知边界：SFC 的 `less/sass` 样式不编译；`<script>` 暂不支持 `import` / 具名 export；`anno_source` 里非内置 `field` 的自定义 `render/afterRender` 尚未执行。
 

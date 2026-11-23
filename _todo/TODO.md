@@ -62,7 +62,8 @@
 - [x] VuePress 1.x（Vue2 宿主）运行时挂载 POC：`tpl-vuepress1-voding-muya` 加 `RuneHost` / `EchoHost`；SFC 符文运行时编译、melt-js 远程 Vue2 组件经 hel 加载，SSR 只出静态卡片，mounted 后替换；headless 构建产物实测远端组件真实渲染
 - [x] VitePress（Vue3 宿主）运行时挂载 POC：`tpl-vitepress1-teek-muya` 加 `RuneHost`，复用 `libs-muya-rune-vue3`（`@vue/compiler-dom` SFC 编译 + `comps-vue3` 远程组件）；构建产物 headless 实测 3 个符文全 ready、远端 HelloWorld 真实渲染
 - [ ] VuePress 2（Vue3 宿主）验证：组件接口与 VitePress 相同，重点验主题 `enhanceApp` 注册与 SSR
-- [ ] 回响运行时：接 `anno_source` 的 `render / afterRender`（打字机等依赖 jQuery 操作前一段文本）
+- [x] 回响运行时（内置 field 版）：新增 `libs-echo-runtime`（纯 DOM，无 jQuery），从 `anno_source` 只读 `field` 元信息，`typewriter` 逐字展开 + 隐藏占位防抖、`barrage` 克隆弹幕 + 超时兜底移除；VuePress / VitePress 的 `EchoHost` 已接入，SSR 只出锚点
+- [ ] 回响自定义 JS：`anno_source` 里非内置 `field` 的 `render / afterRender` 尚未执行（当前安全策略不 eval 任意脚本）
 - [ ] Vue2 宿主边界补全：SFC `less/sass` 编译、`<script setup>`、Vue3 专属语法（fragment / Teleport / defineModel）的 AST 改写或降级判定
 - [ ] 打包后自动 `vuepress dev` 预览
 - [ ] Gitee / GitLab 支持

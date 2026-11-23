@@ -1,0 +1,19 @@
+{
+  "name": "libs-echo-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "description": "博客端回响效果运行时：纯 DOM，按 field 执行内置渲染器（typewriter / barrage）",
+  "type": "module",
+  "main": "./src/index.js",
+  "module": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  }
+}

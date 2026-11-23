@@ -40,6 +40,16 @@ const DEMO_MELT_RUNE = {
 const runes = (runePack.runes || []).slice()
 const echoes = (echoPack.echoes || []).slice()
 
+// 回响的 field 只从 anno_source 里读元信息，不在博客端执行这段 JS。
+// 运行时按 field 走内置渲染器（typewriter / barrage），未识别就只留锚点。
+const readEchoField = source => {
+  const match = String(source || '').match(/field\s*:\s*['"]([^'"]+)['"]/)
+  return match ? match[1] : ''
+}
+echoes.forEach(echo => {
+  if (echo && !echo.field) echo.field = readEchoField(echo.anno_source)
+})
+
 // 只把 POC 定义追加到内存目录，不改动导出包原件
 runes.push(DEMO_MELT_RUNE)
 

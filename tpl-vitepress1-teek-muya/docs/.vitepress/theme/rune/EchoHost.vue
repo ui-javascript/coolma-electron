@@ -1,29 +1,65 @@
 <template>
   <span
+    ref="hostEl"
     class="ag-echo-live"
     :data-echo-name="name"
     :data-echo-attrs="attrs"
+    :data-echo-field="echoDef ? echoDef.field : ''"
     :data-echo-action="hydrated ? 'echo-click' : undefined"
-    :style="{ '--echo-color': color }"
+    :data-echo-runtime="runtimeState"
+    :style="{ '--echo-color': echoDef ? echoDef.color || '#26A69A' : '#26A69A' }"
+    :title="echoDef ? echoDef.desc : ''"
   >
     <span class="ag-echo-live__at">@</span>
-    <span class="ag-echo-live__name">{{ name }}</span>
+    <span class="ag-echo-live__name">{{ echoDef ? echoDef.name : name }}</span>
     <code v-if="attrs" class="ag-echo-live__attrs">{{ attrs }}</code>
-    <span class="ag-echo-live__hint">JS 回响</span>
+    <span v-if="echoDef && echoDef.field" class="ag-echo-live__hint">{{ echoDef.field }}</span>
+    <span v-if="runtimeError" class="ag-echo-live__error">未生效</span>
   </span>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { findEcho, type EchoCard } from './echoCatalog'
+import { applyEchoEffect } from 'libs-echo-runtime'
 
-withDefaults(
-  defineProps<{ name: string; attrs?: string; prompt?: string; color?: string }>(),
-  { attrs: '', prompt: '', color: '#26A69A' },
+const props = withDefaults(
+  defineProps<{ name: string; attrs?: string; prompt?: string }>(),
+  { attrs: '', prompt: '' },
 )
 
+const hostEl = ref<HTMLElement | null>(null)
+const echoDef = ref<EchoCard | null>(null)
 const hydrated = ref(false)
+const runtimeState = ref<'idle' | 'running' | 'anchor-only' | 'missing' | 'error'>('idle')
+const runtimeError = ref('')
+
+let cleanup: (() => void) | null = null
+
 onMounted(() => {
   hydrated.value = true
+  echoDef.value = findEcho(props.name)
+  if (!echoDef.value) {
+    runtimeState.value = 'missing'
+    return
+  }
+  if (!echoDef.value.field) {
+    runtimeState.value = 'anchor-only'
+    return
+  }
+  try {
+    cleanup = applyEchoEffect(hostEl.value as HTMLElement, echoDef.value, props.attrs)
+    runtimeState.value = 'running'
+  } catch (error) {
+    console.warn('[echo-host] apply failed:', error)
+    runtimeError.value = error instanceof Error ? error.message : String(error)
+    runtimeState.value = 'error'
+  }
+})
+
+onBeforeUnmount(() => {
+  if (cleanup) cleanup()
+  cleanup = null
 })
 </script>
 
@@ -59,5 +95,10 @@ onMounted(() => {
   background: rgba(0, 0, 0, 0.06);
   font-size: 10px;
   opacity: 0.6;
+}
+.ag-echo-live__error {
+  margin-left: 4px;
+  color: #c62828;
+  font-size: 10px;
 }
 </style>

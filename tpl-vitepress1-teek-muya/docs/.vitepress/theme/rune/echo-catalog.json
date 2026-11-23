@@ -1,0 +1,20 @@
+{
+  "format": "memocast.echo-pack",
+  "version": 1,
+  "echoes": [
+    {
+      "name": "打字机",
+      "desc": "前一个文本元素 呈现打字机效果，注意占位不要出现明显抖动",
+      "color": "#26A69A",
+      "category": "marker",
+      "field": "typewriter"
+    },
+    {
+      "name": "弹幕飘过",
+      "desc": "匹配上一个文本元素，呈现B站弹幕飘过的特效，原来的文本元素还在，弹幕是额外呈现的元素",
+      "color": "#26A69A",
+      "category": "marker",
+      "field": "barrage"
+    }
+  ]
+}

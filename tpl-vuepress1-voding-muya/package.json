@@ -31,6 +31,7 @@
     "@melt-js/libs-core-vue2": "2026.11.16",
     "libs-echo-core": "workspace:*",
     "libs-muya-vue2": "workspace:*",
-    "libs-rune-core": "workspace:*"
+    "libs-rune-core": "workspace:*",
+    "libs-echo-runtime": "workspace:*"
   }
 }
