@@ -32,32 +32,6 @@ Muya 的 Vue 2 + Vite 示例位于 [`demo-vue2-vite-muya/`](demo-vue2-vite-muya/
 | [`libs-echo-core`](libs-echo-core/) | Echo 数据及插入逻辑，不依赖 Vue |
 | [`libs-rune-core`](libs-rune-core/) | Rune 数据及插入逻辑，不依赖 Vue |
 
-# 新功能
-
-- 2026-08-13 ikun历险记
-  - https://github.com/Lichtspektrum/liang-intensity-calibrator
-  - https://github.com/luo0412/ikun-adventure
-  - https://luo0412.github.io/ikun-adventure
-  - https://raw.githubusercontent.com/luo0412/ikun-adventure/refs/heads/master/memocast-runes-2026-08-13.json
-
-```
-@ps 原作是 滑动变祖器，但因果太大了，还是我们伟大的宗主好
-```
-
-<img width="1282" height="960" alt="image" src="https://github.com/user-attachments/assets/dcad5be3-2338-4ab8-8e2e-494749a17c01" />
-
-
-- 2026-08-08 小怪兽删除
-  - https://github.com/531149627/MonsterDeleter
-  - https://github.com/luo0412/echo-monster-deleter
-
-<img width="420" height="468" alt="image" src="https://github.com/user-attachments/assets/4be2024a-199d-4549-a817-69cc596b56b8" />
-
-- 2026-05-01 从夯到拉
-  - https://github.com/dayun-cloud/tools
-
-<img width="745" height="498" alt="image" src="https://github.com/user-attachments/assets/56add3c0-5862-4c44-bc6c-fcdc7fd029a3" />
-
 ---
 
 # 文件夹模式
