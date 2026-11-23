@@ -88,3 +88,23 @@ title: 符文 / 回响运行时
 - 回响：两边都用 `libs-echo-runtime`，纯 DOM，不依赖框架版本。
 
 导出器的「真组件」模式会把符文定义以 base64 `definition` 内联、把回响 `field` 内联，所以博客不需要预先持有用户目录；主题只要注册过宿主组件就能挂载。Markdown 里只写 `<RuneHost name="…" value="…" />` 和 `<EchoHost name="…" attrs="…" />`，宿主版本决定用哪条运行时。
+
+## 9. 远程组件模式：从夯到拉排行榜
+
+同一个 `RuneHost`，换成 `comps-vue3-meme` 这个远程包的 `TierRanking`。宿主只给 `name`，其余交给目录里的 melt-js 定义：`dep.host` 指向该包的 `hel-meta.json`，`exportName` 指定导出名。组件内部的上传、拖拽分级、评级改名改色、导出图片全部是远端自己的逻辑，宿主不接管状态。
+
+```json
+{
+  "$type": "melt-js",
+  "dep": {
+    "name": "comps-vue3-meme",
+    "type": "custom",
+    "host": "https://cdn.jsdelivr.net/gh/melt-js/comps-vue3-meme@master/hel_dist/hel-meta.json"
+  },
+  "exportName": "TierRanking"
+}
+```
+
+远端产物里带了自己的样式和 vendor chunk，加载完才挂载；构建期同样不请求网络。
+
+<RuneHost name="从夯到拉排行榜" rune-id="vt-tier-1" node-id="vt-node-9" />
