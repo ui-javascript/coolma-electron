@@ -74,7 +74,7 @@ export default {
       }
       // 生产环境使用本地构建产物
       const basePath = this.appBasePath || ''
-      return `file://${basePath}_plugins/doubao-input/dist/index.html`
+      return `file://${basePath}_plugins/plugin-hel-doubao-input-vue3/dist/index.html`
     },
     wujieProps () {
       return {

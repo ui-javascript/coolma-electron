@@ -37,6 +37,15 @@
       "color": "#F4511E",
       "icon": "emoji_events",
       "template": "{\"$type\":\"melt-js\",\"version\":1,\"dep\":{\"name\":\"comps-vue3-meme\",\"type\":\"custom\",\"version\":\"\",\"host\":\"https://cdn.jsdelivr.net/gh/melt-js/comps-vue3-meme@master/hel_dist/hel-meta.json\",\"requiredExports\":[\"TierRanking\"]},\"exportName\":\"TierRanking\",\"valueProp\":\"value\",\"valueEvent\":\"change\",\"props\":{}}"
+    },
+    {
+      "id": "melt-circular-menu",
+      "name": "远程圆形菜单",
+      "desc": "hel-micro 远程 Vue3 组件（comps-vue3/CircularMenu）",
+      "category": "demo",
+      "color": "#26A69A",
+      "icon": "cloud",
+      "template": "{\"$type\":\"melt-js\",\"version\":1,\"dep\":{\"name\":\"comps-vue3\",\"type\":\"custom\",\"version\":\"\",\"host\":\"https://cdn.jsdelivr.net/gh/melt-js/comps-vue3@master/hel_dist/hel-meta.json\",\"requiredExports\":[\"CircularMenu\"]},\"exportName\":\"CircularMenu\",\"valueProp\":\"value\",\"valueEvent\":\"input\",\"props\":{}}"
     }
   ]
 }

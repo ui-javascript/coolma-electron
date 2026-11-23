@@ -33,13 +33,13 @@ title: 符文 / 回响运行时
     "type": "custom",
     "host": "https://cdn.jsdelivr.net/gh/melt-js/comps-vue3@master/hel_dist/hel-meta.json"
   },
-  "exportName": "HelloWorld"
+  "exportName": "CircularMenu"
 }
 ```
 
-产物是 Vue3 组件，加载和渲染都在客户端 `mounted` 之后；构建期不请求网络。
+产物是 Vue3 组件，加载和渲染都在客户端 `mounted` 之后；构建期不请求网络。`exportName` 必须是远端包真实存在的导出 —— `comps-vue3@2026.11.22` 里没有 `HelloWorld`，写错只会落到「缺少导出」错误态。
 
-<RuneHost name="melt-hello-vue3" rune-id="vt-melt-1" node-id="vt-node-3" />
+<RuneHost name="远程圆形菜单" rune-id="vt-melt-1" node-id="vt-node-3" />
 
 ## 4. 回响运行时：打字机
 

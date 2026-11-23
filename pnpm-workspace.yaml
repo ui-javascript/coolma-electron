@@ -2,8 +2,8 @@ packages:
   # 一级子包自动纳入，深层应用和工具包在此补充。
   - '*'
   - desktop-vue3/frontend
-  - _plugins/box-im-wujie
-  - _plugins/doubao-input
+  - _plugins/plugin-wujie-boxim-vue2
+  - _plugins/plugin-hel-doubao-input-vue3
 
 # Keep dependencies for Vue 2 and Vue 3 in their respective resolution contexts.
 nodeLinker: isolated

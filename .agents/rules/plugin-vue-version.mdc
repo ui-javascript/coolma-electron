@@ -10,8 +10,8 @@ alwaysApply: true
 - **`libs-muya-vue2/`**：Vue 2.7.x，属于 pnpm workspace。
 - **主项目**（`desktop-vue2/src/`、`desktop-vue2/src-electron/`、`desktop-vue2/package.json`）：**Vue 2.7.16**（Quasar v1 + Element-UI / ant-design-vue 1.x）。
 - **`_plugins/`** 下每个子目录是独立构建的应用子包；纳入版本控制的应用统一由根 pnpm workspace 安装，各自声明 Vue 版本。已确认至少存在两个：
-  - `_plugins/box-im-wujie/` → **Vue 2.7.16**（`main.js` + `vue.config.js`）
-  - `_plugins/doubao-input/` → **Vue 3.5.18**（`main.ts` + `vite.config.ts` + TypeScript）
+  - `_plugins/plugin-wujie-boxim-vue2/` → **Vue 2.7.16**（`main.js` + `vue.config.js`）
+  - `_plugins/plugin-hel-doubao-input-vue3/` → **Vue 3.5.18**（`main.ts` + `vite.config.ts` + TypeScript）
   - 其它未来新增的子项目**可能是 Vue2，也可能是 Vue3，必须先看 `package.json` 才能确定**。
 
 ## 2. 编辑前的强制识别
@@ -26,7 +26,7 @@ alwaysApply: true
 ## 3. 不能跨项目混用
 
 - 主项目里 `import X from '_plugins/xxx/...'` **默认不存在**，主项目和 `_plugins` 是两个独立工程。它们共用根 workspace 安装，但依赖解析上下文和 Vue 实例仍按应用区分。如果用户明确说"主项目要加载 `_plugins`"，那一定是通过无界（`wujie-vue2`）/ `hel-micro` / iframe / 微前端方案**运行时加载**，不要尝试 `import` 或 `require` 直接引用 `_plugins` 源码。
-- 主项目里写 Vue2 代码，**不要**照搬 `_plugins/doubao-input` 的 `<script setup lang="ts">` 写法；反之亦然。
+- 主项目里写 Vue2 代码，**不要**照搬 `_plugins/plugin-hel-doubao-input-vue3` 的 `<script setup lang="ts">` 写法；反之亦然。
 
 ## 4. 依赖与 package.json
 

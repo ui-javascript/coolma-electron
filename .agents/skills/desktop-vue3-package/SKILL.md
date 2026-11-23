@@ -19,7 +19,7 @@ macOS / Linux 目标不在本技能范围。启动开发环境走 [desktop-vue3-
 
 | 检查 | 命令 / 判据 |
 | --- | --- |
-| 子应用产物存在 | `Test-Path _plugins/doubao-input/dist`。`cmd/builder.json` 的 `extraResources` 指向它，缺失会被 electron-builder 报错 |
+| 子应用产物存在 | `Test-Path _plugins/plugin-hel-doubao-input-vue3/dist`。`cmd/builder.json` 的 `extraResources` 指向它，缺失会被 electron-builder 报错 |
 | Electron 二进制就绪 | `desktop-vue3/node_modules/electron/dist/electron.exe` 存在 |
 | better-sqlite3 ABI 对得上 | `ELECTRON_RUN_AS_NODE=1 electron.exe -e "require('better-sqlite3')..."` 期望 `process.versions.modules = 140`；不对就 `pnpm --filter desktop-vue3 run rebuild:sqlite` |
 | `ELECTRON_RUN_AS_NODE` 未污染 | 打包前清空该变量，否则编译/启动链路会拿到 Node 版 Electron |
@@ -35,7 +35,7 @@ macOS / Linux 目标不在本技能范围。启动开发环境走 [desktop-vue3-
 ```powershell
 $env:ELECTRON_RUN_AS_NODE=$null
 
-# 1) 子应用（首次或 _plugins/doubao-input 有改动时）
+# 1) 子应用（首次或 _plugins/plugin-hel-doubao-input-vue3 有改动时）
 Set-Location _plugins\doubao-input
 & .\node_modules\.bin\vue-tsc.cmd -b
 & .\node_modules\.bin\vite.cmd build
@@ -118,7 +118,7 @@ Set-Location ..
 
 | 现象 | 首查 |
 | --- | --- |
-| `electron-builder` 报找不到 `_plugins/doubao-input/dist` | 先构建子应用（第二节第 1 步） |
+| `electron-builder` 报找不到 `_plugins/plugin-hel-doubao-input-vue3/dist` | 先构建子应用（第二节第 1 步） |
 | 打包成功、安装报 `uninstallerIcon.ico` | 第三节（Low IL） |
 | 免安装版静默退出 `0x80000003` | 第三节（Low IL）；同时用 `icacls` 对比一份能跑的位置 |
 | 打包前莫名重装 20 分钟 | pnpm 12 `verifyDepsBeforeRun`；改走直接调二进制 |

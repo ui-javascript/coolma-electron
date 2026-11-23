@@ -47,6 +47,8 @@ module.exports = {
           delimiters: 'dollars',
           katexOptions: { trust: false, throwOnError: false }
         })
+        // Muya 语法直出：@名称{props}(prompt) / data-rune-* 占位符
+        .use(require('libs-muya-md'))
     }
   },
   themeConfig: {
@@ -69,7 +71,8 @@ module.exports = {
         'technical.html',
         'theme.html',
         'muya-fixture.html',
-        'rune-live.html'
+        'rune-live.html',
+        '/guide/muya-syntax.html'
       ]
     }
   }

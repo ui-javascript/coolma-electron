@@ -76,7 +76,7 @@ export default {
       // 生产环境使用本地构建产物。WebView2 不允许页面读 file://，
       // 走 coolma-resource 的 local 路由（服务端只放行白名单根目录）。
       const basePath = this.appBasePath || ''
-      return localFileUrl(`${basePath}/_plugins/doubao-input/dist/index.html`)
+      return localFileUrl(`${basePath}/_plugins/plugin-hel-doubao-input-vue3/dist/index.html`)
     },
     wujieProps () {
       return {

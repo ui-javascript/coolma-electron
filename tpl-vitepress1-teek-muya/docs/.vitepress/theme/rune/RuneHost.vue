@@ -1,5 +1,5 @@
 <template>
-  <div
+  <span
     class="ag-rune-live"
     :data-rune-name="name"
     :data-rune-id="runeId"
@@ -8,21 +8,21 @@
     :data-rune-source="runeSource"
     :style="runeDef ? { '--rune-color': runeDef.color || '#26A69A' } : null"
   >
-    <div ref="hostEl" class="ag-rune-live__host" />
+    <span ref="hostEl" class="ag-rune-live__host" />
 
-    <div v-if="phase !== 'ready'" class="ag-rune-live__card">
+    <span v-if="phase !== 'ready'" class="ag-rune-live__card">
       <span class="ag-rune-live__label">{{ displayName }}</span>
       <span v-if="innerValue" class="ag-rune-live__value">{{ innerValue }}</span>
       <span class="ag-rune-live__badge">
         {{ phase === 'error' ? '已降级为静态卡片' : '静态渲染' }}
       </span>
-    </div>
+    </span>
 
-    <p v-if="error" class="ag-rune-live__error">
+    <span v-if="error" class="ag-rune-live__error">
       <span>{{ error }}</span>
       <button type="button" class="ag-rune-live__retry" @click="resolveRune">重试</button>
-    </p>
-  </div>
+    </span>
+  </span>
 </template>
 
 <script setup lang="ts">
@@ -178,6 +178,7 @@ onBeforeUnmount(() => {
 
 <style>
 .ag-rune-live {
+  display: block;
   margin: 12px 0;
 }
 .ag-rune-live__host {

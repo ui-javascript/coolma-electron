@@ -70,7 +70,7 @@ export default {
   },
   aiDoubao: {
     title: 'AI 助手',
-    missingBuild: '未找到豆包 WebApp 构建产物；请先构建 _plugins/doubao-input',
+    missingBuild: '未找到豆包 WebApp 构建产物；请先构建 _plugins/plugin-hel-doubao-input-vue3',
   },
   echoInstance: {
     title: '回响实例',

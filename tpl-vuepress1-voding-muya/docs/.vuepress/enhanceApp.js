@@ -13,4 +13,12 @@ export default ({ Vue }) => {
   Vue.component('RuneHost', RuneHost)
   Vue.component('EchoHost', EchoHost)
   Vue.component('MuyaLive', () => import('./components/MuyaLive.vue'))
+
+  // 全局宿主组件已在上面同步注册；远端 melt 包在启动阶段预热，
+  // 首屏遇到远程符文时不用再等一次 meta + 资源冷启动。
+  if (typeof window !== 'undefined') {
+    Promise.all([import('./rune/catalog'), import('./rune/meltRuntime')])
+      .then(([catalog, melt]) => melt.preloadMeltRunes(catalog.listRunes()))
+      .catch(error => console.warn('[rune] preload failed', error))
+  }
 }

@@ -1,11 +1,11 @@
 {
-  "name": "doubao-template-input",
-  "private": true,
-  "version": "0.0.0",
+  "name": "plugin-hel-doubao-input-vue3",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
+    "build:hel": "vite build -c vite.hel.config.ts && node scripts/gen-hel-meta.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -13,7 +13,8 @@
     "@iconify/vue": "^5.0.0",
     "sass": "^1.92.1",
     "slate-vue3": "^0.7.17",
-    "vue": "^3.5.18"
+    "vue": "^3.5.18",
+    "hel-lib-proxy": "^4.12.3"
   },
   "devDependencies": {
     "@iconify-json/ion": "^1.2.2",
@@ -28,5 +29,24 @@
     "unocss": "^0.65.4",
     "vite": "^5.4.21",
     "vue-tsc": "^3.0.5"
-  }
+  },
+  "description": "仿豆包模板式智能输入框，按 hel-micro 远程组件协议暴露（Vue3 + slate-vue3）",
+  "hel": {
+    "appName": "plugin-hel-doubao-input-vue3",
+    "exportName": "DoubaoInput",
+    "distDir": "hel_dist",
+    "exports": [
+      "DoubaoInput",
+      "DoubaoChatApp",
+      "default"
+    ]
+  },
+  "files": [
+    "dist",
+    "hel_dist",
+    "src",
+    "vite.config.ts",
+    "vite.hel.config.ts",
+    "README.md"
+  ]
 }

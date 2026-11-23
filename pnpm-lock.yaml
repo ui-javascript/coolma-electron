@@ -201,7 +201,65 @@ importers:
 
   .: {}
 
-  _plugins/box-im-wujie:
+  _plugins/plugin-hel-doubao-input-vue3:
+    dependencies:
+      '@iconify-json/mdi':
+        specifier: ^1.2.3
+        version: 1.2.3
+      '@iconify/vue':
+        specifier: ^5.0.0
+        version: 5.0.5(vue@3.5.45(typescript@5.8.3))
+      hel-lib-proxy:
+        specifier: ^4.12.3
+        version: 4.12.3(hel-micro-core@4.13.1(hel-types@4.3.10))(hel-types@4.3.10)
+      sass:
+        specifier: ^1.92.1
+        version: 1.108.2
+      slate-vue3:
+        specifier: ^0.7.17
+        version: 0.7.17(vue@3.5.45(typescript@5.8.3))
+      vue:
+        specifier: ^3.5.18
+        version: 3.5.45(typescript@5.8.3)
+    devDependencies:
+      '@iconify-json/ion':
+        specifier: ^1.2.2
+        version: 1.2.7
+      '@iconify/utils':
+        specifier: ^2.3.0
+        version: 2.3.0(supports-color@8.1.1)
+      '@types/node':
+        specifier: ^24.3.1
+        version: 24.19.2
+      '@unocss/eslint-config':
+        specifier: ^0.65.4
+        version: 0.65.4(eslint@8.57.1(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.8.3)
+      '@unocss/preset-icons':
+        specifier: 0.65.4
+        version: 0.65.4(supports-color@8.1.1)
+      '@unocss/preset-uno':
+        specifier: ^0.65.4
+        version: 0.65.4
+      '@vitejs/plugin-vue':
+        specifier: ^6.0.1
+        version: 6.0.11(vite@5.4.21(@types/node@24.19.2)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2))(vue@3.5.45(typescript@5.8.3))
+      '@vue/tsconfig':
+        specifier: ^0.7.0
+        version: 0.7.0(typescript@5.8.3)(vue@3.5.45(typescript@5.8.3))
+      typescript:
+        specifier: ~5.8.3
+        version: 5.8.3
+      unocss:
+        specifier: ^0.65.4
+        version: 0.65.4(postcss@8.5.33)(rollup@4.68.5)(supports-color@8.1.1)(vite@5.4.21(@types/node@24.19.2)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2))(vue@3.5.45(typescript@5.8.3))
+      vite:
+        specifier: ^5.4.21
+        version: 5.4.21(@types/node@24.19.2)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2)
+      vue-tsc:
+        specifier: ^3.0.5
+        version: 3.3.14(typescript@5.8.3)
+
+  _plugins/plugin-wujie-boxim-vue2:
     dependencies:
       axios:
         specifier: 1.8.2
@@ -279,61 +337,6 @@ importers:
       vue-template-compiler:
         specifier: 2.7.16
         version: 2.7.16(patch_hash=7e8019630f9dba462e6dec379e79dc275ecbf5640dddb10651eac7a458b9a004)
-
-  _plugins/doubao-input:
-    dependencies:
-      '@iconify-json/mdi':
-        specifier: ^1.2.3
-        version: 1.2.3
-      '@iconify/vue':
-        specifier: ^5.0.0
-        version: 5.0.5(vue@3.5.45(typescript@5.8.3))
-      sass:
-        specifier: ^1.92.1
-        version: 1.108.2
-      slate-vue3:
-        specifier: ^0.7.17
-        version: 0.7.17(vue@3.5.45(typescript@5.8.3))
-      vue:
-        specifier: ^3.5.18
-        version: 3.5.45(typescript@5.8.3)
-    devDependencies:
-      '@iconify-json/ion':
-        specifier: ^1.2.2
-        version: 1.2.7
-      '@iconify/utils':
-        specifier: ^2.3.0
-        version: 2.3.0(supports-color@8.1.1)
-      '@types/node':
-        specifier: ^24.3.1
-        version: 24.19.2
-      '@unocss/eslint-config':
-        specifier: ^0.65.4
-        version: 0.65.4(eslint@8.57.1(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.8.3)
-      '@unocss/preset-icons':
-        specifier: 0.65.4
-        version: 0.65.4(supports-color@8.1.1)
-      '@unocss/preset-uno':
-        specifier: ^0.65.4
-        version: 0.65.4
-      '@vitejs/plugin-vue':
-        specifier: ^6.0.1
-        version: 6.0.11(vite@5.4.21(@types/node@24.19.2)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2))(vue@3.5.45(typescript@5.8.3))
-      '@vue/tsconfig':
-        specifier: ^0.7.0
-        version: 0.7.0(typescript@5.8.3)(vue@3.5.45(typescript@5.8.3))
-      typescript:
-        specifier: ~5.8.3
-        version: 5.8.3
-      unocss:
-        specifier: ^0.65.4
-        version: 0.65.4(postcss@8.5.33)(rollup@4.68.5)(supports-color@8.1.1)(vite@5.4.21(@types/node@24.19.2)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2))(vue@3.5.45(typescript@5.8.3))
-      vite:
-        specifier: ^5.4.21
-        version: 5.4.21(@types/node@24.19.2)(less@4.9.1(supports-color@8.1.1))(sass@1.108.2)(stylus@0.54.8(supports-color@8.1.1))(terser@5.51.2)
-      vue-tsc:
-        specifier: ^3.0.5
-        version: 3.3.14(typescript@5.8.3)
 
   demo-vue2-vite-muya:
     dependencies:
@@ -1405,6 +1408,12 @@ importers:
         specifier: workspace:*
         version: link:../libs-muya-vue3
 
+  libs-muya-md:
+    devDependencies:
+      markdown-it:
+        specifier: ^14.1.0
+        version: 14.3.3
+
   libs-muya-rune-vue3:
     dependencies:
       '@melt-js/libs-core-vue3':
@@ -1633,6 +1642,9 @@ importers:
       libs-echo-runtime:
         specifier: workspace:*
         version: link:../libs-echo-runtime
+      libs-muya-md:
+        specifier: workspace:*
+        version: link:../libs-muya-md
       libs-muya-rune-vue3:
         specifier: workspace:*
         version: link:../libs-muya-rune-vue3
@@ -1687,12 +1699,18 @@ importers:
       libs-echo-runtime:
         specifier: workspace:*
         version: link:../libs-echo-runtime
+      libs-muya-md:
+        specifier: workspace:*
+        version: link:../libs-muya-md
       libs-muya-vue2:
         specifier: workspace:*
         version: link:../libs-muya-vue2
       libs-rune-core:
         specifier: workspace:*
         version: link:../libs-rune-core
+      uuid:
+        specifier: ^9.0.1
+        version: 9.0.1
     devDependencies:
       '@vuepress/plugin-medium-zoom':
         specifier: 1.9.10
@@ -10954,6 +10972,9 @@ packages:
   linkify-it@3.0.3:
     resolution: {integrity: sha512-ynTsyrFSdE5oZ/O9GEf00kPngmOfVwazR5GKDq6EYfhlpFug3J2zybX56a2PRRpc9P+FuSoGNAwjlbDs9jJBPQ==}
 
+  linkify-it@5.0.2:
+    resolution: {integrity: sha512-ONTm2jCMAVZjgQa/Fy1kScXsuOoF5NPTsoFBdE1KVIZ2vAh/r9+Bqo+0jINCBYnavTPQZz38QzFTme79ENoN3Q==}
+
   load-script@1.0.0:
     resolution: {integrity: sha512-kPEjMFtZvwL9TaZo0uZ2ml+Ye9HUMmPwbYRJ324qF9tqMejwykJ5ggTyvzmrbBeapCAbk98BSbTeovHEEP1uCA==}
 
@@ -11267,6 +11288,10 @@ packages:
     resolution: {integrity: sha512-TchMembfxfNVpHkbtriWltGWc+m3xszaRD0CZup7GFFhzIgQqxIfn3eGj1yZpfuflzPvfkt611B2Q/Bsk1YnGg==}
     hasBin: true
 
+  markdown-it@14.3.3:
+    resolution: {integrity: sha512-L//tDAkjTjJCU6pBUSBTgs3Kg4InVaZuUZog/b6V12UKhcDQ7S78877ibbCanRExwPuYP1CZD7Gd2dxSy1GXRg==}
+    hasBin: true
+
   markdown-it@8.4.2:
     resolution: {integrity: sha512-GcRz3AWTqSUphY3vsUqQSFMbgR38a4Lh3GWlHRh/7MRwz8mcu9n2IO7HOh+bXHrR9kOPDl5RNCaEsrneb+xhHQ==}
     hasBin: true
@@ -11336,6 +11361,9 @@ packages:
 
   mdurl@1.0.1:
     resolution: {integrity: sha512-/sKlQJCBYVY9Ers9hqzKou4H6V5UWc/M59TH2dvkt+84itfnq7uFOMLpOiOS4ujvHP4etln18fmIxA5R5fll0g==}
+
+  mdurl@2.1.0:
+    resolution: {integrity: sha512-1+HBaOx0zi/dQWht8rNv9MYf9qqpqL/kxI0hXImU6Y547zM6Sni8BQibt7ifgMcYtQg41ao3Ivd6cnSM86inpg==}
 
   media-typer@0.3.0:
     resolution: {integrity: sha512-dq+qelQ9akHpcOl/gUVRTxVIOkAJ1wR3QAvb4RsVjS8oVoFjDGTc679wJYmUmknUF5HwMLOgb5O+a3KxfWapPQ==}
@@ -13247,6 +13275,10 @@ packages:
   pumpify@1.5.1:
     resolution: {integrity: sha512-oClZI37HvuUJJxSKKrC17bZ9Cu0ZYhEAGPsPUy9KlMUmv9dKX2o77RUmq7f3XjIxbwyGwYzbzQ1L2Ks8sIradQ==}
 
+  punycode.js@2.3.1:
+    resolution: {integrity: sha512-uxFIHU0YlHYhDQtV4R9J6a52SLx28BCjT+4ieh7IGbgwVJWO+km431c4yRlREUAsAmt/uMjQUyQHNEPf0M39CA==}
+    engines: {node: '>=6'}
+
   punycode@1.4.1:
     resolution: {integrity: sha512-jmYNElW7yvO7TV33CjSmvSiE2yco3bV2czu/OzDKdMNVZQWfxCblURLhf+47syQRBntjfLdd/H0egrzIG+oaFQ==}
 
@@ -14959,6 +14991,9 @@ packages:
 
   uc.micro@1.0.6:
     resolution: {integrity: sha512-8Y75pvTYkLJW2hWQHXxoqRgV7qb9B+9vFEtidML+7koHUFapnVJAZ6cKs+Qjz5Aw3aZWHMC6u0wJE3At+nSGwA==}
+
+  uc.micro@2.1.0:
+    resolution: {integrity: sha512-ARDJmphmdvUk6Glw7y9DQ2bFkKBHwQHLi2lsaH6PPmz/Ka9sFOBsBluozhDltWmnv9u/cF6Rt87znRTPV+yp/A==}
 
   ufo@1.6.4:
     resolution: {integrity: sha512-JFNbkD1Svwe0KvGi8GOeLcP4kAWQ609twvCdcHxq1oSL8svv39ZuSvajcD8B+5D0eL4+s1Is2D/O6KN3qcTeRA==}
@@ -21046,7 +21081,7 @@ snapshots:
   '@types/glob@7.2.0':
     dependencies:
       '@types/minimatch': 5.1.2
-      '@types/node': 22.20.5
+      '@types/node': 24.19.2
 
   '@types/graceful-fs@4.1.9':
     dependencies:
@@ -24042,9 +24077,9 @@ snapshots:
     dependencies:
       esbuild: 0.14.7
 
-  bundle-require@5.1.0(esbuild@0.21.5):
+  bundle-require@5.1.0(esbuild@0.25.12):
     dependencies:
-      esbuild: 0.21.5
+      esbuild: 0.25.12
       load-tsconfig: 0.2.5
 
   byte-counter@0.1.0: {}
@@ -28871,9 +28906,9 @@ snapshots:
 
   importx@0.5.2(supports-color@8.1.1):
     dependencies:
-      bundle-require: 5.1.0(esbuild@0.21.5)
+      bundle-require: 5.1.0(esbuild@0.25.12)
       debug: 4.4.3(supports-color@8.1.1)
-      esbuild: 0.21.5
+      esbuild: 0.25.12
       jiti: 2.7.0
       pathe: 2.0.3
       tsx: 4.23.15
@@ -30172,6 +30207,10 @@ snapshots:
     dependencies:
       uc.micro: 1.0.6
 
+  linkify-it@5.0.2:
+    dependencies:
+      uc.micro: 2.1.0
+
   load-script@1.0.0: {}
 
   load-tsconfig@0.2.5: {}
@@ -30466,6 +30505,15 @@ snapshots:
       mdurl: 1.0.1
       uc.micro: 1.0.6
 
+  markdown-it@14.3.3:
+    dependencies:
+      argparse: 2.0.1
+      entities: 4.5.0
+      linkify-it: 5.0.2
+      mdurl: 2.1.0
+      punycode.js: 2.3.1
+      uc.micro: 2.1.0
+
   markdown-it@8.4.2:
     dependencies:
       argparse: 1.0.10
@@ -30589,6 +30637,8 @@ snapshots:
   mdn-data@2.27.1: {}
 
   mdurl@1.0.1: {}
+
+  mdurl@2.1.0: {}
 
   media-typer@0.3.0: {}
 
@@ -32857,6 +32907,8 @@ snapshots:
       inherits: 2.0.4
       pump: 2.0.1
 
+  punycode.js@2.3.1: {}
+
   punycode@1.4.1: {}
 
   punycode@2.3.1: {}
@@ -34941,6 +34993,8 @@ snapshots:
   typescript@5.9.3: {}
 
   uc.micro@1.0.6: {}
+
+  uc.micro@2.1.0: {}
 
   ufo@1.6.4: {}
 

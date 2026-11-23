@@ -65,8 +65,8 @@
 | `desktop-vue2` | `quasar build -m spa` | 通过（打包产物 `dist/spa`），说明 vue2 侧当前无语法错误 |
 | `desktop-vue3/frontend` | `vue-tsc --noEmit && vite build` | 通过，51s |
 | `libs-muya-vue3`、`libs-muya-echo-vue3`、`libs-muya-rune-vue3` | 无 build 脚本 | 纯源码，由前端 typecheck 覆盖 |
-| `_plugins/box-im-wujie` | `vue-cli-service build` | **未验证**：目录内无 node_modules |
-| `_plugins/doubao-input` | `vite build` | **未验证**：目录内无 node_modules |
+| `_plugins/plugin-wujie-boxim-vue2` | `vue-cli-service build` | **未验证**：目录内无 node_modules |
+| `_plugins/plugin-hel-doubao-input-vue3` | `vite build` | **未验证**：目录内无 node_modules |
 
 ## 建议顺序
 

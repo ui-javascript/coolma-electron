@@ -21,7 +21,7 @@ let updaterBound = false;
 /**
  * 豆包 WebApp 是独立构建的 wujie 子应用：
  * - 打包后由 builder extraResources 放到 resources/doubao-input；
- * - 开发态优先找仓库根目录的 `_plugins/doubao-input/dist`。
+ * - 开发态优先找仓库根目录的 `_plugins/plugin-hel-doubao-input-vue3/dist`。
  */
 function resolveDoubaoUrl(): string {
   const candidates = [

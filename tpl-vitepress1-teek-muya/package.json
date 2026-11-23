@@ -25,6 +25,7 @@
     "vitepress-theme-teek": "1.6.3",
     "libs-rune-core": "workspace:*",
     "libs-muya-rune-vue3": "workspace:*",
-    "libs-echo-runtime": "workspace:*"
+    "libs-echo-runtime": "workspace:*",
+    "libs-muya-md": "workspace:*"
   }
 }

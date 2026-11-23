@@ -32,6 +32,8 @@
     "libs-echo-core": "workspace:*",
     "libs-muya-vue2": "workspace:*",
     "libs-rune-core": "workspace:*",
-    "libs-echo-runtime": "workspace:*"
+    "libs-echo-runtime": "workspace:*",
+    "libs-muya-md": "workspace:*",
+    "uuid": "^9.0.1"
   }
 }

@@ -70,7 +70,7 @@ export default {
   },
   aiDoubao: {
     title: 'AI assistant',
-    missingBuild: 'Doubao WebApp build not found. Build _plugins/doubao-input first.',
+    missingBuild: 'Doubao WebApp build not found. Build _plugins/plugin-hel-doubao-input-vue3 first.',
   },
   echoInstance: {
     title: 'Echo instance',

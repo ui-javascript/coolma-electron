@@ -1,0 +1,16 @@
+{
+  "name": "libs-muya-md",
+  "version": "0.1.0",
+  "description": "Muya Markdown 语法解析插件：@名称{props}(prompt) 回响注解与 data-rune-* 符文占位符直出为宿主组件",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "files": ["src", "README.md"],
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "keywords": ["muya", "markdown-it", "vuepress", "vitepress", "rune", "echo"],
+  "license": "MIT",
+  "devDependencies": {
+    "markdown-it": "^14.1.0"
+  }
+}

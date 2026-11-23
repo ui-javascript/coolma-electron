@@ -162,4 +162,43 @@ export async function createMeltCtor (rune = {}) {
   return ctor
 }
 
-export default { createMeltCtor }
+
+// 启动期预热：把目录里的 melt-js 定义按依赖合并，各拉一次 hel 资源。
+// 不挂载组件、不影响 SSR；失败只 warn，真正渲染时仍走 createMeltCtor 的重试链路。
+const preloadLoaders = new Map()
+
+export async function preloadMeltRunes (runes = []) {
+  const configs = []
+  ;(Array.isArray(runes) ? runes : []).forEach(rune => {
+    try {
+      const config = parseMeltRuneConfig(rune)
+      if (config && config.dep && config.dep.name) configs.push(config)
+    } catch (error) {
+      // 非 melt-js 定义（普通 SFC 符文）直接跳过
+    }
+  })
+  if (!configs.length) return []
+  const libs = await loadMeltLibs()
+  const { resolveHelDep, createHelLoader } = libs
+  const tasks = configs.map(config => {
+    const dep = config.dep
+    const ref = dep.version ? dep.name + '@' + dep.version : dep.name
+    const spec = dep.host
+      ? resolveHelDep({ name: dep.name, host: dep.host })
+      : resolveHelDep(ref, { type: dep.type || 'unpkg' })
+    if (dep.platform) spec.platform = dep.platform
+    if (dep.requiredExports && dep.requiredExports.length) spec.requiredExports = dep.requiredExports.slice()
+    const key = [dep.platform || '', dep.name || '', dep.version || '', dep.host || dep.type || ''].join('|')
+    let loader = preloadLoaders.get(key)
+    if (!loader) {
+      loader = createHelLoader()
+      preloadLoaders.set(key, loader)
+    }
+    return loader.loadHelLib(spec).catch(error => {
+      console.warn('[melt-preload] failed', config.exportName, error)
+    })
+  })
+  return Promise.all(tasks)
+}
+
+export default { createMeltCtor, preloadMeltRunes }

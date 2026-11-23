@@ -1,11 +1,11 @@
 {
-  "name": "boxim",
-  "version": "3.0.0",
-  "private": true,
+  "name": "plugin-wujie-boxim-vue2",
+  "version": "1.0.0",
   "scripts": {
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
-    "lint": "vue-cli-service lint"
+    "lint": "vue-cli-service lint",
+    "build:dev": "vue-cli-service build --mode development"
   },
   "dependencies": {
     "axios": "1.8.2",
@@ -65,5 +65,18 @@
     "> 1%",
     "last 2 versions",
     "not dead"
-  ]
+  ],
+  "description": "Box-IM 聊天子应用，按 wujie 子应用协议暴露（Vue2 + element-ui）",
+  "files": [
+    "dist",
+    "src",
+    "public",
+    "vue.config.js",
+    "babel.config.js",
+    "README.md"
+  ],
+  "wujie": {
+    "name": "plugin-wujie-boxim-vue2",
+    "entry": "dist/index.html"
+  }
 }

@@ -9,7 +9,7 @@
   "npmRebuild": false,
   "extraResources": [
     {
-      "from": "../_plugins/doubao-input/dist",
+      "from": "../_plugins/plugin-hel-doubao-input-vue3/dist",
       "to": "doubao-input"
     }
   ],

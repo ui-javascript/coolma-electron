@@ -30,10 +30,10 @@ yarn-error.log*
 # Plugin projects
 # `_plugins` 下仅保留当前已纳入仓库的目录；后续新增目录默认忽略
 /_plugins/*
-!/_plugins/box-im-wujie/
-!/_plugins/box-im-wujie/**
-!/_plugins/doubao-input/
-!/_plugins/doubao-input/**
+!/_plugins/plugin-wujie-boxim-vue2/
+!/_plugins/plugin-wujie-boxim-vue2/**
+!/_plugins/plugin-hel-doubao-input-vue3/
+!/_plugins/plugin-hel-doubao-input-vue3/**
 # !/_plugins/echo-monster-deleter/
 # !/_plugins/echo-monster-deleter/**
 # !/_plugins/vue2-sfc-playground/

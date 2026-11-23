@@ -27,7 +27,7 @@
 <script setup lang="ts">
 /**
  * 豆包 WebApp 抽屉（移植 vue2 AiDoubaoDrawer）：
- * 本地 `_plugins/doubao-input/dist` 作为 wujie 子应用挂载，每次打开重建沙箱。
+ * 本地 `_plugins/plugin-hel-doubao-input-vue3/dist` 作为 wujie 子应用挂载，每次打开重建沙箱。
  */
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';

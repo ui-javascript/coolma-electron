@@ -11,6 +11,7 @@ import { defineConfig } from 'vitepress'
 import { withMermaid } from 'vitepress-plugin-mermaid'
 import { tabsMarkdownPlugin } from 'vitepress-plugin-tabs'
 import { defineTeekConfig } from 'vitepress-theme-teek/config'
+import muyaMarkdown from 'libs-muya-md'
 
 const teek = defineTeekConfig({
   teekHome: true,
@@ -31,6 +32,7 @@ const teek = defineTeekConfig({
           katexOptions: { trust: false, throwOnError: false }
         })
         .use(tabsMarkdownPlugin)
+        .use(muyaMarkdown)
 
       // TeXmath emits <eq>/<eqn>, which Vue treats as unresolved components
       // during SSR. Use standard HTML wrappers so KaTeX survives prerendering.
@@ -101,7 +103,8 @@ const config = withMermaid(defineConfig({
             { text: '技术文档与图表', link: '/guide/technical' },
             { text: 'Teek 主题能力', link: '/guide/theme' },
             { text: 'Muya 对照样例', link: '/guide/muya-fixture' },
-            { text: '符文 / 回响运行时', link: '/guide/rune-live' }
+            { text: '符文 / 回响运行时', link: '/guide/rune-live' },
+            { text: 'Muya 语法直出', link: '/guide/muya-syntax' }
           ]
         }
       ]

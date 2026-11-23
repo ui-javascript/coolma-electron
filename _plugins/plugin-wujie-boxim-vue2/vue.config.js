@@ -7,7 +7,7 @@ module.exports = defineConfig({
   lintOnSave: !isProd,
   // outputDir: '../public/box-im',
   // publicPath: isProd ? '/box-im/' : '/',
-  publicPath: isProd ? 'https://luo0412.github.io/box-im/' : '/',
+  publicPath: process.env.PUBLIC_PATH || './',
   productionSourceMap: false,
 	devServer: {
     port: 18080,
