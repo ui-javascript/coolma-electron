@@ -40,6 +40,16 @@ const DEMO_MELT_RUNE = {
 const runes = (runePack.runes || []).slice()
 const echoes = (echoPack.echoes || []).slice()
 
+// 桌面端内置回响「生生不息」，博客目录补一条最小定义（field 足够驱动内置渲染器）
+echoes.push({
+  id: 'demo-growth',
+  name: '生生不息',
+  desc: '给附近命中的元素加绿色脉冲生长动画，可按 index 错峰',
+  color: '#43A047',
+  category: 'showy',
+  field: 'growth'
+})
+
 // 回响的 field 只从 anno_source 里读元信息，不在博客端执行这段 JS。
 // 运行时按 field 走内置渲染器（typewriter / barrage），未识别就只留锚点。
 const readEchoField = source => {

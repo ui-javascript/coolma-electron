@@ -17,6 +17,7 @@ const BLOCK_SELECTOR = 'p, li, h1, h2, h3, h4, h5, h6, blockquote, pre, td, th'
 const ECHO_CHIP_SELECTOR = '.ag-echo-live'
 const TYPEWRITER_STYLE_ID = 'ag-typewriter-style'
 const BARRAGE_STYLE_ID = 'ag-danmaku-style'
+const GROWTH_STYLE_ID = 'ag-rune-growth-style'
 
 /** "speed: 60, scope: prev-line" → { speed: 60, scope: 'prev-line' } */
 export function parseEchoAttrs(raw) {
@@ -233,9 +234,83 @@ export function applyBarrage(hostEl, props = {}) {
   return remove
 }
 
+/** 生生不息：给附近命中的元素加绿色脉冲生长动画，支持 stagger */
+export function applyGrowth(hostEl, props = {}) {
+  const selector = String(
+    props.target || '[data-block-type], p, pre, li, h1, h2, h3, h4, h5, h6, blockquote, table'
+  )
+  const scope = String(props.scope || 'siblings').toLowerCase()
+  const trigger = String(props.trigger || 'auto').toLowerCase()
+  const block = closestBlock(hostEl)
+  const parent = (block && block.parentElement) || hostEl.parentElement
+  if (!parent && scope !== 'document') return () => {}
+
+  ensureStyle(GROWTH_STYLE_ID, `
+    @keyframes ag-rune-growth-pulse {
+      0% { transform: scale(0.9); filter: brightness(0.92); }
+      50% { transform: scale(1.04); filter: brightness(1.08); }
+      100% { transform: scale(1); filter: brightness(1); }
+    }
+    .ag-rune-growth-target {
+      animation: ag-rune-growth-pulse 2.6s ease-in-out infinite;
+      animation-delay: var(--ag-rune-growth-delay, 0ms);
+      transform-origin: center;
+      will-change: transform, filter;
+    }
+    .ag-rune-growth-active {
+      box-shadow: 0 0 0 2px rgba(67, 160, 71, 0.35);
+      background: rgba(67, 160, 71, 0.08);
+    }
+  `)
+
+  const found = new Set()
+  const collect = el => {
+    if (!el || !el.matches) return
+    if (el.matches(selector)) found.add(el)
+    el.querySelectorAll(selector).forEach(node => found.add(node))
+  }
+
+  if (scope === 'document') {
+    const root = document.querySelector('.vp-doc, .theme-default-content, .markdown-body') || document.body
+    root.querySelectorAll(selector).forEach(node => found.add(node))
+  } else if (scope === 'block') {
+    collect(block)
+  } else if (scope === 'prev-block' || scope === 'prev-line') {
+    collect(block && block.previousElementSibling)
+  } else {
+    // siblings：标记所在块的兄弟元素（含兄弟内部命中的节点）
+    if (parent) {
+      Array.from(parent.children).forEach(sibling => {
+        if (sibling !== block) collect(sibling)
+      })
+    }
+    if (found.size === 0 && block) collect(block.previousElementSibling)
+  }
+
+  const targets = Array.from(found).filter(node => !node.contains(hostEl))
+  targets.forEach((node, index) => {
+    node.classList.add('ag-rune-growth-target')
+    if (trigger === 'auto') node.style.setProperty('--ag-rune-growth-delay', `${Math.min(index, 8) * 120}ms`)
+  })
+  hostEl.classList.add('ag-rune-growth-active')
+  hostEl.setAttribute('data-echo-effect', 'growth')
+  hostEl.setAttribute('data-growth-count', String(targets.length))
+
+  return () => {
+    targets.forEach(node => {
+      node.classList.remove('ag-rune-growth-target')
+      node.style.removeProperty('--ag-rune-growth-delay')
+    })
+    hostEl.classList.remove('ag-rune-growth-active')
+    hostEl.removeAttribute('data-echo-effect')
+    hostEl.removeAttribute('data-growth-count')
+  }
+}
+
 export const ECHO_FIELD_RENDERERS = {
   typewriter: applyTypewriter,
   barrage: applyBarrage,
+  growth: applyGrowth,
 }
 
 /** field + 参数 → 应用效果，返回清理函数 */
@@ -252,6 +327,7 @@ export default {
   resolveEchoTarget,
   applyTypewriter,
   applyBarrage,
+  applyGrowth,
   applyEchoEffect,
   ECHO_FIELD_RENDERERS,
 }

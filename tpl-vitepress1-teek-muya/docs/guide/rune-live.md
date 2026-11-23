@@ -57,7 +57,19 @@ title: 符文 / 回响运行时
 
 <EchoHost name="弹幕飘过" attrs="speed: 7, scope: prev-block" />
 
-## 6. 导出器内联定义（组件模式）
+## 6. 回响运行时：生生不息
+
+`scope: siblings` 扫描标记所在块的兄弟元素，`target` 用 CSS 选择器收窄。下面三张卡片会按 0 / 120 / 240ms 错峰脉冲，标记本身也会亮起绿色描边。
+
+<div class="growth-demo" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:14px 0">
+<div class="growth-card" style="padding:14px;border:1px solid var(--vp-c-border, var(--border-color, #e5e7eb));border-radius:10px;background:var(--vp-c-bg-soft, var(--bg-color, #f8fafc))"><b style="color:#43A047">春</b><br>种子破土</div>
+<div class="growth-card" style="padding:14px;border:1px solid var(--vp-c-border, var(--border-color, #e5e7eb));border-radius:10px;background:var(--vp-c-bg-soft, var(--bg-color, #f8fafc))"><b style="color:#43A047">夏</b><br>枝叶舒展</div>
+<div class="growth-card" style="padding:14px;border:1px solid var(--vp-c-border, var(--border-color, #e5e7eb));border-radius:10px;background:var(--vp-c-bg-soft, var(--bg-color, #f8fafc))"><b style="color:#43A047">秋</b><br>生生不息</div>
+</div>
+
+<EchoHost name="生生不息" attrs="scope: siblings, trigger: auto, target: .growth-card" prompt="春风吹又生" />
+
+## 7. 导出器内联定义（组件模式）
 
 导出器在组件模式下把符文定义以 base64 塞进 `definition`，把回响的 `field` 直接塞进 `field`。下面两条不依赖目录，只靠标签属性挂载：
 
@@ -67,7 +79,7 @@ title: 符文 / 回响运行时
 
 <EchoHost name="内联打字机" attrs="speed: 40" field="typewriter" />
 
-## 7. 和 VuePress 版的关系
+## 8. 和 VuePress 版的关系
 
 同一份导出产物可以同时喂给两个模板：
 
