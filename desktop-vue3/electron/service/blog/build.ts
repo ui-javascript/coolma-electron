@@ -16,6 +16,7 @@ import {
   NAV_BUILDER_SOURCE,
   SIDEBAR_BUILDER_SOURCE,
   shouldRebuildPackage,
+  validateBaseInput,
   withBuildScript,
 } from './blogEnv';
 import type { BlogPackageJson, BlogPackageManager, BlogTheme } from './blogEnv';
@@ -327,7 +328,11 @@ export async function runBlogBuild(input: {
     message: `package.json ${packageSetup.status}`,
     percent: 4,
   });
-  const configStatus = await ensureConfig(blogDir, theme, input.base);
+  const baseCheck = validateBaseInput(input.base);
+  if (!baseCheck.ok) {
+    throw Object.assign(new Error(baseCheck.error || 'invalid base'), { code: 'BLOG_BASE_INVALID' });
+  }
+  const configStatus = await ensureConfig(blogDir, theme, baseCheck.value);
   sendBlogProgress({
     stage: 'config',
     message: `config.js ${configStatus}`,

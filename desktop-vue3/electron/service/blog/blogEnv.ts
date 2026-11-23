@@ -59,6 +59,36 @@ export function normalizeBase(value: unknown): string {
   return raw;
 }
 
+export interface BaseValidation {
+  ok: boolean;
+  value: string;
+  error?: string;
+}
+
+/**
+ * base 合法性校验：VuePress 只接受站内路径。
+ * 拒绝 `#`、`?`、空白、反斜杠与 `://`（这些会生成非法路由或直接 404）；
+ * 非空值必须以 `/`、`./`、`../` 开头。空值合法（走默认）。
+ */
+export function validateBaseInput(value: unknown): BaseValidation {
+  if (typeof value !== 'string') {
+    return { ok: true, value: '' };
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return { ok: true, value: '' };
+  }
+  const quoted = trimmed.match(/^(['"`])([\s\S]*)\1$/);
+  const raw = (quoted ? quoted[2] : trimmed).trim();
+  if (/[#?\s\\]/.test(raw) || raw.includes('://')) {
+    return { ok: false, value: raw, error: 'base 只能填站内路径，不能包含 #、?、空白、反斜杠或协议' };
+  }
+  if (!(raw.startsWith('/') || raw.startsWith('./') || raw.startsWith('../'))) {
+    return { ok: false, value: raw, error: 'base 必须以 /、./ 或 ../ 开头' };
+  }
+  return { ok: true, value: normalizeBase(raw) };
+}
+
 /** 把 base 包成可写入 JS 的字面量；空值返回 ''。 */
 export function quoteBase(value: unknown): string {
   const normalized = normalizeBase(value);

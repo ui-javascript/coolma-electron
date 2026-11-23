@@ -234,7 +234,7 @@
       <div v-if="lastResult" class="blog-result">
         <div class="blog-result-title">{{ t('blog.resultTitle') }}</div>
         <ul>
-          <li>{{ t('blog.resultFiles', { count: lastResult.writtenFiles }) }}</li>
+          <li>{{ t('blog.resultFiles', { count: lastResult.writtenFiles, skipped: lastResult.skippedFiles ?? 0 }) }}</li>
           <li>{{ t('blog.resultShortlinks', { count: lastResult.shortlinkCount }) }}</li>
           <li v-if="lastResult.workflows.written.length">{{ t('blog.resultWorkflows', { names: lastResult.workflows.written.join(', ') }) }}</li>
           <li v-if="lastResult.workflows.skipped.length">{{ t('blog.resultSkipped', { names: lastResult.workflows.skipped.join(', ') }) }}</li>
@@ -645,7 +645,7 @@ async function runExport(includeCi = true): Promise<void> {
       return;
     }
     lastResult.value = result.data;
-    ElMessage.success(t('blog.exportDone', { count: result.data.writtenFiles }));
+    ElMessage.success(t('blog.exportDone', { count: result.data.writtenFiles, skipped: result.data.skippedFiles ?? 0 }));
   } finally {
     exporting.value = false;
   }

@@ -16,6 +16,7 @@ export interface BlogExportResult {
   blogDir: string;
   category: string;
   writtenFiles: number;
+  skippedFiles: number;
   shortlinkCount: number;
   workflows: { written: string[]; skipped: string[] };
 }
@@ -64,6 +65,7 @@ class BlogController {
         blogDir,
         category,
         writtenFiles: written.writtenFiles,
+        skippedFiles: written.skippedFiles,
         shortlinkCount: written.shortlinkCount,
         workflows,
       });
@@ -98,6 +100,9 @@ class BlogController {
       }
       return ok({ distDir: result.distDir || '', script: result.script || '', env: result.env });
     } catch (error) {
+      if ((error as { code?: string }).code === 'BLOG_BASE_INVALID') {
+        return fail('BLOG_BASE_INVALID', String((error as Error).message));
+      }
       return failFromError(error, 'BLOG_BUILD_ERROR');
     }
   }

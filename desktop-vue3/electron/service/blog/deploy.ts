@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
@@ -388,25 +389,109 @@ export async function writeCategoryReadme(blogDir: string, category: string, ent
 }
 
 /** 写 _posts/<id>.md + 全套映射（对齐 vue2 writeBlogPosts）。 */
+export interface ExportManifestEntry {
+  hash: string;
+  size: number;
+  file: string;
+  title: string;
+  category: string;
+}
+
+export interface ExportManifest {
+  version: number;
+  generatedAt?: string;
+  files: Record<string, ExportManifestEntry>;
+}
+
+const EXPORT_MANIFEST = path.join('.vuepress', 'export-manifest.json');
+/** 并发写盘上限：千篇级导出时避免同时开上千个 fd，也不退化成完全串行。 */
+const EXPORT_CONCURRENCY = 8;
+
+export function hashExportContent(content: string): string {
+  return crypto.createHash('sha1').update(content).digest('hex');
+}
+
+async function readExportManifest(blogDir: string): Promise<ExportManifest> {
+  const data = await readJson<ExportManifest>(path.join(blogDir, EXPORT_MANIFEST));
+  return data && data.version === 1 && data.files ? data : { version: 1, files: {} };
+}
+
+export async function writeExportManifest(blogDir: string, manifest: ExportManifest): Promise<void> {
+  manifest.generatedAt = new Date().toISOString();
+  await writeJson(path.join(blogDir, EXPORT_MANIFEST), manifest);
+}
+
+/** 限并发 map，保持结果顺序。 */
+async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T, index: number) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      results[index] = await fn(items[index], index);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
 export async function writeBlogPosts(
   blogDir: string,
   notes: BlogNote[],
   theme = 'default',
   category = '',
-): Promise<{ writtenFiles: number; entries: BlogEntry[]; shortlinkCount: number }> {
+  options: { incremental?: boolean } = {},
+): Promise<{ writtenFiles: number; skippedFiles: number; entries: BlogEntry[]; shortlinkCount: number }> {
   const postsDir = path.join(blogDir, '_posts');
   await fs.mkdir(postsDir, { recursive: true });
   const dirTag = path.basename(blogDir);
-  const entries: BlogEntry[] = [];
+  const incremental = options.incremental !== false;
+  const manifest = incremental ? await readExportManifest(blogDir) : { version: 1, files: {} as Record<string, ExportManifestEntry> };
 
-  for (const note of notes) {
+  const tasks = notes.map((note) => {
     const baseName = note.title.replace(/\.md$/i, '');
     const fileId = shortlinkId(dirTag, baseName);
     const filepath = path.join(postsDir, `${fileId}.md`);
     const frontmatter = buildFrontmatter(note, theme, dirTag, baseName);
-    await fs.writeFile(filepath, `${frontmatter}\n\n${note.content}`, 'utf-8');
-    entries.push({ id: fileId, title: baseName, permalink: `/${fileId}.html`, category, docGuid: note.docGuid || '' });
+    const content = `${frontmatter}\n\n${note.content}`;
+    return { note, baseName, fileId, filepath, content, hash: hashExportContent(content) };
+  });
+
+  let writtenFiles = 0;
+  let skippedFiles = 0;
+  await mapLimit(tasks, EXPORT_CONCURRENCY, async (task) => {
+    const cached = manifest.files[task.fileId];
+    if (incremental && cached && cached.hash === task.hash) {
+      const existing = await fs.stat(task.filepath).catch(() => null);
+      if (existing?.isFile()) {
+        skippedFiles += 1;
+        return;
+      }
+    }
+    await fs.writeFile(task.filepath, task.content, 'utf-8');
+    writtenFiles += 1;
+  });
+
+  const entries: BlogEntry[] = tasks.map((task) => ({
+    id: task.fileId,
+    title: task.baseName,
+    permalink: `/${task.fileId}.html`,
+    category,
+    docGuid: task.note.docGuid || '',
+  }));
+
+  const nextFiles: Record<string, ExportManifestEntry> = { ...manifest.files };
+  for (const task of tasks) {
+    nextFiles[task.fileId] = {
+      hash: task.hash,
+      size: Buffer.byteLength(task.content, 'utf-8'),
+      file: `_posts/${task.fileId}.md`,
+      title: task.baseName,
+      category,
+    };
   }
+  await writeExportManifest(blogDir, { version: 1, files: nextFiles });
 
   const shortlink = await appendShortlinkMap(blogDir, entries);
   const idEntries = entries.map((entry) => ({
@@ -428,7 +513,7 @@ export async function writeBlogPosts(
   if (category) {
     await writeCategoryReadme(blogDir, category, entries);
   }
-  return { writtenFiles: entries.length, entries, shortlinkCount: shortlink.count };
+  return { writtenFiles, skippedFiles, entries, shortlinkCount: shortlink.count };
 }
 
 export async function exportCIWorkflows(targetDir: string): Promise<{ written: string[]; skipped: string[] }> {

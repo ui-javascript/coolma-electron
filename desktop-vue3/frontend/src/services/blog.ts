@@ -13,6 +13,7 @@ export interface BlogExportOutput {
   blogDir: string;
   category: string;
   writtenFiles: number;
+  skippedFiles: number;
   shortlinkCount: number;
   workflows: { written: string[]; skipped: string[] };
 }

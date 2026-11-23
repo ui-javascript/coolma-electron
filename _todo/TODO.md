@@ -56,12 +56,9 @@
 
 ### C3 博客部署
 
-- [ ] 导出 MD 时补分类 README（nav-builder 现在指向不存在的 README）
 - [ ] `base` 合法性校验（`#`、`?` 非法字符未拦）
 - [ ] 菜单项 i18n 英文 key 补全
 - [ ] 博客端符文/回响渲染——设计见 `参考/vuepress符文回响-设计.md`
-- [ ] 增量导出 manifest（noteId → path/mtime/hash）
-- [ ] 千篇级导出并发限流（p-limit）
 - [ ] 部署历史入库（时间 / 状态 / 目标）
 - [ ] 打包后自动 `vuepress dev` 预览
 - [ ] Gitee / GitLab 支持
