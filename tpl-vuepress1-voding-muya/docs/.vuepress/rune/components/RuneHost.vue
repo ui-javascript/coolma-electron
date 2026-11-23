@@ -5,6 +5,7 @@
     :data-rune-id="runeId"
     :data-rune-node-id="nodeId"
     :data-rune-state="phase"
+    :data-rune-source="runeSource"
     :style="runeDef ? { '--rune-color': runeDef.color || '#26A69A' } : null"
   >
     <component
@@ -35,13 +36,22 @@ import { createSfcCtor } from '../sfcRuntime'
 import { createMeltCtor } from '../meltRuntime'
 import { detectRuneType, RUNE_TYPE_MELT_JS } from 'libs-muya-vue2/lib/rune/runeDefinition'
 
+// 导出器把符文定义以 base64 JSON 内联进 definition，博客不必预先持有用户目录。
+const decodeDefinition = raw => {
+  const binary = atob(String(raw || ''))
+  const bytes = Uint8Array.from(binary, ch => ch.charCodeAt(0))
+  const parsed = JSON.parse(new TextDecoder().decode(bytes))
+  return parsed && parsed.template ? parsed : null
+}
+
 export default {
   name: 'RuneHost',
   props: {
     name: { type: String, required: true },
     value: { type: [String, Number], default: '' },
     runeId: { type: String, default: '' },
-    nodeId: { type: String, default: '' }
+    nodeId: { type: String, default: '' },
+    definition: { type: String, default: '' }
   },
   data () {
     return {
@@ -49,6 +59,7 @@ export default {
       ctor: null,
       runeDef: null,
       runeType: '',
+      runeSource: '',
       supportsValueChange: false,
       innerValue: this.value == null ? '' : String(this.value),
       error: ''
@@ -94,7 +105,21 @@ export default {
       this.error = ''
       this.phase = 'static'
       this.ctor = null
-      const rune = findRune(this.name)
+      this.runeSource = ''
+      let rune = null
+      if (this.definition) {
+        try {
+          rune = decodeDefinition(this.definition)
+          if (rune) this.runeSource = 'inline'
+        } catch (error) {
+          // eslint-disable-next-line no-console
+          console.warn('[rune-host] definition decode failed:', error)
+        }
+      }
+      if (!rune) {
+        rune = findRune(this.name)
+        if (rune) this.runeSource = 'catalog'
+      }
       if (!rune) {
         this.error = `目录里没有名为「${this.name}」的符文`
         this.phase = 'error'

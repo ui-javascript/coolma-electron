@@ -24,8 +24,8 @@ import { findEcho, type EchoCard } from './echoCatalog'
 import { applyEchoEffect } from 'libs-echo-runtime'
 
 const props = withDefaults(
-  defineProps<{ name: string; attrs?: string; prompt?: string }>(),
-  { attrs: '', prompt: '' },
+  defineProps<{ name: string; attrs?: string; prompt?: string; field?: string }>(),
+  { attrs: '', prompt: '', field: '' },
 )
 
 const hostEl = ref<HTMLElement | null>(null)
@@ -38,7 +38,9 @@ let cleanup: (() => void) | null = null
 
 onMounted(() => {
   hydrated.value = true
-  echoDef.value = findEcho(props.name)
+  echoDef.value = props.field
+    ? { name: props.name, field: props.field, color: '#26A69A', desc: '内联回响' }
+    : findEcho(props.name)
   if (!echoDef.value) {
     runtimeState.value = 'missing'
     return

@@ -5,6 +5,7 @@
     :data-rune-id="runeId"
     :data-rune-node-id="nodeId"
     :data-rune-state="phase"
+    :data-rune-source="runeSource"
     :style="runeDef ? { '--rune-color': runeDef.color || '#26A69A' } : null"
   >
     <div ref="hostEl" class="ag-rune-live__host" />
@@ -28,6 +29,14 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { findRune, type RuneCard } from './catalog'
 
+// 导出器把符文定义以 base64 JSON 内联进 definition，博客不必预先持有用户目录。
+function decodeDefinition(raw: string): RuneCard | null {
+  const binary = atob(String(raw || ''))
+  const bytes = Uint8Array.from(binary, ch => ch.charCodeAt(0))
+  const parsed = JSON.parse(new TextDecoder().decode(bytes)) as RuneCard
+  return parsed && parsed.template ? parsed : null
+}
+
 type RuneVm = {
   $el: HTMLElement
   $destroy: () => void
@@ -41,8 +50,9 @@ const props = withDefaults(
     value?: string | number
     runeId?: string
     nodeId?: string
+    definition?: string
   }>(),
-  { value: '', runeId: '', nodeId: '' },
+  { value: '', runeId: '', nodeId: '', definition: '' },
 )
 
 const emit = defineEmits<{
@@ -54,6 +64,7 @@ const phase = ref<'static' | 'ready' | 'error'>('static')
 const runeDef = ref<RuneCard | null>(null)
 const innerValue = ref(props.value == null ? '' : String(props.value))
 const error = ref('')
+const runeSource = ref('')
 const hostEl = ref<HTMLElement | null>(null)
 
 let vm: RuneVm | null = null
@@ -90,7 +101,20 @@ async function resolveRune() {
   runeDef.value = null
   destroyVm()
 
-  const rune = findRune(props.name)
+  runeSource.value = ''
+  let rune: RuneCard | null = null
+  if (props.definition) {
+    try {
+      rune = decodeDefinition(props.definition)
+      if (rune) runeSource.value = 'inline'
+    } catch (error) {
+      console.warn('[rune-host] definition decode failed:', error)
+    }
+  }
+  if (!rune) {
+    rune = findRune(props.name)
+    if (rune) runeSource.value = 'catalog'
+  }
   if (!rune) {
     error.value = `目录里没有名为「${props.name}」的符文`
     phase.value = 'error'

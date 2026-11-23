@@ -57,7 +57,17 @@ title: 符文 / 回响运行时
 
 <EchoHost name="弹幕飘过" attrs="speed: 7, scope: prev-block" />
 
-## 6. 和 VuePress 版的关系
+## 6. 导出器内联定义（组件模式）
+
+导出器在组件模式下把符文定义以 base64 塞进 `definition`，把回响的 `field` 直接塞进 `field`。下面两条不依赖目录，只靠标签属性挂载：
+
+<RuneHost name="内联示例" value="来自导出器" rune-id="inline-1" node-id="inline-n1" definition="eyJpZCI6ImlubGluZS1ydW5lIiwibmFtZSI6IuWGheiBlOekuuS+iyIsImRlc2MiOiLnlLHlr7zlh7rlmajlhoXogZTnmoQgU0ZDIiwiY29sb3IiOiIjN0U1N0MyIiwiaWNvbiI6IuKcpiIsInRlbXBsYXRlIjoiPHRlbXBsYXRlPjxkaXYgY2xhc3M9XCJpbmxpbmUtcnVuZS1kZW1vXCI+5YaF6IGU56ym5paH77yae3sgdmFsdWUgfX08L2Rpdj48L3RlbXBsYXRlPlxuPHNjcmlwdD5cbmV4cG9ydCBkZWZhdWx0IHsgcHJvcHM6IHsgdmFsdWU6IHsgdHlwZTogU3RyaW5nLCBkZWZhdWx0OiAnJyB9IH0gfVxuPC9zY3JpcHQ+IiwiY2F0ZWdvcnkiOiJkZW1vIiwiaW5oZXJpdEZyb21QcmV2aW91cyI6MH0=" />
+
+上一段文字由导出器内联，回响没有走目录，只靠 `field` 执行。
+
+<EchoHost name="内联打字机" attrs="speed: 40" field="typewriter" />
+
+## 7. 和 VuePress 版的关系
 
 同一份导出产物可以同时喂给两个模板：
 
@@ -65,4 +75,4 @@ title: 符文 / 回响运行时
 - VitePress：`RuneHost` 里用 `libs-muya-rune-vue3` + `libs-core-vue3`；
 - 回响：两边都用 `libs-echo-runtime`，纯 DOM，不依赖框架版本。
 
-Markdown 里只写 `<RuneHost name="…" value="…" />` 和 `<EchoHost name="…" attrs="…" />`，宿主版本决定用哪条运行时；导出器不需要感知宿主。
+导出器的「真组件」模式会把符文定义以 base64 `definition` 内联、把回响 `field` 内联，所以博客不需要预先持有用户目录；主题只要注册过宿主组件就能挂载。Markdown 里只写 `<RuneHost name="…" value="…" />` 和 `<EchoHost name="…" attrs="…" />`，宿主版本决定用哪条运行时。

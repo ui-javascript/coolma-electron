@@ -23,6 +23,7 @@ export interface BlogExportResult {
   shortlinkCount: number;
   runeCards: number;
   echoCards: number;
+  runeRender: 'static' | 'component';
   workflows: { written: string[]; skipped: string[] };
 }
 
@@ -50,12 +51,13 @@ class BlogController {
 
       // 符文/回响在导出期就落成静态卡片：博客端不依赖 markdown-it 插件或主题钩子。
       const catalog = { runes: runesRepository.list(), echoes: echoesRepository.list() };
+      const runeRender = input.runeRender === 'component' ? 'component' : 'static';
       let runeCards = 0;
       let echoCards = 0;
       const notes: BlogNote[] = rows.map((summary) => {
         const record = notesRepository.get(summary.id);
         const source = record?.content ?? '';
-        const transformed = transformRuneEcho(source, catalog);
+        const transformed = transformRuneEcho(source, catalog, { mode: runeRender });
         runeCards += transformed.stats.runes;
         echoCards += transformed.stats.echoes;
         return {
@@ -82,6 +84,7 @@ class BlogController {
         shortlinkCount: written.shortlinkCount,
         runeCards,
         echoCards,
+        runeRender,
         workflows,
       });
     } catch (error) {

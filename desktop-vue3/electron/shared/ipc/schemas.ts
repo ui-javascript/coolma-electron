@@ -22,6 +22,7 @@ export const blogExportSchema = z.object({
   category: z.string().optional(),
   theme: z.enum(['default', 'vdoing', 'hope', 'reco']).optional(),
   includeCi: z.boolean().optional(),
+  runeRender: z.enum(['static', 'component']).optional(),
 });
 
 export const blogExportCiSchema = z.object({

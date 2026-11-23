@@ -91,3 +91,23 @@ test('符文正文里的 HTML 会被清掉，避免卡片里嵌标签', () => {
   assert.doesNotMatch(content, /<b>x<\/b>/);
   assert.match(content, /ag-rune__value/);
 });
+
+test('组件模式：符文改写成 RuneHost，并把定义 base64 内联', () => {
+  const md = '<div data-rune-name="计算器" data-rune-id="r1" data-rune-node-id="n1" data-rune-value="1+1">1+1</div>';
+  const { content, stats } = transformRuneEcho(md, catalog, { mode: 'component' });
+  assert.equal(stats.runes, 1);
+  assert.match(content, /<RuneHost name="计算器" value="1\+1" rune-id="r1" node-id="n1" definition="[A-Za-z0-9+/=]+"><\/RuneHost>/);
+  const encoded = content.match(/definition="([^"]+)"/)?.[1] || '';
+  const decoded = JSON.parse(Buffer.from(encoded, 'base64').toString('utf8'));
+  assert.equal(decoded.name, '计算器');
+  assert.equal(decoded.template, '<template><div /></template>');
+});
+
+test('组件模式：回响改写成 EchoHost，并带上 field', () => {
+  const typedEcho: EchoCard = { ...echoCard, name: '打字机', annoSource: "export default { field: 'typewriter', props: {} }" };
+  const md = '前 @打字机{speed: 60}(逐字展开) 后';
+  const { content, stats } = transformRuneEcho(md, { runes: [], echoes: [typedEcho] }, { mode: 'component' });
+  assert.equal(stats.echoes, 1);
+  assert.match(content, /<EchoHost name="打字机" attrs="speed: 60" prompt="逐字展开" field="typewriter"><\/EchoHost>/);
+  assert.doesNotMatch(content, /class="ag-echo/);
+});

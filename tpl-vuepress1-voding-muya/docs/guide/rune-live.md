@@ -73,13 +73,23 @@ tags:
 
 所以即使远端挂掉、SFC 有语法错误、回响的 `field` 不认识，页面也不会崩，最差就是一张静态卡片。
 
-## 7. 接进博客导出要改什么
+## 7. 导出器内联定义（组件模式）
 
-当前博客导出写的是 `ag-rune` / `ag-echo` 静态 HTML。要切到真组件与真回响，只需把导出模板换成：
+导出器在组件模式下把符文定义以 base64 塞进 `definition`，把回响的 `field` 直接塞进 `field`。下面两条不依赖目录，只靠标签属性挂载：
 
-```md
-<RuneHost name="输入框" value="…" rune-id="…" node-id="…"></RuneHost>
-<EchoHost name="打字机" attrs="speed: 50"></EchoHost>
-```
+<RuneHost name="内联示例" value="来自导出器" rune-id="inline-1" node-id="inline-n1" definition="eyJpZCI6ImlubGluZS1ydW5lIiwibmFtZSI6IuWGheiBlOekuuS+iyIsImRlc2MiOiLnlLHlr7zlh7rlmajlhoXogZTnmoQgU0ZDIiwiY29sb3IiOiIjN0U1N0MyIiwiaWNvbiI6IuKcpiIsInRlbXBsYXRlIjoiPHRlbXBsYXRlPjxkaXYgY2xhc3M9XCJpbmxpbmUtcnVuZS1kZW1vXCI+5YaF6IGU56ym5paH77yae3sgdmFsdWUgfX08L2Rpdj48L3RlbXBsYXRlPlxuPHNjcmlwdD5cbmV4cG9ydCBkZWZhdWx0IHsgcHJvcHM6IHsgdmFsdWU6IHsgdHlwZTogU3RyaW5nLCBkZWZhdWx0OiAnJyB9IH0gfVxuPC9zY3JpcHQ+IiwiY2F0ZWdvcnkiOiJkZW1vIiwiaW5oZXJpdEZyb21QcmV2aW91cyI6MH0="></RuneHost>
 
-并在博客主题的 `enhanceApp.js` 里注册 `RuneHost` / `EchoHost`，回响运行时由 `libs-echo-runtime` 提供。VitePress / VuePress 2 用 Vue3 版宿主，Markdown 语法不变。
+上一段文字由导出器内联，回响没有走目录，只靠 `field` 执行。
+
+<EchoHost name="内联打字机" attrs="speed: 40" field="typewriter"></EchoHost>
+
+## 8. 接进博客导出
+
+导出器现在有两种模式，桌面端「博客部署」里的「符文/回响渲染」可切：
+
+| 模式 | 输出 | 适用 |
+|---|---|---|
+| 静态卡片（默认） | `ag-rune` / `ag-echo` 内联 HTML | 任意主题，零接入 |
+| 真组件 | `<RuneHost>` / `<EchoHost>`，符文带 base64 `definition`、回响带 `field` | 主题已注册宿主组件 |
+
+组件模式不要求博客预先持有用户目录，符文定义随正文一起走。前提是主题在 `enhanceApp.js` 里注册 `RuneHost` / `EchoHost`，回响运行时由 `libs-echo-runtime` 提供；VitePress / VuePress 2 用 Vue3 版宿主，Markdown 语法不变。

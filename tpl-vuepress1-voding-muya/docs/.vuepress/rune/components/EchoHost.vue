@@ -26,14 +26,17 @@ export default {
   props: {
     name: { type: String, required: true },
     attrs: { type: String, default: '' },
-    prompt: { type: String, default: '' }
+    prompt: { type: String, default: '' },
+    field: { type: String, default: '' }
   },
   data () {
     return { echoDef: null, hydrated: false, runtimeState: 'idle', runtimeError: '' }
   },
   mounted () {
     this.hydrated = true
-    this.echoDef = findEcho(this.name)
+    this.echoDef = this.field
+      ? { name: this.name, field: this.field, color: '#26A69A', desc: '内联回响' }
+      : findEcho(this.name)
     this.runEffect()
   },
   beforeDestroy () {

@@ -44,6 +44,15 @@
       </section>
 
       <section class="config-section">
+        <div class="config-label">{{ t('blog.runeRenderLabel') }}</div>
+        <el-radio-group v-model="form.runeRender" size="small" class="segmented">
+          <el-radio-button value="static">{{ t('blog.runeRenderStatic') }}</el-radio-button>
+          <el-radio-button value="component">{{ t('blog.runeRenderComponent') }}</el-radio-button>
+        </el-radio-group>
+        <div class="field-hint">{{ t('blog.runeRenderHint') }}</div>
+      </section>
+
+      <section class="config-section">
         <div class="config-label">{{ t('blog.baseLabel') }}</div>
         <el-input
           v-model="form.base"
@@ -348,12 +357,14 @@ const form = reactive<{
   base: string;
   packageManager: BlogPackageManager;
   customBuildCommand: string;
+  runeRender: 'static' | 'component';
 }>({
   blogDir: '',
   theme: 'default',
   base: './',
   packageManager: 'npm',
   customBuildCommand: 'npm run build',
+  runeRender: 'static',
 });
 const activeDeployTab = ref<'github' | 'ci' | 'sftp'>('github');
 const exporting = ref(false);
@@ -450,12 +461,14 @@ async function loadConfig(): Promise<void> {
     packageManager?: BlogPackageManager;
     customBuildCommand?: string;
     includeCi?: boolean;
+    runeRender?: 'static' | 'component';
   } | undefined;
   form.blogDir = saved?.blogDir || '';
   form.theme = saved?.theme || 'default';
   form.base = typeof saved?.base === 'string' ? saved.base : './';
   form.packageManager = saved?.packageManager || 'npm';
   form.customBuildCommand = saved?.customBuildCommand || `${form.packageManager} run build`;
+  form.runeRender = saved?.runeRender === 'component' ? 'component' : 'static';
   const savedGithub = appStore.prefs[GITHUB_KEY] as Partial<typeof github> | undefined;
   if (savedGithub) {
     Object.assign(github, savedGithub);
@@ -715,6 +728,7 @@ async function runExport(includeCi = true): Promise<void> {
       category: props.category || '',
       theme: form.theme,
       includeCi,
+      runeRender: form.runeRender,
     });
     if (!result.ok) {
       ElMessage.error(t('blog.exportFailed', { message: result.error.message }));

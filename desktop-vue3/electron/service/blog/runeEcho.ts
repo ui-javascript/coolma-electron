@@ -3,9 +3,12 @@ import type { EchoCard, RuneCard } from '../../shared/types/domain';
 /**
  * 博客端符文/回响静态渲染（对应 `参考/vuepress符文回响-设计.md` 的 P1）。
  *
- * 做法：导出时就把 Muya 的两种标记改写成带 `ag-rune` / `ag-echo` 的静态卡片，
- * 不依赖 markdown-it 插件、不依赖博客主题、不新增依赖；VuePress 1.x、VitePress、
- * VuePress 2 都能直接显示。副作用/远程组件留给后续运行时（data-*-action 已留锚点）。
+ * 两种模式：
+ * - `static`（默认）：改写成 `ag-rune` / `ag-echo` 静态卡片，不依赖任何主题，
+ *   VuePress 1.x、VitePress、VuePress 2 都能直接显示；副作用不生效。
+ * - `component`：改写成 `<RuneHost>` / `<EchoHost>` 宿主组件，符文把定义以
+ *   base64 `definition` 内联进去，回响带 `field`，博客主题注册过宿主组件即可
+ *   真正挂载 / 执行回响，不要求博客预先持有用户目录。
  */
 
 export interface RuneEchoCatalog {
@@ -16,6 +19,12 @@ export interface RuneEchoCatalog {
 export interface RuneEchoStats {
   runes: number;
   echoes: number;
+}
+
+export type RuneEchoRenderMode = 'static' | 'component';
+
+export interface RuneEchoOptions {
+  mode?: RuneEchoRenderMode;
 }
 
 const ECHO_REGEX = /@([^\s{}()@]+)(?:\{([^}]*)\})?\(([^)]*)\)/g;
@@ -140,6 +149,61 @@ export function renderEchoCard(input: {
   );
 }
 
+/** 符文定义 → base64 JSON，避免在 Markdown 属性里处理引号与换行。 */
+function encodeDefinition(card: RuneCard | null): string {
+  if (!card || !card.template) return '';
+  const payload = {
+    id: card.id,
+    name: card.name,
+    desc: card.desc,
+    color: card.color,
+    icon: card.icon,
+    template: card.template,
+    category: card.category,
+    inheritFromPrevious: card.inheritFromPrevious,
+  };
+  return Buffer.from(JSON.stringify(payload), 'utf8').toString('base64');
+}
+
+export function renderRuneComponent(input: {
+  name: string;
+  id: string;
+  nodeId: string;
+  value: string;
+  card: RuneCard | null;
+}): string {
+  const definition = encodeDefinition(input.card);
+  return (
+    `<RuneHost name="${escapeAttr(input.name)}"` +
+    ` value="${escapeAttr(input.value)}"` +
+    ` rune-id="${escapeAttr(input.id)}"` +
+    ` node-id="${escapeAttr(input.nodeId)}"` +
+    (definition ? ` definition="${definition}"` : '') +
+    `></RuneHost>`
+  );
+}
+
+function readEchoField(source: string): string {
+  const matched = String(source || '').match(/field\s*:\s*['"]([^'"]+)['"]/);
+  return matched ? matched[1] : '';
+}
+
+export function renderEchoComponent(input: {
+  name: string;
+  attrs: string;
+  prompt: string;
+  card: EchoCard;
+}): string {
+  const field = readEchoField(input.card.annoSource);
+  return (
+    `<EchoHost name="${escapeAttr(input.name)}"` +
+    ` attrs="${escapeAttr(input.attrs)}"` +
+    ` prompt="${escapeAttr(input.prompt)}"` +
+    (field ? ` field="${escapeAttr(field)}"` : '') +
+    `></EchoHost>`
+  );
+}
+
 /**
  * 把一篇笔记正文里的 rune 占位与 echo 标记改写为静态卡片。
  * 未知 echo 名原样保留（避免把邮箱、代码里的 `@xx(...)` 误伤）。
@@ -147,22 +211,25 @@ export function renderEchoCard(input: {
 export function transformRuneEcho(
   markdown: string,
   catalog: RuneEchoCatalog,
+  options: RuneEchoOptions = {},
 ): { content: string; stats: RuneEchoStats } {
   const stats: RuneEchoStats = { runes: 0, echoes: 0 };
+  const mode: RuneEchoRenderMode = options.mode === 'component' ? 'component' : 'static';
 
   const runeRendered = mapOutsideCode(markdown, (chunk) =>
     chunk.replace(RUNE_DIV_REGEX, (whole, attrs: string, inner: string) => {
       const name = readAttr(attrs, 'data-rune-name');
       if (!name) return whole;
       stats.runes += 1;
-      return renderRuneCard({
+      const payload = {
         name,
         id: readAttr(attrs, 'data-rune-id'),
         nodeId: readAttr(attrs, 'data-rune-node-id'),
         value: readAttr(attrs, 'data-rune-value'),
         text: inner.replace(/<[^>]+>/g, ''),
         card: findRune(catalog, name, readAttr(attrs, 'data-rune-id')),
-      });
+      };
+      return mode === 'component' ? renderRuneComponent(payload) : renderRuneCard(payload);
     }),
   );
 
@@ -172,7 +239,8 @@ export function transformRuneEcho(
         const card = findEcho(catalog, name);
         if (!card) return whole;
         stats.echoes += 1;
-        return renderEchoCard({ name, attrs: attrs || '', prompt: prompt || '', card });
+        const payload = { name, attrs: attrs || '', prompt: prompt || '', card };
+        return mode === 'component' ? renderEchoComponent(payload) : renderEchoCard(payload);
       }),
     ),
   );

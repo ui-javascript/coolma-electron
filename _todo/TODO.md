@@ -63,6 +63,7 @@
 - [x] VitePress（Vue3 宿主）运行时挂载 POC：`tpl-vitepress1-teek-muya` 加 `RuneHost`，复用 `libs-muya-rune-vue3`（`@vue/compiler-dom` SFC 编译 + `comps-vue3` 远程组件）；构建产物 headless 实测 3 个符文全 ready、远端 HelloWorld 真实渲染
 - [ ] VuePress 2（Vue3 宿主）验证：组件接口与 VitePress 相同，重点验主题 `enhanceApp` 注册与 SSR
 - [x] 回响运行时（内置 field 版）：新增 `libs-echo-runtime`（纯 DOM，无 jQuery），从 `anno_source` 只读 `field` 元信息，`typewriter` 逐字展开 + 隐藏占位防抖、`barrage` 克隆弹幕 + 超时兜底移除；VuePress / VitePress 的 `EchoHost` 已接入，SSR 只出锚点
+- [x] 博客导出「真组件」模式：`transformRuneEcho` 支持 `mode: 'component'`，符文输出 `<RuneHost definition=base64>`、回响输出 `<EchoHost field=…>`；桌面端博客部署加「符文/回响渲染」切换，默认静态
 - [ ] 回响自定义 JS：`anno_source` 里非内置 `field` 的 `render / afterRender` 尚未执行（当前安全策略不 eval 任意脚本）
 - [ ] Vue2 宿主边界补全：SFC `less/sass` 编译、`<script setup>`、Vue3 专属语法（fragment / Teleport / defineModel）的 AST 改写或降级判定
 - [ ] 打包后自动 `vuepress dev` 预览

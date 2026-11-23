@@ -7,6 +7,7 @@ export interface BlogExportInput {
   category?: string;
   theme?: 'default' | 'vdoing' | 'hope' | 'reco';
   includeCi?: boolean;
+  runeRender?: 'static' | 'component';
 }
 
 export interface BlogExportOutput {
@@ -17,6 +18,7 @@ export interface BlogExportOutput {
   shortlinkCount: number;
   runeCards: number;
   echoCards: number;
+  runeRender: 'static' | 'component';
   workflows: { written: string[]; skipped: string[] };
 }
 
